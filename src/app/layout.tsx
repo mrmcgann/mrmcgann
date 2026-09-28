@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { env } from "@/lib/env";
+import { ViewerProvider } from "@/components/Viewer";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 const fraunces = Fraunces({ subsets: ["latin"], style: ["italic"], weight: ["500", "600"], variable: "--font-fraunces" });
@@ -20,12 +21,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-AU" className={`${jakarta.variable} ${fraunces.variable}`}>
       <body>
+        <ViewerProvider>
         {env.testMode && (
           <div className="demo">Test mode: <b>no real payments, SMS or ID checks.</b> Use SMS code 123456.</div>
         )}
         <Header />
         <main className="page">{children}</main>
         <Footer />
+        </ViewerProvider>
       </body>
     </html>
   );

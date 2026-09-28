@@ -15,5 +15,18 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Members can't change verification/payment/role fields on `profiles` (trigger `protect_profile`). Server routes use the service-role client for those.
 - Test mode: `NEXT_PUBLIC_TEST_MODE=true` fakes SMS (code 123456), card, ID and charges.
 
+## Scale rules (tested at 1M accounts; keep them)
+- Public data is read through `src/lib/cache.ts` (unstable_cache + cookie-less client). Don't query public data per request with the session client.
+- Live prices: Realtime **Broadcast** on `lot:<id>` (trigger `broadcast_lot`) + `/api/lots/[id]/live` (edge-cached 1 s). Never `postgres_changes`, never `router.refresh()` per bid.
+- Alerts: queue with `queue_notice` / `queue_notice_many` / `queue_seller_notice` (SQL) or `notify()` (TS); the sender is `drainOutbox`. Never call Twilio/Resend inline in a loop.
+- Charging: `claim_invoice_charges` + Stripe idempotency keys (`src/lib/charges.ts`). Never charge an invoice that wasn't claimed.
+- Row-level security uses `(select auth.uid())` / `(select public.is_admin())` so it's evaluated once per query. Index every new filter column.
+- `npm run test:db` must pass; for big changes re-run `tests/load` (see README).
+
+## Seller side
+- `sign_seller_agreement` (server only) links `lots.seller_id`, stores disclosures, reserve, finance. `lot_publish_check` blocks going live until agreement + seller ID + ownership + VIN/PPSR (setting `selling.require_checks`).
+- `bid_guard` blocks sellers (and their mobile) from bidding, and requires the current terms version.
+- Payouts (`seller_payouts`) are created when an invoice is paid in full, held by open claims, released by `release_payouts()` after collection + claim window.
+
 ## Tests
 `npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`.

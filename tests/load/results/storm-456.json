@@ -1,0 +1,28 @@
+{
+  "conc": 150,
+  "seconds": 60,
+  "usersLive": 10000,
+  "close": {
+    "auctions": 550,
+    "closeMs": 721,
+    "statusNotices": 550,
+    "noticeMs": 17758,
+    "messagesQueued": 42032,
+    "invoicesClaimed": 855,
+    "claimMs": 241,
+    "duplicateInvoices": 0
+  },
+  "alerts": {
+    "reminders": 21207,
+    "remindersMs": 6254,
+    "searchAlerts": 228789,
+    "searchAlertsMs": 40032
+  },
+  "queue": {
+    "messages": 272135,
+    "ms": 11934,
+    "perSecond": 22803,
+    "duplicates": 0,
+    "of": 272135
+  }
+}

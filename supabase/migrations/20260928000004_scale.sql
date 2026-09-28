@@ -233,6 +233,7 @@ create table if not exists public.outbox (
 );
 create index if not exists outbox_due on public.outbox (priority, run_after, id) where status = 'queued';
 create index if not exists outbox_stuck on public.outbox (locked_at) where status = 'sending';
+create index if not exists outbox_expiring on public.outbox (expires_at) where status = 'queued' and expires_at is not null;
 create index if not exists outbox_user on public.outbox (user_id, created_at desc);
 alter table public.outbox enable row level security; -- no policies: server only
 

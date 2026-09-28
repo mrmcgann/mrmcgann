@@ -1,22 +1,20 @@
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
-import { getWatchedIds } from "@/lib/data";
 import { getHomeCached } from "@/lib/cache";
 import { LotCard } from "@/components/LotCard";
+import { JoinOrWatchlist } from "@/components/HeaderUser";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { Tile } from "@/components/Tile";
 import { money, km } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 
-export const dynamic = "force-dynamic";
+// Served from the edge cache and refreshed every 15 seconds (personal bits load in the browser).
+export const revalidate = 15;
 
 export default async function Home() {
-  const { supabase, user } = await getSession();
   const home = await getHomeCached();
   const lots = home.ending;
   const featured = home.featured || lots[0];
-  const watched = await getWatchedIds(supabase, user?.id);
   const covers = new Map(lots.concat(featured ? [featured] : []).map((l) => [l.id, l.cover_path || undefined]));
 
   return (
@@ -81,7 +79,7 @@ export default async function Home() {
           </div>
         </div>
         <div className="grid">
-          {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} cover={covers.get(l.id)} />) : (
+          {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} cover={covers.get(l.id)} />) : (
             <div className="empty"><b style={{ fontSize: 22 }}>New auctions are on their way.</b><span className="muted">Join free and we&apos;ll tell you when they go live.</span><Link className="btn btn-blue" href="/join">Join free</Link></div>
           )}
         </div>
@@ -123,7 +121,7 @@ export default async function Home() {
           <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Payment is taken when you win. Collect from the seller or book transport.</p></div>
         </div>
         <div className="center" style={{ marginTop: 40, gap: 14 }}>
-          <Link className="btn btn-blue" href={user ? "/watchlist" : "/join"}>{user ? "Go to your watchlist" : "Join free"}</Link>
+          <JoinOrWatchlist />
           <Link className="more" style={{ fontSize: 17 }} href="/terms">Read the terms of sale ›</Link>
         </div>
       </section>

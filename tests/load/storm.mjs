@@ -157,9 +157,10 @@ if (ONLY.includes('3')) {
 // 4. 2,000 auctions close in the same minute; alerts queued; charges claimed
 // ---------------------------------------------------------------------------
 if (ONLY.includes('4')) {
-  const CLOSE = Math.min(2000, S.LIVE - 1);
+  const CLOSE = Number(process.env.CLOSE_N || Math.min(2000, S.LIVE - 1));
+  const FROM = Number(process.env.CLOSE_FROM || LIVE0);
   console.log(`\n4. Close: ${CLOSE.toLocaleString()} auctions end at once`);
-  await c.query(`update lots set ends_at = now() - interval '1 second' where id between $1 and $2`, [LIVE0, LIVE0 + CLOSE - 1]);
+  await c.query(`update lots set ends_at = now() - interval '1 second' where id between $1 and $2 and status = 'live'`, [FROM, FROM + CLOSE - 1]);
   const before = Number((await c.query(`select count(*) from outbox`)).rows[0].count);
   let t = Date.now(), closed = 0, n;
   do { n = Number((await req('service', `select close_due_lots(500) n`)).rows[0].n); closed += n; } while (n > 0);
@@ -181,6 +182,7 @@ if (ONLY.includes('4')) {
 // ---------------------------------------------------------------------------
 if (ONLY.includes('5')) {
   await c.query(`update lots set ends_at = now() + interval '30 minutes' where id between $1 and $2 and status='live'`, [LIVE0 + 2000, LIVE0 + 2400]);
+  await c.query(`update watchlist set reminded_at = null where lot_id between $1 and $2`, [LIVE0 + 2000, LIVE0 + 2400]);
   await c.query(`update lots set published_at = now() where id between $1 and $2 and status='live'`, [LIVE0 + 2400, LIVE0 + 2450]);
   let t = Date.now();
   const rem = Number((await req('service', `select queue_ending_reminders(50000) n`)).rows[0].n);

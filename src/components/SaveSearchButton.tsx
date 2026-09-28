@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useViewer } from "@/components/Viewer";
 
-export function SaveSearchButton({ query, label, signedIn }: { query: { [k: string]: string | undefined }; label: string; signedIn: boolean }) {
+export function SaveSearchButton({ query, label }: { query: { [k: string]: string | undefined }; label: string }) {
+  const signedIn = !!useViewer().user;
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
   const router = useRouter();
   async function save() {

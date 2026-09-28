@@ -1,0 +1,103 @@
+schema: 20260928000001_init.sql, 20260928000002_storage_and_sync.sql, 20260928000003_quotes_and_payouts.sql, 20260928000004_scale.sql, 20260928000005_launch.sql
+  5.5s  insert into auth.users (id, email)
+  37.2s  insert into public.profiles (id, email, first_name, last_name, dob, mo
+  3.6s  insert into public.lots (id, status, title, short_title, subtitle, veh
+  12.2s  insert into public.lot_private (lot_id, reserve_price, seller_name, se
+  158.9s  insert into public.lot_photos (lot_id, path, angle, sort)
+  2.9s  insert into public.lot_flaws (lot_id, title, note, sort)
+  30.6s  insert into public.bids (lot_id, bidder_id, amount, is_auto, created_a
+  29.8s  insert into public.max_bids (lot_id, bidder_id, max_amount, first_set_
+  19.4s  select public.create_invoice(id, winner_id, sold_price, 'auction') fro
+  7.0s  update public.invoices set status = case when random() < 0.97 then 'pa
+  92.9s  insert into public.watchlist (user_id, lot_id, created_at)
+  6.3s  insert into public.saved_searches (user_id, label, query, last_notifie
+  74.2s  insert into public.notifications (user_id, kind, title, body, link, ch
+┌─────────┬──────────────────┬───────────┬───────────┐
+│ (index) │ relname          │ rows      │ size      │
+├─────────┼──────────────────┼───────────┼───────────┤
+│ 0       │ 'notifications'  │ '3000010' │ '820 MB'  │
+│ 1       │ 'watchlist'      │ '2999561' │ '401 MB'  │
+│ 2       │ 'max_bids'       │ '1130000' │ '175 MB'  │
+│ 3       │ 'bids'           │ '1130000' │ '211 MB'  │
+│ 4       │ 'users'          │ '1000001' │ '103 MB'  │
+│ 5       │ 'profiles'       │ '999834'  │ '538 MB'  │
+│ 6       │ 'lot_photos'     │ '720000'  │ '114 MB'  │
+│ 7       │ 'saved_searches' │ '250000'  │ '65 MB'   │
+│ 8       │ 'lot_flaws'      │ '180000'  │ '28 MB'   │
+│ 9       │ 'lots'           │ '61025'   │ '428 MB'  │
+│ 10      │ 'lot_private'    │ '60000'   │ '13 MB'   │
+│ 11      │ 'quote_requests' │ '60000'   │ '6816 kB' │
+│ 12      │ 'appraisals'     │ '60000'   │ '16 MB'   │
+│ 13      │ 'invoices'       │ '44880'   │ '33 MB'   │
+└─────────┴──────────────────┴───────────┴───────────┘
+database size 3058 MB, built in 488s
+    0.88 ms p50     1.35 ms p95  home: ending soon
+    0.38 ms p50     0.62 ms p95  home: featured
+    1.63 ms p50     4.31 ms p95  auctions: all live
+     2.2 ms p50     2.83 ms p95  auctions: utes in QLD under $20k
+    9.68 ms p50    10.81 ms p95  auctions: search "hilux"
+    1.77 ms p50     2.42 ms p95  auctions: past results
+    0.97 ms p50     1.99 ms p95  auctions: cover photos for 60 cards
+     0.7 ms p50     0.87 ms p95  lot page: vehicle
+    1.12 ms p50     2.11 ms p95  lot page: photos
+    0.63 ms p50     1.01 ms p95  lot page: flaws
+    0.52 ms p50     0.74 ms p95  lot page: bid history
+     0.6 ms p50     0.98 ms p95  lot page: similar vehicles
+    0.11 ms p50      0.4 ms p95  fees
+    0.28 ms p50     0.87 ms p95  member: profile
+    0.23 ms p50     1.09 ms p95  member: watchlist count (header)
+    0.21 ms p50     0.52 ms p95  member: watched ids
+    0.36 ms p50     0.87 ms p95  member: my position on a lot
+    0.22 ms p50     1.26 ms p95  member: my invoice for a lot
+    0.18 ms p50     0.26 ms p95  member: my offer on a lot
+    0.23 ms p50     0.49 ms p95  member: my inspection
+    0.67 ms p50     0.92 ms p95  member: watchlist page
+    0.34 ms p50     0.69 ms p95  member: my maximum bids
+     0.3 ms p50     0.92 ms p95  member: saved searches
+    0.62 ms p50      0.8 ms p95  member: invoices
+    0.38 ms p50     1.27 ms p95  member: notifications
+    0.86 ms p50     1.29 ms p95  member: bid history (own bids marked)
+    3.98 ms p50     6.59 ms p95  admin: dashboard counts (11)
+     2.4 ms p50     3.07 ms p95  admin: newest members
+    0.96 ms p50     1.95 ms p95  admin: find a member
+    3.11 ms p50     7.13 ms p95  admin: invoices
+    2.21 ms p50     4.07 ms p95  admin: failed payments
+    0.69 ms p50     1.16 ms p95  admin: vehicles
+    3.99 ms p50     5.96 ms p95  admin: find a vehicle
+    0.97 ms p50     1.47 ms p95  admin: inspections
+    1.12 ms p50     3.94 ms p95  admin: appraisals
+    0.86 ms p50     1.09 ms p95  admin: referrals & offers
+    1.45 ms p50      2.4 ms p95  admin (editor): vehicles via security rules
+    0.97 ms p50     1.15 ms p95  admin (editor): photos via security rules
+    1.75 ms p50     3.45 ms p95  clock: find auctions to close
+     0.1 ms p50     0.15 ms p95  clock: invoices to charge
+    0.82 ms p50     1.18 ms p95  clock: watchlist reminders
+    0.38 ms p50     1.18 ms p95  clock: saved-search sweep (1 search)
+
+1. Sale day: 10,000 members, 150 connections, 60s, every page view hitting the database (no cache)
+   81,497 requests in 60s = 1355/s; 10,266 bids (171/s); faults: {}
+   my position        p50 102.36 ms  p95 153.85 ms  p99 214.67 ms  (n=2586)
+   view vehicle       p50 102.5 ms  p95 158.68 ms  p99 242.51 ms  (n=16189)
+   browse auctions    p50 103.81 ms  p95 161.32 ms  p99 245.53 ms  (n=3623)
+   read price         p50 101.94 ms  p95 158.89 ms  p99 228 ms  (n=10266)
+   watchlist page     p50 103.15 ms  p95 157.41 ms  p99 228.5 ms  (n=1760)
+   watch              p50 105.51 ms  p95 179.49 ms  p99 264.37 ms  (n=1843)
+   header count       p50 102.39 ms  p95 148.82 ms  p99 193.06 ms  (n=2586)
+   view photos        p50 102.1 ms  p95 153.26 ms  p99 213.13 ms  (n=16189)
+   place bid          p50 108.88 ms  p95 188.43 ms  p99 264.24 ms  (n=10266)
+   view bid history   p50 101.38 ms  p95 150.82 ms  p99 194.71 ms  (n=16189)
+
+2. Snipe: 2,000 bidders on lot 103000 in its last 30 seconds
+   227 bids accepted, 2756 refused as too low (normal), 0 fault types in 3.5s; p95 369.35 ms
+   final bid $138500.00, 296 bids, auction now ends 10.00 min after the last bid
+
+3. Integrity: 2068 auctions with bids checked, 0 problems 
+
+4. Close: 2,000 auctions end at once
+   closed 2000 in 1386 ms; alerts for 58500 lots queued 1,978,534 messages in 141689 ms; 697 invoices claimed for charging in 260 ms; duplicate invoices: 0
+
+5. Alerts: 50,000 one-hour reminders queued in 12229 ms; 250,000 saved-search matches (50 new vehicles × 250,000 searches) in 202512 ms
+
+6. Queue: 8 parallel senders took 2,269,520 messages through the queue in 501173 ms (4,528/s), duplicates: 0
+
+7. Sign-ups: 5,000 accounts (with profiles) in 1233 ms = 4055/s, p95 49.96 ms

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Home page",
+    "requests": 5246,
+    "perSecond": 262,
+    "p50": 428,
+    "p99": 602,
+    "errors": 158,
+    "dbQueries": 3,
+    "dbQueriesPer1000Views": 1
+  },
+  {
+    "name": "Auctions page (static shell)",
+    "requests": 11973,
+    "perSecond": 599,
+    "p50": 318,
+    "p99": 408,
+    "errors": 0,
+    "dbQueries": 0,
+    "dbQueriesPer1000Views": 0
+  },
+  {
+    "name": "Auction search results (the API the page calls)",
+    "requests": 9485,
+    "perSecond": 474,
+    "p50": 386,
+    "p99": 1390,
+    "errors": 0,
+    "dbQueries": 200,
+    "dbQueriesPer1000Views": 21
+  },
+  {
+    "name": "Vehicle pages (50 different cars)",
+    "requests": 6008,
+    "perSecond": 300,
+    "p50": 581,
+    "p99": 717,
+    "errors": 34,
+    "dbQueries": 148,
+    "dbQueriesPer1000Views": 25
+  },
+  {
+    "name": "Live price endpoint (what open lot pages poll)",
+    "requests": 7930,
+    "perSecond": 397,
+    "p50": 339,
+    "p99": 472,
+    "errors": 95,
+    "dbQueries": 8078,
+    "dbQueriesPer1000Views": 1019
+  },
+  {
+    "name": "Bid history endpoint",
+    "requests": 11765,
+    "perSecond": 588,
+    "p50": 293,
+    "p99": 902,
+    "errors": 0,
+    "dbQueries": 1600,
+    "dbQueriesPer1000Views": 136
+  }
+]

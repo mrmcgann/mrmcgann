@@ -845,3 +845,52 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 revoke execute on function public.invite_preview(text) from public, anon, authenticated;
 grant execute on function public.invite_preview(text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 15. Saved-search alerts, fully set-based (250,000 matches in one pass):
+--     one digest per saved search, honouring each member's settings.
+-- ---------------------------------------------------------------------------
+create or replace function public.queue_search_alerts() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int; v_minute bigint := floor(extract(epoch from now()) / 60)::bigint;
+begin
+  with fresh as (
+    select * from lots where status = 'live' and published_at > now() - interval '1 day'
+  ), m as (
+    select s.id, s.user_id, s.label, count(*) cnt,
+      string_agg(l.title || ' · $' || to_char(greatest(l.current_bid, l.start_price), 'FM999,999,990'), E'\n' order by l.ends_at) items
+    from saved_searches s join fresh l on l.published_at > coalesce(s.last_notified_at, s.created_at)
+      and (s.f_cat is null or s.f_cat = l.category or (s.f_cat = 'cheap' and l.current_bid < 5000))
+      and (s.f_state is null or s.f_state = l.state)
+      and (s.f_max is null or l.current_bid <= s.f_max)
+      and (s.f_q is null or l.search like '%' || s.f_q || '%')
+    group by s.id, s.user_id, s.label
+  ), upd as (
+    update saved_searches s set last_notified_at = now() from m where s.id = m.id returning m.*
+  ), t as (
+    select u.id sid, u.user_id, u.items,
+      u.cnt || ' new match' || case when u.cnt > 1 then 'es' else '' end || ' for “' || u.label || '”' as title,
+      p.email, p.mobile, p.mobile_verified, coalesce(p.notify -> 'searches', '{"sms":false,"email":true}'::jsonb) prefs
+    from upd u join profiles p on p.id = u.user_id where not p.suspended
+  ), app as (
+    insert into notifications (user_id, kind, title, body, link, channels)
+    select user_id, 'searches', title, items, '/watchlist#searches',
+      array_remove(array[case when (prefs->>'sms')::boolean and mobile_verified then 'sms' end,
+                         case when (prefs->>'email')::boolean and email is not null then 'email' end], null)
+    from t returning 1
+  ), sms as (
+    insert into outbox (user_id, channel, to_addr, kind, title, body, link, dedupe_key, priority)
+    select user_id, 'sms', mobile, 'searches', title, items, '/watchlist#searches', 'search:' || sid || ':' || v_minute || ':sms', 9
+    from t where (prefs->>'sms')::boolean and mobile is not null and mobile_verified
+    on conflict (dedupe_key) do nothing returning 1
+  ), em as (
+    insert into outbox (user_id, channel, to_addr, kind, title, body, link, dedupe_key, priority)
+    select user_id, 'email', email, 'searches', title, items, '/watchlist#searches', 'search:' || sid || ':' || v_minute || ':email', 9
+    from t where (prefs->>'email')::boolean and email is not null
+    on conflict (dedupe_key) do nothing returning 1
+  )
+  select (select count(*) from app) into n;
+  return n;
+end $$;
+revoke execute on function public.queue_search_alerts() from public, anon, authenticated;
+grant execute on function public.queue_search_alerts() to service_role;

@@ -12,22 +12,22 @@
     {
       "relname": "notifications",
       "rows": "3000010",
-      "size": "620 MB"
+      "size": "820 MB"
     },
     {
       "relname": "watchlist",
-      "rows": "2999578",
-      "size": "344 MB"
-    },
-    {
-      "relname": "bids",
-      "rows": "1130000",
-      "size": "153 MB"
+      "rows": "2999561",
+      "size": "401 MB"
     },
     {
       "relname": "max_bids",
       "rows": "1130000",
-      "size": "139 MB"
+      "size": "175 MB"
+    },
+    {
+      "relname": "bids",
+      "rows": "1130000",
+      "size": "211 MB"
     },
     {
       "relname": "users",
@@ -36,69 +36,129 @@
     },
     {
       "relname": "profiles",
-      "rows": "999986",
-      "size": "440 MB"
+      "rows": "999834",
+      "size": "538 MB"
     },
     {
       "relname": "lot_photos",
       "rows": "720000",
-      "size": "87 MB"
+      "size": "114 MB"
     },
     {
       "relname": "saved_searches",
       "rows": "250000",
-      "size": "45 MB"
+      "size": "65 MB"
     },
     {
       "relname": "lot_flaws",
       "rows": "180000",
-      "size": "21 MB"
-    },
-    {
-      "relname": "appraisals",
-      "rows": "60000",
-      "size": "13 MB"
+      "size": "28 MB"
     },
     {
       "relname": "lots",
-      "rows": "60000",
-      "size": "42 MB"
+      "rows": "61025",
+      "size": "428 MB"
     },
     {
       "relname": "lot_private",
       "rows": "60000",
-      "size": "7224 kB"
+      "size": "13 MB"
     },
     {
       "relname": "quote_requests",
       "rows": "60000",
-      "size": "4448 kB"
+      "size": "6816 kB"
+    },
+    {
+      "relname": "appraisals",
+      "rows": "60000",
+      "size": "16 MB"
     },
     {
       "relname": "invoices",
       "rows": "44880",
-      "size": "23 MB"
+      "size": "33 MB"
+    },
+    {
+      "relname": "lot_snapshots",
+      "rows": "44880",
+      "size": "72 MB"
+    },
+    {
+      "relname": "seller_payouts",
+      "rows": "43533",
+      "size": "11 MB"
     },
     {
       "relname": "inspections",
       "rows": "30000",
-      "size": "4672 kB"
+      "size": "8696 kB"
     },
     {
       "relname": "reports",
       "rows": "10000",
-      "size": "768 kB"
+      "size": "1240 kB"
     },
     {
       "relname": "offers",
       "rows": "4000",
-      "size": "576 kB"
+      "size": "920 kB"
+    },
+    {
+      "relname": "public_holidays",
+      "rows": "15",
+      "size": "64 kB"
     },
     {
       "relname": "settings",
-      "rows": "2",
+      "rows": "4",
       "size": "64 kB"
+    },
+    {
+      "relname": "outbox",
+      "rows": "0",
+      "size": "48 kB"
+    },
+    {
+      "relname": "seller_agreements",
+      "rows": "0",
+      "size": "32 kB"
+    },
+    {
+      "relname": "rate_limits",
+      "rows": "0",
+      "size": "32 kB"
+    },
+    {
+      "relname": "collections",
+      "rows": "0",
+      "size": "48 kB"
+    },
+    {
+      "relname": "contact_messages",
+      "rows": "0",
+      "size": "24 kB"
+    },
+    {
+      "relname": "seller_bank",
+      "rows": "0",
+      "size": "16 kB"
+    },
+    {
+      "relname": "lot_questions",
+      "rows": "0",
+      "size": "40 kB"
+    },
+    {
+      "relname": "claims",
+      "rows": "0",
+      "size": "40 kB"
+    },
+    {
+      "relname": "seller_decisions",
+      "rows": "0",
+      "size": "24 kB"
     }
   ],
-  "db": "2055 MB"
+  "db": "3058 MB"
 }

@@ -9,7 +9,7 @@ select md5('u' || i)::uuid, 'u' || i || '@load.test' from generate_series(1, {{U
 alter table auth.users enable trigger on_auth_user_created;
 
 insert into public.profiles (id, email, first_name, last_name, dob, mobile, mobile_verified, street, suburb, state, postcode,
-  details_done, stripe_customer_id, payment_method_id, card_brand, card_last4, id_status, terms_accepted_at, created_at)
+  details_done, stripe_customer_id, payment_method_id, card_brand, card_last4, id_status, terms_accepted_at, terms_version, created_at)
 select md5('u' || i)::uuid, 'u' || i || '@load.test',
   (array['Amy','Ben','Chloe','Dan','Emma','Finn','Grace','Harry','Isla','Jack','Kate','Liam'])[1 + i % 12],
   (array['Smith','Jones','Williams','Brown','Wilson','Taylor','Nguyen','Kelly','Martin','White','Singh','Walker'])[1 + (i / 12) % 12],
@@ -26,6 +26,7 @@ select md5('u' || i)::uuid, 'u' || i || '@load.test',
   case when i <= {{VERIFIED}} then '4242' end,
   case when i <= {{VERIFIED}} then 'verified' when i % 7 = 0 then 'pending' else 'none' end,
   now() - (i % 1000) * interval '1 day',
+  '2026-10-01',
   now() - (i % 1000) * interval '1 day'
 from generate_series(1, {{USERS}}) i;
 
@@ -142,3 +143,6 @@ select 100001 + g % {{LOTS}}, md5('u' || (1 + g % {{USERS}}))::uuid, '4000', 'q'
 from generate_series(1, 30000) g;
 
 select setval('public.lot_number_seq', 100000 + {{LOTS}} + 1);
+
+-- History is already "told": alerts only go out for vehicles that close from now on.
+update public.lots set notified_status = status where status in ('sold','passed','referred','offers');

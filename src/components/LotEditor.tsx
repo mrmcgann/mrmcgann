@@ -174,7 +174,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
         <div><Link className="more" style={{ fontSize: 15 }} href="/admin/lots">‹ Vehicles</Link><h1 className="d3">{id ? `Lot ${id}` : "List a vehicle"}</h1><span className="tag" style={{ background: f.status === "live" ? "var(--mint)" : "var(--panel)" }}>{String(f.status)}</span></div>
         <div className="pill-row">
-          {id && <Link className="btn btn-soft" href={`/lot/${id}`} target="_blank" style={{ height: 48 }}>Preview</Link>}
+          {id && <Link className="btn btn-soft" href={f.status === "draft" ? `/admin/preview/${id}` : `/lot/${id}`} target="_blank" style={{ height: 48 }}>Preview</Link>}
           <button className="btn btn-dark" style={{ height: 48 }} disabled={busy} onClick={() => save()}>Save</button>
           {f.status === "draft" && <button className="btn btn-blue" style={{ height: 48 }} disabled={busy || !id} onClick={publish} title={id ? "" : "Save first"}>Publish</button>}
           {f.status === "live" && !hasBids && <button className="btn btn-soft" style={{ height: 48 }} disabled={busy} onClick={() => save({ status: "draft" }, "Moved back to draft.")}>Unpublish</button>}

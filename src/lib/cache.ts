@@ -68,9 +68,10 @@ export function getSimilarCached(category: string, excludeId: number) {
   }, ["similar", category, String(excludeId)], { revalidate: 60, tags: ["lots"] })();
 }
 
-export function getHistoryCached(id: number) {
+// seconds: 2 for the live endpoint; pages use a longer value so they aren't rebuilt every 2 s.
+export function getHistoryCached(id: number, seconds = 2) {
   return unstable_cache(async () => {
     const { data } = await supabasePublic().rpc("bid_history", { p_lot: id, p_limit: 10 });
     return (data || []) as { amount: number; created_at: string; bidder_tag: string; is_auto: boolean }[];
-  }, ["history", String(id)], { revalidate: 2, tags: [`lot-${id}`] })();
+  }, ["history", String(id), String(seconds)], { revalidate: seconds, tags: [`lot-${id}`] })();
 }

@@ -1,0 +1,148 @@
+{
+  "conc": 150,
+  "seconds": 60,
+  "usersLive": 10000,
+  "saleDay": {
+    "secs": 60.139,
+    "requests": 81497,
+    "perSecond": 1355,
+    "bids": 10266,
+    "bidsPerSecond": 171,
+    "refusedNormal": 411,
+    "faults": {},
+    "lat": {
+      "my position": {
+        "n": 2586,
+        "p50": 102.36,
+        "p95": 153.85,
+        "p99": 214.67,
+        "max": 375.48
+      },
+      "view vehicle": {
+        "n": 16189,
+        "p50": 102.5,
+        "p95": 158.68,
+        "p99": 242.51,
+        "max": 542.12
+      },
+      "browse auctions": {
+        "n": 3623,
+        "p50": 103.81,
+        "p95": 161.32,
+        "p99": 245.53,
+        "max": 544.29
+      },
+      "read price": {
+        "n": 10266,
+        "p50": 101.94,
+        "p95": 158.89,
+        "p99": 228,
+        "max": 541.55
+      },
+      "watchlist page": {
+        "n": 1760,
+        "p50": 103.15,
+        "p95": 157.41,
+        "p99": 228.5,
+        "max": 474.38
+      },
+      "watch": {
+        "n": 1843,
+        "p50": 105.51,
+        "p95": 179.49,
+        "p99": 264.37,
+        "max": 519.37
+      },
+      "header count": {
+        "n": 2586,
+        "p50": 102.39,
+        "p95": 148.82,
+        "p99": 193.06,
+        "max": 376.65
+      },
+      "view photos": {
+        "n": 16189,
+        "p50": 102.1,
+        "p95": 153.26,
+        "p99": 213.13,
+        "max": 535.95
+      },
+      "place bid": {
+        "n": 10266,
+        "p50": 108.88,
+        "p95": 188.43,
+        "p99": 264.24,
+        "max": 682.59
+      },
+      "view bid history": {
+        "n": 16189,
+        "p50": 101.38,
+        "p95": 150.82,
+        "p99": 194.71,
+        "max": 366.76
+      }
+    }
+  },
+  "snipe": {
+    "bidders": 2000,
+    "secs": 3.484,
+    "accepted": 227,
+    "refusedNormal": 2756,
+    "faults": {},
+    "lat": {
+      "n": 2983,
+      "p50": 117.72,
+      "p95": 369.35,
+      "p99": 573.35,
+      "max": 852.61
+    },
+    "final": {
+      "current_bid": 138500,
+      "bid_count": 296,
+      "bids_rows": 296,
+      "ends_at": "2026-09-28T10:46:58.443Z",
+      "last_bid": "2026-09-28T10:36:58.443Z",
+      "extendedPastLastBid": 10
+    }
+  },
+  "integrity": {
+    "lotsChecked": 2068,
+    "problems": 0,
+    "examples": []
+  },
+  "close": {
+    "auctions": 2000,
+    "closeMs": 1386,
+    "statusNotices": 58500,
+    "noticeMs": 141689,
+    "messagesQueued": 1978534,
+    "invoicesClaimed": 697,
+    "claimMs": 260,
+    "duplicateInvoices": 0
+  },
+  "alerts": {
+    "reminders": 50000,
+    "remindersMs": 12229,
+    "searchAlerts": 250000,
+    "searchAlertsMs": 202512
+  },
+  "queue": {
+    "messages": 2269520,
+    "ms": 501173,
+    "perSecond": 4528,
+    "duplicates": 0,
+    "of": 2270195
+  },
+  "signups": {
+    "accounts": 5000,
+    "ms": 1233,
+    "perSecond": 4055,
+    "lat": {
+      "n": 5000,
+      "p50": 32,
+      "p95": 49.96,
+      "p99": 160.32,
+      "max": 170.8
+    }
+  }
+}

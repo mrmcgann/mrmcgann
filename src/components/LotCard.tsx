@@ -6,7 +6,7 @@ import { WatchButton } from "@/components/WatchButton";
 import { money, km } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 
-export function LotCard({ lot, watched, cover }: { lot: Lot; watched: boolean; cover?: string | null }) {
+export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; cover?: string | null }) {
   const ends = lot.ends_at ? new Date(lot.ends_at).getTime() : 0;
   const soon = lot.status === "live" && ends - Date.now() < 86400000;
   const label = lot.status === "live" ? null : lot.status === "sold" ? "Sold" : lot.status === "offers" ? "Make an offer" : lot.status === "referred" ? "Under offer" : "Ended";
