@@ -1,7 +1,9 @@
+import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SettingsForm } from "./SettingsForm";
 
 export default async function Settings() {
+  await requireAdmin(); // checked on every page, not just the layout
   const { data } = await supabaseAdmin().from("settings").select("*");
   const get = (k: string) => data?.find((s) => s.key === k)?.value || {};
   return (

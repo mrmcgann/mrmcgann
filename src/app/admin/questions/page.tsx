@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Questions({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { status = "open" } = await searchParams;
   let q = supabaseAdmin().from("lot_questions").select("*, lots(id, title, status), profiles(first_name, last_name)").order("created_at", { ascending: status === "open" }).limit(200);
   if (status !== "all") q = q.eq("status", status);

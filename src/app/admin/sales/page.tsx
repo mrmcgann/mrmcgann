@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { money, dateLong, dateTime } from "@/lib/format";
 
 export default async function Sales() {
+  await requireAdmin(); // checked on every page, not just the layout
   const db = supabaseAdmin();
   const { data: lots } = await db.from("lots").select("id, title, status, current_bid, leader_id, decision_by").in("status", ["referred", "offers"]).order("decision_by");
   const ids = (lots || []).map((l) => l.id);

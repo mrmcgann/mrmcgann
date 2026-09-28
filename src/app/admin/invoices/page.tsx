@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
@@ -6,6 +7,7 @@ import { money, dateTime, dateLong } from "@/lib/format";
 const ST = ["", "pending_charge", "charging", "paid", "deposit_paid", "payment_failed", "cancelled"];
 
 export default async function Invoices({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { status = "" } = await searchParams;
   let q = supabaseAdmin().from("invoices").select("*, lots(title), profiles(first_name, last_name, mobile, email)").order("created_at", { ascending: false }).limit(200);
   if (status) q = q.eq("status", status);
@@ -31,7 +33,7 @@ export default async function Invoices({ searchParams }: { searchParams: Promise
                   {inv.status === "deposit_paid" && <AdminAction action="balance-received" payload={{ invoiceId: inv.id }} label="Balance received" confirmText="Confirm the transfer has cleared?" tone="blue" />}
                   {inv.status === "paid" && !inv.collected_at && <AdminAction action="collected" payload={{ invoiceId: inv.id }} label="Mark collected" confirmText="Only if the seller confirmed handover by phone. Starts the claim window." tone="soft" />}
                   <a className="btn btn-soft" style={{ height: 38, fontSize: 13, padding: "0 14px" }} href={`/api/invoices/${inv.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
-                  {["payment_failed", "deposit_paid", "pending_charge"].includes(inv.status) && <AdminAction action="cancel-invoice" payload={{ invoiceId: inv.id }} label="Cancel sale" confirmText="Cancel and apply the cancellation fee?" tone="bad" />}
+                  {["payment_failed", "deposit_paid"].includes(inv.status) && <AdminAction action="cancel-invoice" payload={{ invoiceId: inv.id }} label="Cancel sale" confirmText="Cancel and apply the cancellation fee?" tone="bad" />}
                 </span></td>
               </tr>
             );

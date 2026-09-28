@@ -57,8 +57,10 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
   const until = Date.now() + deadlineMs;
   const emailPace = pacer(8), smsPace = pacer(8);
   let sent = 0, failed = 0;
-  while (Date.now() < until && sent + failed < max) {
-    const { data, error } = await db.rpc("claim_outbox", { p_limit: Math.min(300, max - sent - failed), p_ids: null });
+  while (until - Date.now() > 15_000 && sent + failed < max) {
+    // size each batch to the time left (roughly 8 SMS or 800 emails a second)
+    const room = Math.max(20, Math.min(300, Math.floor((until - Date.now() - 10_000) / 1000) * 8));
+    const { data, error } = await db.rpc("claim_outbox", { p_limit: Math.min(room, max - sent - failed), p_ids: null });
     if (error || !data?.length) break;
     const rows = data as Row[];
     const ok: number[] = [];
@@ -68,11 +70,12 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
     const plain = rows.filter((r) => r.channel === "email" && !r.meta?.invoice_id);
     const texts = rows.filter((r) => r.channel === "sms");
 
+    const safe = async <T,>(fn: () => Promise<T>) => { try { return await fn(); } catch (e) { return { ok: false, status: 0, error: String(e).slice(0, 200) } as unknown as T; } };
     const emailJob = (async () => {
       for (let i = 0; i < plain.length; i += 100) {
         const chunk = plain.slice(i, i + 100);
         await emailPace();
-        const res = await sendEmailBatch(chunk.map(mail));
+        const res = await safe(() => sendEmailBatch(chunk.map(mail)));
         if (res.ok) ok.push(...chunk.map((r) => r.id)); else bad.push(...chunk.map((r) => ({ id: r.id, err: `${res.status} ${res.error || ""}` })));
       }
       for (const r of withPdf) {
@@ -80,7 +83,7 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
         const pdf = await invoicePdf(r.meta!.invoice_id).catch(() => null);
         const m = mail(r);
         if (pdf) m.attachments = [{ filename: pdf.filename, content: Buffer.from(pdf.bytes).toString("base64") }];
-        const res = await sendEmail(m);
+        const res = await safe(() => sendEmail(m));
         if (res.ok) ok.push(r.id); else bad.push({ id: r.id, err: `${res.status} ${res.error || ""}` });
       }
     })();
@@ -98,8 +101,14 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
       }));
     })();
 
-    await Promise.all([emailJob, smsJob]);
-    await db.rpc("finish_outbox", { p_sent: ok, p_failed: bad });
+    try {
+      await Promise.all([emailJob, smsJob]);
+    } finally {
+      // anything claimed but neither sent nor failed goes back as a failure to retry
+      const seen = new Set([...ok, ...bad.map((b) => b.id)]);
+      for (const r of rows) if (!seen.has(r.id)) bad.push({ id: r.id, err: "not attempted" });
+      await db.rpc("finish_outbox", { p_sent: ok, p_failed: bad });
+    }
     sent += ok.length;
     failed += bad.length;
     if (rows.length < 50) break;

@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LotEditor, type SellerInfo } from "@/components/LotEditor";
 import { env } from "@/lib/env";
 
 export default async function EditLot({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { id } = await params;
   const db = supabaseAdmin();
   const lotId = Number(id);

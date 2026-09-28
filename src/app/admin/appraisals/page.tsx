@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Appraisals() {
+  await requireAdmin(); // checked on every page, not just the layout
   const db = supabaseAdmin();
   const { data } = await db.from("appraisals").select("*").order("created_at", { ascending: false }).limit(200);
   const signed = new Map<string, string>();

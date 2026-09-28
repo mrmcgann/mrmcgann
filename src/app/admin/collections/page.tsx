@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Collections({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { status = "requested" } = await searchParams;
   const db = supabaseAdmin();
   let q = db.from("collections").select("*, lots(id, title, suburb, state), profiles(first_name, last_name, mobile)").order("created_at", { ascending: false }).limit(200);

@@ -223,7 +223,10 @@ const tok = r.rows?.[0]?.seller_token, code = r.rows?.[0]?.release_code;
 ok('release code is 6 digits', /^\d{6}$/.test(code || ''));
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('no handover before the time is confirmed', r.error?.includes('not_confirmed'));
 await as('service', `update collections set status='confirmed', confirmed_for='Sat 10am' where seller_token='${tok}'`);
-r = await as('service', `select complete_handover('${tok}', '000000', 100000, 2, '')`); ok('wrong release code refused', r.error?.includes('wrong_code') || code === '000000');
+r = await as('service', `select complete_handover('${tok}', '${code === '000000' ? '111111' : '000000'}', 100000, 2, '') h`); ok('wrong release code refused', r.rows?.[0]?.h?.ok === false && r.rows[0].h.error === 'wrong_code', JSON.stringify(r));
+r = await as('service', `select code_attempts from collections where seller_token='${tok}'`); ok('wrong codes are counted (not rolled back)', r.rows?.[0]?.code_attempts === 1, JSON.stringify(r.rows));
+r = await as('A', `select seller_token from collections`); ok("buyer can't read the seller's handover link", !!r.error, JSON.stringify(r));
+r = await as('A', `select release_code from collections`); ok('buyer can read their own release code', r.rows?.length === 1, r.error);
 r = await as('A', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('buyers cannot call handover directly', !!r.error);
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, 'all good') h`); ok('handover with the right code', r.rows?.[0]?.h?.ok === true, r.error);
 r = await as('service', `select collected_at is not null c, claim_until is not null w from invoices where id='${SINV}'`); ok('collection starts the claim window', r.rows?.[0]?.c && r.rows[0].w);
@@ -236,12 +239,24 @@ ok('payout ready once collected, window closed, no open claim', r.rows?.[0]?.sta
 r = await as('A', `select * from claims`); ok('buyer sees own claims', r.rows?.length === 1);
 r = await as('B', `select * from claims`); ok("others can't see claims", r.rows?.length === 0);
 r = await as('anon', `select * from collections`); ok("anon can't see collections", r.rows?.length === 0 || !!r.error);
-r = await as('B', `select * from collections`); ok("others can't see release codes", r.rows?.length === 0);
+r = await as('B', `select release_code from collections`); ok("others can't see release codes", r.rows?.length === 0, JSON.stringify(r));
 
 // ---------- questions ----------
 await as('service', `insert into lot_questions (lot_id, user_id, question, answer, public, status) values (10599, '${U.A}', 'Towbar rating?', '3,500 kg', true, 'answered'), (10599, '${U.B}', 'Private question', null, false, 'open')`);
 r = await as('anon', `select question from lot_questions where lot_id=10599`); ok('public answered questions are visible to all, private ones are not', r.rows?.length === 1 && r.rows[0].question === 'Towbar rating?', JSON.stringify(r.rows));
 r = await as('B', `select question from lot_questions where lot_id=10599`); ok('asker sees their own unanswered question', r.rows?.length === 2);
+
+// ---------- review fixes ----------
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('a sold vehicle cannot be put back on sale by an editor save', r.error?.includes('status_locked'), r.error);
+await c.query(`insert into lots (id,status,title,start_price,buy_now_price,starts_at,ends_at) values (10901,'live','Future car',500,9000, now()+interval '1 day', now()+interval '3 days')`);
+r = await as('A', `select buy_now(10901)`); ok('no Buy Now before the auction opens', r.error?.includes('auction_closed'), r.error);
+await c.query(`insert into lots (id,status,title,start_price,current_bid,bid_count,leader_id,decision_by,ends_at) values (10902,'referred','Late referral',500,4000,3,'${U.A}', now()-interval '1 hour', now()-interval '3 days')`);
+await c.query(`insert into lot_private (lot_id, reserve_price) values (10902, 9000)`);
+r = await as('ADM', `select admin_accept(10902)`); ok('an expired referral cannot be accepted', r.error?.includes('referral_expired'), r.error);
+await as('service', `select close_due_lots()`);
+r = await as('service', `select status from lots where id=10902`); ok('an unanswered referral turns into offers', r.rows?.[0]?.status === 'offers', JSON.stringify(r.rows));
+for (let i = 0; i < 5; i++) await as('service', `select complete_handover('${tok}', 'x', 1, 1, '')`);
+r = await as('anon', `select me()`); ok('anon cannot call me()', !!r.error);
 
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));

@@ -1,8 +1,10 @@
+import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Messages() {
+  await requireAdmin(); // checked on every page, not just the layout
   const { data } = await supabaseAdmin().from("contact_messages").select("*").order("created_at", { ascending: false }).limit(200);
   return (
     <>

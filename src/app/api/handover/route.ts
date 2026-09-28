@@ -17,6 +17,8 @@ export async function POST(req: Request) {
     p_token: token, p_code: String(b.code || "").replace(/\D/g, ""), p_odometer: odo, p_keys: keys, p_notes: String(b.notes || "").slice(0, 1000),
   });
   if (error) return fail(friendly(error.message));
+  const r = data as { ok: boolean; error?: string };
+  if (!r.ok) return fail(friendly(r.error));
   kickOutbox();
   await sendEmail({ to: env.supportEmail, subject: "Vehicle handed over", text: `A seller confirmed handover. Odometer ${odo ?? "?"}, keys ${keys ?? "?"}. ${b.notes || ""}` }).catch(() => undefined);
   return json(data);

@@ -1,8 +1,10 @@
+import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { maskMobile, dateTime } from "@/lib/format";
 
 export default async function Users({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { q = "" } = await searchParams;
   let query = supabaseAdmin().from("profiles").select("*").order("created_at", { ascending: false }).limit(200);
   if (q) query = query.or(`email.ilike.%${q}%,last_name.ilike.%${q}%,mobile.ilike.%${q}%`);

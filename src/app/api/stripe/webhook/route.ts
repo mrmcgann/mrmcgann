@@ -1,6 +1,6 @@
 import { getStripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { syncIdentity } from "@/lib/identity";
+import { markInvoicePaid } from "@/lib/charges";
 import { env } from "@/lib/env";
 
 export async function POST(req: Request) {
@@ -13,7 +13,6 @@ export async function POST(req: Request) {
   } catch {
     return new Response("Bad signature", { status: 400 });
   }
-  const db = supabaseAdmin();
   switch (event.type) {
     case "identity.verification_session.verified":
     case "identity.verification_session.requires_input":
@@ -21,13 +20,9 @@ export async function POST(req: Request) {
       await syncIdentity((event.data.object as { id: string }).id);
       break;
     case "payment_intent.succeeded": {
+      // Any successful payment for an invoice (the automatic charge, a pay-now, or one that was "processing").
       const pi = event.data.object as { id: string; metadata: Record<string, string> };
-      if (pi.metadata?.kind === "retry" && pi.metadata.invoice_id) {
-        const { data: inv } = await db.from("invoices").select("mode, status").eq("id", pi.metadata.invoice_id).single();
-        if (inv?.status === "payment_failed") {
-          await db.from("invoices").update({ status: inv.mode === "card" ? "paid" : "deposit_paid", paid_at: new Date().toISOString(), stripe_payment_intent: pi.id, failure_reason: null }).eq("id", pi.metadata.invoice_id);
-        }
-      }
+      if (pi.metadata?.invoice_id && pi.metadata.kind !== "cancel_fee") await markInvoicePaid(pi.metadata.invoice_id, pi.id);
       break;
     }
   }

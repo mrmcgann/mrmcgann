@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Inspections() {
+  await requireAdmin(); // checked on every page, not just the layout
   const { data } = await supabaseAdmin().from("inspections").select("*, lots(id, title, suburb, state), profiles(first_name, last_name, mobile)").neq("status", "cancelled").order("created_at", { ascending: false }).limit(200);
   return (
     <>

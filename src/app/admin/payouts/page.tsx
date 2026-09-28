@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime, money } from "@/lib/format";
 
 export default async function Payouts({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { status = "ready" } = await searchParams;
   const db = supabaseAdmin();
   let q = db.from("seller_payouts").select("*, lots(id, title), invoices(ref, collected_at, claim_until)").order("created_at", { ascending: false }).limit(200);

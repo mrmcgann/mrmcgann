@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
@@ -6,6 +7,7 @@ import { dateTime, money } from "@/lib/format";
 const REASON: Record<string, string> = { identity: "Wrong make/model/year/VIN", transmission_fuel: "Wrong transmission or fuel", write_off_stolen: "Undisclosed write-off/stolen", finance: "Undisclosed finance", odometer: "Odometer", missing_feature: "Listed feature missing", undisclosed_damage: "Undisclosed major damage", other: "Other" };
 
 export default async function Claims({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { status = "open" } = await searchParams;
   const db = supabaseAdmin();
   let q = db.from("claims").select("*, lots(id, title), invoices(ref, price, collected_at, claim_until), profiles(first_name, last_name, mobile, email)").order("created_at", { ascending: false }).limit(200);

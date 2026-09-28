@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail, friendly } from "@/lib/api";
-import { chargeInvoice } from "@/lib/charges";
+import { chargeInvoice, findSucceededPayment, markInvoicePaid } from "@/lib/charges";
 import { notify, notifySeller, kickOutbox } from "@/lib/notify";
 import { sendSms } from "@/lib/sms";
 import { sendEmail, mailHtml } from "@/lib/email";
@@ -51,6 +51,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
 
     // ---- Invoices ----
     case "retry-charge": {
+      // Never charge again if an earlier attempt (or a pay-now) actually went through.
+      const paid = await findSucceededPayment(b.invoiceId);
+      if (paid) { await markInvoicePaid(b.invoiceId, paid); return done({ note: "That invoice was already paid; marked as paid." }); }
       await db.from("invoices").update({ status: "pending_charge" }).eq("id", b.invoiceId).eq("status", "payment_failed");
       await chargeInvoice(b.invoiceId);
       return done();
@@ -65,6 +68,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
     case "cancel-invoice": {
       const { data: inv } = await db.from("invoices").select("*").eq("id", b.invoiceId).single();
       if (!inv) return fail("Not found");
+      if (!["payment_failed", "deposit_paid"].includes(inv.status)) return fail("Only unpaid sales can be cancelled (payment failed, or balance not received). Refund paid sales in Stripe first.");
+      // claim the cancellation so a double click (or a payment landing now) can't run it twice
+      const { data: claimed } = await db.from("invoices").update({ status: "cancelled" }).eq("id", b.invoiceId).eq("status", inv.status).select("id");
+      if (!claimed?.length) return fail("This invoice changed while you were looking at it. Reload the page.");
       const { data: fees } = await db.from("settings").select("value").eq("key", "fees").single();
       const fee = inv.status === "deposit_paid" ? 0 : inv.total > (fees?.value?.cancel_above ?? 1000) ? (fees?.value?.cancel_fee ?? 250) : 0;
       let feeNote = fee ? ` A ${money(fee)} cancellation fee applies.` : inv.status === "deposit_paid" ? " Your deposit has been kept." : "";
@@ -73,7 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         const { data: buyer } = await db.from("profiles").select("stripe_customer_id, payment_method_id").eq("id", inv.buyer_id).single();
         try {
           if (buyer?.stripe_customer_id && buyer.payment_method_id) {
-            await stripe.paymentIntents.create({ amount: cents(fee), currency: "aud", customer: buyer.stripe_customer_id, payment_method: buyer.payment_method_id, off_session: true, confirm: true, description: `${inv.ref} cancellation fee` }, { idempotencyKey: `cancel-fee-${inv.id}` });
+            await stripe.paymentIntents.create({ amount: cents(fee), currency: "aud", customer: buyer.stripe_customer_id, payment_method: buyer.payment_method_id, off_session: true, confirm: true, description: `${inv.ref} cancellation fee`, metadata: { invoice_id: inv.id, kind: "cancel_fee" } }, { idempotencyKey: `cancel-fee-${inv.id}` });
             feeNote += " It has been charged to your card.";
           }
         } catch { feeNote += " We'll contact you to collect it."; }

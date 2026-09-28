@@ -49,7 +49,18 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const setPriv = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setP({ ...p, [k]: e.target.value });
 
+  // Only fields that actually changed are saved, so an editor left open during an
+  // auction can't overwrite the status, end time or price the bidding engine has moved on.
+  const [base, setBase] = useState<Row>(() => normalize(lot || {}));
   function payload(extra: Row = {}) {
+    const full = normalize(f);
+    if (!id) return { ...full, ...extra };
+    const changed: Row = {};
+    for (const k of Object.keys(full)) if (k !== "updated_at" && JSON.stringify(full[k]) !== JSON.stringify(base[k])) changed[k] = full[k];
+    delete changed.status;
+    return { ...changed, updated_at: new Date().toISOString(), ...extra };
+  }
+  function normalize(f: Row) {
     const out: Row = {};
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
       "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books"];
@@ -61,7 +72,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
     out.featured = f.featured === true || f.featured === "true";
     out.updated_at = new Date().toISOString();
-    return { ...out, ...extra };
+    return out;
   }
 
   async function save(extra: Row = {}, okText = "Saved.") {
@@ -88,6 +99,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     setBusy(false);
     if (pe) { setMsg({ kind: "bad", text: pe.message }); return null; }
     setF({ ...f, ...extra });
+    setBase(normalize({ ...f, ...extra }));
     setMsg({ kind: "ok", text: okText });
     fetch("/api/revalidate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId }) }).catch(() => {});
     if (!id) router.replace(`/admin/lots/${lotId}`);

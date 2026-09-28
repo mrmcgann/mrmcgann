@@ -1,8 +1,10 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { money, dateTime } from "@/lib/format";
 
 export default async function AdminHome() {
+  await requireAdmin(); // checked on every page, not just the layout
   const db = supabaseAdmin();
   const now = new Date().toISOString();
   const day = new Date(Date.now() + 86400000).toISOString();

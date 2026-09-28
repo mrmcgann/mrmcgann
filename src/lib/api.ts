@@ -36,5 +36,7 @@ export function friendly(message: string | undefined) {
   if (m.includes("offer_not_pending")) return "That offer is no longer pending.";
   if (m.includes("not_referred")) return "This vehicle isn't waiting on a referral decision.";
   if (m.includes("forbidden")) return "You don't have permission to do that.";
+  if (m.includes("referral_expired")) return "The time to accept this bid has passed, so offers are now open.";
+  if (m.includes("status_locked")) return "This vehicle has already sold or closed, so it can't be put back on sale from here.";
   return "Something went wrong. Please try again.";
 }

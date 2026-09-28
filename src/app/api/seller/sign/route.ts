@@ -24,10 +24,12 @@ export async function POST(req: Request) {
   if (name.toLowerCase().replace(/\s+/g, " ") !== `${me.first_name} ${me.last_name}`.toLowerCase().replace(/\s+/g, " ")) {
     return fail(`Type your full legal name exactly as verified: ${me.first_name} ${me.last_name}.`);
   }
-  const reserve = b.reserve ? Math.round(Number(String(b.reserve).replace(/[^0-9]/g, ""))) : null;
+  const money = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n) : null; };
+  const reserve = String(b.reserve ?? "").trim() ? money(b.reserve) : null;
+  if (String(b.reserve ?? "").trim() && (reserve == null || reserve <= 0 || reserve > 5_000_000)) return fail("Check the reserve amount.");
   const d = b.disclosures || {};
   const disclosures = {
-    finance: yn(d.finance), finance_amount: d.finance === "yes" ? String(Math.round(Number(String(d.finance_amount || "0").replace(/[^0-9.]/g, "")))) : "",
+    finance: yn(d.finance), finance_amount: d.finance === "yes" ? String(money(d.finance_amount) ?? "") : "",
     lender_name: d.finance === "yes" ? txt(d.lender_name, 120) : "", lender_ref: d.finance === "yes" ? txt(d.lender_ref, 60) : "",
     write_off: ["none", "repairable", "statutory"].includes(d.write_off) ? d.write_off : "none",
     accident: d.accident === "yes" ? `Yes: ${txt(d.accident_details)}` : yn(d.accident),
@@ -39,6 +41,7 @@ export async function POST(req: Request) {
     known_faults: txt(d.known_faults, 1000), keys: String(Math.max(0, Math.min(9, Number(d.keys) || 0))), service_books: d.service_books === "yes",
     rego_expiry: txt(d.rego_expiry, 20),
   };
+  if (d.finance === "yes" && !disclosures.finance_amount) return fail("Roughly how much finance is owing? We need it to pay your lender.");
   if (["finance", "accident", "flood", "hail", "modifications", "warning_lights", "odometer_concerns"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
     return fail("Answer every yes/no question about the vehicle.");
   }

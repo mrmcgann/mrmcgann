@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getFeesCached } from "@/lib/cache";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 // How a listing will look, including drafts (admins only: this sits under /admin).
 export default async function Preview({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin(); // checked on every page, not just the layout
   const { id } = await params;
   const db = supabaseAdmin();
   const lotId = Number(id);

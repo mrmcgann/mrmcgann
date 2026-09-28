@@ -144,7 +144,7 @@ begin
   if not can_bid(v_user) then raise exception 'not_verified'; end if;
   perform bid_guard(p_lot, v_user);
   select * into l from lots where id = p_lot for update;
-  if l.status <> 'live' or l.ends_at <= now() then raise exception 'auction_closed'; end if;
+  if l.status <> 'live' or l.ends_at <= now() or (l.starts_at is not null and l.starts_at > now()) then raise exception 'auction_closed'; end if;
   if l.buy_now_price is null or l.current_bid >= l.buy_now_price then raise exception 'buy_now_unavailable'; end if;
   insert into bids (lot_id, bidder_id, amount) values (p_lot, v_user, l.buy_now_price);
   update lots set status = 'sold', current_bid = buy_now_price, bid_count = bid_count + 1,
@@ -163,7 +163,7 @@ begin
   if v_user is null then raise exception 'not_signed_in'; end if;
   if not can_bid(v_user) then raise exception 'not_verified'; end if;
   perform bid_guard(p_lot, v_user);
-  select * into l from lots where id = p_lot;
+  select * into l from lots where id = p_lot for update;
   if l.status <> 'offers' or l.decision_by <= now() then raise exception 'offers_closed'; end if;
   if p_amount is null or p_amount <= 0 or p_amount <> round(p_amount) or p_amount > 10000000 then raise exception 'invalid_amount'; end if;
   select max(amount) into v_last from offers where lot_id = p_lot and user_id = v_user;
@@ -424,6 +424,7 @@ begin
   select * into l from lots where id = p_lot for update;
   if p_offer is null then
     if l.status <> 'referred' then raise exception 'not_referred'; end if;
+    if l.decision_by is not null and l.decision_by <= now() then raise exception 'referral_expired'; end if;
     update lots set status = 'sold', winner_id = leader_id, sold_price = current_bid, sold_via = 'referral', updated_at = now() where id = p_lot;
     v_inv := create_invoice(p_lot, l.leader_id, l.current_bid, 'referral');
   else
@@ -452,9 +453,9 @@ end $$;
 
 create or replace function public.seller_decide(p_lot bigint, p_action text, p_offer uuid default null) returns uuid
 language plpgsql security definer set search_path = public as $$
-declare v_user uuid := auth.uid(); l public.lots%rowtype; v_inv uuid; o public.offers%rowtype;
+declare v_user uuid := auth.uid(); l public.lots%rowtype; v_inv uuid; o public.offers%rowtype; v_losers uuid[];
 begin
-  select * into l from lots where id = p_lot;
+  select * into l from lots where id = p_lot for update;
   if v_user is null or l.seller_id is distinct from v_user then raise exception 'forbidden'; end if;
   if p_action = 'accept_referral' then
     v_inv := accept_sale(p_lot, null);
@@ -462,12 +463,18 @@ begin
   elsif p_action = 'decline_referral' then
     if l.status <> 'referred' then raise exception 'not_referred'; end if;
     update lots set status = 'offers', decision_by = business_days_from(now(), setting_num('auction','offer_days')::int), updated_at = now()
-      where id = p_lot;
+      where id = p_lot and status = 'referred';
+    if not found then raise exception 'not_referred'; end if;
     insert into seller_decisions (lot_id, seller_id, action, amount) values (p_lot, v_user, p_action, l.current_bid);
   elsif p_action = 'accept_offer' then
     select * into o from offers where id = p_offer and lot_id = p_lot;
     v_inv := accept_sale(p_lot, p_offer);
     insert into seller_decisions (lot_id, seller_id, action, offer_id, amount) values (p_lot, v_user, p_action, p_offer, o.amount);
+    select array_agg(distinct user_id) into v_losers from offers where lot_id = p_lot and status = 'declined' and user_id <> o.user_id and decided_at >= now() - interval '1 minute';
+    if v_losers is not null then
+      perform queue_notice_many(v_losers, 'account', 'Your offer on the ' || l.title || ' wasn''t accepted',
+        'The seller accepted another offer. Similar vehicles are listed every week.', '/auctions?cat=' || l.category, 'offer-lost:' || p_lot);
+    end if;
   elsif p_action = 'decline_offer' then
     update offers set status = 'declined', decided_at = now() where id = p_offer and lot_id = p_lot and status = 'pending' returning * into o;
     if o.id is null then raise exception 'offer_not_pending'; end if;
@@ -604,6 +611,10 @@ create index if not exists collections_status on public.collections (status, cre
 create index if not exists collections_buyer on public.collections (buyer_id);
 alter table public.collections enable row level security;
 create policy collections_own on public.collections for select to authenticated using (buyer_id = (select auth.uid()) or (select public.is_admin()));
+-- Buyers see their release code but never the seller's private handover link.
+revoke select on public.collections from anon, authenticated;
+grant select (id, invoice_id, lot_id, buyer_id, preferred_day, preferred_time, collector_name, collector_mobile, carrier_ref,
+  status, confirmed_for, release_code, code_attempts, handover, collected_at, created_at) on public.collections to authenticated;
 
 -- The seller (via their private link) enters the code the collector gives them.
 create or replace function public.complete_handover(p_token text, p_code text, p_odometer int, p_keys int, p_notes text)
@@ -617,7 +628,7 @@ begin
   if c.code_attempts >= 5 then raise exception 'too_many_attempts'; end if;
   if p_code is distinct from c.release_code then
     update collections set code_attempts = code_attempts + 1 where id = c.id;
-    raise exception 'wrong_code';
+    return jsonb_build_object('ok', false, 'error', case when c.code_attempts + 1 >= 5 then 'too_many_attempts' else 'wrong_code' end);
   end if;
   v_claim := business_days_from(now(), setting_num('auction','claim_days')::int);
   update collections set status = 'collected', collected_at = now(),
@@ -802,11 +813,17 @@ grant execute on function public.complete_handover(text, text, int, int, text) t
 grant execute on function public.release_payouts() to service_role;
 grant execute on function public.bump_view(bigint) to service_role;
 grant execute on function public.queue_notice(uuid, text, text, text, text, text, jsonb, timestamptz) to service_role;
-revoke execute on function public.me() from anon;
-revoke execute on function public.my_lot_state(bigint) from anon;
-revoke execute on function public.my_bids(int) from anon;
-revoke execute on function public.mark_notifications_read() from anon;
-revoke execute on function public.seller_decide(bigint, text, uuid) from anon;
+revoke execute on function public.me() from public, anon;
+revoke execute on function public.my_lot_state(bigint) from public, anon;
+revoke execute on function public.my_bids(int) from public, anon;
+revoke execute on function public.mark_notifications_read() from public, anon;
+revoke execute on function public.seller_decide(bigint, text, uuid) from public, anon;
+revoke execute on function public.accept_sale(bigint, uuid) from public, anon, authenticated;
+grant execute on function public.me() to authenticated, service_role;
+grant execute on function public.my_lot_state(bigint) to authenticated, service_role;
+grant execute on function public.my_bids(int) to authenticated, service_role;
+grant execute on function public.mark_notifications_read() to authenticated, service_role;
+grant execute on function public.seller_decide(bigint, text, uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 14. Seller portal reads (sellers see their own listings, offers and collection,
@@ -831,8 +848,10 @@ language sql stable security definer set search_path = public as $$
   where c.lot_id = p_lot and l.seller_id = auth.uid() and c.status <> 'cancelled'
   order by c.created_at desc limit 1;
 $$;
-revoke execute on function public.seller_lot_offers(bigint) from anon;
-revoke execute on function public.seller_lot_collection(bigint) from anon;
+revoke execute on function public.seller_lot_offers(bigint) from public, anon;
+revoke execute on function public.seller_lot_collection(bigint) from public, anon;
+grant execute on function public.seller_lot_offers(bigint) to authenticated, service_role;
+grant execute on function public.seller_lot_collection(bigint) to authenticated, service_role;
 
 -- A pending invite (no signature yet) can be previewed by whoever holds the link.
 create or replace function public.invite_preview(p_invite text)
@@ -894,3 +913,23 @@ begin
 end $$;
 revoke execute on function public.queue_search_alerts() from public, anon, authenticated;
 grant execute on function public.queue_search_alerts() to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 16. A sold, referred or offers-open vehicle can't be put back on sale by an
+--     editor save (the bidding functions change these states, not the editor).
+-- ---------------------------------------------------------------------------
+create or replace function public.lot_status_guard() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_user in ('authenticated', 'anon') and old.status in ('sold', 'referred', 'offers')
+     and new.status is distinct from old.status and new.status <> 'cancelled' then
+    raise exception 'status_locked:% can''t be changed back from %', old.id, old.status;
+  end if;
+  if current_user in ('authenticated', 'anon') and old.status = 'sold' and new.status = 'cancelled' then
+    raise exception 'status_locked:cancel the invoice instead';
+  end if;
+  return new;
+end $$;
+drop trigger if exists lot_status_guard on public.lots;
+create trigger lot_status_guard before update of status on public.lots
+  for each row execute function public.lot_status_guard();

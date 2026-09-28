@@ -306,7 +306,8 @@ create or replace function public.claim_outbox(p_limit int default 200, p_ids bi
 returns setof public.outbox language plpgsql security definer set search_path = public as $$
 begin
   -- rescue anything a crashed sender left half-done
-  update outbox set status = 'queued', locked_at = null
+  update outbox set status = case when attempts >= 5 then 'failed' else 'queued' end, locked_at = null,
+    last_error = case when attempts >= 5 then 'sender stopped mid-send 5 times' else last_error end
     where status = 'sending' and locked_at < now() - interval '5 minutes';
   -- too late to be useful: mark skipped instead of sending
   update outbox set status = 'skipped', last_error = 'expired'
@@ -502,6 +503,9 @@ begin
     end if;
     n := n + 1;
   end loop;
+  -- Seller didn't answer a referral in time: that counts as a decline, and offers open.
+  update lots set status = 'offers', decision_by = business_days_from(now(), v_offer_days), updated_at = now()
+    where status = 'referred' and decision_by <= now();
   update offers set status = 'lapsed', decided_at = now()
     where status = 'pending' and lot_id in (select id from lots where status = 'offers' and decision_by <= now());
   update lots set status = 'passed', updated_at = now() where status = 'offers' and decision_by <= now();

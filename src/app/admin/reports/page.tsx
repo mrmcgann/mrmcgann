@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Reports() {
+  await requireAdmin(); // checked on every page, not just the layout
   const { data } = await supabaseAdmin().from("reports").select("*, profiles(first_name, last_name, email)").order("created_at", { ascending: false }).limit(200);
   return (
     <>

@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AdminAction } from "@/components/AdminAction";
 import { dateTime } from "@/lib/format";
 
 export default async function Quotes() {
+  await requireAdmin(); // checked on every page, not just the layout
   const { data } = await supabaseAdmin().from("quote_requests").select("*, lots(id, title, suburb, state)").order("created_at", { ascending: false }).limit(200);
   return (
     <>
