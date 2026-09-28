@@ -51,8 +51,16 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    1. `supabase/migrations/20260928000001_init.sql`
    2. `supabase/migrations/20260928000002_storage_and_sync.sql`
    3. `supabase/seed.sql` (optional sample vehicles; delete them before launch)
-3. **Authentication → URL Configuration**: set Site URL to your site address (e.g. `https://tyrebiter.com.au`) and add `https://tyrebiter.com.au/auth/callback` to Redirect URLs. Add your Vercel preview address too.
-4. **Project Settings → API**: copy the Project URL, the `anon` key and the `service_role` key.
+3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
+4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
+   ```html
+   <h2>Your Tyrebiter code: {{ .Token }}</h2>
+   <p>Enter this code on the sign-up page, or <a href="{{ .ConfirmationURL }}">tap here to confirm</a>.</p>
+   ```
+   Do the same for **Magic Link** (used when someone asks for a new code).
+5. **Authentication → Emails → SMTP Settings**: turn on custom SMTP so emails actually arrive (Supabase's built-in mailer only sends a few an hour). With Resend: host `smtp.resend.com`, port `465`, username `resend`, password = your Resend API key, sender `hello@tyrebiter.com.au`.
+6. **Authentication → URL Configuration**: set Site URL to your site address (e.g. `https://tyrebiter.com.au`) and add `https://tyrebiter.com.au/auth/callback` to Redirect URLs. Add your Vercel preview address too.
+7. **Project Settings → API**: copy the Project URL, the `anon` key and the `service_role` key.
 
 ### 2. Vercel (hosting)
 1. Import this GitHub repository at vercel.com/new.
@@ -81,6 +89,30 @@ update public.profiles set role = 'admin' where email = 'you@example.com';
 Create an account at resend.com, verify `tyrebiter.com.au`, and add the API key.
 
 ---
+
+## How sign-up verification works
+1. **Email**: a 6-digit code (or link) confirms the email address.
+2. **Details**: legal name, date of birth (18+), address and Australian mobile.
+3. **Mobile**: a 6-digit SMS code via Twilio Verify.
+4. **Card**: saved securely with Stripe (handles 3-D Secure). Nothing is charged until they win.
+5. **ID**: Stripe Identity, in the browser, no app needed. On a phone it opens the camera for a photo of their licence or passport and a selfie. On a computer it shows a QR code to finish on their phone, and the computer moves on by itself. The name and date of birth on the document must match their details.
+
+## Test it after your first deploy (test mode)
+- [ ] Join with a real email address: the 6-digit email code arrives and works
+- [ ] Add details, then SMS code `123456`, test card, test ID
+- [ ] As admin, list a vehicle ending in 15 minutes with a reserve, and publish it
+- [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
+- [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
+- [ ] Let it end: the winner's invoice appears, marked paid (test mode), and the win email arrives
+- [ ] Repeat with a bid below the reserve: it shows "Referred to the seller"; decline it in Admin → Referrals & offers, make an offer, accept it
+- [ ] Buy Now on a vehicle over $5,000: $500 deposit, balance shown with bank details
+- [ ] Book an inspection, confirm it in admin: the buyer gets the address by SMS/email
+- [ ] Request an appraisal on the Sell page with photos: it appears in Admin → Appraisals
+
+Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
+
+## Automated tests
+`npm run test:db` runs 80 checks of the auction engine, payments maths and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on).
 
 ## Before launch
 - [ ] `NEXT_PUBLIC_TEST_MODE=false`

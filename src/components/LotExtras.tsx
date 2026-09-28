@@ -50,17 +50,32 @@ export function InspectionBox({ lotId, suburb, state, signedIn, verified, endsAt
   );
 }
 
-export function DeliveryBox() {
+export function DeliveryBox({ lotId, email }: { lotId: number; email: string | null }) {
   const [pc, setPc] = useState("");
-  const [msg, setMsg] = useState("");
+  const [em, setEm] = useState(email || "");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const res = await fetch("/api/quotes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId, postcode: pc, email: em }) });
+    const data = await res.json();
+    setBusy(false);
+    setMsg(res.ok ? { ok: true, text: `Thanks. We'll email a transport quote to ${em} within 1 business day.` } : { ok: false, text: data.error });
+  }
   return (
     <div className="soft">
       <b style={{ fontSize: 17 }}>Delivered to your door.</b>
-      <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); setMsg(/^\d{4}$/.test(pc) ? `Thanks. We'll email a transport quote to ${pc} within 1 business day.` : "Enter a 4-digit postcode."); }}>
-        <input className="input" inputMode="numeric" maxLength={4} placeholder="Your postcode" aria-label="Your postcode" value={pc} onChange={(e) => setPc(e.target.value)} style={{ background: "#FFFFFF" }} />
-        <button className="btn btn-dark" style={{ height: 54, padding: "0 20px", fontSize: 15 }}>Get quote</button>
-      </form>
-      {msg && <span className="hint" style={{ color: "var(--ink)" }}>{msg}</span>}
+      {msg?.ok ? <span className="notice ok" style={{ fontSize: 14 }}>{msg.text}</span> : (
+        <form style={{ display: "flex", flexDirection: "column", gap: 8 }} onSubmit={submit}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="input" inputMode="numeric" maxLength={4} placeholder="Postcode" aria-label="Your postcode" value={pc} onChange={(e) => setPc(e.target.value)} style={{ background: "#FFFFFF", width: 130 }} />
+            {!email && <input className="input" type="email" placeholder="Email for the quote" aria-label="Email for the quote" value={em} onChange={(e) => setEm(e.target.value)} style={{ background: "#FFFFFF" }} />}
+          </div>
+          <button className="btn btn-dark" style={{ height: 50, fontSize: 15 }} disabled={busy}>{busy ? "Sending…" : "Get a transport quote"}</button>
+          {msg && <span className="errmsg">{msg.text}</span>}
+        </form>
+      )}
     </div>
   );
 }

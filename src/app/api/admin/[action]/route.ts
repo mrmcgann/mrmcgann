@@ -113,6 +113,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       }
       return json({ ok: true });
     }
+    case "quote":
+      await db.from("quote_requests").update({ status: "quoted", quote_note: b.note || null }).eq("id", b.quoteId);
+      return json({ ok: true });
+    case "seller-paid":
+      await db.from("invoices").update({ seller_paid_at: new Date().toISOString(), seller_payout_note: b.note || null }).eq("id", b.invoiceId);
+      return json({ ok: true });
     case "settings": {
       await db.from("settings").update({ value: b.value }).eq("key", b.key);
       return json({ ok: true });

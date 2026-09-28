@@ -42,7 +42,7 @@ export function InvoiceActions({ id, mode, amount, reason, collector }: { id: st
       <span>Pay {money(amount, true)} within 1 business day, or the sale may be cancelled with a $250 cancellation fee.</span>
       {secret ? (
         <Elements stripe={loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")} options={{ clientSecret: secret }}>
-          <PayForm onDone={() => router.refresh()} />
+          <PayForm onDone={async () => { await fetch(`/api/invoices/${id}/confirm`, { method: "POST" }); router.refresh(); }} />
         </Elements>
       ) : <button className="btn btn-blue" onClick={start} style={{ alignSelf: "flex-start" }}>Pay now</button>}
       {err && <span className="errmsg">{err}</span>}
@@ -62,7 +62,7 @@ function PayForm({ onDone }: { onDone: () => void }) {
       setBusy(true);
       const { error } = await stripe.confirmPayment({ elements, redirect: "if_required", confirmParams: { return_url: location.href } });
       setBusy(false);
-      if (error) setErr(error.message || "Payment failed."); else setTimeout(onDone, 1500);
+      if (error) setErr(error.message || "Payment failed."); else onDone();
     }}>
       <PaymentElement />
       {err && <span className="errmsg">{err}</span>}

@@ -147,7 +147,7 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
           <aside className="bidcard" id="bid">
             <BidPanel lot={lot} fees={fees} userId={user?.id || null} missing={missing} cardLabel={cardLabel} myMax={myMax} watched={watched.has(lot.id)} invoiceId={invoiceId} lastOffer={lastOffer} />
             {lot.status === "live" && <InspectionBox lotId={lot.id} suburb={lot.suburb || ""} state={lot.state || ""} signedIn={!!user} verified={!!user && missing.length === 0} endsAt={lot.ends_at} requested={requested} />}
-            {lot.status === "live" && <DeliveryBox />}
+            {["live", "sold"].includes(lot.status) && <DeliveryBox lotId={lot.id} email={user?.email || null} />}
             <div className="soft"><b style={{ fontSize: 17 }}>Collection.</b><span className="muted">From the seller&apos;s location within 5 business days of payment. Collect it yourself or book transport.</span></div>
             <div className="soft">
               <b style={{ fontSize: 17, marginBottom: 8 }}>Bid history</b>

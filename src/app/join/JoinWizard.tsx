@@ -46,7 +46,7 @@ export function JoinWizard() {
     setMe(r);
     const asked = preferred || Number(params.get("step")) || 0;
     if (!r.user) setStep(1);
-    else if (asked && asked > 1 && (r.missing.includes(asked) || asked === 5)) setStep(asked);
+    else if (asked && asked > 1 && asked <= 5) setStep(asked);
     else if (r.missing.length) setStep(r.missing[0]);
     else setStep(99);
     return r;
@@ -79,10 +79,30 @@ export function JoinWizard() {
     const { data, error } = await db.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/auth/callback?next=/join` } });
     setBusy(false);
     if (error) { setErrors({ email: error.message.includes("registered") ? "That email already has an account. Sign in instead." : error.message }); return; }
-    if (!data.session) { setNotice(`We've sent a confirmation link to ${email}. Open it on this device to continue.`); return; }
+    if (!data.session) { setPendingEmail(email); setNotice(""); return; }
     await fetch("/api/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ terms: true }) });
     router.refresh();
     await load(2);
+  }
+
+  // Step 1b: email verification code
+  const [pendingEmail, setPendingEmail] = useState("");
+  async function submitEmailCode(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const token = String(new FormData(e.currentTarget).get("emailcode") || "").replace(/\D/g, "");
+    if (token.length !== 6) { setErrors({ emailcode: "Enter all 6 digits." }); return; }
+    setBusy(true);
+    const { error } = await supabaseBrowser().auth.verifyOtp({ email: pendingEmail, token, type: "email" });
+    setBusy(false);
+    if (error) { setErrors({ emailcode: "That code doesn't match or has expired. Check your email or send a new one." }); return; }
+    setErrors({});
+    await fetch("/api/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ terms: true }) });
+    router.refresh();
+    await load(2);
+  }
+  async function resendEmail() {
+    await supabaseBrowser().auth.resend({ type: "signup", email: pendingEmail, options: { emailRedirectTo: `${location.origin}/auth/callback?next=/join` } });
+    setNotice("New code sent.");
   }
 
   // Step 2: details
@@ -96,8 +116,9 @@ export function JoinWizard() {
     setBusy(false);
     if (!res.ok) { setErrors(data.errors || { first_name: data.error }); return; }
     setErrors({});
-    const r = await load(3);
+    const r = await load(-1);
     if (r.missing.includes(3)) sendCode(true);
+    else if (!r.missing.length) finish();
   }
 
   // Step 3: mobile
@@ -141,6 +162,11 @@ export function JoinWizard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
+  async function checkId() {
+    const d = await (await fetch("/api/identity/refresh", { method: "POST" })).json();
+    setIdState(d.status);
+    if (d.status === "verified") advance();
+  }
   async function startId() {
     setBusy(true);
     const res = await fetch("/api/identity/start", { method: "POST" });
@@ -157,8 +183,15 @@ export function JoinWizard() {
 
   if (!me || step === 0) form = <p className="muted">Loading…</p>;
   else if (step === 1) {
-    form = notice ? (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}><H t="Check your email." /><p style={{ fontSize: 17 }}>{notice}</p><Link className="more" href="/signin">Already confirmed? Sign in ›</Link></div>
+    form = pendingEmail ? (
+      <form onSubmit={submitEmailCode} noValidate>
+        <H t="Check your email." sub={<>We sent a 6-digit code to <b style={{ color: "var(--ink)" }}>{pendingEmail}</b>. You can also tap the link in the email.</>} />
+        <Field id="emailcode" label="Email code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="••••••" error={errors.emailcode} style={{ fontSize: 28, fontWeight: 800, letterSpacing: ".4em", textAlign: "center", height: 68 }} />
+        {notice && <span className="hint">{notice}</span>}
+        <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} disabled={busy}>{busy ? "Checking…" : "Verify email"}</button>
+        <button type="button" className="linkbtn" style={{ alignSelf: "center" }} onClick={resendEmail}>Send a new code</button>
+        <button type="button" className="linkbtn" style={{ alignSelf: "center", color: "var(--muted)" }} onClick={() => { setPendingEmail(""); setNotice(""); }}>Use a different email</button>
+      </form>
     ) : (
       <form onSubmit={submitAccount} noValidate>
         <H t="Create your account." sub={<>Free to join. Already a member? <Link className="blue" href={`/signin${next ? `?next=${next}` : ""}`} style={{ fontWeight: 700 }}>Sign in ›</Link></>} />
@@ -212,6 +245,12 @@ export function JoinWizard() {
           <div className="check" style={{ border: 0, padding: "4px 0" }}><span className="tick"><Tick /></span><span><b>Total under $5,000</b><br /><span className="muted" style={{ fontSize: 14 }}>Charged to your card in full straight away when the auction ends.</span></span></div>
           <div className="check" style={{ border: 0, padding: "4px 0" }}><span className="tick"><Tick /></span><span><b>$5,000 or more</b><br /><span className="muted" style={{ fontSize: 14 }}>A non-refundable deposit ($500, or $1,000 over $20,000) is charged straight away. Pay the balance by bank transfer within 2 business days.</span></span></div>
         </div>
+        {p?.payment_method_id && !clientSecret && (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 18, border: "2px solid var(--mint)" }}>
+            <span className="tick"><Tick /></span><b style={{ flexGrow: 1 }}>{p.card_brand} ending {p.card_last4} is on file.</b>
+            <button className="linkbtn" onClick={finish}>Keep it</button>
+          </div>
+        )}
         {clientSecret ? (
           <Elements stripe={getStripeJs()} options={{ clientSecret, appearance: { theme: "stripe", variables: { colorPrimary: "#2F5BFF", borderRadius: "14px", fontFamily: "system-ui" } } }}>
             <CardForm onSaved={advance} />
@@ -219,7 +258,7 @@ export function JoinWizard() {
         ) : (
           <>
             {errors.card && <div className="notice bad">{errors.card}</div>}
-            <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} onClick={startCard} disabled={busy}>{busy ? "Loading…" : me.config.stripe ? "Add a card" : "Add a test card (test mode)"}</button>
+            <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} onClick={startCard} disabled={busy}>{busy ? "Loading…" : p?.payment_method_id ? "Replace card" : me.config.stripe ? "Add a card" : "Add a test card (test mode)"}</button>
             <span className="hint">Cards are handled by Stripe. Tyrebiter never sees or stores your card number.</span>
           </>
         )}
@@ -233,7 +272,7 @@ export function JoinWizard() {
           <span>You&apos;ll take a photo of your <b>driver licence or passport</b> and a quick selfie. It takes about two minutes.</span>
           <span style={{ fontSize: 14 }}>Checking <b>{p?.first_name} {p?.last_name}</b>, born <b>{p?.dob}</b>. <button className="linkbtn" onClick={() => setStep(2)}>Wrong? Edit</button></span>
         </div>
-        {idState === "pending" && <div className="notice">We&apos;re still checking your ID. This usually takes a minute or two. <button className="linkbtn" onClick={() => location.reload()}>Refresh</button></div>}
+        {(idState ?? p?.id_status) === "pending" && <div className="notice">We&apos;re still checking your ID. This usually takes a minute or two. <button className="linkbtn" onClick={checkId}>Check again</button></div>}
         {(idState === "failed" || p?.id_status === "failed") && <div className="notice bad">We couldn&apos;t verify your ID, or the name and date of birth didn&apos;t match your details. Check your details and try again.</div>}
         {errors.id && <div className="notice bad">{errors.id}</div>}
         <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} onClick={startId} disabled={busy}>{busy ? "Opening…" : me.config.stripe ? "Verify my ID" : "Verify ID (test mode)"}</button>

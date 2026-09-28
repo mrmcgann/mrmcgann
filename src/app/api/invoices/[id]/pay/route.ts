@@ -24,5 +24,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     payment_method_types: ["card"], setup_future_usage: "off_session",
     description: `${inv.ref} retry`, metadata: { invoice_id: inv.id, kind: "retry" },
   });
+  await db.from("invoices").update({ stripe_payment_intent: pi.id }).eq("id", id);
   return json({ clientSecret: pi.client_secret });
 }

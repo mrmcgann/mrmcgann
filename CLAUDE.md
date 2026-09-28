@@ -14,3 +14,6 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Private data (reserve, leader's max, seller details) is in `lot_private`, admin-only. Never expose it in public queries.
 - Members can't change verification/payment/role fields on `profiles` (trigger `protect_profile`). Server routes use the service-role client for those.
 - Test mode: `NEXT_PUBLIC_TEST_MODE=true` fakes SMS (code 123456), card, ID and charges.
+
+## Tests
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`.

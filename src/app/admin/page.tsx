@@ -7,7 +7,7 @@ export default async function AdminHome() {
   const now = new Date().toISOString();
   const day = new Date(Date.now() + 86400000).toISOString();
   const c = async (q: PromiseLike<{ count: number | null }>) => (await q).count || 0;
-  const [live, endingToday, referred, offers, failed, balance, appraisals, inspections, reports, drafts] = await Promise.all([
+  const [live, endingToday, referred, offers, failed, balance, appraisals, inspections, reports, drafts, quotes] = await Promise.all([
     c(db.from("lots").select("id", { count: "exact", head: true }).eq("status", "live")),
     c(db.from("lots").select("id", { count: "exact", head: true }).eq("status", "live").lte("ends_at", day).gte("ends_at", now)),
     c(db.from("lots").select("id", { count: "exact", head: true }).eq("status", "referred")),
@@ -18,6 +18,7 @@ export default async function AdminHome() {
     c(db.from("inspections").select("id", { count: "exact", head: true }).eq("status", "requested")),
     c(db.from("reports").select("id", { count: "exact", head: true }).eq("status", "open")),
     c(db.from("lots").select("id", { count: "exact", head: true }).eq("status", "draft")),
+    c(db.from("quote_requests").select("id", { count: "exact", head: true }).eq("status", "new")),
   ]);
   const { data: recent } = await db.from("invoices").select("ref, total, status, created_at, lots(title)").order("created_at", { ascending: false }).limit(8);
   const tiles: [string, number, string, string][] = [
@@ -25,7 +26,7 @@ export default async function AdminHome() {
     ["Referred to sellers", referred, "/admin/sales", "sun"], ["Offers to decide", offers, "/admin/sales", "sun"],
     ["Failed card payments", failed, "/admin/invoices?status=payment_failed", "berry"], ["Balances due", balance, "/admin/invoices?status=deposit_paid", "lilac"],
     ["New appraisals", appraisals, "/admin/appraisals", "lime"], ["Inspection requests", inspections, "/admin/inspections", "mint"],
-    ["Open reports", reports, "/admin/reports", "coral"], ["Draft listings", drafts, "/admin/lots?status=draft", "panel"],
+    ["Open reports", reports, "/admin/reports", "coral"], ["Transport quotes", quotes, "/admin/quotes", "sky"], ["Draft listings", drafts, "/admin/lots?status=draft", "panel"],
   ];
   return (
     <>
