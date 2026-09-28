@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export function AccountMenu({ first, email, todo, admin }: { first: string; email: string; todo: number; admin: boolean }) {
+export function AccountMenu({ first, email, todo, admin, seller = false }: { first: string; email: string; todo: number; admin: boolean; seller?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -29,7 +29,9 @@ export function AccountMenu({ first, email, todo, admin }: { first: string; emai
         <div className="acct-menu" onClick={() => setOpen(false)}>
           <div className="who">Signed in as {email}</div>
           <Link href="/account">Account &amp; verification{todo > 0 && <span className="tag" style={{ background: "var(--sun)", height: 24, marginLeft: 6 }}>{todo} to do</span>}</Link>
-          <Link href="/watchlist">Watchlist</Link>
+          <Link href="/watchlist">Watchlist &amp; my bids</Link>
+          <Link href="/account/notifications">Notifications</Link>
+          {seller && <Link href="/sell/dashboard">My vehicles for sale</Link>}
           <Link href="/account#invoices">Invoices</Link>
           <Link href="/sell">Sell a vehicle</Link>
           {admin && <Link href="/admin">Admin</Link>}

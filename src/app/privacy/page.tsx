@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { PRIVACY } from "@/content/legal";
+import { PRIVACY as RAW, fillLegal } from "@/content/legal";
+import { getSettingsCached } from "@/lib/cache";
 
 export const metadata: Metadata = { title: "Privacy policy" };
 
-export default function Privacy() {
+export default async function Privacy() {
+  const PRIVACY = fillLegal(RAW, await getSettingsCached());
   return (
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>

@@ -24,5 +24,17 @@ export function friendly(message: string | undefined) {
     return n ? `Offer more than your last offer of ${money(n)}.` : "Offer more than your last offer.";
   }
   if (m.includes("lot_not_found")) return "We couldn't find that vehicle.";
+  if (m.includes("own_vehicle")) return "Sellers (and anyone using the seller's mobile number) can't bid on their own vehicle.";
+  if (m.includes("terms_outdated")) return "Our terms have been updated. Please review and accept them to keep bidding.";
+  if (m.includes("not_ready:")) return `Not ready to publish: ${m.split("not_ready:")[1]?.split("\n")[0]}.`;
+  if (m.includes("invite_used")) return "This listing is already linked to another seller account.";
+  if (m.includes("invite_not_found")) return "That seller link isn't valid. Ask us to send a new one.";
+  if (m.includes("already_listed")) return "This vehicle is already listed, so the agreement can't be changed online. Call us.";
+  if (m.includes("wrong_code")) return "That release code doesn't match. Check it with the collector.";
+  if (m.includes("too_many_attempts")) return "Too many wrong codes. Call us before handing over the vehicle.";
+  if (m.includes("not_confirmed")) return "This collection hasn't been confirmed yet.";
+  if (m.includes("offer_not_pending")) return "That offer is no longer pending.";
+  if (m.includes("not_referred")) return "This vehicle isn't waiting on a referral decision.";
+  if (m.includes("forbidden")) return "You don't have permission to do that.";
   return "Something went wrong. Please try again.";
 }

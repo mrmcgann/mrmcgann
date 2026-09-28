@@ -1,14 +1,30 @@
 import "server-only";
+import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
-export async function getSession() {
-  const supabase = await supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { supabase, user: null, profile: null as Profile | null };
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  return { supabase, user, profile: profile as Profile | null };
+export interface SessionUser { id: string; email: string }
+
+// Who is signed in. getClaims() checks the session token's signature locally
+// (no call to the auth server) when the project uses asymmetric JWT keys.
+export async function currentUser(db: SupabaseClient): Promise<SessionUser | null> {
+  const { data } = await db.auth.getClaims();
+  const c = data?.claims as { sub?: string; email?: string } | undefined;
+  return c?.sub ? { id: c.sub, email: c.email || "" } : null;
 }
+
+// One database call per page for the member's profile, watch count and unread alerts.
+// Cached per request, so the header and the page share it.
+export const getSession = cache(async () => {
+  const supabase = await supabaseServer();
+  const user = await currentUser(supabase);
+  if (!user) return { supabase, user: null as SessionUser | null, profile: null as Profile | null };
+  const { data } = await supabase.rpc("me");
+  const profile = (data || null) as Profile | null;
+  if (profile && !user.email) user.email = profile.email || "";
+  return { supabase, user, profile };
+});
 
 export function missingSteps(p: Profile | null): number[] {
   if (!p) return [1, 2, 3, 4, 5];

@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { AppraisalForm } from "./AppraisalForm";
 import { CarArt } from "@/components/CarArt";
-import { HELP } from "@/content/legal";
+import { HELP as RAW, fillLegal, legalValues } from "@/content/legal";
+import { getSettingsCached } from "@/lib/cache";
 
 export const metadata: Metadata = { title: "Sell your car or truck" };
 
-const STEPS = [["1", "Free appraisal", "Tell us about it. We call with a price range and a suggested reserve.", "tangerine"], ["2", "We come to you", "Our photographer shoots a full walkaround and condition report at your place.", "sun"], ["3", "7-day auction", "Live to buyers nationwide. Watch every bid from your phone.", "lime"], ["4", "Viewings by appointment", "We book ID-verified bidders in with you. You just open the gate.", "sky"], ["5", "Get paid", "The buyer pays us and collects from you. Your money lands within [X] business days.", "grape"]];
+const STEPS = [["1", "Free appraisal", "Tell us about it. We call with a price range and a suggested reserve.", "tangerine"], ["2", "We come to you", "Our photographer shoots a full walkaround and condition report at your place.", "sun"], ["3", "7-day auction", "Live to buyers nationwide. Watch every bid from your phone.", "lime"], ["4", "Viewings by appointment", "We book ID-verified bidders in with you. You just open the gate.", "sky"], ["5", "Get paid", "The buyer pays us and collects from you. Your money lands within 3 business days of collection.", "grape"]];
 const CMP = [["Who deals with buyers", "You", "The dealer", "We do, and book every viewing"], ["Price you get", "What you can haggle", "Usually wholesale", "What buyers compete to pay"], ["Photos & listing", "Your phone", "Not needed", "Pro photos at your place"], ["Payment risk", "Scams, bounced transfers", "Low", "Low: buyer pays us first"], ["Paperwork", "All on you", "Handled", "Handled"]];
 
-export default function Sell() {
+export default async function Sell() {
+  const settings = await getSettingsCached();
+  const v = legalValues(settings);
+  const HELP = fillLegal(RAW, settings);
   const sellFaq = HELP.find((h) => h[0] === "h-sell")?.[2] || [];
   return (
     <div className="wrap">
@@ -57,9 +61,9 @@ export default function Sell() {
       <section id="fees">
         <div className="center" style={{ gap: 14, marginBottom: 40 }}><h2 className="d2">Simple fees.</h2><p className="lede">Agreed before we list. No sale, no commission.</p></div>
         <div className="fees">
-          <div className="bg-sun"><span style={{ fontSize: 18, fontWeight: 700 }}>Listing</span><b>[$ FEE]</b><span>7-day online auction, Australia-wide.</span></div>
-          <div className="bg-sky"><span style={{ fontSize: 18, fontWeight: 700 }}>Photos &amp; condition report</span><b>[$ FEE]</b><span>Walkaround photos, report and PPSR search.</span></div>
-          <div className="bg-grape" style={{ color: "#FFFFFF" }}><span style={{ fontSize: 18, fontWeight: 700 }}>Commission</span><b>[X]%</b><span>Only when it sells.</span></div>
+          <div className="bg-sun"><span style={{ fontSize: 18, fontWeight: 700 }}>Listing</span><b>$0</b><span>7-day online auction, Australia-wide.</span></div>
+          <div className="bg-sky"><span style={{ fontSize: 18, fontWeight: 700 }}>Photos &amp; condition report</span><b>$0</b><span>Walkaround photos, report and PPSR search.</span></div>
+          <div className="bg-grape" style={{ color: "#FFFFFF" }}><span style={{ fontSize: 18, fontWeight: 700 }}>Seller fee</span><b>{v.SELLER_FEE.startsWith("none") ? "$0" : v.SELLER_FEE.split(" of")[0]}</b><span>{v.SELLER_FEE.startsWith("none") ? "Buyers pay our fees. You keep the sale price (less any finance we pay out)." : "Only when it sells."}</span></div>
         </div>
       </section>
 

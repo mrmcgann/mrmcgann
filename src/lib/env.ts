@@ -16,6 +16,12 @@ export const env = {
   resendKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "Tyrebiter <hello@tyrebiter.com.au>",
   cronSecret: process.env.CRON_SECRET || "",
+  linkSecret: process.env.LINK_SECRET || process.env.CRON_SECRET || "",
+  abn: process.env.NEXT_PUBLIC_ABN || "[ABN]",
+  legalName: process.env.NEXT_PUBLIC_LEGAL_NAME || "Tyrebiter Pty Ltd",
+  address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "[Business address]",
+  payId: process.env.NEXT_PUBLIC_PAYID || "",
+  twilioMessagingService: process.env.TWILIO_MESSAGING_SERVICE_SID || "",
   bankBsb: process.env.NEXT_PUBLIC_BANK_BSB || "[BSB]",
   bankAccount: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "[ACCOUNT]",
   bankName: process.env.NEXT_PUBLIC_BANK_NAME || "Tyrebiter Pty Ltd",
@@ -26,7 +32,7 @@ export const env = {
 export const has = {
   stripe: Boolean(env.stripeSecret),
   twilioVerify: Boolean(env.twilioSid && env.twilioToken && env.twilioVerifySid),
-  twilioSms: Boolean(env.twilioSid && env.twilioToken && env.twilioFrom),
+  twilioSms: Boolean(env.twilioSid && env.twilioToken && (env.twilioFrom || env.twilioMessagingService)),
   email: Boolean(env.resendKey),
 };
 

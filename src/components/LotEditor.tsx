@@ -5,6 +5,19 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { BACKDROPS, GRADES, STATES } from "@/lib/grades";
 import { photoUrl } from "@/lib/photos";
+import { AdminAction } from "@/components/AdminAction";
+
+export interface SellerInfo {
+  inviteUrl: string | null;
+  sellerName: string | null;
+  idVerified: boolean;
+  agreement: { signed_name: string; signed_at: string; reserve_price: number | null; disclosures: Record<string, unknown>; gst_registered: boolean; abn: string | null; owner_type: string; version: string } | null;
+  docs: { path: string; url: string | null }[];
+  bank: { account_name: string; bsb: string; account_number: string; confirmed_at: string | null } | null;
+  sellerId: string | null;
+  ownershipCheckedAt: string | null;
+  requireChecks: boolean;
+}
 
 type Row = Record<string, unknown>;
 const ANGLES = ["Front 3/4", "Side", "Rear 3/4", "Rear", "Interior", "Dash", "Rear seats", "Boot", "Engine", "Tyres", "Odometer", "Other"];
@@ -18,7 +31,7 @@ const toLocal = (iso: unknown) => {
 const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
 const num = (v: string) => (v === "" ? null : Number(v));
 
-export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaws }: { lot: Row | null; priv: Row | null; photos: Row[]; flaws: Row[] }) {
+export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaws, seller }: { lot: Row | null; priv: Row | null; photos: Row[]; flaws: Row[]; seller?: SellerInfo }) {
   const router = useRouter();
   const db = supabaseBrowser();
   const [f, setF] = useState<Row>({
@@ -38,9 +51,13 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
   function payload(extra: Row = {}) {
     const out: Row = {};
-    const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at"];
+    const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
+      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
-    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
+    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
+    for (const k of ["stolen_clear", "service_books"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
+    out.write_off_status = f.write_off_status || "unknown";
+    if (out.vin) out.vin = String(out.vin).toUpperCase().replace(/\s/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
     out.featured = f.featured === true || f.featured === "true";
     out.updated_at = new Date().toISOString();
@@ -59,7 +76,12 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       lotId = data.id as number;
     } else {
       const { error } = await db.from("lots").update(body).eq("id", lotId);
-      if (error) { setBusy(false); setMsg({ kind: "bad", text: error.message }); return null; }
+      if (error) {
+        setBusy(false);
+        const ready = error.message.includes("not_ready:") ? `Not ready to publish: ${error.message.split("not_ready:")[1]}.` : error.message;
+        setMsg({ kind: "bad", text: ready });
+        return null;
+      }
     }
     const privBody = { lot_id: lotId, reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null };
     const { error: pe } = await db.from("lot_private").upsert(privBody);
@@ -67,13 +89,14 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     if (pe) { setMsg({ kind: "bad", text: pe.message }); return null; }
     setF({ ...f, ...extra });
     setMsg({ kind: "ok", text: okText });
+    fetch("/api/revalidate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId }) }).catch(() => {});
     if (!id) router.replace(`/admin/lots/${lotId}`);
     else router.refresh();
     return lotId;
   }
 
   async function publish() {
-    const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"]].filter(([k]) => !f[k]).map(([, l]) => l);
+    const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"]].filter(([k]) => !f[k]).map(([, l]) => l);
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
     if (new Date(String(f.ends_at)).getTime() < Date.now() + 3600000) { setMsg({ kind: "bad", text: "The end time must be at least an hour away." }); return; }
     if (!photos.length && !confirm("This vehicle has no photos yet. Publish anyway?")) return;
@@ -184,6 +207,27 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Facts &amp; checks</h2>
+        <p className="hint">These are the facts buyers can claim on (the ACCC fined Grays $10m for listings with the wrong year, transmission and missing damage). Check them against the rego papers and the PPSR certificate. Required before publishing.</p>
+        <div className="grid3">{inp("vin", "VIN", { placeholder: "17 characters" })}{inp("rego_plate", "Rego plate")}{sel("rego_state", "Rego state", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}</div>
+        <div className="grid3">
+          <label className="field"><span>Rego expiry</span><input className="input" type="date" value={String(f.rego_expiry || "")} onChange={set("rego_expiry")} /></label>
+          {inp("build_date", "Build date", { placeholder: "03/2009" })}{inp("compliance_date", "Compliance date", { placeholder: "05/2009" })}
+        </div>
+        <div className="grid3">
+          {sel("write_off_status", "Write-off status (PPSR)", [["unknown", "Not checked yet"], ["none", "Not written off"], ["repairable", "Repairable write-off"], ["statutory", "Statutory write-off"]])}
+          <label className="field"><span>Stolen check (PPSR)</span><select className="input" value={f.stolen_clear == null ? "" : String(f.stolen_clear)} onChange={(e) => setF({ ...f, stolen_clear: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Not checked</option><option value="true">Not recorded as stolen</option><option value="false">Recorded as stolen: DO NOT LIST</option></select></label>
+          {inp("gvm_kg", "GVM (kg, trucks)", { inputMode: "numeric" })}
+        </div>
+        <div className="grid3">
+          {inp("ppsr_cert_no", "PPSR certificate number")}
+          <label className="field"><span>PPSR searched on</span><input className="input" type="date" value={f.ppsr_checked_at ? String(f.ppsr_checked_at).slice(0, 10) : ""} onChange={(e) => setF({ ...f, ppsr_checked_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
+          <label className="field"><span>Service books</span><select className="input" value={f.service_books == null ? "" : String(f.service_books)} onChange={(e) => setF({ ...f, service_books: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label>
+        </div>
+        {inp("video_url", "Walkaround / cold-start video link (optional)", { placeholder: "https://…" })}
+      </div>
+
+      <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Story</h2>
         {area("take", "Tyrebiter's take", "Two or three sentences that make someone want it. Opinion, not facts about condition.")}
         {area("owner_note", "From the owner", "In the owner's words, with their permission.")}
@@ -258,6 +302,35 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Seller (private)</h2>
         <p className="hint">Never shown on the site. The address is sent to buyers only when you confirm an inspection or a collection.</p>
+        {id && seller && (
+          <div className="soft" style={{ gap: 8 }}>
+            <b>Seller onboarding{seller.requireChecks ? " (required before publishing)" : " (checks switched off in settings)"}</b>
+            {([
+              [!!seller.agreement, seller.agreement ? `Agreement signed by ${seller.agreement.signed_name}, ${new Date(seller.agreement.signed_at).toLocaleString("en-AU")} (version ${seller.agreement.version})` : "Seller agency agreement not signed yet"],
+              [seller.idVerified, seller.idVerified ? `Seller ID verified (${seller.sellerName || ""})` : "Seller ID not verified"],
+              [!!seller.ownershipCheckedAt, seller.ownershipCheckedAt ? `Ownership papers checked ${new Date(seller.ownershipCheckedAt).toLocaleDateString("en-AU")}` : "Ownership papers not checked"],
+              [!!f.vin && !!f.ppsr_checked_at, f.vin && f.ppsr_checked_at ? "VIN and PPSR recorded" : "VIN and PPSR search needed"],
+              [!!seller.bank?.confirmed_at, seller.bank ? (seller.bank.confirmed_at ? "Bank details confirmed by phone" : "Bank details given, not yet confirmed by phone (needed before payout)") : "No bank details yet"],
+            ] as [boolean, string][]).map(([ok, t]) => <span key={t}>{ok ? "✅" : "⬜️"} {t}</span>)}
+            {seller.inviteUrl && !seller.agreement && (
+              <span className="pill-row" style={{ alignItems: "center" }}>
+                <input className="input" readOnly value={seller.inviteUrl} style={{ height: 38, fontSize: 13, flex: 1, minWidth: 200 }} onFocus={(e) => e.currentTarget.select()} />
+                <AdminAction action="send-seller-link" payload={{ lotId: id }} label="Text + email it to the seller" tone="blue" />
+              </span>
+            )}
+            {seller.docs.length > 0 && <span>Ownership papers: {seller.docs.map((d, i) => d.url ? <a key={d.path} className="blue" href={d.url} target="_blank" rel="noreferrer" style={{ marginRight: 10 }}>Document {i + 1}</a> : null)}</span>}
+            {seller.agreement && !seller.ownershipCheckedAt && <AdminAction action="ownership-checked" payload={{ lotId: id }} label="Papers match the seller and VIN" input={{ name: "note", placeholder: "e.g. QLD rego cert, name matches ID" }} tone="blue" />}
+            {seller.bank && !seller.bank.confirmed_at && seller.sellerId && <span>Bank: {seller.bank.account_name} · BSB {seller.bank.bsb} · {seller.bank.account_number} <AdminAction action="bank-confirmed" payload={{ sellerId: seller.sellerId }} label="Confirmed by phone" confirmText="You phoned the seller and they read back these details?" tone="soft" /></span>}
+            {seller.agreement && (
+              <details><summary style={{ cursor: "pointer", fontWeight: 700 }}>What the seller declared</summary>
+                <div className="rows">{Object.entries(seller.agreement.disclosures || {}).filter(([, v]) => v !== "" && v != null).map(([k, v]) => <div key={k}><span className="muted">{k.replace(/_/g, " ")}</span><b>{String(v)}</b></div>)}
+                  <div><span className="muted">GST registered</span><b>{seller.agreement.gst_registered ? `Yes, ABN ${seller.agreement.abn}` : "No"}</b></div>
+                  <div><span className="muted">Owner type</span><b>{seller.agreement.owner_type}</b></div>
+                  <div><span className="muted">Reserve at signing</span><b>{seller.agreement.reserve_price ?? "None"}</b></div></div>
+              </details>
+            )}
+          </div>
+        )}
         <div className="grid3">
           <label className="field"><span>Name</span><input className="input" value={(p.seller_name as string) ?? ""} onChange={setPriv("seller_name")} /></label>
           <label className="field"><span>Phone</span><input className="input" value={(p.seller_phone as string) ?? ""} onChange={setPriv("seller_phone")} /></label>

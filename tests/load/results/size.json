@@ -1,0 +1,104 @@
+{
+  "SIZE": {
+    "USERS": 1000000,
+    "VERIFIED": 600000,
+    "LOTS": 60000,
+    "LIVE": 3000,
+    "WATCH": 3000000,
+    "SEARCHES": 250000,
+    "NOTIFICATIONS": 3000000
+  },
+  "tables": [
+    {
+      "relname": "notifications",
+      "rows": "3000010",
+      "size": "620 MB"
+    },
+    {
+      "relname": "watchlist",
+      "rows": "2999578",
+      "size": "344 MB"
+    },
+    {
+      "relname": "bids",
+      "rows": "1130000",
+      "size": "153 MB"
+    },
+    {
+      "relname": "max_bids",
+      "rows": "1130000",
+      "size": "139 MB"
+    },
+    {
+      "relname": "users",
+      "rows": "1000001",
+      "size": "103 MB"
+    },
+    {
+      "relname": "profiles",
+      "rows": "999986",
+      "size": "440 MB"
+    },
+    {
+      "relname": "lot_photos",
+      "rows": "720000",
+      "size": "87 MB"
+    },
+    {
+      "relname": "saved_searches",
+      "rows": "250000",
+      "size": "45 MB"
+    },
+    {
+      "relname": "lot_flaws",
+      "rows": "180000",
+      "size": "21 MB"
+    },
+    {
+      "relname": "appraisals",
+      "rows": "60000",
+      "size": "13 MB"
+    },
+    {
+      "relname": "lots",
+      "rows": "60000",
+      "size": "42 MB"
+    },
+    {
+      "relname": "lot_private",
+      "rows": "60000",
+      "size": "7224 kB"
+    },
+    {
+      "relname": "quote_requests",
+      "rows": "60000",
+      "size": "4448 kB"
+    },
+    {
+      "relname": "invoices",
+      "rows": "44880",
+      "size": "23 MB"
+    },
+    {
+      "relname": "inspections",
+      "rows": "30000",
+      "size": "4672 kB"
+    },
+    {
+      "relname": "reports",
+      "rows": "10000",
+      "size": "768 kB"
+    },
+    {
+      "relname": "offers",
+      "rows": "4000",
+      "size": "576 kB"
+    },
+    {
+      "relname": "settings",
+      "rows": "2",
+      "size": "64 kB"
+    }
+  ],
+  "db": "2055 MB"
+}

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession, missingSteps } from "@/lib/auth";
 import { Tick } from "@/components/CarArt";
 import { NotifySettings } from "@/components/NotifySettings";
+import { AccountExtras } from "./AccountExtras";
 import { maskMobile, money, dateLong } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Your account" };
@@ -36,7 +37,8 @@ export default async function Account() {
       <div className="acctgrid">
         <nav className="side-nav" aria-label="Account">
           <span className="h">Buying</span><Link href="/watchlist">Watchlist</Link><Link href="/watchlist?f=winning">My bids</Link>
-          <span className="h">Account</span><Link href="/account" className="on">Account &amp; verification</Link><Link href="/account#invoices">Invoices</Link><Link href="/terms">Terms of sale</Link>
+          <span className="h">Account</span><Link href="/account" className="on">Account &amp; verification</Link><Link href="/account#invoices">Invoices</Link><Link href="/account/notifications">Notifications{profile.unread ? <span>{profile.unread}</span> : null}</Link><Link href="/terms">Terms of sale</Link>
+          {profile.is_seller && <><span className="h">Selling</span><Link href="/sell/dashboard">My vehicles for sale</Link></>}
           {profile.role === "admin" && <><span className="h">Tyrebiter</span><Link href="/admin">Admin</Link></>}
         </nav>
         <div style={{ display: "flex", flexDirection: "column", gap: 40, maxWidth: 860 }}>
@@ -71,6 +73,8 @@ export default async function Account() {
           </div>
 
           <NotifySettings initial={profile.notify} />
+
+          <AccountExtras company={profile.company_name || ""} abn={profile.abn || ""} email={user.email} />
 
           <div>
             <h2 className="d3" style={{ fontSize: 36, marginBottom: 12 }}>Selling.</h2>

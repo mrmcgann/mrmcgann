@@ -4,17 +4,21 @@ import { toE164 } from "@/lib/format";
 
 const twilioAuth = () => "Basic " + Buffer.from(`${env.twilioSid}:${env.twilioToken}`).toString("base64");
 
-export async function sendSms(to: string, body: string) {
+export async function sendSms(to: string, body: string): Promise<{ ok: boolean; status: number; error?: string; test?: boolean }> {
   if (!has.twilioSms) {
     console.log(`[sms:test] to ${to}: ${body}`);
-    return { ok: true, test: true };
+    return { ok: true, status: 200, test: true };
   }
+  // A Messaging Service (sender pool, registered "Tyrebiter" sender ID) is preferred over a single number.
+  const params: Record<string, string> = { To: toE164(to), Body: body };
+  if (env.twilioMessagingService) params.MessagingServiceSid = env.twilioMessagingService;
+  else params.From = env.twilioFrom;
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.twilioSid}/Messages.json`, {
     method: "POST",
     headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ To: toE164(to), From: env.twilioFrom, Body: body }),
+    body: new URLSearchParams(params),
   });
-  return { ok: res.ok, test: false };
+  return { ok: res.ok, status: res.status, error: res.ok ? undefined : (await res.text()).slice(0, 300) };
 }
 
 // Mobile verification via Twilio Verify. In test mode the code is always 123456.

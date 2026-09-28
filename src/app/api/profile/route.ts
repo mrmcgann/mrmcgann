@@ -1,15 +1,17 @@
+import { currentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { json, fail } from "@/lib/api";
 import { STATES } from "@/lib/grades";
+import { acceptCurrentTerms } from "@/lib/terms";
 
 export async function POST(req: Request) {
   const b = await req.json();
   const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
+  const user = await currentUser(db);
   if (!user) return fail("Sign in first.", 401);
 
   if (b.terms) {
-    await db.from("profiles").update({ terms_accepted_at: new Date().toISOString() }).eq("id", user.id);
+    await acceptCurrentTerms(user.id);
     return json({ ok: true });
   }
 

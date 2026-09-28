@@ -1,72 +1,79 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { chargeInvoice } from "@/lib/charges";
-import { notify } from "@/lib/notify";
-import { searchLots } from "@/lib/data";
-import { env } from "@/lib/env";
+import { processCharges } from "@/lib/charges";
+import { drainOutbox } from "@/lib/outbox";
+import { authorised } from "@/lib/cron";
 import { money, dateLong } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-// Runs every minute: closes auctions, takes payment, sends alerts.
+// The auction clock. Runs every minute. Every step works in batches and is safe
+// to run twice at once (rows are locked and skipped), so a slow minute never
+// double-closes an auction, double-charges a card or double-sends an alert.
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const qs = new URL(req.url).searchParams.get("secret");
-  if (!env.cronSecret || (auth !== `Bearer ${env.cronSecret}` && qs !== env.cronSecret)) {
-    return new Response("Unauthorised", { status: 401 });
-  }
+  if (!authorised(req)) return new Response("Unauthorised", { status: 401 });
   const db = supabaseAdmin();
-  const summary: Record<string, number> = {};
+  const started = Date.now();
+  const left = () => 280_000 - (Date.now() - started);
+  const s: Record<string, number> = {};
 
-  // 1. Close auctions whose time is up
-  const { data: closed } = await db.rpc("close_due_lots");
-  summary.closed = Number(closed || 0);
-
-  // 2. Charge new invoices straight away
-  const { data: pending } = await db.from("invoices").select("id").eq("status", "pending_charge").limit(50);
-  for (const inv of pending || []) await chargeInvoice(inv.id);
-  summary.charged = pending?.length || 0;
-
-  // 3. Tell people about referrals and offer periods
-  const { data: changed } = await db.from("lots").select("id, title, status, leader_id, current_bid, decision_by, notified_status")
-    .in("status", ["referred", "offers", "passed"]).limit(100);
-  for (const l of changed || []) {
-    if (l.notified_status === l.status) continue;
-    if (l.status === "referred" && l.leader_id) {
-      await notify(l.leader_id, "account", `Your bid on the ${l.title} is with the seller`,
-        `Bidding ended below the reserve. Your bid of ${money(l.current_bid)} has gone to the seller, who has until ${dateLong(l.decision_by)} to accept. Your bid stays binding until then.`, `/lot/${l.id}`);
-    }
-    if (l.status === "offers") {
-      const { data: watchers } = await db.from("watchlist").select("user_id").eq("lot_id", l.id);
-      for (const w of watchers || []) {
-        await notify(w.user_id, "ending", `Make an offer on the ${l.title}`, `The auction closed below the reserve. You can make an offer until ${dateLong(l.decision_by)}.`, `/lot/${l.id}`);
-      }
-    }
-    await db.from("lots").update({ notified_status: l.status }).eq("id", l.id);
+  // 1. Close auctions whose time is up (500 per pass)
+  s.closed = 0;
+  for (let n = 1; n > 0 && left() > 200_000;) {
+    const { data } = await db.rpc("close_due_lots", { p_limit: 500 });
+    n = Number(data || 0);
+    s.closed += n;
   }
 
-  // 4. One-hour reminders for watched lots
-  const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  const { data: due } = await db.from("watchlist").select("user_id, lot_id, lots!inner(title, status, ends_at)")
-    .eq("remind", true).is("reminded_at", null).eq("lots.status", "live").lte("lots.ends_at", soon).gt("lots.ends_at", new Date().toISOString()).limit(200);
-  for (const w of (due || []) as unknown as { user_id: string; lot_id: number; lots: { title: string } }[]) {
-    await notify(w.user_id, "ending", `Ending within the hour: ${w.lots.title}`, "A vehicle on your watchlist ends within the hour.", `/lot/${w.lot_id}`);
-    await db.from("watchlist").update({ reminded_at: new Date().toISOString() }).eq("user_id", w.user_id).eq("lot_id", w.lot_id);
-  }
-  summary.reminders = due?.length || 0;
+  // 2. Take payment for new invoices straight away
+  s.charged = await processCharges(Math.min(90_000, left() - 150_000));
 
-  // 5. Saved-search matches (checked every 15 minutes)
+  // 3. Referral / offers / sold / passed alerts (buyers, watchers, losing bidders, sellers)
+  s.statusNotices = 0;
+  for (let n = 1; n > 0 && left() > 120_000;) {
+    const { data } = await db.rpc("queue_status_notices", { p_limit: 200 });
+    n = Number(data || 0);
+    s.statusNotices += n;
+  }
+
+  // 4. One-hour reminders for watched vehicles
+  const { data: rem } = await db.rpc("queue_ending_reminders", { p_limit: 50000 });
+  s.reminders = Number(rem || 0);
+
+  // 5. Saved-search alerts (every 15 minutes)
   if (new Date().getMinutes() % 15 === 0) {
-    const { data: searches } = await db.from("saved_searches").select("*").limit(500);
-    for (const s of searches || []) {
-      const since = s.last_notified_at || s.created_at;
-      const lots = (await searchLots(db, s.query)).filter((l) => (l.starts_at || l.created_at) > since);
-      if (lots.length) {
-        await notify(s.user_id, "searches", `${lots.length} new match${lots.length > 1 ? "es" : ""} for “${s.label}”`, lots.map((l) => `${l.title} · ${money(l.current_bid)}`).join("\n"), "/watchlist#searches");
-      }
-      await db.from("saved_searches").update({ last_notified_at: new Date().toISOString() }).eq("id", s.id);
-    }
+    const { data } = await db.rpc("queue_search_alerts");
+    s.searchAlerts = Number(data || 0);
   }
 
-  return Response.json({ ok: true, ...summary });
+  // 6. Seller payouts that are now ready (collected, claim window closed, no claim)
+  const { data: ready } = await db.rpc("release_payouts");
+  s.payoutsReady = Number(ready || 0);
+
+  // 7. Reminders: balance due tomorrow; collection due tomorrow; storage started
+  const soon = new Date(Date.now() + 26 * 3600_000).toISOString();
+  const { data: balances } = await db.from("invoices").select("id, ref, buyer_id, balance_due, due_at, lots(title)")
+    .eq("status", "deposit_paid").lte("due_at", soon).limit(500);
+  for (const i of (balances || []) as unknown as { id: string; ref: string; buyer_id: string; balance_due: number; due_at: string; lots: { title: string } }[]) {
+    await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account", p_title: `Balance due for the ${i.lots?.title}`,
+      p_body: `Please pay the ${money(i.balance_due, true)} balance by ${dateLong(i.due_at)}, reference ${i.ref}. Details are on your invoice. We never change our bank details by email.`,
+      p_link: `/account/invoices/${i.id}`, p_dedupe: `balance-due:${i.id}`, p_meta: {}, p_expires: null });
+  }
+  const { data: collect } = await db.from("invoices").select("id, buyer_id, collect_by, lots(title)")
+    .eq("status", "paid").is("collected_at", null).not("collect_by", "is", null).lte("collect_by", soon).limit(500);
+  const today = new Date().toISOString().slice(0, 10);
+  for (const i of (collect || []) as unknown as { id: string; buyer_id: string; collect_by: string; lots: { title: string } }[]) {
+    const overdue = new Date(i.collect_by).getTime() < Date.now();
+    await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account",
+      p_title: overdue ? `Storage is now being charged for the ${i.lots?.title}` : `Collect the ${i.lots?.title} by ${dateLong(i.collect_by)}`,
+      p_body: overdue ? "The collection window has passed, so daily storage now applies (see your invoice). Book a collection time today." : "Book a collection time from your invoice if you haven't already.",
+      p_link: `/account/invoices/${i.id}`, p_dedupe: overdue ? `storage:${i.id}:${today}` : `collect-soon:${i.id}`, p_meta: {}, p_expires: null });
+  }
+
+  // 8. Use the rest of the minute to send messages (the sender job also runs every minute)
+  const out = await drainOutbox({ max: 5000, deadlineMs: Math.max(0, Math.min(40_000, left() - 20_000)) });
+  s.sent = out.sent;
+  s.sendFailed = out.failed;
+  s.ms = Date.now() - started;
+  return Response.json({ ok: true, ...s });
 }

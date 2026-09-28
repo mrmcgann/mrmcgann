@@ -1,0 +1,422 @@
+[
+  {
+    "name": "home: ending soon",
+    "who": "anon",
+    "n": 25,
+    "p50": 0.93,
+    "p95": 2.77,
+    "p99": 3.19,
+    "max": 3.19,
+    "error": null
+  },
+  {
+    "name": "home: featured",
+    "who": "anon",
+    "n": 25,
+    "p50": 2.96,
+    "p95": 4.08,
+    "p99": 5.81,
+    "max": 5.81,
+    "error": null
+  },
+  {
+    "name": "auctions: all live",
+    "who": "anon",
+    "n": 25,
+    "p50": 1.49,
+    "p95": 2.35,
+    "p99": 2.74,
+    "max": 2.74,
+    "error": null
+  },
+  {
+    "name": "auctions: utes in QLD under $20k",
+    "who": "anon",
+    "n": 25,
+    "p50": 2.09,
+    "p95": 5.35,
+    "p99": 5.6,
+    "max": 5.6,
+    "error": null
+  },
+  {
+    "name": "auctions: search \"hilux\"",
+    "who": "anon",
+    "n": 25,
+    "p50": 11.85,
+    "p95": 18,
+    "p99": 22.69,
+    "max": 22.69,
+    "error": null
+  },
+  {
+    "name": "auctions: past results",
+    "who": "anon",
+    "n": 25,
+    "p50": 69.29,
+    "p95": 95.55,
+    "p99": 97.1,
+    "max": 97.1,
+    "error": null
+  },
+  {
+    "name": "auctions: cover photos for 60 cards",
+    "who": "anon",
+    "n": 25,
+    "p50": 107.65,
+    "p95": 161.45,
+    "p99": 310.86,
+    "max": 310.86,
+    "error": null
+  },
+  {
+    "name": "lot page: vehicle",
+    "who": "anon",
+    "n": 25,
+    "p50": 0.4,
+    "p95": 0.69,
+    "p99": 0.7,
+    "max": 0.7,
+    "error": null
+  },
+  {
+    "name": "lot page: photos",
+    "who": "anon",
+    "n": 25,
+    "p50": 75.18,
+    "p95": 93.16,
+    "p99": 122.92,
+    "max": 122.92,
+    "error": null
+  },
+  {
+    "name": "lot page: flaws",
+    "who": "anon",
+    "n": 25,
+    "p50": 49.24,
+    "p95": 53.22,
+    "p99": 53.66,
+    "max": 53.66,
+    "error": null
+  },
+  {
+    "name": "lot page: bid history",
+    "who": "anon",
+    "n": 25,
+    "p50": 0.45,
+    "p95": 0.67,
+    "p99": 1.92,
+    "max": 1.92,
+    "error": null
+  },
+  {
+    "name": "lot page: similar vehicles",
+    "who": "anon",
+    "n": 25,
+    "p50": 0.42,
+    "p95": 5.98,
+    "p99": 6.45,
+    "max": 6.45,
+    "error": null
+  },
+  {
+    "name": "fees",
+    "who": "anon",
+    "n": 25,
+    "p50": 0.14,
+    "p95": 0.28,
+    "p99": 0.64,
+    "max": 0.64,
+    "error": null
+  },
+  {
+    "name": "member: profile",
+    "who": "user",
+    "n": 25,
+    "p50": 0.34,
+    "p95": 1.24,
+    "p99": 1.3,
+    "max": 1.3,
+    "error": null
+  },
+  {
+    "name": "member: watchlist count (header)",
+    "who": "user",
+    "n": 25,
+    "p50": 0.26,
+    "p95": 0.48,
+    "p99": 0.7,
+    "max": 0.7,
+    "error": null
+  },
+  {
+    "name": "member: watched ids",
+    "who": "user",
+    "n": 25,
+    "p50": 0.18,
+    "p95": 0.33,
+    "p99": 0.35,
+    "max": 0.35,
+    "error": null
+  },
+  {
+    "name": "member: my position on a lot",
+    "who": "user",
+    "n": 25,
+    "p50": 0.31,
+    "p95": 0.43,
+    "p99": 0.65,
+    "max": 0.65,
+    "error": null
+  },
+  {
+    "name": "member: my invoice for a lot",
+    "who": "user",
+    "n": 25,
+    "p50": 6.59,
+    "p95": 14.89,
+    "p99": 30.55,
+    "max": 30.55,
+    "error": null
+  },
+  {
+    "name": "member: my offer on a lot",
+    "who": "user",
+    "n": 25,
+    "p50": 0.43,
+    "p95": 0.56,
+    "p99": 0.86,
+    "max": 0.86,
+    "error": null
+  },
+  {
+    "name": "member: my inspection",
+    "who": "user",
+    "n": 25,
+    "p50": 2.38,
+    "p95": 3.07,
+    "p99": 3.2,
+    "max": 3.2,
+    "error": null
+  },
+  {
+    "name": "member: watchlist page",
+    "who": "user",
+    "n": 25,
+    "p50": 0.39,
+    "p95": 0.68,
+    "p99": 0.74,
+    "max": 0.74,
+    "error": null
+  },
+  {
+    "name": "member: my maximum bids",
+    "who": "user",
+    "n": 25,
+    "p50": 25.17,
+    "p95": 26.52,
+    "p99": 56.01,
+    "max": 56.01,
+    "error": null
+  },
+  {
+    "name": "member: saved searches",
+    "who": "user",
+    "n": 25,
+    "p50": 15.91,
+    "p95": 20.18,
+    "p99": 38.24,
+    "max": 38.24,
+    "error": null
+  },
+  {
+    "name": "member: invoices",
+    "who": "user",
+    "n": 25,
+    "p50": 4.43,
+    "p95": 7.89,
+    "p99": 8.15,
+    "max": 8.15,
+    "error": null
+  },
+  {
+    "name": "member: notifications",
+    "who": "user",
+    "n": 25,
+    "p50": 223.91,
+    "p95": 243.53,
+    "p99": 266.32,
+    "max": 266.32,
+    "error": null
+  },
+  {
+    "name": "member: bid history (own bids marked)",
+    "who": "user",
+    "n": 25,
+    "p50": 0.65,
+    "p95": 1.75,
+    "p99": 2.09,
+    "max": 2.09,
+    "error": null
+  },
+  {
+    "name": "admin: dashboard counts (11)",
+    "who": "service",
+    "n": 25,
+    "p50": 27.36,
+    "p95": 42.2,
+    "p99": 47.14,
+    "max": 47.14,
+    "error": null
+  },
+  {
+    "name": "admin: newest members",
+    "who": "service",
+    "n": 25,
+    "p50": 159.5,
+    "p95": 191.24,
+    "p99": 201.98,
+    "max": 201.98,
+    "error": null
+  },
+  {
+    "name": "admin: find a member",
+    "who": "service",
+    "n": 25,
+    "p50": 746.54,
+    "p95": 796.3,
+    "p99": 820.42,
+    "max": 820.42,
+    "error": null
+  },
+  {
+    "name": "admin: invoices",
+    "who": "service",
+    "n": 25,
+    "p50": 11.16,
+    "p95": 16.56,
+    "p99": 16.81,
+    "max": 16.81,
+    "error": null
+  },
+  {
+    "name": "admin: failed payments",
+    "who": "service",
+    "n": 25,
+    "p50": 8.99,
+    "p95": 12.2,
+    "p99": 12.46,
+    "max": 12.46,
+    "error": null
+  },
+  {
+    "name": "admin: vehicles",
+    "who": "service",
+    "n": 25,
+    "p50": 34.49,
+    "p95": 46.74,
+    "p99": 49.55,
+    "max": 49.55,
+    "error": null
+  },
+  {
+    "name": "admin: find a vehicle",
+    "who": "service",
+    "n": 25,
+    "p50": 40.21,
+    "p95": 57.76,
+    "p99": 60.06,
+    "max": 60.06,
+    "error": null
+  },
+  {
+    "name": "admin: inspections",
+    "who": "service",
+    "n": 25,
+    "p50": 4.87,
+    "p95": 6.17,
+    "p99": 11.81,
+    "max": 11.81,
+    "error": null
+  },
+  {
+    "name": "admin: appraisals",
+    "who": "service",
+    "n": 25,
+    "p50": 19.42,
+    "p95": 28.03,
+    "p99": 28.37,
+    "max": 28.37,
+    "error": null
+  },
+  {
+    "name": "admin: referrals & offers",
+    "who": "service",
+    "n": 25,
+    "p50": 0.83,
+    "p95": 1.27,
+    "p99": 1.35,
+    "max": 1.35,
+    "error": null
+  },
+  {
+    "name": "admin (editor): vehicles via security rules",
+    "who": "admin",
+    "n": 25,
+    "p50": 74.4,
+    "p95": 94.24,
+    "p99": 102.02,
+    "max": 102.02,
+    "error": null
+  },
+  {
+    "name": "admin (editor): photos via security rules",
+    "who": "admin",
+    "n": 25,
+    "p50": 70.22,
+    "p95": 96.3,
+    "p99": 124.94,
+    "max": 124.94,
+    "error": null
+  },
+  {
+    "name": "clock: find auctions to close",
+    "who": "service",
+    "n": 25,
+    "p50": 0.13,
+    "p95": 0.49,
+    "p99": 1.32,
+    "max": 1.32,
+    "error": null
+  },
+  {
+    "name": "clock: invoices to charge",
+    "who": "service",
+    "n": 25,
+    "p50": 5.51,
+    "p95": 6.45,
+    "p99": 6.56,
+    "max": 6.56,
+    "error": null
+  },
+  {
+    "name": "clock: watchlist reminders",
+    "who": "service",
+    "n": 25,
+    "p50": 25.7,
+    "p95": 36.11,
+    "p99": 44.28,
+    "max": 44.28,
+    "error": null
+  },
+  {
+    "name": "clock: saved-search sweep (1 search)",
+    "who": "service",
+    "n": 25,
+    "p50": 2.58,
+    "p95": 4.13,
+    "p99": 4.61,
+    "max": 4.61,
+    "error": null
+  }
+]

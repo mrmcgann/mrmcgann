@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getCovers } from "@/lib/data";
 import type { Lot } from "@/lib/types";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
@@ -14,22 +13,25 @@ export const metadata: Metadata = { title: "Watchlist" };
 export const dynamic = "force-dynamic";
 
 type Row = { lot_id: number; remind: boolean; lots: Lot };
-const TABS = [["all", "All"], ["soon", "Ending today"], ["winning", "Winning"], ["outbid", "Outbid"], ["won", "Won"]];
+const TABS = [["all", "All"], ["soon", "Ending today"], ["winning", "Winning"], ["outbid", "Outbid"], ["won", "Won"], ["lost", "Didn't win"]];
 
 export default async function Watchlist({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   const { f = "all" } = await searchParams;
   const { supabase, user } = await getSession();
   if (!user) redirect("/signin?next=/watchlist");
   const [{ data: rows }, { data: maxes }, { data: searches }] = await Promise.all([
-    supabase.from("watchlist").select("lot_id, remind, lots(*)").eq("user_id", user.id),
-    supabase.from("max_bids").select("lot_id, max_amount").eq("bidder_id", user.id),
+    supabase.from("watchlist").select("lot_id, remind, lots(*)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("max_bids").select("lot_id, max_amount, lots(*)").eq("bidder_id", user.id).order("updated_at", { ascending: false }).limit(300),
     supabase.from("saved_searches").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
   const myMax = new Map((maxes || []).map((m: { lot_id: number; max_amount: number }) => [m.lot_id, m.max_amount]));
   const all = ((rows || []) as unknown as Row[]).filter((r) => r.lots);
+  // Every vehicle you've bid on shows here, even if you've stopped watching it
+  const seen = new Set(all.map((r) => r.lot_id));
+  for (const m of (maxes || []) as unknown as { lot_id: number; lots: Lot }[]) if (m.lots && !seen.has(m.lot_id)) all.push({ lot_id: m.lot_id, remind: false, lots: m.lots });
   const status = (l: Lot) => {
     const mx = myMax.get(l.id);
-    if (l.status === "sold") return l.winner_id === user.id ? { k: "won", t: "Won", c: "var(--mint)" } : { k: "lost", t: "Sold", c: "var(--panel2)" };
+    if (l.status === "sold") return l.winner_id === user.id ? { k: "won", t: "Won", c: "var(--mint)" } : { k: mx != null ? "lost" : "ended", t: mx != null ? "Didn't win" : "Sold", c: "var(--panel2)" };
     if (l.status === "referred") return l.leader_id === user.id ? { k: "referred", t: "Referred to seller", c: "var(--sun)" } : { k: "lost", t: "Referred", c: "var(--panel2)" };
     if (l.status === "offers") return { k: "offers", t: "Make an offer open", c: "var(--sun)" };
     if (l.status !== "live") return { k: "ended", t: "Ended", c: "var(--panel2)" };
@@ -38,10 +40,10 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   };
   const soon = (l: Lot) => l.status === "live" && l.ends_at && new Date(l.ends_at).getTime() - Date.now() < 86400000;
   const counts: Record<string, number> = { all: all.length, soon: all.filter((r) => soon(r.lots)).length };
-  ["winning", "outbid", "won"].forEach((k) => (counts[k] = all.filter((r) => status(r.lots).k === k).length));
+  ["winning", "outbid", "won", "lost"].forEach((k) => (counts[k] = all.filter((r) => status(r.lots).k === k).length));
   const list = all.filter((r) => f === "all" || (f === "soon" ? soon(r.lots) : status(r.lots).k === f))
     .sort((a, b) => new Date(a.lots.ends_at || 0).getTime() - new Date(b.lots.ends_at || 0).getTime());
-  const covers = await getCovers(supabase, list.map((r) => r.lots));
+  const covers = new Map(list.map((r) => [r.lots.id, r.lots.cover_path || undefined]));
   const colours = ["sun", "sky", "lime", "berry", "mint", "lilac"];
 
   return (
@@ -55,6 +57,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
           <span className="h">Account</span>
           <Link href="/account">Account &amp; verification</Link>
           <Link href="/account#invoices">Invoices</Link>
+          <Link href="/account/notifications">Notifications</Link>
         </nav>
         <div style={{ display: "flex", flexDirection: "column", gap: 28, minWidth: 0 }}>
           <h1 className="d2">Watchlist.</h1>

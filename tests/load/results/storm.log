@@ -1,0 +1,45 @@
+
+1. Sale day: 10,000 members, 150 connections, 60s, every page view hitting the database (no cache)
+   82,594 requests in 60s = 1374/s; 10,173 bids (169/s); faults: {}
+   browse auctions    p50 94.87 ms  p95 149.99 ms  p99 299.97 ms  (n=3572)
+   view vehicle       p50 93.19 ms  p95 147.22 ms  p99 218.56 ms  (n=16586)
+   read price         p50 93.07 ms  p95 144.03 ms  p99 212.2 ms  (n=10173)
+   watchlist page     p50 94.77 ms  p95 174.4 ms  p99 424.65 ms  (n=1809)
+   my position        p50 93.27 ms  p95 147.03 ms  p99 239.6 ms  (n=2590)
+   view photos        p50 93.1 ms  p95 145.11 ms  p99 198.17 ms  (n=16586)
+   header count       p50 93.69 ms  p95 166.78 ms  p99 371.06 ms  (n=2590)
+   view bid history   p50 92.21 ms  p95 139.53 ms  p99 193.73 ms  (n=16586)
+   watch              p50 100.9 ms  p95 367.73 ms  p99 1367.45 ms  (n=1929)
+   place bid          p50 106.55 ms  p95 315.9 ms  p99 1405.63 ms  (n=10173)
+
+2. Snipe: 2,000 bidders on lot 103000 in its last 30 seconds
+   233 bids accepted, 2792 refused as too low (normal), 0 fault types in 3.0s; p95 334.51 ms
+   final bid $137500.00, 300 bids, auction now ends 10.00 min after the last bid
+/home/claude/mrmcgann/node_modules/pg/lib/client.js:694
+          Error.captureStackTrace(err)
+                ^
+
+error: syntax error at or near "second"
+    at /home/claude/mrmcgann/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///home/claude/mrmcgann/tests/load/storm.mjs:136:20 {
+  length: 96,
+  severity: 'ERROR',
+  code: '42601',
+  detail: undefined,
+  hint: undefined,
+  position: '204',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'scan.l',
+  line: '1244',
+  routine: 'scanner_yyerror'
+}
+
+Node.js v22.22.2

@@ -1,27 +1,33 @@
 import "server-only";
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { sendSms } from "@/lib/sms";
-import { sendEmail } from "@/lib/email";
-import { env } from "@/lib/env";
+import { drainOutbox } from "@/lib/outbox";
 
-export type NotifyKind = "outbid" | "ending" | "won" | "searches" | "marketing" | "account";
+export type NotifyKind = "outbid" | "ending" | "won" | "searches" | "marketing" | "account" | "seller";
 
-// Records a notification and sends it by SMS/email according to the member's settings.
-// "account" messages (payments, inspections) always go out by both channels.
-export async function notify(userId: string, kind: NotifyKind, title: string, body: string, link?: string) {
-  const db = supabaseAdmin();
-  const { data: p } = await db.from("profiles").select("email, mobile, mobile_verified, notify").eq("id", userId).single();
-  if (!p) return;
-  const prefs = kind === "account" ? { sms: true, email: true } : p.notify?.[kind] || { sms: false, email: true };
-  const channels: string[] = [];
-  const url = link ? env.siteUrl + link : env.siteUrl;
-  if (prefs.sms && p.mobile && p.mobile_verified) {
-    await sendSms(p.mobile, `Tyrebiter: ${title}. ${url}`);
-    channels.push("sms");
+// Queues an alert (in-app + SMS/email per the member's settings) in the database,
+// then sends it straight after the response. If sending fails or the function
+// stops, the every-minute sender picks it up, so nothing is lost.
+export async function notify(userId: string, kind: NotifyKind, title: string, body: string, link?: string,
+  opts: { dedupe?: string; invoiceId?: string } = {}) {
+  await supabaseAdmin().rpc("queue_notice", {
+    p_user: userId, p_kind: kind, p_title: title, p_body: body, p_link: link || null,
+    p_dedupe: opts.dedupe || null, p_meta: opts.invoiceId ? { invoice_id: opts.invoiceId } : {}, p_expires: null,
+  });
+  kickOutbox();
+}
+
+export async function notifySeller(lotId: number, title: string, body: string, link: string, tag: string) {
+  await supabaseAdmin().rpc("queue_seller_notice", { p_lot: lotId, p_title: title, p_body: body, p_link: link, p_tag: tag });
+  kickOutbox();
+}
+
+// Send whatever is queued, after the response has gone (at most once every
+// 1.5 s per server instance, so a bidding frenzy doesn't flood the providers).
+export function kickOutbox() {
+  try {
+    after(() => drainOutbox({ max: 200, deadlineMs: 20_000, throttle: true }).then(() => undefined).catch(() => undefined));
+  } catch {
+    void drainOutbox({ max: 200, deadlineMs: 20_000, throttle: true }).catch(() => undefined);
   }
-  if (prefs.email && p.email) {
-    await sendEmail(p.email, title, `${body}\n\n${url}\n\nTyrebiter`);
-    channels.push("email");
-  }
-  await db.from("notifications").insert({ user_id: userId, kind, title, body, link, channels });
 }

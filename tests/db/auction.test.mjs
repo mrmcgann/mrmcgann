@@ -18,7 +18,7 @@ const ok = (name, cond, extra='') => { if (cond) pass++; else { failN++; fails.p
 const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-2222-222222222222', ADM: '33333333-3333-3333-3333-333333333333', NEW: '44444444-4444-4444-4444-444444444444' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-01' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -106,7 +106,7 @@ ok('10611 no bids, no reserve -> passed', st['10611']?.status === 'passed');
 r = await as('service', `select * from invoices where lot_id=10432`);
 const inv = r.rows?.[0];
 ok('invoice created pending charge', inv?.status === 'pending_charge' && inv.mode === 'card');
-ok('fees: 10% premium, 10% GST, $99 admin, 1.2% surcharge', Number(inv?.premium) === 320 && Number(inv?.gst) === 32 && Number(inv?.admin_fee) === 99 && Number(inv?.subtotal) === 3651 && Number(inv?.surcharge) === 43.81 && Number(inv?.total) === 3694.81, JSON.stringify(inv));
+ok('fees: 10% premium, 10% GST, $99 admin, no card surcharge (RBA ban from 1 Oct 2026)', Number(inv?.premium) === 320 && Number(inv?.gst) === 32 && Number(inv?.admin_fee) === 99 && Number(inv?.subtotal) === 3651 && Number(inv?.surcharge) === 0 && Number(inv?.total) === 3651, JSON.stringify(inv));
 r = await as('A', `select * from invoices`); ok("A cannot see B's invoice", !r.rows?.some((x) => x.buyer_id === U.B));
 r = await as('B', `select * from invoices`); ok('B sees own invoice', r.rows?.some((x) => Number(x.lot_id) === 10432));
 r = await as('B', `update invoices set status='paid'`); ok('member cannot mark own invoice paid', r.count === 0 || !!r.error);
@@ -114,7 +114,7 @@ r = await as('B', `update invoices set status='paid'`); ok('member cannot mark o
 // ---------- deposit tier, Buy Now ----------
 r = await as('A', `select buy_now(10633) id`); ok('Buy Now works for verified member', !!r.rows?.[0]?.id, r.error);
 r = await as('service', `select mode, card_amount, balance_due, total from invoices where lot_id=10633`);
-ok('$8,900 Buy Now -> $500 deposit + 1.2%', r.rows?.[0]?.mode === 'deposit' && Number(r.rows[0].card_amount) === 506 && Number(r.rows[0].balance_due) === 9478, JSON.stringify(r.rows));
+ok('$8,900 Buy Now -> $500 deposit, no surcharge', r.rows?.[0]?.mode === 'deposit' && Number(r.rows[0].card_amount) === 500 && Number(r.rows[0].balance_due) === 9478, JSON.stringify(r.rows));
 r = await as('B', `select buy_now(10633)`); ok('Buy Now only once', r.error?.includes('auction_closed'));
 r = await as('B', `select place_bid(10590, 60000) r`);
 r = await as('service', `select mode, card_amount from price_breakdown(60000) as t(mode text, card_amount numeric)`).catch(()=>({}));
@@ -152,6 +152,96 @@ r = await as('NEW', `select place_bid(10599, 6000)`); ok('suspended member canno
 r = await as('A', `insert into reports (lot_id,user_id,type) values (10599,'${U.A}','Suspicious bidding')`); ok('member can report', !r.error, r.error);
 r = await as('A', `select * from reports`); ok('member cannot read reports', r.rows?.length === 0);
 r = await as('A', `insert into quote_requests (lot_id,postcode,email) values (10599,'4000','a@x.au')`); ok('quotes inserted only via server', !!r.error || r.count === 0);
+
+// ---------- scale: live updates, queue, charging, rate limits ----------
+r = { rows: (await c.query(`select count(*)::int n from realtime.sent where topic='lot:10599'`)).rows }; ok('bids broadcast live updates on lot:<id>', r.rows?.[0]?.n > 0, JSON.stringify(r));
+r = await as('service', `select count(*)::int n from outbox where kind='outbid'`); ok('outbid alerts queued by the bidding engine', r.rows?.[0]?.n > 0);
+r = await as('A', `select * from outbox`); ok('members cannot read the message queue', r.rows?.length === 0 || !!r.error);
+r = await as('service', `select count(*)::int n from claim_invoice_charges(100)`); const firstClaim = r.rows?.[0]?.n;
+r = await as('service', `select count(*)::int n from claim_invoice_charges(100)`); ok('an invoice can only be claimed for charging once', firstClaim >= 1 && r.rows?.[0]?.n === 0, `${firstClaim} then ${r.rows?.[0]?.n}`);
+r = await as('service', `select hit_rate_limit('t:1', 2, 60) a, hit_rate_limit('t:1', 2, 60) b, hit_rate_limit('t:1', 2, 60) c`);
+ok('rate limit allows 2 then blocks', r.rows?.[0]?.a === true && r.rows[0].b === true && r.rows[0].c === false, JSON.stringify(r.rows));
+r = await as('anon', `select hit_rate_limit('t:2', 2, 60)`); ok('anon cannot touch rate limits', !!r.error);
+r = await as('A', `select me() m`); ok('me() returns own profile with counts', r.rows?.[0]?.m?.id === U.A && typeof r.rows[0].m.watch_count === 'number', JSON.stringify(r.rows?.[0]));
+r = await as('A', `select my_lot_state(10599) s`); ok('my_lot_state works', r.rows?.[0]?.s && 'my_max' in r.rows[0].s, JSON.stringify(r));
+r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on', r.rows?.length >= 1, r.error);
+
+// ---------- terms version ----------
+await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
+r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
+await c.query(`update profiles set terms_version='2026-10-01' where id='${U.A}'`);
+r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
+
+// ---------- seller agency agreement, publish gate, seller can't bid ----------
+const S = '55555555-5555-5555-5555-555555555555';
+U.S = S;
+await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-01', payment_method_id='pm_s' where id='${S}'`);
+r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
+await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
+r = await as('service', `select seller_invite from lot_private where lot_id=${SL}`); const invite = r.rows?.[0]?.seller_invite;
+ok('each listing gets a private seller link', /^[0-9a-f]{32}$/.test(invite || ''));
+r = await as('S', `select sign_seller_agreement('${S}','${invite}','Sam Seller',8000,'{}'::jsonb,false,null,'individual','{}','1.1.1.1','ua')`); ok('sellers cannot call the signing function directly', !!r.error);
+r = await as('service', `select sign_seller_agreement('${S}','${invite}','Sam Seller',8000,'{"keys":"2","write_off":"none","finance_amount":"3000","lender_name":"Big Bank","accident":"no"}'::jsonb,false,null,'individual','{}','1.1.1.1','ua') id`);
+ok('seller signs the agency agreement', !!r.rows?.[0]?.id, r.error);
+r = await as('service', `select l.seller_id, l.keys, l.disclosures, p.reserve_price, p.finance_owing from lots l join lot_private p on p.lot_id=l.id where l.id=${SL}`);
+ok('signing links the seller, sets reserve and finance payout', r.rows?.[0]?.seller_id === S && Number(r.rows[0].reserve_price) === 8000 && Number(r.rows[0].finance_owing) === 3000 && r.rows[0].keys === 2, JSON.stringify(r.rows));
+ok('finance amount stays private (not in public disclosures)', r.rows?.[0]?.disclosures && !('finance_amount' in r.rows[0].disclosures));
+r = await as('service', `select sign_seller_agreement('${U.B}','${invite}','Bob',1,'{}'::jsonb,false,null,'individual','{}','','') id`); ok("someone else can't take over a signed listing", r.error?.includes('invite_used'), r.error);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('still blocked until ownership is checked', r.error?.includes('ownership'), r.error);
+await as('ADM', `update lot_private set ownership_checked_at=now() where lot_id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('still blocked until VIN + PPSR', r.error?.includes('VIN'), r.error);
+await as('ADM', `update lots set vin='JTDBR32E720000000', ppsr_checked_at=now(), ppsr_cert_no='123' where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('publishes once every check is done', !r.error, r.error);
+r = await as('service', `select published_at is not null p from lots where id=${SL}`); ok('published time recorded', r.rows?.[0]?.p === true);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'live:${SL}%'`); ok('seller told their vehicle is live', r.rows?.[0]?.n >= 1);
+r = await as('S', `select place_bid(${SL}, 1000)`); ok("seller can't bid on their own vehicle", r.error?.includes('own_vehicle'), r.error);
+await c.query(`update profiles set mobile='0499999999' where id='${U.NEW}'`);
+r = await as('A', `select * from seller_agreements`); ok("buyers can't see seller agreements", r.rows?.length === 0);
+r = await as('S', `select * from seller_agreements`); ok('seller sees their own agreement', r.rows?.length === 1);
+await as('B', `select place_bid(${SL}, 4000) r`);
+r = await as('A', `select place_bid(${SL}, 5000) r`); ok('A bids below reserve', r.rows?.[0]?.r?.status === 'leading' && Number(r.rows[0].r.current_bid) === 4100, JSON.stringify(r));
+await c.query(`update lots set ends_at = now() - interval '1 second' where id=${SL}`);
+await as('service', `select close_due_lots()`);
+await as('service', `select queue_status_notices()`);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'seller-referred:${SL}%'`); ok('seller told a decision is needed', r.rows?.[0]?.n >= 1);
+r = await as('B', `select seller_decide(${SL}, 'accept_referral')`); ok('only the seller can decide', r.error?.includes('forbidden'), r.error);
+r = await as('S', `select seller_decide(${SL}, 'accept_referral') inv`); const SINV = r.rows?.[0]?.inv; ok('seller accepts the referred bid', !!SINV, r.error);
+r = await as('service', `select action, via from seller_decisions where lot_id=${SL}`); ok('seller decision logged', r.rows?.[0]?.action === 'accept_referral' && r.rows[0].via === 'portal');
+r = await as('service', `select count(*)::int n from lot_snapshots where lot_id=${SL}`); ok('listing frozen at the moment of sale', r.rows?.[0]?.n === 1);
+
+// ---------- payment -> payout; collection with release code; claims ----------
+await as('service', `update invoices set status='paid', paid_at=now() where id='${SINV}'`);
+r = await as('service', `select collect_by is not null c from invoices where id='${SINV}'`); ok('collection deadline set when paid', r.rows?.[0]?.c === true);
+r = await as('service', `select * from seller_payouts where invoice_id='${SINV}'`);
+ok('seller payout prepared (finance paid out first)', Number(r.rows?.[0]?.lender_payout) === 3000 && Number(r.rows[0].net_amount) === 1100 && r.rows[0].status === 'pending', JSON.stringify(r.rows));
+r = await as('A', `select * from seller_payouts`); ok("buyers can't see payouts", r.rows?.length === 0);
+r = await as('S', `select * from seller_payouts`); ok('seller sees their payout', r.rows?.length === 1);
+r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning') returning seller_token, release_code`);
+const tok = r.rows?.[0]?.seller_token, code = r.rows?.[0]?.release_code;
+ok('release code is 6 digits', /^\d{6}$/.test(code || ''));
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('no handover before the time is confirmed', r.error?.includes('not_confirmed'));
+await as('service', `update collections set status='confirmed', confirmed_for='Sat 10am' where seller_token='${tok}'`);
+r = await as('service', `select complete_handover('${tok}', '000000', 100000, 2, '')`); ok('wrong release code refused', r.error?.includes('wrong_code') || code === '000000');
+r = await as('A', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('buyers cannot call handover directly', !!r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, 'all good') h`); ok('handover with the right code', r.rows?.[0]?.h?.ok === true, r.error);
+r = await as('service', `select collected_at is not null c, claim_until is not null w from invoices where id='${SINV}'`); ok('collection starts the claim window', r.rows?.[0]?.c && r.rows[0].w);
+await as('service', `insert into claims (invoice_id, lot_id, buyer_id, reason, details) values ('${SINV}', ${SL}, '${U.A}', 'odometer', 'Odometer reads 180,000 not 100,000')`);
+r = await as('service', `select status from seller_payouts where invoice_id='${SINV}'`); ok('an open claim holds the payout', r.rows?.[0]?.status === 'on_hold');
+await as('service', `update claims set status='rejected' where lot_id=${SL}`);
+await as('service', `update invoices set claim_until = now() - interval '1 minute' where id='${SINV}'`);
+r = await as('service', `select release_payouts() n`); r = await as('service', `select status from seller_payouts where invoice_id='${SINV}'`);
+ok('payout ready once collected, window closed, no open claim', r.rows?.[0]?.status === 'ready', JSON.stringify(r.rows));
+r = await as('A', `select * from claims`); ok('buyer sees own claims', r.rows?.length === 1);
+r = await as('B', `select * from claims`); ok("others can't see claims", r.rows?.length === 0);
+r = await as('anon', `select * from collections`); ok("anon can't see collections", r.rows?.length === 0 || !!r.error);
+r = await as('B', `select * from collections`); ok("others can't see release codes", r.rows?.length === 0);
+
+// ---------- questions ----------
+await as('service', `insert into lot_questions (lot_id, user_id, question, answer, public, status) values (10599, '${U.A}', 'Towbar rating?', '3,500 kg', true, 'answered'), (10599, '${U.B}', 'Private question', null, false, 'open')`);
+r = await as('anon', `select question from lot_questions where lot_id=10599`); ok('public answered questions are visible to all, private ones are not', r.rows?.length === 1 && r.rows[0].question === 'Towbar rating?', JSON.stringify(r.rows));
+r = await as('B', `select question from lot_questions where lot_id=10599`); ok('asker sees their own unanswered question', r.rows?.length === 2);
 
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));

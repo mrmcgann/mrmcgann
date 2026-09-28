@@ -1,0 +1,42 @@
+    1.02 ms p50     2.95 ms p95  home: ending soon
+    0.47 ms p50     0.68 ms p95  home: featured
+    1.58 ms p50     3.82 ms p95  auctions: all live
+    1.81 ms p50     4.77 ms p95  auctions: utes in QLD under $20k
+    5.25 ms p50     6.35 ms p95  auctions: search "hilux"
+    1.47 ms p50     2.21 ms p95  auctions: past results
+    0.57 ms p50     1.34 ms p95  auctions: cover photos for 60 cards
+    0.69 ms p50     0.91 ms p95  lot page: vehicle
+    0.73 ms p50     1.14 ms p95  lot page: photos
+    0.54 ms p50     0.91 ms p95  lot page: flaws
+   46.32 ms p50   178.11 ms p95  lot page: bid history
+    0.88 ms p50     3.42 ms p95  lot page: similar vehicles
+     0.1 ms p50     1.08 ms p95  fees
+    0.43 ms p50      0.7 ms p95  member: profile
+   83.33 ms p50   241.86 ms p95  member: watchlist count (header)
+    1.39 ms p50   154.78 ms p95  member: watched ids
+     0.5 ms p50     3.28 ms p95  member: my position on a lot
+    0.33 ms p50     1.72 ms p95  member: my invoice for a lot
+    0.28 ms p50      0.4 ms p95  member: my offer on a lot
+    0.31 ms p50     0.52 ms p95  member: my inspection
+    1.61 ms p50    78.11 ms p95  member: watchlist page
+    0.36 ms p50     0.74 ms p95  member: my maximum bids
+    0.39 ms p50     1.12 ms p95  member: saved searches
+    0.79 ms p50     1.02 ms p95  member: invoices
+       1 ms p50     2.29 ms p95  member: notifications
+    1.83 ms p50    49.99 ms p95  member: bid history (own bids marked)
+    4.71 ms p50     6.23 ms p95  admin: dashboard counts (11)
+     2.9 ms p50     4.97 ms p95  admin: newest members
+     0.9 ms p50     1.49 ms p95  admin: find a member
+    3.06 ms p50    10.43 ms p95  admin: invoices
+    2.07 ms p50     3.54 ms p95  admin: failed payments
+    0.59 ms p50     0.87 ms p95  admin: vehicles
+    4.74 ms p50     8.26 ms p95  admin: find a vehicle
+    0.83 ms p50     1.56 ms p95  admin: inspections
+    1.51 ms p50      2.2 ms p95  admin: appraisals
+    0.73 ms p50     1.01 ms p95  admin: referrals & offers
+    1.42 ms p50     2.08 ms p95  admin (editor): vehicles via security rules
+    0.58 ms p50     0.76 ms p95  admin (editor): photos via security rules
+     0.2 ms p50     0.32 ms p95  clock: find auctions to close
+    0.08 ms p50     0.14 ms p95  clock: invoices to charge
+    0.88 ms p50     2.53 ms p95  clock: watchlist reminders
+    0.44 ms p50     0.69 ms p95  clock: saved-search sweep (1 search)

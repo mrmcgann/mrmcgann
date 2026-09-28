@@ -43,6 +43,8 @@ export function JoinWizard() {
 
   const load = useCallback(async (preferred?: number) => {
     const r: Me = await (await fetch("/api/me", { cache: "no-store" })).json();
+    // Sellers don't need a card on file
+    if (params.get("seller")) r.missing = (r.missing || []).filter((n: number) => n !== 4);
     setMe(r);
     const asked = preferred || Number(params.get("step")) || 0;
     if (!r.user) setStep(1);
@@ -169,7 +171,7 @@ export function JoinWizard() {
   }
   async function startId() {
     setBusy(true);
-    const res = await fetch("/api/identity/start", { method: "POST" });
+    const res = await fetch("/api/identity/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ returnTo: `/join?step=5&identity=return${next ? `&next=${encodeURIComponent(next)}` : ""}${params.get("seller") ? "&seller=1" : ""}` }) });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) { setErrors({ id: data.error }); return; }

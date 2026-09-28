@@ -52,6 +52,32 @@ export interface Lot {
   sold_via: string | null;
   featured: boolean;
   created_at: string;
+  cover_path?: string | null;
+  published_at?: string | null;
+  vin?: string | null;
+  rego_plate?: string | null;
+  rego_state?: string | null;
+  rego_expiry?: string | null;
+  build_date?: string | null;
+  compliance_date?: string | null;
+  gvm_kg?: number | null;
+  write_off_status?: "none" | "repairable" | "statutory" | "unknown";
+  stolen_clear?: boolean | null;
+  ppsr_cert_no?: string | null;
+  ppsr_checked_at?: string | null;
+  gst_status?: "private" | "inc";
+  service_books?: boolean | null;
+  video_url?: string | null;
+  disclosures?: Disclosures;
+  views?: number;
+  seller_id?: string | null;
+}
+
+// What the seller declared when they signed the agency agreement (shown on the listing).
+export interface Disclosures {
+  accident?: string; flood?: string; hail?: string; write_off?: string; modifications?: string;
+  odometer_concerns?: string; finance?: string; keys?: string; service_books?: boolean | string;
+  known_faults?: string; warning_lights?: string; rego_expiry?: string;
 }
 
 export interface LotPhoto { id: string; lot_id: number; path: string; angle: string | null; sort: number }
@@ -78,6 +104,14 @@ export interface Profile {
   role: "buyer" | "admin";
   suspended: boolean;
   notify: Record<string, { sms: boolean; email: boolean }>;
+  terms_version?: string | null;
+  company_name?: string | null;
+  abn?: string | null;
+  // from me()
+  watch_count?: number;
+  unread?: number;
+  is_seller?: boolean;
+  terms_current?: boolean;
 }
 
 export interface Invoice {
@@ -96,7 +130,7 @@ export interface Invoice {
   surcharge: number;
   balance_due: number;
   total: number;
-  status: "pending_charge" | "paid" | "deposit_paid" | "payment_failed" | "cancelled";
+  status: "pending_charge" | "charging" | "paid" | "deposit_paid" | "payment_failed" | "cancelled";
   failure_reason: string | null;
   due_at: string | null;
   paid_at: string | null;
@@ -106,6 +140,11 @@ export interface Invoice {
   collector_mobile: string | null;
   collected_at: string | null;
   created_at: string;
+  vehicle_gst?: number;
+  collect_by?: string | null;
+  claim_until?: string | null;
+  storage_fee?: number;
+  charge_attempts?: number;
 }
 
 export interface Fees {
@@ -118,9 +157,16 @@ export interface Fees {
   nrd_split: number;
   cancel_fee: number;
   cancel_above: number;
+  storage_per_day?: number;
+  seller_fee_rate?: number;
+  seller_fee_min?: number;
+  withdrawal_fee?: number;
 }
 
 export const DEFAULT_FEES: Fees = {
-  premium_rate: 0.1, admin_fee: 99, surcharge_rate: 0.012, card_limit: 5000,
+  premium_rate: 0.1, admin_fee: 99, surcharge_rate: 0, card_limit: 5000,
   nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
+  storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250,
 };
+
+export const TERMS_VERSION = "2026-10-01";

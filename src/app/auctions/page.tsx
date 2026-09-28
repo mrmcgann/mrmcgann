@@ -1,29 +1,35 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
-import { getCovers, getWatchedIds, searchLots, type Filters } from "@/lib/data";
+import { getWatchedIds, PAGE_SIZE, type Filters } from "@/lib/data";
+import { searchLotsCached } from "@/lib/cache";
 import { LotCard } from "@/components/LotCard";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { STATES } from "@/lib/grades";
 
-export const metadata: Metadata = { title: "Live auctions" };
+export const metadata: Metadata = { title: "Live auctions", description: "Cars, utes and trucks from real owners across Australia. Every one photographed, graded and PPSR-checked." };
 export const dynamic = "force-dynamic";
 
 const CATS = [["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["cheap", "Under $5k"]];
+const MAKES = ["Toyota", "Ford", "Mazda", "Hyundai", "Holden", "Mitsubishi", "Nissan", "Kia", "Volkswagen", "Subaru", "Isuzu", "Hino", "Kenworth", "Mercedes-Benz", "BMW", "Honda", "Suzuki", "Jeep", "Land Rover", "Audi"];
+const YEARS = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i);
 
 export default async function Auctions({ searchParams }: { searchParams: Promise<Filters> }) {
   const f = await searchParams;
+  const page = Math.max(1, Math.min(100, Number(f.page) || 1));
   const { supabase, user } = await getSession();
-  const lots = await searchLots(supabase, f);
-  const watched = await getWatchedIds(supabase, user?.id);
-  const covers = await getCovers(supabase, lots);
+  const [rows, watched] = await Promise.all([searchLotsCached(f, page), getWatchedIds(supabase, user?.id)]);
+  const hasMore = rows.length > PAGE_SIZE;
+  const lots = rows.slice(0, PAGE_SIZE);
   const qs = (patch: Partial<Filters>) => {
-    const p = new URLSearchParams(Object.entries({ ...f, ...patch }).filter(([, v]) => v) as [string, string][]);
+    const p = new URLSearchParams(Object.entries({ ...f, page: "", ...patch }).filter(([, v]) => v) as [string, string][]);
     const s = p.toString();
     return `/auctions${s ? `?${s}` : ""}`;
   };
   const heading = f.view === "offers" ? "Make an offer." : f.view === "closed" ? "Recently closed." : f.cat === "cheap" ? "Under $5,000." : f.cat ? `${f.cat[0].toUpperCase()}${f.cat.slice(1)}.` : "Live auctions.";
-  const labelParts = [f.q && `“${f.q}”`, f.cat && CATS.find((c) => c[0] === f.cat)?.[1], f.state, f.max && `under $${Number(f.max).toLocaleString("en-AU")}`].filter(Boolean);
+  const labelParts = [f.q && `“${f.q}”`, f.make, f.cat && CATS.find((c) => c[0] === f.cat)?.[1], f.state, f.max && `under $${Number(f.max).toLocaleString("en-AU")}`,
+    f.ymin && `from ${f.ymin}`, f.km && `under ${Number(f.km).toLocaleString("en-AU")} km`].filter(Boolean);
+  const moreOpen = Boolean(f.make || f.ymin || f.ymax || f.km || f.trans || f.fuel || f.body);
 
   return (
     <div className="wrap">
@@ -36,9 +42,28 @@ export default async function Auctions({ searchParams }: { searchParams: Promise
           <label className="field" style={{ flex: "1 1 110px" }}><span>State</span>
             <select className="input" name="state" defaultValue={f.state || ""}><option value="">All</option>{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
           <label className="field" style={{ flex: "1 1 140px" }}><span>Max current bid</span>
-            <select className="input" name="max" defaultValue={f.max || ""}><option value="">No limit</option>{[5000, 10000, 20000, 50000].map((n) => <option key={n} value={n}>${n.toLocaleString("en-AU")}</option>)}</select></label>
+            <select className="input" name="max" defaultValue={f.max || ""}><option value="">No limit</option>{[3000, 5000, 10000, 20000, 30000, 50000, 100000].map((n) => <option key={n} value={n}>${n.toLocaleString("en-AU")}</option>)}</select></label>
           <label className="field" style={{ flex: "1 1 150px" }}><span>Sort</span>
-            <select className="input" name="sort" defaultValue={f.sort || "ending"}><option value="ending">Ending soonest</option><option value="newest">Newly listed</option><option value="price">Lowest bid</option><option value="price_desc">Highest bid</option></select></label>
+            <select className="input" name="sort" defaultValue={f.sort || "ending"}><option value="ending">{f.view === "closed" ? "Most recent" : "Ending soonest"}</option><option value="newest">Newly listed</option><option value="price">Lowest bid</option><option value="price_desc">Highest bid</option></select></label>
+          <details style={{ flex: "1 1 100%" }} open={moreOpen}>
+            <summary style={{ cursor: "pointer", fontWeight: 700, padding: "6px 0" }}>More filters</summary>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
+              <label className="field" style={{ flex: "1 1 150px" }}><span>Make</span>
+                <select className="input" name="make" defaultValue={f.make || ""}><option value="">Any</option>{MAKES.map((m) => <option key={m}>{m}</option>)}</select></label>
+              <label className="field" style={{ flex: "1 1 110px" }}><span>Year from</span>
+                <select className="input" name="ymin" defaultValue={f.ymin || ""}><option value="">Any</option>{YEARS.map((y) => <option key={y}>{y}</option>)}</select></label>
+              <label className="field" style={{ flex: "1 1 110px" }}><span>Year to</span>
+                <select className="input" name="ymax" defaultValue={f.ymax || ""}><option value="">Any</option>{YEARS.map((y) => <option key={y}>{y}</option>)}</select></label>
+              <label className="field" style={{ flex: "1 1 140px" }}><span>Max kilometres</span>
+                <select className="input" name="km" defaultValue={f.km || ""}><option value="">Any</option>{[50000, 100000, 150000, 200000, 300000, 500000].map((n) => <option key={n} value={n}>{n.toLocaleString("en-AU")} km</option>)}</select></label>
+              <label className="field" style={{ flex: "1 1 130px" }}><span>Transmission</span>
+                <select className="input" name="trans" defaultValue={f.trans || ""}><option value="">Any</option><option>Auto</option><option>Manual</option></select></label>
+              <label className="field" style={{ flex: "1 1 130px" }}><span>Fuel</span>
+                <select className="input" name="fuel" defaultValue={f.fuel || ""}><option value="">Any</option><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Electric</option><option>LPG</option></select></label>
+              <label className="field" style={{ flex: "1 1 130px" }}><span>Body</span>
+                <select className="input" name="body" defaultValue={f.body || ""}><option value="">Any</option><option>Sedan</option><option>Hatch</option><option>Wagon</option><option>SUV</option><option>Ute</option><option>Van</option><option>Tipper</option><option>Tray</option><option>Prime mover</option></select></label>
+            </div>
+          </details>
           {f.view && <input type="hidden" name="view" value={f.view} />}
           <button className="btn btn-blue" style={{ height: 54 }}>Search</button>
         </form>
@@ -49,14 +74,21 @@ export default async function Auctions({ searchParams }: { searchParams: Promise
           <Link className="pill pill-soft" href={qs({ view: "" })}>Live</Link>
           <Link className="pill pill-soft" href={qs({ view: "offers" })}>Make an offer</Link>
           <Link className="pill pill-soft" href={qs({ view: "closed" })}>Recently closed</Link>
-          {labelParts.length > 0 && <SaveSearchButton query={{ ...f }} label={labelParts.join(" · ")} signedIn={!!user} />}
+          {labelParts.length > 0 && <SaveSearchButton query={{ ...f, page: undefined }} label={labelParts.join(" · ")} signedIn={!!user} />}
         </div>
       </div>
       <div className="grid">
-        {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} cover={covers.get(l.id)} />) : (
+        {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} cover={l.cover_path} />) : (
           <div className="empty"><b style={{ fontSize: 22 }}>No vehicles match yet.</b><span className="muted">Try another filter, or save this search and we&apos;ll tell you when one is listed.</span><Link className="btn btn-soft" href="/auctions">Show all vehicles</Link></div>
         )}
       </div>
+      {(page > 1 || hasMore) && (
+        <nav className="pill-row" aria-label="Pages" style={{ justifyContent: "center", marginTop: 40 }}>
+          {page > 1 && <Link className="btn btn-soft" href={qs({ page: String(page - 1) })}>‹ Previous</Link>}
+          <span className="muted" style={{ alignSelf: "center" }}>Page {page}</span>
+          {hasMore && <Link className="btn btn-soft" href={qs({ page: String(page + 1) })}>Next ›</Link>}
+        </nav>
+      )}
     </div>
   );
 }

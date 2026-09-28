@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { HELP } from "@/content/legal";
+import { HELP as RAW, fillLegal } from "@/content/legal";
+import { getSettingsCached } from "@/lib/cache";
 import { GRADES } from "@/lib/grades";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Help centre" };
 
-export default function Help() {
+export default async function Help() {
+  const HELP = fillLegal(RAW, await getSettingsCached());
   return (
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>

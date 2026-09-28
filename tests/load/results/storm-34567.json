@@ -1,0 +1,58 @@
+{
+  "conc": 150,
+  "seconds": 60,
+  "usersLive": 10000,
+  "integrity": {
+    "lotsChecked": 1978,
+    "problems": 3,
+    "examples": [
+      [
+        "103001",
+        "leader max is not the highest max"
+      ],
+      [
+        "103001",
+        "current bid 22037 vs top bid 2400.00"
+      ],
+      [
+        "103001",
+        "visible bid above leader max"
+      ]
+    ]
+  },
+  "close": {
+    "auctions": 2010,
+    "closeMs": 1045,
+    "statusNotices": 58510,
+    "noticeMs": 162080,
+    "messagesQueued": 1942066,
+    "invoicesClaimed": 675,
+    "claimMs": 119,
+    "duplicateInvoices": 0
+  },
+  "alerts": {
+    "reminders": 50000,
+    "remindersMs": 11443,
+    "searchAlerts": 227853,
+    "searchAlertsMs": 46890
+  },
+  "queue": {
+    "messages": 2210753,
+    "ms": 116250,
+    "perSecond": 19017,
+    "duplicates": 0,
+    "of": 2210753
+  },
+  "signups": {
+    "accounts": 5000,
+    "ms": 1774,
+    "perSecond": 2818,
+    "lat": {
+      "n": 5000,
+      "p50": 41.52,
+      "p95": 67.53,
+      "p99": 99.63,
+      "max": 146.12
+    }
+  }
+}

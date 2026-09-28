@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getCovers, getWatchedIds } from "@/lib/data";
-import type { Lot } from "@/lib/types";
+import { getWatchedIds } from "@/lib/data";
+import { getHomeCached } from "@/lib/cache";
 import { LotCard } from "@/components/LotCard";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
@@ -13,12 +13,11 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const { supabase, user } = await getSession();
-  const { data } = await supabase.from("lots").select("*").eq("status", "live").order("ends_at").limit(8);
-  const lots = (data || []) as Lot[];
-  const { data: feat } = await supabase.from("lots").select("*").eq("status", "live").eq("featured", true).order("ends_at").limit(1);
-  const featured = (feat?.[0] as Lot | undefined) || lots[0];
+  const home = await getHomeCached();
+  const lots = home.ending;
+  const featured = home.featured || lots[0];
   const watched = await getWatchedIds(supabase, user?.id);
-  const covers = await getCovers(supabase, featured ? [...lots, featured] : lots);
+  const covers = new Map(lots.concat(featured ? [featured] : []).map((l) => [l.id, l.cover_path || undefined]));
 
   return (
     <>

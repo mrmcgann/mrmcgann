@@ -7,8 +7,8 @@ export default async function Settings() {
   return (
     <>
       <h1 className="d2">Fees &amp; settings.</h1>
-      <p className="muted">Changes apply to new invoices straight away. Keep the Terms of sale and Help centre in step with these numbers.</p>
-      <SettingsForm fees={get("fees")} auction={get("auction")} />
+      <p className="muted">Changes apply to new invoices straight away, and the Terms of sale, Help centre and Seller agreement update to match automatically.</p>
+      <SettingsForm fees={get("fees")} auction={get("auction")} selling={get("selling")} terms={get("terms")} />
     </>
   );
 }

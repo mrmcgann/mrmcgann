@@ -1,0 +1,72 @@
+schema: 20260928000001_init.sql, 20260928000002_storage_and_sync.sql, 20260928000003_quotes_and_payouts.sql
+  5.2s  insert into auth.users (id, email)
+  17.3s  insert into public.profiles (id, email, first_name, last_name, dob, mo
+  4.6s  insert into public.lot_private (lot_id, reserve_price, seller_name, se
+  8.1s  insert into public.lot_photos (lot_id, path, angle, sort)
+  25.1s  insert into public.bids (lot_id, bidder_id, amount, is_auto, created_a
+  24.0s  insert into public.max_bids (lot_id, bidder_id, max_amount, first_set_
+  7.2s  select public.create_invoice(id, winner_id, sold_price, 'auction') fro
+  74.9s  insert into public.watchlist (user_id, lot_id, created_at)
+  4.8s  insert into public.saved_searches (user_id, label, query, last_notifie
+  51.6s  insert into public.notifications (user_id, kind, title, body, link, ch
+┌─────────┬──────────────────┬───────────┬───────────┐
+│ (index) │ relname          │ rows      │ size      │
+├─────────┼──────────────────┼───────────┼───────────┤
+│ 0       │ 'notifications'  │ '3000010' │ '620 MB'  │
+│ 1       │ 'watchlist'      │ '2999578' │ '344 MB'  │
+│ 2       │ 'bids'           │ '1130000' │ '153 MB'  │
+│ 3       │ 'max_bids'       │ '1130000' │ '139 MB'  │
+│ 4       │ 'users'          │ '1000001' │ '103 MB'  │
+│ 5       │ 'profiles'       │ '999986'  │ '440 MB'  │
+│ 6       │ 'lot_photos'     │ '720000'  │ '87 MB'   │
+│ 7       │ 'saved_searches' │ '250000'  │ '45 MB'   │
+│ 8       │ 'lot_flaws'      │ '180000'  │ '21 MB'   │
+│ 9       │ 'appraisals'     │ '60000'   │ '13 MB'   │
+│ 10      │ 'lots'           │ '60000'   │ '42 MB'   │
+│ 11      │ 'lot_private'    │ '60000'   │ '7224 kB' │
+│ 12      │ 'quote_requests' │ '60000'   │ '4448 kB' │
+│ 13      │ 'invoices'       │ '44880'   │ '23 MB'   │
+└─────────┴──────────────────┴───────────┴───────────┘
+database size 2055 MB, built in 232s
+    0.93 ms p50     2.77 ms p95  home: ending soon
+    2.96 ms p50     4.08 ms p95  home: featured
+    1.49 ms p50     2.35 ms p95  auctions: all live
+    2.09 ms p50     5.35 ms p95  auctions: utes in QLD under $20k
+   11.85 ms p50       18 ms p95  auctions: search "hilux"
+   69.29 ms p50    95.55 ms p95  auctions: past results
+  107.65 ms p50   161.45 ms p95  auctions: cover photos for 60 cards
+     0.4 ms p50     0.69 ms p95  lot page: vehicle
+   75.18 ms p50    93.16 ms p95  lot page: photos
+   49.24 ms p50    53.22 ms p95  lot page: flaws
+    0.45 ms p50     0.67 ms p95  lot page: bid history
+    0.42 ms p50     5.98 ms p95  lot page: similar vehicles
+    0.14 ms p50     0.28 ms p95  fees
+    0.34 ms p50     1.24 ms p95  member: profile
+    0.26 ms p50     0.48 ms p95  member: watchlist count (header)
+    0.18 ms p50     0.33 ms p95  member: watched ids
+    0.31 ms p50     0.43 ms p95  member: my position on a lot
+    6.59 ms p50    14.89 ms p95  member: my invoice for a lot
+    0.43 ms p50     0.56 ms p95  member: my offer on a lot
+    2.38 ms p50     3.07 ms p95  member: my inspection
+    0.39 ms p50     0.68 ms p95  member: watchlist page
+   25.17 ms p50    26.52 ms p95  member: my maximum bids
+   15.91 ms p50    20.18 ms p95  member: saved searches
+    4.43 ms p50     7.89 ms p95  member: invoices
+  223.91 ms p50   243.53 ms p95  member: notifications
+    0.65 ms p50     1.75 ms p95  member: bid history (own bids marked)
+   27.36 ms p50     42.2 ms p95  admin: dashboard counts (11)
+   159.5 ms p50   191.24 ms p95  admin: newest members
+  746.54 ms p50    796.3 ms p95  admin: find a member
+   11.16 ms p50    16.56 ms p95  admin: invoices
+    8.99 ms p50     12.2 ms p95  admin: failed payments
+   34.49 ms p50    46.74 ms p95  admin: vehicles
+   40.21 ms p50    57.76 ms p95  admin: find a vehicle
+    4.87 ms p50     6.17 ms p95  admin: inspections
+   19.42 ms p50    28.03 ms p95  admin: appraisals
+    0.83 ms p50     1.27 ms p95  admin: referrals & offers
+    74.4 ms p50    94.24 ms p95  admin (editor): vehicles via security rules
+   70.22 ms p50     96.3 ms p95  admin (editor): photos via security rules
+    0.13 ms p50     0.49 ms p95  clock: find auctions to close
+    5.51 ms p50     6.45 ms p95  clock: invoices to charge
+    25.7 ms p50    36.11 ms p95  clock: watchlist reminders
+    2.58 ms p50     4.13 ms p95  clock: saved-search sweep (1 search)

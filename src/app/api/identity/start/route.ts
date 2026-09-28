@@ -5,7 +5,9 @@ import { json, fail } from "@/lib/api";
 import { env } from "@/lib/env";
 
 // ID check via Stripe Identity: photo of licence or passport plus a selfie.
-export async function POST() {
+export async function POST(req: Request) {
+  const { returnTo } = await req.json().catch(() => ({}));
+  const back = typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/join?step=5&identity=return";
   const { user, profile } = await getSession();
   if (!user || !profile) return fail("Sign in first.", 401);
   if (!profile.details_done) return fail("Add your details first.");
@@ -21,7 +23,7 @@ export async function POST() {
     options: { document: { allowed_types: ["driving_license", "passport"], require_matching_selfie: true, require_live_capture: true } },
     provided_details: { email: user.email || undefined },
     metadata: { user_id: user.id },
-    return_url: `${env.siteUrl}/join?step=5&identity=return`,
+    return_url: `${env.siteUrl}${back}`,
   });
   await admin.from("profiles").update({ id_status: "pending", id_session_id: s.id }).eq("id", user.id);
   return json({ url: s.url });
