@@ -57,7 +57,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    3. `supabase/migrations/20260928000003_quotes_and_payouts.sql`
    4. `supabase/migrations/20260928000004_scale.sql`
    5. `supabase/migrations/20260928000005_launch.sql`
-   6. `supabase/seed.sql` (optional sample vehicles; delete them before launch)
+   6. `supabase/migrations/20261003000006_search.sql`
+   7. `supabase/migrations/20261003000007_app.sql` (phone apps: push notifications, account deletion)
+   8. `supabase/seed.sql` (optional sample vehicles; delete them before launch)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -156,6 +158,9 @@ PGPORT=55432 node tests/load/storm.mjs     # sale day, last-second snipe, 2,000 
 ```
 `tests/load/mock-supabase.mjs` + `tests/load/web.mjs` load-test the website itself. Results from the last run are in `tests/load/results/` and summarised in `tests/load/RESULTS.md`.
 
+## Phone apps (iPhone and Android)
+The `mobile/` folder is the Tyrebiter app for the App Store and Google Play. It uses this website's database and API, so deploy the website first. Step-by-step store setup, costs and the listing copy are in [`mobile/README.md`](mobile/README.md) and [`mobile/store/LISTING.md`](mobile/store/LISTING.md).
+
 ## Before launch
 - [ ] `NEXT_PUBLIC_TEST_MODE=false`
 - [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically. Fill the remaining `[brackets]` in `src/content/legal.ts` (licence details, governing state, trust account)
@@ -166,6 +171,7 @@ PGPORT=55432 node tests/load/storm.mjs     # sale day, last-second snipe, 2,000 
 - [ ] ABN, licence number, phone, email and bank details in the environment variables and footer
 - [ ] Sample vehicles deleted
 - [ ] A full test sale with a real card, then refunded in Stripe
+- [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
 
 ## Running it on your computer
 ```bash

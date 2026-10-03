@@ -29,5 +29,15 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - `bid_guard` blocks sellers (and their mobile) from bidding, and requires the current terms version.
 - Payouts (`seller_payouts`) are created when an invoice is paid in full, held by open claims, released by `release_payouts()` after collection + claim window.
 
+## Phone app (`mobile/`)
+- Expo SDK 57 + expo-router (`mobile/src/app`), iOS and Android from one codebase. Store steps and listing copy: `mobile/README.md`, `mobile/store/LISTING.md`.
+- It imports the website's `src/lib` (search, vehicles, fees, format) through Metro `watchFolders` and the `@/lib/*` path. Keep those files free of Next/Node-only imports. Root `tsconfig.json` and `eslint.config.mjs` exclude `mobile/`.
+- Auth: the app sends `Authorization: Bearer <access token>`; `supabaseServer()` builds a bearer client for it and `currentUser` checks it with `getClaims(token)`. Every API route that uses `supabaseServer()` works for both. Public reads (`/api/home`, `/api/lots/[id]`, search, facets, `/api/app/config`) take no auth so they stay edge-cached.
+- Push: `push_devices` table, `POST/DELETE /api/push`, trigger `notifications_push` queues 'push' outbox rows, `src/lib/push.ts` sends via Expo (100 per request). `PUSH_DISABLED=true` skips sending. New alert kinds need a `push_wanted` rule and an Android channel (`bids` or `updates`).
+- Account deletion (store rule): `/api/account/delete` + `delete_account()` / `account_deletion_blockers()`; public page `/delete-account`.
+- Universal links: `src/app/.well-known/*` (env `APPLE_TEAM_ID`, `ANDROID_CERT_SHA256`). App paths are listed in `mobile/app.config.ts` (APP_PATHS) and the AASA route; keep them in step with `mobile/src/lib/links.ts`.
+- Forced update: settings key `app` (`min_ios`, `min_android`), served by `/api/app/config`.
+- Checks: `cd mobile && npm run typecheck && npm test`; `npx expo export -p ios -p android` must bundle. The web build (`npx expo export -p web`) is what the end-to-end tests drive.
+
 ## Tests
 `npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser (run it after changing `vehicles.ts` or `search.ts`). `tests/load/search-bench.mjs` times search at scale.

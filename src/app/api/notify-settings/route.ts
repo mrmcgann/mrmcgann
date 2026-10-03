@@ -11,7 +11,12 @@ export async function POST(req: Request) {
   const userId = token ? userFromToken(token) : (await currentUser(await supabaseServer()))?.id;
   if (!userId) return fail("Sign in first.", 401);
   const keys = ["outbid", "ending", "won", "searches", "marketing"];
-  const clean = Object.fromEntries(keys.map((k) => [k, { sms: !!notify?.[k]?.sms, email: !!notify?.[k]?.email }]));
-  await supabaseAdmin().from("profiles").update({ notify: clean }).eq("id", userId);
+  // "push" (the apps) is kept only when sent, so a website save doesn't switch app alerts off
+  const clean: Record<string, { sms: boolean; email: boolean; push?: boolean }> = Object.fromEntries(keys.map((k) => [k, { sms: !!notify?.[k]?.sms, email: !!notify?.[k]?.email, ...(typeof notify?.[k]?.push === "boolean" ? { push: notify[k].push } : {}) }]));
+  const admin = supabaseAdmin();
+  const { data: cur } = await admin.from("profiles").select("notify").eq("id", userId).single();
+  const prev = (cur?.notify || {}) as Record<string, { push?: boolean }>;
+  for (const k of keys) if (clean[k].push === undefined && typeof prev[k]?.push === "boolean") clean[k] = { ...clean[k], push: prev[k].push };
+  await admin.from("profiles").update({ notify: clean }).eq("id", userId);
   return json({ ok: true });
 }

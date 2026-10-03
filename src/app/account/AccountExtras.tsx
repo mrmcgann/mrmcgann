@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-// Business details for tax invoices, change password or email, close account.
+// Business details for tax invoices, change password or email, delete account.
 export function AccountExtras({ company, abn, email }: { company: string; abn: string; email: string }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   async function saveBusiness(e: React.FormEvent<HTMLFormElement>) {
@@ -25,11 +25,18 @@ export function AccountExtras({ company, abn, email }: { company: string; abn: s
     const { error } = await supabaseBrowser().auth.updateUser({ email: em });
     setMsg(error ? { ok: false, text: error.message } : { ok: true, text: `Check ${em} (and ${email}) for a confirmation link.` });
   }
+  // Deletes the account straight away when nothing is in progress (live bids, unpaid
+  // or uncollected purchases, vehicles for sale); otherwise says what to finish first.
   async function close() {
-    if (!confirm("Close your account? We'll keep sale and tax records the law requires, and delete the rest.")) return;
-    const res = await fetch("/api/account/close", { method: "POST" });
+    const check = await (await fetch("/api/account/delete", { cache: "no-store" })).json().catch(() => ({ blockers: [] }));
+    if (check.blockers?.length) { setMsg({ ok: false, text: `We can't delete your account yet. ${check.blockers.join(" ")} Call us if you need help.` }); return; }
+    const typed = prompt("Delete your account? This can't be undone. We keep records of purchases and sales only as long as tax law requires, and delete everything else.\n\nType DELETE to confirm.");
+    if (typed !== "DELETE") return;
+    const res = await fetch("/api/account/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "DELETE" }) });
     const data = await res.json();
-    setMsg(res.ok ? { ok: true, text: "Request received. We'll confirm by email within 2 business days." } : { ok: false, text: data.error });
+    if (!res.ok) { setMsg({ ok: false, text: data.blockers?.length ? `We can't delete your account yet. ${data.blockers.join(" ")}` : data.error }); return; }
+    await supabaseBrowser().auth.signOut().catch(() => undefined);
+    location.href = "/?deleted=1";
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -50,7 +57,7 @@ export function AccountExtras({ company, abn, email }: { company: string; abn: s
         <input className="input" type="email" name="email" placeholder="New email" style={{ background: "#FFFFFF" }} />
         <button className="btn btn-dark" style={{ alignSelf: "flex-start", height: 44 }}>Change email</button>
       </form>
-      <button className="linkbtn" style={{ alignSelf: "flex-start", color: "#B4123E", fontWeight: 700 }} onClick={close}>Close my account</button>
+      <button className="linkbtn" style={{ alignSelf: "flex-start", color: "#B4123E", fontWeight: 700 }} onClick={close}>Delete my account</button>
     </div>
   );
 }

@@ -2,12 +2,13 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail, sendEmailBatch, mailHtml, type Mail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendPushRows } from "@/lib/push";
 import { invoicePdf } from "@/lib/pdf";
 import { sign } from "@/lib/links";
 import { env } from "@/lib/env";
 
 interface Row {
-  id: number; user_id: string | null; channel: "sms" | "email"; to_addr: string; kind: string;
+  id: number; user_id: string | null; channel: "sms" | "email" | "push"; to_addr: string; kind: string;
   title: string; body: string; link: string | null; meta: Record<string, string> | null;
 }
 
@@ -47,7 +48,7 @@ let lastDrain = 0;
 
 // Sends queued messages. Safe to run from several places at once: each message
 // is claimed by one sender only. Resend: up to 100 emails per request, ~8 requests/s.
-// Twilio: ~8 SMS/s per sender. Payment and outbid alerts go first.
+// Twilio: ~8 SMS/s per sender. Expo push: 100 per request. Payment and outbid alerts go first.
 export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = false }: { max?: number; deadlineMs?: number; throttle?: boolean } = {}) {
   if (throttle) {
     if (Date.now() - lastDrain < 1500) return { sent: 0, failed: 0 };
@@ -69,6 +70,7 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
     const withPdf = rows.filter((r) => r.channel === "email" && r.meta?.invoice_id);
     const plain = rows.filter((r) => r.channel === "email" && !r.meta?.invoice_id);
     const texts = rows.filter((r) => r.channel === "sms");
+    const pushes = rows.filter((r) => r.channel === "push");
 
     const safe = async <T,>(fn: () => Promise<T>) => { try { return await fn(); } catch (e) { return { ok: false, status: 0, error: String(e).slice(0, 200) } as unknown as T; } };
     const emailJob = (async () => {
@@ -101,8 +103,13 @@ export async function drainOutbox({ max = 5000, deadlineMs = 50_000, throttle = 
       }));
     })();
 
+    const pushJob = (async () => {
+      const res = await sendPushRows(pushes).catch((e) => ({ ok: [] as number[], bad: pushes.map((r) => ({ id: r.id, err: String(e).slice(0, 200) })) }));
+      ok.push(...res.ok); bad.push(...res.bad);
+    })();
+
     try {
-      await Promise.all([emailJob, smsJob]);
+      await Promise.all([emailJob, smsJob, pushJob]);
     } finally {
       // anything claimed but neither sent nor failed goes back as a failure to retry
       const seen = new Set([...ok, ...bad.map((b) => b.id)]);

@@ -1,15 +1,16 @@
 import "server-only";
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { supabaseServer } from "@/lib/supabase/server";
+import { bearerOf, supabaseServer } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
 export interface SessionUser { id: string; email: string }
 
 // Who is signed in. getClaims() checks the session token's signature locally
 // (no call to the auth server) when the project uses asymmetric JWT keys.
+// From the app the token arrives as a bearer header rather than a cookie.
 export async function currentUser(db: SupabaseClient): Promise<SessionUser | null> {
-  const { data } = await db.auth.getClaims();
+  const { data } = await db.auth.getClaims(bearerOf(db));
   const c = data?.claims as { sub?: string; email?: string } | undefined;
   return c?.sub ? { id: c.sub, email: c.email || "" } : null;
 }

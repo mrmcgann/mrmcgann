@@ -43,5 +43,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Pages only. API routes check the session themselves; static files skip it.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt|xml)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|\\.well-known/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt|xml)$).*)"],
 };

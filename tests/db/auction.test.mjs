@@ -325,6 +325,75 @@ ok('alerts: LAMS bikes', got['LAMS bikes']?.includes('MT-07'), JSON.stringify(go
 ok('alerts: nothing when the price is above the max', !got['Cheap trucks MR'], JSON.stringify(got));
 ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includes('HiLux SR5') && !got['Diesel 4WD under 30k']?.includes('Kubota'), JSON.stringify(got));
 
+
+// ---------- apps: push notifications ----------
+{
+  const T1 = 'ExponentPushToken[aaaaaaaaaaaaaaaa]', T2 = 'ExponentPushToken[bbbbbbbbbbbbbbbb]';
+  r = await as('A', `insert into push_devices (user_id, token, platform) values ('${U.A}', '${T1}', 'ios')`); ok('push: members cannot write devices directly', !!r.error);
+  r = await as('A', `select register_push_device('${U.A}', '${T1}', 'ios', '1.0.0')`); ok('push: members cannot call register directly', !!r.error);
+  r = await as('service', `select register_push_device('${U.A}', '${T1}', 'ios', '1.0.0')`); ok('push: register a device', !r.error, r.error);
+  r = await as('service', `select register_push_device('${U.A}', '${T2}', 'android', '1.0.0')`);
+  r = await as('A', `select token from push_devices`); ok('push: member sees own devices', r.rows?.length === 2, JSON.stringify(r));
+  r = await as('B', `select token from push_devices`); ok('push: others cannot see them', r.rows?.length === 0);
+  const pushes = async (title) => (await as('service', `select channel, to_addr, priority, link, kind from outbox where channel = 'push' and title = $1`, [title])).rows || [];
+  await as('service', `select queue_notice('${U.A}', 'outbid', 'Push outbid', 'Another bidder is ahead', '/lot/10432', 'pt1')`);
+  let p = await pushes('Push outbid');
+  ok('push: an alert queues one push per member (sent to all their devices)', p.length === 1 && p[0].to_addr === U.A && p[0].priority === 1 && p[0].link === '/lot/10432', JSON.stringify(p));
+  await as('service', `select queue_notice('${U.B}', 'outbid', 'Push B', 'x', null, 'pt2')`);
+  ok('push: none for a member without the app', (await pushes('Push B')).length === 0);
+  await c.query(`update profiles set notify = jsonb_set(notify, '{outbid}', coalesce(notify->'outbid','{}') || '{"push":false}') where id='${U.A}'`);
+  await as('service', `select queue_notice('${U.A}', 'outbid', 'Push off', 'x', null, 'pt3')`);
+  ok('push: respects the member turning outbid push off', (await pushes('Push off')).length === 0);
+  await as('service', `select queue_notice('${U.A}', 'won', 'Push won', 'x', '/account/invoices/x', 'pt4')`);
+  ok('push: wins and payments always push', (await pushes('Push won')).length === 1);
+  await as('service', `select queue_notice('${U.A}', 'marketing', 'Push promo', 'x', null, 'pt5')`);
+  ok('push: marketing needs an opt-in', (await pushes('Push promo')).length === 0);
+  await as('service', `select queue_notice_many(array['${U.A}','${U.B}']::uuid[], 'ending', 'Push many', 'x', '/lot/10432', 'pt6')`);
+  p = await pushes('Push many');
+  ok('push: bulk alerts push to app users only, in one statement', p.length === 1 && p[0].to_addr === U.A, JSON.stringify(p));
+  r = await as('service', `select expires_at < now() + interval '3 hours' x from outbox where channel='push' and title='Push many'`);
+  ok('push: ending-soon pushes expire quickly', r.rows?.[0]?.x === true);
+  r = await as('service', `select * from push_targets(array['${U.A}','${U.B}']::uuid[])`); ok('push: targets list every device', r.rows?.length === 2);
+  await as('service', `select disable_push_tokens(array['${T1}','${T2}'])`);
+  await as('service', `select queue_notice('${U.A}', 'won', 'Push gone', 'x', null, 'pt7')`);
+  ok('push: none once the app is removed', (await pushes('Push gone')).length === 0);
+  await as('service', `select register_push_device('${U.A}', '${T1}', 'ios', '1.0.1')`);
+  r = await as('service', `select disabled_at is null x, app_version from push_devices where token='${T1}'`); ok('push: reinstall re-enables the token', r.rows?.[0]?.x === true && r.rows[0].app_version === '1.0.1');
+  await as('service', `select register_push_device('${U.B}', '${T1}', 'ios', '1.0.1')`);
+  r = await as('service', `select user_id from push_devices where token='${T1}'`); ok('push: a phone moves to whoever signs in on it', r.rows?.[0]?.user_id === U.B);
+  r = await as('service', `select count(*)::int n from claim_outbox(500) where channel = 'push'`); ok('push: the sender claims push rows', r.rows?.[0]?.n >= 3, JSON.stringify(r));
+  r = await as('service', `insert into outbox (channel, to_addr, kind, title) values ('fax', 'x', 'account', 'x')`); ok('push: unknown channels are refused', !!r.error);
+}
+
+// ---------- apps: delete my account ----------
+{
+  const D1 = 'd1d1d1d1-0000-4000-8000-000000000001', D2 = 'd2d2d2d2-0000-4000-8000-000000000002', D3 = 'd3d3d3d3-0000-4000-8000-000000000003';
+  U.D1 = D1;
+  await c.query(`insert into auth.users (id,email) values ('${D1}','d1@x.au'),('${D2}','d2@x.au'),('${D3}','d3@x.au')`);
+  await c.query(`update profiles set first_name='Dee', last_name='Lete', mobile='0433333333', dob='1990-01-01', street='1 Way', details_done=true where id in ('${D1}','${D2}','${D3}')`);
+  const live = (await c.query(`select id from lots where status='live' order by id limit 1`)).rows[0].id;
+  await c.query(`insert into watchlist (user_id, lot_id) values ('${D1}', ${live})`);
+  await c.query(`insert into saved_searches (user_id, label, query) values ('${D1}', 'Utes', '{"cat":"utes"}')`);
+  await as('service', `select register_push_device('${D1}', 'ExponentPushToken[dddddddddddddddd]', 'android', '1.0.0')`);
+  r = await as('D1', `select delete_account('${D1}')`); ok('delete: members cannot call it directly (only through the checked API)', !!r.error);
+  r = await as('A', `select account_deletion_blockers('${U.B}')`); ok('delete: members cannot look up another member', !!r.error);
+  r = await as('service', `select delete_account('${D1}') r`);
+  ok('delete: a member with nothing in progress is deleted', r.rows?.[0]?.r?.ok === true, JSON.stringify(r));
+  r = await as('service', `select email, first_name, mobile, dob, street, suspended, deleted_at is not null d from profiles where id='${D1}'`);
+  const pd = r.rows?.[0] || {};
+  ok('delete: personal details removed', pd.email === null && pd.first_name === null && pd.mobile === null && pd.dob === null && pd.street === null && pd.suspended === true && pd.d === true, JSON.stringify(pd));
+  r = await as('service', `select (select count(*) from watchlist where user_id='${D1}') + (select count(*) from saved_searches where user_id='${D1}') + (select count(*) from push_devices where user_id='${D1}') n`);
+  ok('delete: watchlist, searches and devices removed', Number(r.rows?.[0]?.n) === 0);
+  r = await as('service', `select delete_account('${D1}') r`); ok('delete: twice is refused politely', r.rows?.[0]?.r?.ok === false);
+  await c.query(`insert into max_bids (lot_id, bidder_id, max_amount) values (${live}, '${D2}', 999999)`);
+  r = await as('service', `select delete_account('${D2}') r`);
+  ok('delete: blocked while bids are live', r.rows?.[0]?.r?.ok === false && JSON.stringify(r.rows[0].r.blockers).includes('bids'), JSON.stringify(r.rows?.[0]?.r));
+  r = await as('service', `select first_name from profiles where id='${D2}'`); ok('delete: nothing removed when blocked', r.rows?.[0]?.first_name === 'Dee');
+  await c.query(`update lots set seller_id='${D3}' where id=${live}`);
+  r = await as('service', `select account_deletion_blockers('${D3}') b`); ok('delete: sellers with a live listing are blocked', JSON.stringify(r.rows?.[0]?.b).includes('for sale'), JSON.stringify(r.rows?.[0]?.b));
+  await c.query(`update lots set seller_id=null where id=${live}`);
+}
+
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));
 await c.end();

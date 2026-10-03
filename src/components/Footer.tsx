@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { env } from "@/lib/env";
 
+const APPS: [string, string][] = [];
+if (process.env.NEXT_PUBLIC_APP_STORE_URL) APPS.push(["iPhone", process.env.NEXT_PUBLIC_APP_STORE_URL]);
+if (process.env.NEXT_PUBLIC_PLAY_STORE_URL) APPS.push(["Android", process.env.NEXT_PUBLIC_PLAY_STORE_URL]);
+
 export function Footer() {
   return (
     <footer>
@@ -13,7 +17,10 @@ export function Footer() {
         </div>
         <div className="fbot">
           <span>Copyright © {new Date().getFullYear()} {env.legalName}. ABN {env.abn}. Motor dealer licence {process.env.NEXT_PUBLIC_DEALER_LICENCE || "[LICENCE NO.]"}. Times shown in your local time zone.</span>
-          <span>{env.phone} · {env.supportEmail}</span>
+          <span>
+            {APPS.length ? <>Get the app: {APPS.map(([label, href], i) => <span key={label}>{i ? " · " : ""}<a href={href} rel="noopener">{label}</a></span>)}. </> : null}
+            {env.phone} · {env.supportEmail}
+          </span>
         </div>
       </div>
     </footer>
