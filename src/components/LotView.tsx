@@ -43,7 +43,7 @@ export function LotView({ bundle, fees, similar, history, preview = false }: { b
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
-    ["Warning lights on the dash", d.warning_lights], ["Odometer concerns", d.odometer_concerns],
+    ["Warning lights on the dash", d.warning_lights], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale before the seller is paid" : d.finance],
     ["Known faults", d.known_faults || lot.known_faults],
   ];
@@ -132,10 +132,10 @@ export function LotView({ bundle, fees, similar, history, preview = false }: { b
                   ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note from Tyrebiter", true],
                   ["Seller identity", "ID-verified and ownership papers checked by Tyrebiter", true],
                   ["Walkaround photos", "Taken by Tyrebiter at the seller's location", true],
-                  ["Odometer", "As shown on the dash. Not independently verified", false],
+                  lot.odometer != null ? ["Odometer", "As shown on the dash. Not independently verified", false] : lot.hours != null ? ["Engine hours", "As shown on the meter. Not independently verified", false] : null,
                   ["Service history", lot.service_history || "As declared by the seller", false],
                   ["Roadworthy / safety certificate", lot.roadworthy_note || "Not included unless stated. See your state's rules", false],
-                ] as [string, string, boolean][]).map(([k, v, ours]) => (
+                ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (
                   <div className="check" key={k}><span className="tick" style={{ background: ours ? "var(--mint)" : "var(--sun)" }}>{ours ? <Tick /> : <b style={{ fontSize: 14 }}>i</b>}</span><span style={{ display: "flex", flexDirection: "column" }}><b>{k}</b><span className="muted" style={{ fontSize: 14 }}>{v}</span></span></div>
                 ))}
                 <p className="hint" style={{ marginTop: 12 }}>Green: checked by Tyrebiter. Yellow: declared by the seller.</p>

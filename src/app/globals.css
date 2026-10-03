@@ -423,4 +423,4 @@ textarea.input{height:auto;min-height:110px;padding:12px 16px;resize:vertical}
 .drawer .ft{padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:flex;gap:10px}
 .drawer .filters{position:static;max-height:none;overflow:visible;padding:0}
 @media (max-width:1000px){.srch-grid{grid-template-columns:1fr}.srch-grid > .filters{display:none}.filters-btn{display:inline-flex}}
-@media (max-width:600px){.sb-go{display:none}.sb-form{height:54px;padding-right:12px}.sb-hero .sb-form{height:60px}.search-panel{position:fixed;top:0;bottom:0;padding-top:12px}.srch-sort{margin-left:0;width:100%}.srch-sort select{flex:1}}
+@media (max-width:600px){.sb-go{display:none}.sb-form{height:54px;padding-right:12px}.sb-hero .sb-form{height:60px}.search-panel{position:absolute;top:0;bottom:auto;height:100vh;height:100dvh;padding-top:12px}.srch-sort{margin-left:0;width:100%}.srch-sort select{flex:1}}
