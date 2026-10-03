@@ -37,7 +37,7 @@ async function as(who, sql, params = []) {
 
 // ---------- anonymous visitor ----------
 let r = await as('anon', `select id, status from lots`);
-ok('anon reads live lots', r.rows?.length === 7);
+ok('anon reads live lots', r.rows?.length === 10);
 await c.query(`insert into lots (id,status,title) values (10999,'draft','Secret draft')`);
 r = await as('anon', `select id from lots where id=10999`); ok('anon cannot see drafts', r.rows?.length === 0);
 r = await as('anon', `select * from lot_private`); ok('anon cannot read reserves/seller details', r.rows?.length === 0);
@@ -257,6 +257,73 @@ await as('service', `select close_due_lots()`);
 r = await as('service', `select status from lots where id=10902`); ok('an unanswered referral turns into offers', r.rows?.[0]?.status === 'offers', JSON.stringify(r.rows));
 for (let i = 0; i < 5; i++) await as('service', `select complete_handover('${tok}', 'x', 1, 1, '')`);
 r = await as('anon', `select me()`); ok('anon cannot call me()', !!r.error);
+
+// ---------- search: every category, Trade Me-style filters, counts, alerts ----------
+await c.query(`insert into lots (id,status,title,category,vehicle_type,kind,make,model,year,odometer,hours,transmission,fuel,drive,engine_cc,lams,licence_class,berths,length_m,state,suburb,start_price,current_bid,has_reserve,reserve_met,buy_now_price,gst_status,visual_grade,published_at,ends_at) values
+ (10950,'live','Searchtest 2018 Toyota HiLux SR5','utes','ute','dual-cab','Toyota','HiLux',2018,98000,null,'Automatic','Diesel','4WD',null,null,null,null,null,'QLD','Mackay',20000,24500,true,false,36000,'private','B', now(), now()+interval '2 hours'),
+ (10951,'live','Searchtest 2012 Toyota HiLux Workmate','utes','ute','single-cab','Toyota','HiLux',2012,240000,null,'5-speed manual','Diesel','2WD',null,null,null,null,null,'NSW','Dubbo',8000,9000,false,true,null,'inc','C', now(), now()+interval '20 hours'),
+ (10952,'live','Searchtest 2020 Yamaha MT-07','motorbikes','bike','road','Yamaha','MT-07',2020,12000,null,'Manual','Petrol',null,689,true,null,null,null,'VIC','Geelong',5000,6200,false,true,null,'private','A', now(), now()+interval '30 hours'),
+ (10953,'live','Searchtest 2016 Jayco Starcraft','caravans','caravan','pop-top','Jayco','Starcraft',2016,null,null,null,null,null,null,null,null,4,5.6,'QLD','Toowoomba',15000,18000,true,true,null,'private','B', now(), now()+interval '3 days'),
+ (10954,'live','Searchtest 2014 Isuzu NPR Tipper','trucks','truck','tipper','Isuzu','NPR',2014,312000,null,'Manual','Diesel',null,null,null,'LR',null,null,'QLD','Ipswich',20000,28500,true,false,null,'inc','B', now(), now()+interval '5 hours'),
+ (10955,'live','Searchtest 2019 Quintrex Hornet','boats','boat','tinny','Quintrex','Hornet',2019,null,140,null,'Petrol',null,null,null,null,null,4.2,'WA','Bunbury',9000,9500,false,true,null,'private','B', now(), now()+interval '4 days'),
+ (10956,'live','Searchtest 2017 Kubota M7040','machinery','tractor','tractor','Kubota','M7040',2017,null,2100,'Manual','Diesel','4WD',null,null,null,null,null,'NSW','Tamworth',30000,31000,false,true,null,'inc','C', now(), now()+interval '6 days'),
+ (10957,'draft','Searchtest hidden draft HiLux','utes','ute','dual-cab','Toyota','HiLux',2021,10000,null,'Automatic','Diesel','4WD',null,null,null,null,null,'QLD','Brisbane',30000,30000,false,true,null,'private','A', now(), now()+interval '2 days')`);
+const SQ = (f, extra = '') => as('anon', `select id from search_lots($1::jsonb, 100, 0) ${extra}`, [JSON.stringify({ q: 'searchtest', ...f })]);
+const ids = (r) => (r.rows || []).map((x) => Number(x.id)).sort();
+r = await SQ({}); ok('search: all live categories, drafts hidden', JSON.stringify(ids(r)) === JSON.stringify([10950,10951,10952,10953,10954,10955,10956]), JSON.stringify(ids(r)) + (r.error || ''));
+r = await SQ({ cat: 'motorbikes' }); ok('search: category motorbikes', JSON.stringify(ids(r)) === '[10952]', JSON.stringify(ids(r)));
+r = await SQ({ cat: 'utes', type: 'dual-cab' }); ok('search: category + sub-type', JSON.stringify(ids(r)) === '[10950]', JSON.stringify(ids(r)));
+r = await SQ({ make: 'toyota', model: 'hilux' }); ok('search: make + model (any case)', JSON.stringify(ids(r)) === '[10950,10951]', JSON.stringify(ids(r)));
+r = await SQ({ make: 'Toyota', ymin: '2015' }); ok('search: year from', JSON.stringify(ids(r)) === '[10950]');
+r = await SQ({ min: '9000', max: '20000' }); ok('search: price range uses the current bid', JSON.stringify(ids(r)) === '[10951,10953,10955]', JSON.stringify(ids(r)));
+r = await SQ({ km: '100000' }); ok('search: kilometres under', JSON.stringify(ids(r)) === '[10950,10952]', JSON.stringify(ids(r)));
+r = await SQ({ hrs: '500' }); ok('search: engine hours under', JSON.stringify(ids(r)) === '[10955]', JSON.stringify(ids(r)));
+r = await SQ({ trans: 'manual' }); ok('search: "5-speed manual" counts as manual', JSON.stringify(ids(r)) === '[10951,10952,10954,10956]', JSON.stringify(ids(r)));
+r = await SQ({ trans: 'auto' }); ok('search: automatic', JSON.stringify(ids(r)) === '[10950]', JSON.stringify(ids(r)));
+r = await SQ({ fuel: 'diesel', drive: '4WD' }); ok('search: fuel + drive', JSON.stringify(ids(r)) === '[10950,10956]', JSON.stringify(ids(r)));
+r = await SQ({ state: 'qld' }); ok('search: state', JSON.stringify(ids(r)) === '[10950,10953,10954]', JSON.stringify(ids(r)));
+r = await SQ({ lams: '1' }); ok('search: LAMS-approved bikes', JSON.stringify(ids(r)) === '[10952]');
+r = await SQ({ ccmin: '600', ccmax: '700' }); ok('search: engine size', JSON.stringify(ids(r)) === '[10952]');
+r = await SQ({ lic: 'C' }); ok('search: a car licence excludes LR trucks', !ids(r).includes(10954));
+r = await SQ({ lic: 'MR' }); ok('search: an MR licence covers LR trucks', ids(r).includes(10954));
+r = await SQ({ berths: '4', lenmax: '6' }); ok('search: caravan berths and length', JSON.stringify(ids(r)) === '[10953]');
+r = await SQ({ nores: '1' }); ok('search: no reserve (or reserve met) only', !ids(r).includes(10950) && !ids(r).includes(10954) && ids(r).includes(10953), JSON.stringify(ids(r)));
+r = await SQ({ buynow: '1' }); ok('search: Buy Now available', JSON.stringify(ids(r)) === '[10950]');
+r = await SQ({ seller: 'business' }); ok('search: business (GST) sellers', JSON.stringify(ids(r)) === '[10951,10954,10956]', JSON.stringify(ids(r)));
+r = await SQ({ grade: 'B' }); ok('search: visual grade B or better', !ids(r).includes(10951) && ids(r).includes(10952));
+r = await SQ({ ending: 'today' }); ok('search: ending within 24 hours', JSON.stringify(ids(r)) === '[10950,10951,10954]', JSON.stringify(ids(r)));
+r = await as('anon', `select id from search_lots($1::jsonb, 10, 0)`, [JSON.stringify({ q: 'searchtest diesel mackay' })]); ok('search: every keyword must match (fuel and suburb are searchable)', JSON.stringify(ids(r)) === '[10950]', JSON.stringify(ids(r)));
+r = await as('anon', `select id from search_lots($1::jsonb, 10, 0)`, [JSON.stringify({ q: '10953' })]); ok('search: lot number', JSON.stringify(ids(r)) === '[10953]');
+r = await as('anon', `select id from search_lots($1::jsonb, 10, 0)`, [JSON.stringify({ q: "50%_' or 1=1 --", min: 'abc', ymin: '20x', lic: 'ZZ', grade: 'Q' })]); ok('search: junk input is harmless', !r.error, r.error);
+r = await SQ({ sort: 'price' }); ok('search: sort by lowest price', ids(r).length === 7 && Number(r.rows[0].id) === 10952 && Number(r.rows[6].id) === 10956, JSON.stringify(r.rows));
+r = await SQ({ sort: 'year' }); ok('search: sort by newest year', Number(r.rows?.[0]?.id) === 10952, JSON.stringify(r.rows));
+r = await as('anon', `select lot_facets($1::jsonb) f`, [JSON.stringify({ q: 'searchtest', make: 'Toyota' })]);
+const F = r.rows?.[0]?.f || {};
+ok('facets: total with all filters', F.total === 2, JSON.stringify(F));
+ok('facets: make counts ignore the make filter', F.makes?.Toyota === 2 && F.makes?.Yamaha === 1, JSON.stringify(F.makes));
+ok('facets: category counts apply the make filter', F.cats?.utes === 2 && !F.cats?.motorbikes, JSON.stringify(F.cats));
+ok('facets: models for the chosen make', F.models?.['Toyota|HiLux'] === 2, JSON.stringify(F.models));
+ok('facets: fuel and gearbox groups', F.fuels?.diesel === 2 && F.trans?.auto === 1 && F.trans?.manual === 1, JSON.stringify([F.fuels, F.trans]));
+r = await as('anon', `select lot_facets($1::jsonb) f`, [JSON.stringify({ q: 'searchtest', cat: 'trucks' })]);
+ok('facets: sub-type counts for the chosen category', r.rows?.[0]?.f?.types?.tipper === 1, JSON.stringify(r.rows?.[0]?.f?.types));
+r = await as('anon', `select lot_facets('{}'::jsonb) f`); ok('facets: drafts never counted', !JSON.stringify(r.rows?.[0]?.f || {}).includes('hidden'));
+r = await as('service', `insert into lots (id,status,title,category) values (10958,'draft','Bad category','spaceships')`); ok('categories are limited to the ten vehicle kinds', !!r.error);
+r = await as('service', `update lots set search = 'x' where id = 10950`); ok('the keyword column cannot be written directly', !!r.error);
+// saved-search alerts with the new filters
+await c.query(`delete from saved_searches; delete from outbox where kind = 'searches'; delete from notifications where kind = 'searches'`);
+await c.query(`update lots set published_at = now() where id between 10950 and 10956`);
+await c.query(`insert into saved_searches (user_id, label, query, last_notified_at) values
+  ('${U.A}', 'HiLux auto', '{"make":"Toyota","model":"HiLux","trans":"auto"}', now() - interval '1 hour'),
+  ('${U.A}', 'LAMS bikes', '{"cat":"motorbikes","lams":"1"}', now() - interval '1 hour'),
+  ('${U.B}', 'Cheap trucks MR', '{"cat":"trucks","max":"10000","lic":"MR"}', now() - interval '1 hour'),
+  ('${U.B}', 'Diesel 4WD under 30k', '{"fuel":"diesel","drive":"4WD","max":"30000","q":"searchtest"}', now() - interval '1 hour')`);
+r = await as('service', `select queue_search_alerts() n`);
+r = await as('service', `select s.label, n.body from notifications n join saved_searches s on n.title like '%' || s.label || '%' where n.kind = 'searches' order by s.label`);
+const got = Object.fromEntries((r.rows || []).map((x) => [x.label, x.body]));
+ok('alerts: make + model + gearbox', got['HiLux auto']?.includes('HiLux SR5') && !got['HiLux auto']?.includes('Workmate'), JSON.stringify(got));
+ok('alerts: LAMS bikes', got['LAMS bikes']?.includes('MT-07'), JSON.stringify(got));
+ok('alerts: nothing when the price is above the max', !got['Cheap trucks MR'], JSON.stringify(got));
+ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includes('HiLux SR5') && !got['Diesel 4WD under 30k']?.includes('Kubota'), JSON.stringify(got));
 
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));

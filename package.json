@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test:db": "node tests/db/auction.test.mjs"
+    "test:db": "node tests/db/auction.test.mjs",
+    "test:unit": "node --experimental-strip-types --no-warnings tests/unit/search.test.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.12.0",

@@ -1,3 +1,4 @@
+import { CAT } from "@/lib/vehicles";
 import { requireAdmin } from "@/lib/admin";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -20,7 +21,7 @@ export default async function Appraisals() {
       {(data || []).map((a) => (
         <div className="admin-card" key={a.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div><b style={{ fontSize: 18 }}>{a.rego} ({a.state}) · {a.kind}</b><br /><span className="muted">{a.ref} · {dateTime(a.created_at)}</span></div>
+            <div><b style={{ fontSize: 18 }}>{a.rego} ({a.state}) · {CAT[a.kind]?.label || a.kind}</b><br /><span className="muted">{a.ref} · {dateTime(a.created_at)}</span></div>
             <span className="tag" style={{ background: a.status === "new" ? "var(--sun)" : "var(--panel)" }}>{a.status}</span>
           </div>
           <span>{a.name} · {a.mobile} · {a.email} · {a.odometer} km · postcode {a.postcode}</span>

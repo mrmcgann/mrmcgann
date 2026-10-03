@@ -1,94 +1,134 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Lot } from "@/lib/types";
 import { LotCard } from "@/components/LotCard";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
-import { STATES } from "@/lib/grades";
+import { SearchBar } from "@/components/SearchBar";
+import { SearchFilterPanel } from "@/components/SearchFilters";
+import { CATEGORIES, CAT } from "@/lib/vehicles";
+import { SORTS, describeParts, filtersFromParams, heading, toQueryString, type Facets, type FilterKey, type SearchFilters } from "@/lib/search";
 
-const CATS = [["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["cheap", "Under $5k"]];
-const MAKES = ["Toyota", "Ford", "Mazda", "Hyundai", "Holden", "Mitsubishi", "Nissan", "Kia", "Volkswagen", "Subaru", "Isuzu", "Hino", "Kenworth", "Mercedes-Benz", "BMW", "Honda", "Suzuki", "Jeep", "Land Rover", "Audi"];
-const YEARS = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i);
-type F = Record<string, string>;
+type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null };
+
+// Keys that belong to one category: cleared when the category changes.
+const CAT_KEYS: FilterKey[] = ["type", "lams", "lic", "berths", "ccmin", "ccmax", "lenmin", "lenmax", "hrs"];
+const CHIP_REMOVES: Partial<Record<FilterKey, FilterKey[]>> = { make: ["make", "model"], cat: ["cat", ...CAT_KEYS], ymin: ["ymin", "ymax"], min: ["min", "max"], ccmin: ["ccmin", "ccmax"], lenmin: ["lenmin", "lenmax"] };
 
 // The listing page renders in the browser from an edge-cached search API,
 // so the page itself is static and costs nothing to serve.
 export function AuctionsClient() {
   const sp = useSearchParams();
-  const f: F = Object.fromEntries(Array.from(sp.entries()).filter(([, v]) => v));
-  const key = sp.toString();
-  const [data, setData] = useState<{ lots: Lot[]; hasMore: boolean; page: number } | null>(null);
+  const router = useRouter();
+  const f = useMemo(() => filtersFromParams(new URLSearchParams(sp.toString())), [sp]);
+  const page = Math.max(1, Number(sp.get("page")) || 1);
+  const key = toQueryString(f, { page: page > 1 ? String(page) : "" });
+  const [data, setData] = useState<Data | null>(null);
   const [err, setErr] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+
+  // Plain-English links (?q=hilux+under+30k) become proper filters in the address bar.
+  useEffect(() => { if (key !== sp.toString()) router.replace(`/auctions${key ? `?${key}` : ""}`, { scroll: false }); }, [key, sp, router]);
   useEffect(() => {
     let live = true;
     setErr(false);
     fetch(`/api/lots/search?${key}`).then((r) => r.json()).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
   }, [key]);
-  const page = Number(f.page) || 1;
-  const qs = (patch: F) => {
-    const p = new URLSearchParams(Object.entries({ ...f, page: "", ...patch }).filter(([, v]) => v) as [string, string][]);
-    const s = p.toString();
-    return `/auctions${s ? `?${s}` : ""}`;
+
+  const href = (next: SearchFilters, p = 1) => { const s = toQueryString(next, { page: p > 1 ? String(p) : "" }); return `/auctions${s ? `?${s}` : ""}`; };
+  const set = (patch: SearchFilters) => {
+    const next: SearchFilters = { ...f, ...patch };
+    for (const [k, v] of Object.entries(patch)) if (!v) delete next[k as FilterKey];
+    router.replace(href(next), { scroll: false });
   };
-  const heading = f.view === "offers" ? "Make an offer." : f.view === "closed" ? "Recently closed." : f.cat === "cheap" ? "Under $5,000." : f.cat ? `${f.cat[0].toUpperCase()}${f.cat.slice(1)}.` : "Live auctions.";
-  const labelParts = [f.q && `“${f.q}”`, f.make, f.cat && CATS.find((c) => c[0] === f.cat)?.[1], f.state, f.max && `under $${Number(f.max).toLocaleString("en-AU")}`,
-    f.ymin && `from ${f.ymin}`, f.km && `under ${Number(f.km).toLocaleString("en-AU")} km`].filter(Boolean);
-  const moreOpen = Boolean(f.make || f.ymin || f.ymax || f.km || f.trans || f.fuel || f.body);
+  const remove = (k: FilterKey) => { const patch: SearchFilters = {}; for (const x of CHIP_REMOVES[k] || [k]) patch[x] = ""; set(patch); };
+
+  // one chip per active filter, each removable
+  const chips: [FilterKey, string][] = [];
+  const parts = describeParts(f);
+  const order: FilterKey[] = ["make", "cat", "ymin", "min", "km", "hrs", "ccmin", "lams", "lic", "berths", "lenmin", "fuel", "trans", "drive", "state", "seller", "nores", "buynow", "ending", "grade", "q"];
+  const single = (k: FilterKey) => describeParts({ [k]: f[k], ...(k === "ymin" ? { ymax: f.ymax } : {}), ...(k === "min" ? { max: f.max } : {}), ...(k === "make" ? { model: f.model } : {}), ...(k === "cat" ? { type: f.type } : {}), ...(k === "ccmin" ? { ccmax: f.ccmax } : {}), ...(k === "lenmin" ? { lenmax: f.lenmax } : {}) }).join("");
+  for (const k of order) {
+    const pair = k === "ymin" ? f.ymin || f.ymax : k === "min" ? f.min || f.max : k === "ccmin" ? f.ccmin || f.ccmax : k === "lenmin" ? f.lenmin || f.lenmax : f[k];
+    if (pair && !(k === "cat" && f.make && f.model && !f.type)) chips.push([k === "ymin" && !f.ymin ? "ymax" : k === "min" && !f.min ? "max" : k, single(k)]);
+  }
+  const facets = data?.facets || null;
+  const total = facets?.total;
+  const filtersOn = chips.length > 0;
 
   return (
     <div className="wrap">
-      <div className="center" style={{ gap: 22, padding: "clamp(40px,6vw,72px) 0 40px" }}>
-        <h1 className="d2">{heading}</h1>
-        <form key={key} className="formcard" action="/auctions" style={{ width: "min(980px,100%)", flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", padding: 20, borderRadius: 28 }}>
-          <label className="field" style={{ flex: "2 1 240px" }}><span>Search</span><input className="input" name="q" defaultValue={f.q || ""} placeholder="Make, model, suburb or lot number" /></label>
-          <label className="field" style={{ flex: "1 1 120px" }}><span>Type</span>
-            <select className="input" name="cat" defaultValue={f.cat || ""}>{CATS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-          <label className="field" style={{ flex: "1 1 110px" }}><span>State</span>
-            <select className="input" name="state" defaultValue={f.state || ""}><option value="">All</option>{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
-          <label className="field" style={{ flex: "1 1 140px" }}><span>Max current bid</span>
-            <select className="input" name="max" defaultValue={f.max || ""}><option value="">No limit</option>{[3000, 5000, 10000, 20000, 30000, 50000, 100000].map((n) => <option key={n} value={n}>${n.toLocaleString("en-AU")}</option>)}</select></label>
-          <label className="field" style={{ flex: "1 1 150px" }}><span>Sort</span>
-            <select className="input" name="sort" defaultValue={f.sort || "ending"}><option value="ending">{f.view === "closed" ? "Most recent" : "Ending soonest"}</option><option value="newest">Newly listed</option><option value="price">Lowest bid</option><option value="price_desc">Highest bid</option></select></label>
-          <details style={{ flex: "1 1 100%" }} open={moreOpen}>
-            <summary style={{ cursor: "pointer", fontWeight: 700, padding: "6px 0" }}>More filters</summary>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
-              <label className="field" style={{ flex: "1 1 150px" }}><span>Make</span><select className="input" name="make" defaultValue={f.make || ""}><option value="">Any</option>{MAKES.map((m) => <option key={m}>{m}</option>)}</select></label>
-              <label className="field" style={{ flex: "1 1 110px" }}><span>Year from</span><select className="input" name="ymin" defaultValue={f.ymin || ""}><option value="">Any</option>{YEARS.map((y) => <option key={y}>{y}</option>)}</select></label>
-              <label className="field" style={{ flex: "1 1 110px" }}><span>Year to</span><select className="input" name="ymax" defaultValue={f.ymax || ""}><option value="">Any</option>{YEARS.map((y) => <option key={y}>{y}</option>)}</select></label>
-              <label className="field" style={{ flex: "1 1 140px" }}><span>Max kilometres</span><select className="input" name="km" defaultValue={f.km || ""}><option value="">Any</option>{[50000, 100000, 150000, 200000, 300000, 500000].map((n) => <option key={n} value={n}>{n.toLocaleString("en-AU")} km</option>)}</select></label>
-              <label className="field" style={{ flex: "1 1 130px" }}><span>Transmission</span><select className="input" name="trans" defaultValue={f.trans || ""}><option value="">Any</option><option>Auto</option><option>Manual</option></select></label>
-              <label className="field" style={{ flex: "1 1 130px" }}><span>Fuel</span><select className="input" name="fuel" defaultValue={f.fuel || ""}><option value="">Any</option><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Electric</option><option>LPG</option></select></label>
-              <label className="field" style={{ flex: "1 1 130px" }}><span>Body</span><select className="input" name="body" defaultValue={f.body || ""}><option value="">Any</option><option>Sedan</option><option>Hatch</option><option>Wagon</option><option>SUV</option><option>Ute</option><option>Van</option><option>Tipper</option><option>Tray</option><option>Prime mover</option></select></label>
-            </div>
-          </details>
-          {f.view && <input type="hidden" name="view" value={f.view} />}
-          <button className="btn btn-blue" style={{ height: 54 }}>Search</button>
-        </form>
-        <div className="seg">
-          {CATS.map(([k, l]) => <Link key={k} href={qs({ cat: k })} className={(f.cat || "") === k ? "on" : ""} style={{ height: 42, padding: "0 20px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600, background: (f.cat || "") === k ? "#FFFFFF" : "transparent", boxShadow: (f.cat || "") === k ? "0 1px 3px rgba(0,0,0,.12)" : "none" }}>{l}</Link>)}
-        </div>
-        <div className="pill-row" style={{ justifyContent: "center" }}>
-          <Link className="pill pill-soft" href={qs({ view: "" })}>Live</Link>
-          <Link className="pill pill-soft" href={qs({ view: "offers" })}>Make an offer</Link>
-          <Link className="pill pill-soft" href={qs({ view: "closed" })}>Recently closed</Link>
-          {labelParts.length > 0 && <SaveSearchButton query={{ ...f, page: undefined }} label={labelParts.join(" · ")} />}
-        </div>
-      </div>
-      {err && <div className="notice bad">We couldn&apos;t load vehicles just now. <Link href={qs({})}>Try again</Link>.</div>}
-      <div className="grid" aria-busy={!data}>
-        {!data && !err && Array.from({ length: 8 }, (_, i) => <div key={i} className="card" style={{ minHeight: 360, background: "var(--panel)", borderRadius: 32 }} />)}
-        {data && (data.lots.length ? data.lots.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path} />) : (
-          <div className="empty"><b style={{ fontSize: 22 }}>No vehicles match yet.</b><span className="muted">Try another filter, or save this search and we&apos;ll tell you when one is listed.</span><Link className="btn btn-soft" href="/auctions">Show all vehicles</Link></div>
-        ))}
-      </div>
-      {data && (page > 1 || data.hasMore) && (
-        <nav className="pill-row" aria-label="Pages" style={{ justifyContent: "center", marginTop: 40 }}>
-          {page > 1 && <Link className="btn btn-soft" href={qs({ page: String(page - 1) })}>‹ Previous</Link>}
-          <span className="muted" style={{ alignSelf: "center" }}>Page {page}</span>
-          {data.hasMore && <Link className="btn btn-soft" href={qs({ page: String(page + 1) })}>Next ›</Link>}
+      <div className="srch-head">
+        <h1 className="d3">{heading(f)}</h1>
+        <SearchBar initial={f.q || ""} />
+        <nav className="srch-cats" aria-label="Categories">
+          <Link href={href({ ...f, cat: undefined, type: undefined })} className={!f.cat ? "on" : ""}>All {facets?.cats && <small>{Object.values(facets.cats).reduce((a, b) => a + b, 0).toLocaleString("en-AU")}</small>}</Link>
+          {CATEGORIES.map((c) => (
+            <Link key={c.key} href={href({ ...Object.fromEntries(Object.entries(f).filter(([k]) => !CAT_KEYS.includes(k as FilterKey))), cat: c.key })} className={f.cat === c.key ? "on" : ""}>
+              {c.short} {facets?.cats && <small>{(facets.cats[c.key] || 0).toLocaleString("en-AU")}</small>}
+            </Link>
+          ))}
+          <Link href={href({ ...f, cat: "cheap", type: undefined })} className={f.cat === "cheap" ? "on" : ""}>Under $5k {facets?.cheap != null && <small>{facets.cheap.toLocaleString("en-AU")}</small>}</Link>
         </nav>
+      </div>
+
+      <div className="srch-grid">
+        <SearchFilterPanel f={f} facets={facets} set={set} />
+        <div style={{ minWidth: 0 }}>
+          <div className="srch-bar">
+            <span className="count" aria-live="polite">{total == null ? "Searching…" : `${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`}</span>
+            {chips.map(([k, label]) => <button key={k} type="button" className="active-chip" onClick={() => remove(k)} aria-label={`Remove ${label}`}>{label}<span aria-hidden="true">×</span></button>)}
+            {filtersOn && <button type="button" className="linkbtn" onClick={() => router.replace("/auctions", { scroll: false })}>Clear all</button>}
+            <div className="srch-sort">
+              <button type="button" className="pill pill-dark filters-btn" style={{ height: 42 }} onClick={() => setDrawer(true)}>Filters{chips.length ? ` (${chips.length})` : ""}</button>
+              <select aria-label="Sort" value={f.sort || "ending"} onChange={(e) => set({ sort: e.target.value === "ending" ? "" : e.target.value })}>
+                {SORTS.map(([v, l]) => <option key={v} value={v}>{f.view === "closed" && v === "ending" ? "Most recently closed" : l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="pill-row" style={{ marginBottom: 22 }}>
+            <Link className={`pill ${!f.view ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: undefined })}>Live</Link>
+            <Link className={`pill ${f.view === "offers" ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: "offers" })}>Make an offer</Link>
+            <Link className={`pill ${f.view === "closed" ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: "closed" })}>Recently closed</Link>
+            {filtersOn && <SaveSearchButton query={f} label={parts.join(" · ")} />}
+          </div>
+          {err && <div className="notice bad">We couldn&apos;t load vehicles just now. <Link href={href(f, page)}>Try again</Link>.</div>}
+          <div className="grid" aria-busy={!data}>
+            {!data && !err && Array.from({ length: 8 }, (_, i) => <div key={i} className="card" style={{ minHeight: 360, background: "var(--panel)", borderRadius: 32 }} />)}
+            {data && (data.lots.length ? data.lots.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path} />) : (
+              <div className="empty">
+                <b style={{ fontSize: 22 }}>{f.cat && CAT[f.cat] ? `No ${CAT[f.cat].label.toLowerCase()} match that yet.` : "Nothing matches that yet."}</b>
+                <span className="muted">Remove a filter, or save this search and we&apos;ll text or email you when one is listed.</span>
+                <div className="pill-row" style={{ justifyContent: "center" }}>
+                  {chips.slice(0, 4).map(([k, label]) => <button key={k} type="button" className="pill" style={{ background: "#FFFFFF" }} onClick={() => remove(k)}>Remove {label} ×</button>)}
+                  {filtersOn && <SaveSearchButton query={f} label={parts.join(" · ")} />}
+                </div>
+              </div>
+            ))}
+          </div>
+          {data && (page > 1 || data.hasMore) && (
+            <nav className="pill-row" aria-label="Pages" style={{ justifyContent: "center", marginTop: 40 }}>
+              {page > 1 && <Link className="btn btn-soft" href={href(f, page - 1)}>‹ Previous</Link>}
+              <span className="muted" style={{ alignSelf: "center" }}>Page {page}</span>
+              {data.hasMore && <Link className="btn btn-soft" href={href(f, page + 1)}>Next ›</Link>}
+            </nav>
+          )}
+        </div>
+      </div>
+
+      {drawer && (
+        <div className="drawer" onClick={(e) => { if (e.target === e.currentTarget) setDrawer(false); }}>
+          <div className="in" role="dialog" aria-label="Filters">
+            <div className="hd"><b style={{ fontSize: 20 }}>Filters</b><button className="pill pill-soft" onClick={() => setDrawer(false)}>Close</button></div>
+            <div className="bd"><SearchFilterPanel f={f} facets={facets} set={set} /></div>
+            <div className="ft">
+              {filtersOn && <button className="btn btn-soft" style={{ flex: 1 }} onClick={() => router.replace("/auctions", { scroll: false })}>Clear all</button>}
+              <button className="btn btn-blue" style={{ flex: 2 }} onClick={() => setDrawer(false)}>{total == null ? "Show vehicles" : `Show ${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

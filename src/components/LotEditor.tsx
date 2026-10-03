@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { BACKDROPS, GRADES, STATES } from "@/lib/grades";
+import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { AdminAction } from "@/components/AdminAction";
 
@@ -63,10 +64,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   function normalize(f: Row) {
     const out: Row = {};
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
-      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books"];
+      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books",
+      "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
-    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
-    for (const k of ["stolen_clear", "service_books"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
+    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
+    for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.write_off_status = f.write_off_status || "unknown";
     if (out.vin) out.vin = String(out.vin).toUpperCase().replace(/\s/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
@@ -201,8 +203,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         {inp("title", "Title", { placeholder: "2009 Toyota Corolla Ascent" })}
         <div className="grid2">{inp("short_title", "Short title (big headline)", { placeholder: "2009 Toyota Corolla" })}{inp("subtitle", "One-line summary", { placeholder: "One owner. Every service stamped." })}</div>
         <div className="grid3">
-          {sel("category", "Category", [["cars", "Cars"], ["utes", "Utes & 4x4"], ["trucks", "Trucks"]])}
-          {sel("vehicle_type", "Silhouette", [["car", "Car"], ["ute", "Ute"], ["truck", "Truck"]])}
+          <label className="field"><span>Category</span><select className="input" value={String(f.category || "cars")} onChange={(e) => { const c = CAT[e.target.value]; setF({ ...f, category: e.target.value, vehicle_type: c.silhouette, kind: c.kinds.some(([k]) => k === f.kind) ? f.kind : null }); }}>{CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
+          <label className="field"><span>Type</span><select className="input" value={String(f.kind || "")} onChange={(e) => setF({ ...f, kind: e.target.value || null })}><option value="">–</option>{(CAT[String(f.category || "cars")]?.kinds || []).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><span className="hint">Shown in search filters.</span></label>
+          {sel("vehicle_type", "Silhouette (no photos yet)", VEHICLE_TYPES.map((v) => [v, v[0].toUpperCase() + v.slice(1)] as [string, string]))}
           {sel("backdrop", "Backdrop colour", BACKDROPS.map((b) => [b, b[0].toUpperCase() + b.slice(1)]))}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{BACKDROPS.map((b) => <button key={b} type="button" onClick={() => setF({ ...f, backdrop: b })} aria-label={b} className={`bg-${b}`} style={{ width: 36, height: 36, borderRadius: 18, border: f.backdrop === b ? "3px solid var(--ink)" : "0" }} />)}</div>
@@ -211,9 +214,18 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Vehicle</h2>
-        <div className="grid3">{inp("year", "Year", { inputMode: "numeric" })}{inp("make", "Make")}{inp("model", "Model")}</div>
+        <div className="grid3">{inp("year", "Year", { inputMode: "numeric" })}{inp("make", "Make", { list: "make-list" })}{inp("model", "Model", { list: "model-list" })}</div>
+        <datalist id="make-list">{makesFor(String(f.category || "")).map((m) => <option key={m} value={m} />)}</datalist>
+        <datalist id="model-list">{modelsFor(String(f.make || ""), String(f.category || "")).map((m) => <option key={m} value={m} />)}</datalist>
+        <p className="hint" style={{ marginTop: -6 }}>Pick the make and model from the list where you can, so they appear in search and saved-search alerts.</p>
         <div className="grid3">{inp("variant", "Variant")}{inp("body", "Body", { placeholder: "4-door sedan" })}{inp("engine", "Engine", { placeholder: "1.8L 4-cyl" })}</div>
-        <div className="grid3">{sel("transmission", "Transmission", [["", "–"], ["Auto", "Auto"], ["Manual", "Manual"]])}{sel("fuel", "Fuel", [["", "–"], ["Petrol", "Petrol"], ["Diesel", "Diesel"], ["Hybrid", "Hybrid"], ["Electric", "Electric"], ["LPG", "LPG"]])}{inp("odometer", "Odometer (km)", { inputMode: "numeric" })}</div>
+        <div className="grid3">{sel("transmission", "Transmission", [["", "–"], ["Auto", "Auto"], ["Manual", "Manual"], ["Automated manual", "Automated manual"], ["CVT", "CVT"]])}{sel("fuel", "Fuel", [["", "–"], ["Petrol", "Petrol"], ["Diesel", "Diesel"], ["Hybrid", "Hybrid"], ["Electric", "Electric"], ["LPG", "LPG"]])}{inp("odometer", "Odometer (km)", { inputMode: "numeric" })}</div>
+        <div className="grid3">{sel("drive", "Drive", [["", "–"], ["2WD", "2WD"], ["4WD", "4WD"], ["AWD", "AWD"]])}{inp("engine_cc", "Engine size (cc)", { inputMode: "numeric", placeholder: "Motorbikes: 689" })}{inp("hours", "Engine hours", { inputMode: "numeric", placeholder: "Boats and machinery" })}</div>
+        <div className="grid3">
+          {sel("licence_class", "Licence needed (trucks, buses)", [["", "–"], ...LICENCES])}
+          <label className="field"><span>LAMS approved (motorbikes)</span><select className="input" value={f.lams == null ? "" : String(f.lams)} onChange={(e) => setF({ ...f, lams: e.target.value === "" ? null : e.target.value === "true" })}><option value="">–</option><option value="true">Yes</option><option value="false">No</option></select></label>
+          <div className="grid2">{inp("berths", "Sleeps", { inputMode: "numeric" })}{inp("length_m", "Length (m)", { inputMode: "decimal" })}</div>
+        </div>
         <div className="grid3">{inp("colour", "Colour")}{inp("seats", "Seats", { inputMode: "numeric" })}{inp("keys", "Keys", { inputMode: "numeric" })}</div>
         <div className="grid3">{inp("suburb", "Suburb (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>
       </div>

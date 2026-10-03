@@ -1,11 +1,12 @@
 "use client";
+import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { STATES } from "@/lib/grades";
 
 export function AppraisalForm() {
-  const [kind, setKind] = useState<"car" | "truck">("car");
+  const [kind, setKind] = useState<string>("cars");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -48,15 +49,14 @@ export function AppraisalForm() {
   return (
     <form className="formcard" onSubmit={submit} noValidate>
       <div><h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em" }}>Free appraisal.</h2><span className="muted">Two minutes. No obligation.</span></div>
-      <div className="segfull" role="group" aria-label="Vehicle type">
-        <button type="button" className={kind === "car" ? "on" : ""} aria-pressed={kind === "car"} onClick={() => setKind("car")}>Car or ute</button>
-        <button type="button" className={kind === "truck" ? "on" : ""} aria-pressed={kind === "truck"} onClick={() => setKind("truck")}>Truck</button>
-      </div>
+      <label className="field"><span>What are you selling?</span>
+        <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>{CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+      </label>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 120px", gap: 12 }}>
         {inp("rego", "Rego", { placeholder: "123ABC", style: { textTransform: "uppercase", fontWeight: 700, letterSpacing: ".06em" } })}
         <label className="field"><span>State</span><select className="input" name="state">{STATES.map((s) => <option key={s}>{s}</option>)}</select></label>
       </div>
-      <div className="row2">{inp("odometer", "Kilometres", { inputMode: "numeric", placeholder: "185,000" })}{inp("postcode", "Postcode", { inputMode: "numeric", maxLength: 4, placeholder: "4009" })}</div>
+      <div className="row2">{inp("odometer", CAT[kind]?.usage === "hours" ? "Engine hours" : "Kilometres", { inputMode: "numeric", placeholder: CAT[kind]?.usage === "hours" ? "450" : "185,000" })}{inp("postcode", "Postcode", { inputMode: "numeric", maxLength: 4, placeholder: "4009" })}</div>
       {inp("name", "Your name", { autoComplete: "name" })}
       <div className="row2">{inp("mobile", "Mobile", { type: "tel", autoComplete: "tel", placeholder: "04" })}{inp("email", "Email", { type: "email", autoComplete: "email" })}</div>
       <label className="drop">

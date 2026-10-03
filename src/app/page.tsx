@@ -7,6 +7,9 @@ import { Countdown } from "@/components/Countdown";
 import { Tile } from "@/components/Tile";
 import { money, km } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
+import { SearchBar } from "@/components/SearchBar";
+import { MotorsSearch } from "@/components/MotorsSearch";
+import { CATEGORIES } from "@/lib/vehicles";
 
 // Served from the edge cache and refreshed every 15 seconds (personal bits load in the browser).
 export const revalidate = 15;
@@ -25,11 +28,12 @@ export default async function Home() {
             <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
           </span>
           <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
-          <p className="lede">Cars, utes and trucks from real owners right across Australia. Photographed beautifully, described honestly, and sold to the highest bidder.</p>
-          <div className="ctas">
-            <Link className="btn btn-blue" href="/auctions">Browse live auctions</Link>
-            <Link className="more" href="/sell">Sell your vehicle ›</Link>
+          <p className="lede">Cars, utes, trucks, motorbikes, caravans, boats and machinery from real owners right across Australia. Photographed beautifully, described honestly, and sold to the highest bidder.</p>
+          <div style={{ width: "min(780px,100%)", marginTop: 8 }}><SearchBar variant="hero" /></div>
+          <div className="try-row" aria-label="Try a search">
+            {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], ["Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
           </div>
+          <div className="ctas"><Link className="more" href="/sell">Sell your vehicle ›</Link></div>
         </div>
         <div className="lineup">
           {[["cars", "tangerine", "car", "Cars"], ["utes", "sky", "ute", "Utes & 4x4"], ["trucks", "lime", "truck", "Trucks"]].map(([cat, bg, type, label]) => (
@@ -40,7 +44,22 @@ export default async function Home() {
             </Link>
           ))}
         </div>
+        <div className="catrow">
+          {CATEGORIES.filter((c) => !["cars", "utes", "trucks"].includes(c.key)).map((c) => (
+            <Link key={c.key} href={`/auctions?cat=${c.key}`}>
+              <span className={`stage bg-${c.backdrop}`}><CarArt type={c.silhouette} /></span>{c.short}
+            </Link>
+          ))}
+        </div>
       </div>
+
+      <section className="wrap">
+        <div className="center" style={{ gap: 12, marginBottom: 28 }}>
+          <h2 className="d2">Search like you <span className="serif">mean it.</span></h2>
+          <p className="lede">Pick a make and model, set your price, and see how many are live right now.</p>
+        </div>
+        <MotorsSearch />
+      </section>
 
       {featured && (
         <section className="wrap">
@@ -68,12 +87,8 @@ export default async function Home() {
       <section className="wrap" id="lots">
         <div className="center" style={{ gap: 22, marginBottom: 40 }}>
           <h2 className="d2">Ending soonest.</h2>
-          <form className="searchbox" action="/auctions">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-            <input name="q" type="search" placeholder="Search make, model, suburb or lot number" aria-label="Search vehicles" />
-          </form>
           <div className="seg">
-            {[["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["cheap", "Under $5k"]].map(([k, l]) => (
+            {[["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["motorbikes", "Bikes"], ["caravans", "Caravans"], ["cheap", "Under $5k"]].map(([k, l]) => (
               <Link key={k} href={`/auctions${k ? `?cat=${k}` : ""}`} style={{ height: 42, padding: "0 20px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600, color: "var(--ink2)" }}>{l}</Link>
             ))}
           </div>

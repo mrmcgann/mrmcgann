@@ -1,4 +1,5 @@
 import { currentUser } from "@/lib/auth";
+import { CAT } from "@/lib/vehicles";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   const user = await currentUser(db);
   const admin = supabaseAdmin();
   const { data, error } = await admin.from("appraisals").insert({
-    user_id: user?.id || null, kind: b.kind === "truck" ? "truck" : "car", rego: String(b.rego).toUpperCase().slice(0, 12),
+    user_id: user?.id || null, kind: CAT[b.kind] ? b.kind : b.kind === "truck" ? "trucks" : "cars", rego: String(b.rego).toUpperCase().slice(0, 12),
     state: b.state, odometer: b.odometer, postcode: b.postcode, name: b.name, mobile: b.mobile || null, email: b.email || null,
     photo_paths: Array.isArray(b.photos) ? b.photos.slice(0, 12) : [],
   }).select("ref").single();

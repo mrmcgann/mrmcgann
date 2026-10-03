@@ -1,7 +1,8 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { supabasePublic } from "@/lib/supabase/anon";
-import { searchLots, type Filters, PAGE_SIZE } from "@/lib/data";
+import { searchLots, lotFacets, PAGE_SIZE } from "@/lib/data";
+import type { SearchFilters } from "@/lib/search";
 import { DEFAULT_FEES, type Fees, type Lot, type LotFlaw, type LotPhoto } from "@/lib/types";
 
 // Public data, cached and shared by every visitor. At 10,000 people on the site
@@ -42,13 +43,18 @@ export function getLotCached(id: number) {
   }, ["lot", String(id)], { revalidate: 20, tags: [`lot-${id}`] })();
 }
 
-export function searchLotsCached(f: Filters, page = 1) {
-  const clean: Filters = Object.fromEntries(Object.entries(f).filter(([k, v]) => v && k !== "page")) as Filters;
+export function searchLotsCached(f: SearchFilters, page = 1) {
   return unstable_cache(
-    () => searchLots(supabasePublic(), clean, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE),
-    ["search", JSON.stringify(clean), String(page)],
+    () => searchLots(supabasePublic(), f, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE),
+    ["search", JSON.stringify(f), String(page)],
     { revalidate: 15, tags: ["lots"] },
   )();
+}
+
+// Filter counts don't depend on the sort order, so one cache entry serves every sort.
+export function facetsCached(f: SearchFilters) {
+  const { sort: _sort, ...key } = f;
+  return unstable_cache(() => lotFacets(supabasePublic(), key), ["facets", JSON.stringify(key)], { revalidate: 30, tags: ["lots"] })();
 }
 
 export const getHomeCached = unstable_cache(async () => {

@@ -5,6 +5,7 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 ## Where things live
 - `supabase/migrations/` – schema, RLS, and the auction engine in SQL. **Money and bidding rules live in the database**: `place_bid`, `buy_now`, `make_offer`, `close_due_lots`, `admin_accept`, `admin_decline_referral`, `price_breakdown`, `create_invoice`. Change rules there, add a new migration file, never edit applied ones.
 - `src/lib/fees.ts` mirrors `price_breakdown()` for the live preview. Keep them in step.
+- Search: `src/lib/vehicles.ts` (the 10 categories, sub-types, makes and models), `src/lib/search.ts` (filter names, the plain-English parser, typeahead). The database side is `search_pred()` / `search_lots()` / `lot_facets()` and `queue_search_alerts()` in `20261003000006_search.sql`. A new filter needs all four: `FILTER_KEYS` + `cleanFilters`, `search_pred`, the alert sweep, and `SearchFilterPanel`. `search_pred` builds SQL from fixed text only; values are always read from `$1`.
 - `src/lib/charges.ts` – off-session Stripe charge when an invoice is created.
 - `src/app/api/cron/process` – every-minute clock.
 - `src/content/legal.ts` – Terms, Help and Privacy copy (draft, needs legal review).
@@ -29,4 +30,4 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Payouts (`seller_payouts`) are created when an invoice is paid in full, held by open claims, released by `release_payouts()` after collection + claim window.
 
 ## Tests
-`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`.
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser (run it after changing `vehicles.ts` or `search.ts`). `tests/load/search-bench.mjs` times search at scale.

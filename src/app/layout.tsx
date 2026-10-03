@@ -11,7 +11,7 @@ const fraunces = Fraunces({ subsets: ["latin"], style: ["italic"], weight: ["500
 
 export const metadata: Metadata = {
   title: { default: "Tyrebiter · Car and truck auctions Australia-wide", template: "%s · Tyrebiter" },
-  description: "Online auctions for cars, utes and trucks, sold on behalf of their owners across Australia. Photographed beautifully, described honestly.",
+  description: "Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery, sold on behalf of their owners across Australia. Photographed beautifully, described honestly.",
   metadataBase: new URL(env.siteUrl),
 };
 

@@ -49,5 +49,17 @@ insert into public.lot_flaws (lot_id, title, note, sort) values
 (10633,'Light swirl marks','Paint, polishable.',1),
 (10590,'Stone-chipped bullbar','Cosmetic.',1),(10590,'Oil weep','Noted in report.',2);
 
+-- Samples from the other categories (motorbikes, caravans, boats)
+insert into public.lots (id, status, title, short_title, subtitle, vehicle_type, category, kind, year, make, model, variant, body, engine, engine_cc, lams, transmission, fuel, odometer, hours, berths, length_m, colour, seats, keys, suburb, state, postcode, backdrop, take, owner_note, service_history, known_faults, roadworthy_note, ppsr_clear, visual_grade, grade_paint, grade_interior, grade_tyres, buy_now_price, start_price, current_bid, bid_count, starts_at, ends_at, published_at) values
+(10660,'live','2020 Yamaha MT-07 LAMS','2020 Yamaha MT-07','Learner-approved naked bike. One owner, garaged.','bike','motorbikes','road',2020,'Yamaha','MT-07','LAMS','Naked','689cc parallel twin',689,true,'Manual','Petrol',12400,null,null,null,'Grey',2,2,'Geelong','VIC','3220','berry',
+ 'The bike that every rider seems to own at some point, for good reason. Torquey, light and forgiving, and it will still be fun long after your Ps.',
+ 'Bought new for my learner licence. Never dropped, always garaged, serviced on time.','Dealer serviced','None declared','Not included','t','A','A','A','B',null,3000,3000,0, now(), now() + interval '1 day 6 hours', now()),
+(10661,'live','2016 Jayco Starcraft Pop-top','2016 Jayco Starcraft','Pop-top, sleeps four, ready for the next trip.','caravan','caravans','pop-top',2016,'Jayco','Starcraft','16.55-3','Pop-top caravan',null,null,null,null,null,null,null,4,5.6,'White',null,2,'Toowoomba','QLD','4350','mint',
+ 'Light enough to tow with a mid-size SUV and roomy enough for a family of four. The canvas is in better shape than most we see.',
+ 'Our family van for six summers. Kids have grown up and we are buying a hybrid camper.','Annual bearing service','Awning arm sticks','Not included','t','B','B','B','B',null,10000,10000,0, now(), now() + interval '3 days', now()),
+(10662,'live','2019 Quintrex 420 Hornet','2019 Quintrex Hornet','Tinny on its own trailer. Ready for the river.','boat','boats','tinny',2019,'Quintrex','Hornet','420','Open aluminium boat','40hp Yamaha outboard',null,null,null,'Petrol',null,140,null,4.2,'Silver',4,1,'Bunbury','WA','6230','blueberry',
+ 'The boat that taught half of Australia to fish. Simple, tough and easy to launch on your own.',
+ 'Used for estuary fishing a few times a year. Outboard serviced every season.','Outboard serviced yearly','None declared','Not included','t','B','B','B','B',null,6000,6000,0, now(), now() + interval '4 days', now());
+
 select setval('public.lot_number_seq', 10700);
 update public.lots set featured = true where id = 10432;

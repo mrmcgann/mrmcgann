@@ -103,3 +103,25 @@ Now the header, hearts, bid panel and your own position load in the browser from
 ## Not testable here (verify on staging)
 - Supabase Realtime connection limits, Auth rate limits, Vercel CDN behaviour, and Stripe/Twilio/Resend throughput with real accounts. The README lists the settings to change.
 - A final end-to-end load test against a staging deploy with real services, before launch.
+
+## Search (3 October 2026)
+
+Every kind of vehicle Grays sells (cars, utes & 4x4, vans, trucks, trailers, buses, motorbikes, caravans & motorhomes, boats & jet skis, machinery & farm) with Trade Me Motors-style filters. Measured on the 1M-account database with **20,450 live listings** spread across all ten categories and 250,000 saved searches (`node tests/load/search-bench.mjs`, median of 15 runs, everything rolled back afterwards).
+
+| Query | Median |
+|---|---|
+| Everything, page 1 (closing soonest) | 1.0 ms |
+| Cars | 0.9 ms |
+| Toyota HiLux under $30k, QLD, diesel | 2.8 ms |
+| Keyword "hilux" | 14 ms |
+| Keywords "toyota qld" | 13 ms |
+| LAMS motorbikes, lowest price first | 3.5 ms |
+| Caravans sleeping 4, under 6 m | 3.9 ms |
+| Page 20 of everything | 1.8 ms |
+| Recently closed (60 days) | 1.7 ms |
+| Filter counts, everything | 60 ms |
+| Filter counts, utes + Toyota | 50 ms |
+| Filter counts, keyword "toyota" | 18 ms |
+| Saved-search alerts: 250,000 searches vs 50 new listings (31,388 digests queued) | 19.6 s |
+
+The first version of search ran every filter through one big function and took 200 ms for an unfiltered page. The final version builds each query from only the filters in use, so the database uses the indexes and stops after one page. Results are edge-cached for 15 s and counts for 30 s per exact query, so at 10,000 people browsing, the database sees a small fraction of these.

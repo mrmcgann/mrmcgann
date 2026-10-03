@@ -8,6 +8,7 @@ import { LotCard } from "@/components/LotCard";
 import { Tick } from "@/components/CarArt";
 import { gradeInfo } from "@/lib/grades";
 import { km } from "@/lib/format";
+import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { env } from "@/lib/env";
 
@@ -30,7 +31,10 @@ export function LotView({ bundle, fees, similar, history, preview = false }: { b
     ["Build date", lot.build_date],
     ["Compliance date", lot.compliance_date],
     ["Odometer", lot.odometer != null ? `${km(lot.odometer)} (as shown on the dash)` : null],
+    ["Engine hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hours (as shown on the meter)` : null],
     ["GVM", lot.gvm_kg ? `${lot.gvm_kg.toLocaleString("en-AU")} kg` : null],
+    ["Licence needed", lot.licence_class ? LICENCES.find((l) => l[0] === lot.licence_class)?.[1] || lot.licence_class : null],
+    ["LAMS approved", lot.lams == null ? null : lot.lams ? "Yes, learner approved" : "No"],
     ["Write-off status", WRITE_OFF[lot.write_off_status || "unknown"]],
     ["Stolen check", lot.stolen_clear == null ? null : lot.stolen_clear ? "Not recorded as stolen" : "See note"],
     ["Keys", lot.keys],
@@ -118,7 +122,8 @@ export function LotView({ bundle, fees, similar, history, preview = false }: { b
             <div className="two">
               <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Specs.</h2>
                 <div className="rows">
-                  {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Body", lot.body], ["Engine", lot.engine], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Odometer", km(lot.odometer)], ["Colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Location", `${lot.suburb}, ${lot.state}`], ["Lot number", lot.id]] as [string, unknown][])
+                  {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body], ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
+                    ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Engine hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null], ["Colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Location", `${lot.suburb}, ${lot.state}`], ["Lot number", lot.id]] as [string, unknown][])
                     .filter(([, v]) => v !== null && v !== "" && v !== undefined).map(([k, v]) => <div key={k}><span className="muted">{k}</span><b>{String(v)}</b></div>)}
                 </div>
               </div>
@@ -162,7 +167,7 @@ export function LotView({ bundle, fees, similar, history, preview = false }: { b
           <section>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, flexWrap: "wrap", marginBottom: 32 }}>
               <h2 className="d3">You might also like.</h2>
-              <Link className="more" href={`/auctions?cat=${lot.category}`}>See more {lot.category} ›</Link>
+              <Link className="more" href={`/auctions?cat=${lot.category}`}>See more {(CAT[lot.category]?.label || lot.category).toLowerCase()} ›</Link>
             </div>
             <div className="grid">{similar.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path || undefined} />)}</div>
           </section>

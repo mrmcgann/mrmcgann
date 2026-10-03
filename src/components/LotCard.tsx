@@ -3,8 +3,9 @@ import type { Lot } from "@/lib/types";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
-import { money, km } from "@/lib/format";
+import { money } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
+import { specLine } from "@/lib/vehicles";
 
 export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; cover?: string | null }) {
   const ends = lot.ends_at ? new Date(lot.ends_at).getTime() : 0;
@@ -22,7 +23,7 @@ export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; 
       <Link href={`/lot/${lot.id}`} className="meta">
         <span className="loc">{lot.suburb} {lot.state}</span>
         <span className="ttl">{lot.title}</span>
-        <span className="muted">{km(lot.odometer)} · {lot.transmission} · {lot.fuel}</span>
+        <span className="muted">{specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" ")}</span>
         <span className="price">
           <b>{money(lot.status === "sold" ? lot.sold_price : lot.current_bid)}</b>
           <span className="muted">{lot.bid_count} bid{lot.bid_count === 1 ? "" : "s"}</span>

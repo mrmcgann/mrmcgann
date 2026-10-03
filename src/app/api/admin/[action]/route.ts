@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache";
+import { CAT } from "@/lib/vehicles";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail, friendly } from "@/lib/api";
@@ -9,6 +10,7 @@ import { sendEmail, mailHtml } from "@/lib/email";
 import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
+const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
 
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
   const { action } = await params;
@@ -232,7 +234,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       if (b.status) await db.from("appraisals").update({ status: b.status }).eq("id", b.appraisalId);
       if (b.createLot) {
         const { data: ap } = await db.from("appraisals").select("*").eq("id", b.appraisalId).single();
-        const { data: lot } = await db.from("lots").insert({ status: "draft", title: `Vehicle ${ap.rego} (${ap.state})`, rego_plate: ap.rego, rego_state: ap.state, state: ap.state, postcode: ap.postcode, category: ap.kind === "truck" ? "trucks" : "cars", vehicle_type: ap.kind === "truck" ? "truck" : "car" }).select("id").single();
+        const { data: lot } = await db.from("lots").insert({ status: "draft", title: `Vehicle ${ap.rego} (${ap.state})`, rego_plate: ap.rego, rego_state: ap.state, state: ap.state, postcode: ap.postcode, category: catOf(ap.kind), vehicle_type: CAT[catOf(ap.kind)].silhouette }).select("id").single();
         await db.from("lot_private").insert({ lot_id: lot!.id, seller_name: ap.name, seller_phone: ap.mobile, seller_email: ap.email });
         await db.from("appraisals").update({ lot_id: lot!.id, status: "booked" }).eq("id", b.appraisalId);
         return json({ ok: true, lotId: lot!.id });
