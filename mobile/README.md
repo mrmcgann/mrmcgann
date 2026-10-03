@@ -38,6 +38,7 @@ eas init
 ### 4. Put the website live first
 The app talks to the live website, so these go first:
 - Run `supabase/migrations/20261003000007_app.sql` in the Supabase SQL editor (push devices, push alerts, account deletion).
+- Then run `supabase/migrations/20261003000008_media_partners.sql` (listing videos, consultants, mobile inspections, finance and insurance partners, blurred bidder names).
 - Deploy the website (it has the new `/api` routes the app uses).
 
 ### 5. Tell Expo the app's settings
@@ -107,7 +108,7 @@ Optional: `EXPO_ACCESS_TOKEN` (expo.dev > Access tokens) on the website raises t
 
 ## Updating the app later
 - **Text, screens and fixes:** `eas update --channel production --environment production --message "what changed"`. Phones download it the next time the app opens and use it from the launch after that. No store review needed.
-- **New native features or a new Expo version:** bump `version` in `app.config.ts`, run steps 8, 10 and 11 again.
+- **New native features or a new Expo version:** bump `version` in `app.config.ts`, run steps 8, 10 and 11 again. (Listing videos use `expo-video`, a native module, so phones need a build that includes it: an `eas update` alone isn't enough for that change.)
 - **Forcing very old versions to update** (for example after a terms change): in the Supabase SQL editor,
   `update settings set value = '{"min_ios":"1.2.0","min_android":"1.2.0"}' where key = 'app';`
   Older apps then show "Time for an update" with a link to the store.

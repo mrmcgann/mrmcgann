@@ -1,3 +1,4 @@
+import { SUPABASE_ANON_KEY } from "./env";
 import { supabase } from "./supabase";
 
 // Web build (testing): open PDFs in a new tab; photo picking uses a file input.
@@ -24,4 +25,32 @@ export async function uploadPhotos(bucket: "appraisal-photos" | "claim-photos", 
     if (!error) paths.push(path);
   }
   return paths;
+}
+
+export type PickedVideo = Picked & { size: number };
+export async function pickVideo(): Promise<PickedVideo | null> {
+  if (typeof document === "undefined") return null;
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "video/mp4,video/quicktime,video/webm,video/x-m4v";
+    input.onchange = () => { const f = input.files?.[0]; resolve(f ? { uri: URL.createObjectURL(f), name: f.name, type: f.type || "video/mp4", size: f.size } : null); };
+    input.click();
+  });
+}
+export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) {
+  const blob = await (await fetch(v.uri)).blob();
+  await new Promise<void>((resolve, reject) => {
+    const failed = () => reject(new Error("The upload didn't finish. Check your connection and try again."));
+    const x = new XMLHttpRequest();
+    x.open("PUT", signedUrl);
+    x.setRequestHeader("content-type", v.type);
+    x.setRequestHeader("x-upsert", "false");
+    x.setRequestHeader("cache-control", "max-age=3600");
+    if (SUPABASE_ANON_KEY) x.setRequestHeader("apikey", SUPABASE_ANON_KEY);
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100)); };
+    x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : failed());
+    x.onerror = failed;
+    x.send(blob);
+  });
+  onProgress?.(100);
 }

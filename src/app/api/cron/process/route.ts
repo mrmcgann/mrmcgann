@@ -70,7 +70,18 @@ export async function GET(req: Request) {
       p_link: `/account/invoices/${i.id}`, p_dedupe: overdue ? `storage:${i.id}:${today}` : `collect-soon:${i.id}`, p_meta: {}, p_expires: null });
   }
 
-  // 8. Use the rest of the minute to send messages (the sender job also runs every minute)
+  // 8. Hourly: delete video uploads that never became a request (abandoned or over the limit)
+  if (new Date().getMinutes() === 7) {
+    const { data: orphans } = await db.rpc("video_orphans", { p_limit: 200 });
+    const paths = ((orphans || []) as unknown as (string | { video_orphans: string })[]).map((x) => (typeof x === "string" ? x : x.video_orphans));
+    if (paths.length) {
+      await db.storage.from("video-uploads").remove(paths);
+      await db.from("video_upload_slots").delete().in("path", paths);
+    }
+    s.videoOrphans = paths.length;
+  }
+
+  // 9. Use the rest of the minute to send messages (the sender job also runs every minute)
   const out = await drainOutbox({ max: 5000, deadlineMs: Math.max(0, Math.min(40_000, left() - 20_000)) });
   s.sent = out.sent;
   s.sendFailed = out.failed;

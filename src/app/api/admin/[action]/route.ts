@@ -198,25 +198,56 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       await db.from("contact_messages").update({ status: "done" }).eq("id", b.id);
       return done();
 
-    // ---- Inspections ----
-    case "confirm-inspection": {
-      if (!String(b.when || "").trim()) return fail("Enter the confirmed day and time.");
-      const { data: insp } = await db.from("inspections").update({ status: "confirmed", confirmed_for: b.when }).eq("id", b.inspectionId).select("user_id, lot_id").single();
-      if (!insp) return fail("Not found");
-      const [{ data: priv }, { data: lot }, { data: buyer }] = await Promise.all([
-        db.from("lot_private").select("seller_address").eq("lot_id", insp.lot_id).single(),
-        db.from("lots").select("title").eq("id", insp.lot_id).single(),
-        db.from("profiles").select("first_name, last_name").eq("id", insp.user_id).single(),
-      ]);
-      await notify(insp.user_id, "account", `Inspection confirmed: ${lot?.title}`,
-        `Your inspection is confirmed for ${b.when} at ${priv?.seller_address}. Show the seller your driver licence before you're given the keys. No test drives unless the seller agrees in writing.`,
-        `/lot/${insp.lot_id}`, { dedupe: `insp:${b.inspectionId}:${b.when}` });
-      await notifySeller(insp.lot_id, `Inspection booked: ${b.when}`, `${buyer?.first_name || "A buyer"} ${buyer?.last_name?.slice(0, 1) || ""}. (ID-verified) will inspect your ${lot?.title} on ${b.when}. Ask to see their licence before handing over keys. No test drives unless you agree in writing.`, "/sell/dashboard", `insp-seller:${b.inspectionId}:${b.when}`);
+    // ---- Listing videos (every video is approved here before it's public) ----
+    case "approve-video": {
+      const { data: v } = await db.from("lot_videos").select("id, lot_id, upload_path, status").eq("id", b.videoId).maybeSingle();
+      if (!v || v.status !== "pending") return fail("That video isn't waiting for approval.");
+      const ext = v.upload_path.split(".").pop() || "mp4";
+      const publicPath = `${v.lot_id}/${v.id}.${ext}`;
+      const { error: copyErr } = await db.storage.from("video-uploads").copy(v.upload_path, publicPath, { destinationBucket: "lot-videos" });
+      if (copyErr) return fail(`Couldn't publish the video: ${copyErr.message}`);
+      // Only if it's still waiting (the seller may have withdrawn it meanwhile).
+      const { data: done1 } = await db.from("lot_videos").update({ status: "approved", public_path: publicPath, reviewed_by: profile.id, reviewed_at: new Date().toISOString(), review_note: null }).eq("id", v.id).eq("status", "pending").select("id");
+      if (!done1?.length) { await db.storage.from("lot-videos").remove([publicPath]); return fail("That video was withdrawn."); }
+      await db.storage.from("video-uploads").remove([v.upload_path]); // the public copy is the one we keep
+      const { data: lot } = await db.from("lots").select("title").eq("id", v.lot_id).single();
+      await notifySeller(v.lot_id, "Your video is live", `Your video is now on the ${lot?.title} listing.`, `/lot/${v.lot_id}`, `video-ok:${v.id}`);
+      revalidateTag(`lot-${v.lot_id}`);
       return done();
     }
-    case "cancel-inspection":
-      await db.from("inspections").update({ status: "cancelled", admin_note: b.note || null }).eq("id", b.inspectionId);
+    case "reject-video": {
+      const note = String(b.note || "").trim().slice(0, 300);
+      if (!note) return fail("Say why, so the seller can fix it.");
+      const { data: v } = await db.from("lot_videos").update({ status: "rejected", review_note: note, reviewed_by: profile.id, reviewed_at: new Date().toISOString() }).eq("id", b.videoId).eq("status", "pending").select("lot_id, upload_path").maybeSingle();
+      if (!v) return fail("That video isn't waiting for approval.");
+      await db.storage.from("video-uploads").remove([v.upload_path]);
+      await notifySeller(v.lot_id, "Your video wasn't approved", `We couldn't add your video: ${note} You can upload a new one from your seller dashboard.`, "/sell/dashboard", `video-no:${b.videoId}`);
       return done();
+    }
+    case "remove-video": {
+      const { data: v } = await db.from("lot_videos").update({ status: "removed" }).eq("id", b.videoId).select("lot_id, upload_path, public_path").maybeSingle();
+      if (v) {
+        await db.storage.from("video-uploads").remove([v.upload_path]);
+        if (v.public_path) await db.storage.from("lot-videos").remove([v.public_path]);
+        revalidateTag(`lot-${v.lot_id}`);
+      }
+      return done();
+    }
+
+    // ---- Partner leads (finance, insurance, mobile inspections) ----
+    case "lead-update": {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (["new", "sent", "contacted", "booked", "completed", "converted", "lost", "withdrawn"].includes(b.status)) patch.status = b.status;
+      if (b.revenue !== undefined && b.revenue !== "") { const r = Number(String(b.revenue).replace(/[$,]/g, "")); if (!Number.isFinite(r) || r < 0) return fail("Enter the fee as a number."); patch.revenue = r; }
+      if (typeof b.note === "string") patch.admin_note = b.note.slice(0, 500);
+      if (typeof b.report === "string" && b.report) { if (!/^https:\/\//.test(b.report)) return fail("The report link must start with https://"); patch.report_url = b.report; }
+      const { data: lead } = await db.from("partner_leads").update(patch).eq("id", b.leadId).select("kind, user_id, email, lot_id, report_url, status, ref").maybeSingle();
+      if (!lead) return fail("Not found", 404);
+      if (lead.kind === "inspection" && b.report && lead.user_id) {
+        await notify(lead.user_id, "account", "Your inspection report is ready", `The mobile inspection report for lot ${lead.lot_id} is ready: ${lead.report_url}`, `/lot/${lead.lot_id}`, { dedupe: `insp-report:${b.leadId}` });
+      }
+      return done();
+    }
 
     // ---- Members ----
     case "member": {
@@ -245,7 +276,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       await db.from("quote_requests").update({ status: "quoted", quote_note: b.note || null }).eq("id", b.quoteId);
       return done();
     case "settings": {
-      if (!["fees", "auction", "selling", "terms"].includes(b.key)) return fail("Unknown setting.");
+      if (!["fees", "auction", "selling", "terms", "finance"].includes(b.key)) return fail("Unknown setting.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");

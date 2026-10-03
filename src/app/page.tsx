@@ -17,7 +17,8 @@ export const revalidate = 15;
 export default async function Home() {
   const home = await getHomeCached();
   const lots = home.ending;
-  const featured = home.featured || lots[0];
+  const featured = home.featured;
+  const fp = home.featuredPhotos;
   const covers = new Map(lots.concat(featured ? [featured] : []).map((l) => [l.id, l.cover_path || undefined]));
 
   return (
@@ -28,7 +29,7 @@ export default async function Home() {
             <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
           </span>
           <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
-          <p className="lede">Cars, utes, trucks, motorbikes, caravans, boats and machinery from real owners right across Australia. Photographed beautifully, described honestly, and sold to the highest bidder.</p>
+          <p className="lede">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Professionally photographed, PPSR searched and sold to the highest bidder.</p>
           <div style={{ width: "min(780px,100%)", marginTop: 8 }}><SearchBar variant="hero" /></div>
           <div className="try-row" aria-label="Try a search">
             {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], ["Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
@@ -55,8 +56,8 @@ export default async function Home() {
 
       <section className="wrap">
         <div className="center" style={{ gap: 12, marginBottom: 28 }}>
-          <h2 className="d2">Search like you <span className="serif">mean it.</span></h2>
-          <p className="lede">Pick a make and model, set your price, and see how many are live right now.</p>
+          <h2 className="d2">Find exactly <span className="serif">the one.</span></h2>
+          <p className="lede">Choose a make and model, set your budget, and see how many are live now.</p>
         </div>
         <MotorsSearch />
       </section>
@@ -66,20 +67,27 @@ export default async function Home() {
           <div className={`feature bg-${featured.backdrop}`}>
             <div className="copy">
               <span className="tag" style={{ background: "var(--ink)", color: "#FFFFFF", alignSelf: "flex-start", height: 34, fontSize: 14 }}>Lot of the week</span>
-              <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>Priced like a runabout. Shot like a <span className="serif">supercar.</span></h2>
-              <p style={{ fontSize: 20, fontWeight: 500 }}>{featured.title}. {featured.subtitle} {km(featured.odometer)}. {featured.suburb}, {featured.state}.</p>
+              <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>{featured.short_title || featured.title}.</h2>
+              <p style={{ fontSize: 20, fontWeight: 500 }}>{[featured.subtitle, featured.odometer != null ? km(featured.odometer) : null, `${featured.suburb}, ${featured.state}`].filter(Boolean).join(" · ")}</p>
               <div className="stat">
                 <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span></span>
                 <span><span className="k">Ends in</span><Countdown className="v" endsAt={featured.ends_at} /></span>
               </div>
               <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
-                <Link className="btn btn-dark" href={`/lot/${featured.id}`}>View the lot</Link>
-                {featured.has_reserve && featured.reserve_met && <span style={{ fontWeight: 700 }}>Reserve met. It will sell.</span>}
+                <Link className="btn btn-dark" href={`/lot/${featured.id}`}>View lot</Link>
+                {featured.has_reserve && featured.reserve_met && <span style={{ fontWeight: 700 }}>Reserve met</span>}
+                {!featured.has_reserve && <span style={{ fontWeight: 700 }}>No reserve</span>}
               </div>
             </div>
-            <div className="stage" style={{ minHeight: 320 }}>
-              {covers.get(featured.id) ? <img className="lotimg" src={photoUrl(covers.get(featured.id)!)} alt="" /> : <CarArt type={featured.vehicle_type} />}
-            </div>
+            {fp.length >= 5 ? (
+              <Link href={`/lot/${featured.id}`} className="mosaic n5 feature-mosaic" aria-label={featured.title}>
+                {fp.map((p, k) => <span key={k} className={`tile t${k}`}><img src={photoUrl(p.path)} alt={k === 0 ? featured.title : ""} loading="lazy" /></span>)}
+              </Link>
+            ) : (
+              <div className="stage" style={{ minHeight: 320 }}>
+                {covers.get(featured.id) ? <img className="lotimg" src={photoUrl(covers.get(featured.id)!)} alt="" /> : <CarArt type={featured.vehicle_type} />}
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -103,24 +111,24 @@ export default async function Home() {
 
       <section className="wrap">
         <div className="panel">
-          <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Honest by <span className="serif">design.</span></h2>
+          <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Bid with <span className="serif">confidence.</span></h2>
           <div className="four">
-            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Condition report on every lot.">A visual grade and a photo of every flaw we spot. It&apos;s a guide, so you can decide whether to inspect before you bid.</Tile>
-            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Inspect before you bid.">Every vehicle stays at its owner&apos;s place. Book a viewing through us and see it in person.</Tile>
-            <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">We run a PPSR search on every vehicle at listing and show you the result.</Tile>
-            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Buyer&apos;s premium, GST and fees are added up as you type your bid. What you see is what you pay.</Tile>
+            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Condition report on every lot.">A visual grade, close-up photos of damage and wear, and the seller&apos;s written declarations.</Tile>
+            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Independent inspections.">Order a mobile inspection by a qualified mechanic before you bid, with a written report and photos.</Tile>
+            <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">Every vehicle is searched for finance owing, write-offs and theft before listing.</Tile>
+            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Buyer&apos;s premium, GST and fees are calculated as you bid. No card surcharge.</Tile>
           </div>
         </div>
       </section>
 
       <section className="wrap">
-        <h2 className="d2" style={{ textAlign: "center", marginBottom: 40 }}>Find your kind of car.</h2>
+        <h2 className="d2" style={{ textAlign: "center", marginBottom: 40 }}>Browse by category.</h2>
         <div className="bento">
           <Link className="big bg-berry" href="/auctions?cat=cheap" style={{ borderRadius: 32, padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <span style={{ fontWeight: 700 }}>Collection</span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 12 }}><span className="n" style={{ fontSize: "clamp(56px,7vw,88px)", lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.055em" }}>Under<br />$5,000.</span><span style={{ fontSize: 20, maxWidth: 420, fontWeight: 500 }}>First cars, runabouts, honest second cars. Every one shot like it matters.</span></span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 12 }}><span className="n" style={{ fontSize: "clamp(56px,7vw,88px)", lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.055em" }}>Under<br />$5,000.</span><span style={{ fontSize: 20, maxWidth: 420, fontWeight: 500 }}>First cars and second cars, each with a full condition report and PPSR search.</span></span>
           </Link>
-          {[["bg-sky", "/auctions?cat=utes", "Tradie utes", "Dual cabs & tray backs ›", ""], ["bg-lime", "/auctions?cat=trucks", "Tippers", "Light trucks ›", ""], ["bg-blueberry on-dark", "/auctions?cat=trucks", "Prime movers", "Heavy haulage ›", ""], ["bg-mint", "/auctions?cat=cheap", "First cars", "Cheap to run & insure ›", ""], ["bg-tangerine", "/auctions?sort=ending", "Ending today", "Last calls, live now ›", "wide"], ["bg-grape on-dark", "/auctions?cat=cars", "Every car", "Sedans, hatches, SUVs ›", "wide"]].map(([cls, href, n, s, w]) => (
+          {[["bg-sky", "/auctions?cat=utes", "Work utes", "Dual cabs & tray backs ›", ""], ["bg-lime", "/auctions?cat=trucks", "Tippers", "Light trucks ›", ""], ["bg-blueberry on-dark", "/auctions?cat=trucks", "Prime movers", "Heavy haulage ›", ""], ["bg-mint", "/auctions?cat=cheap", "First cars", "Economical to run ›", ""], ["bg-tangerine", "/auctions?ending=today", "Closing today", "Final hours ›", "wide"], ["bg-grape on-dark", "/auctions?cat=cars", "Every car", "Sedans, hatches, SUVs ›", "wide"]].map(([cls, href, n, s, w]) => (
             <Link key={n + href} className={`${cls} ${w}`} href={href} style={{ borderRadius: 32, padding: 32, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4 }}>
               <span className="n" style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.035em" }}>{n}</span><span className="s" style={{ fontSize: 16, fontWeight: 500 }}>{s}</span>
             </Link>
@@ -129,11 +137,11 @@ export default async function Home() {
       </section>
 
       <section className="wrap" id="how">
-        <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Buying is easy.</h2>
+        <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>How buying works.</h2>
         <div className="steps3">
-          <div><span className="num" style={{ color: "var(--tangerine)" }}>1</span><h3>Join free.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Verify your mobile, add a card and verify your ID once.</p></div>
-          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>Watch. Inspect. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read the condition report, book a viewing at the seller&apos;s place, then set a max bid and we bid for you.</p></div>
-          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Payment is taken when you win. Collect from the seller or book transport.</p></div>
+          <div><span className="num" style={{ color: "var(--tangerine)" }}>1</span><h3>Register.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Verify your mobile, add a card and confirm your ID once. It&apos;s free.</p></div>
+          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>Research. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read the condition report, order a mobile inspection if you&apos;d like one, then set your maximum bid.</p></div>
+          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Payment is taken when you win. Collect at a booked time, or arrange transport.</p></div>
         </div>
         <div className="center" style={{ marginTop: 40, gap: 14 }}>
           <JoinOrWatchlist />
@@ -145,8 +153,8 @@ export default async function Home() {
         <div className="sellband">
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Tyrebiter</span>
-            <h2 className="d2" style={{ color: "#FFFFFF" }}>Skip the <span className="serif">tyre-kickers.</span></h2>
-            <p style={{ fontSize: 21, fontWeight: 500 }}>Leave it in your driveway. We photograph it at your place, list it Australia-wide, book every viewing and pay you when the buyer settles.</p>
+            <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your driveway.</span></h2>
+            <p style={{ fontSize: 21, fontWeight: 500 }}>We photograph and inspect it at your place, list it Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
             <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap" }}>
               <Link className="btn btn-white" href="/sell">Get a free appraisal</Link>
               <Link href="/sell#how-sell" style={{ fontSize: 19, fontWeight: 600 }}>How selling works ›</Link>

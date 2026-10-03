@@ -29,6 +29,17 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - `bid_guard` blocks sellers (and their mobile) from bidding, and requires the current terms version.
 - Payouts (`seller_payouts`) are created when an invoice is paid in full, held by open claims, released by `release_payouts()` after collection + claim window.
 
+## Listings: photos, videos, bidders, consultants
+- Gallery (`src/components/Gallery.tsx`, app `mobile/src/ui/Gallery.tsx`): big photo plus four, "+N", full-screen viewer, credits (`lot_photos.credit`/`credit_url`). Never fill listings with photos from other sites; `scripts/sample-photos.mjs` uses openly licensed Commons photos with credits.
+- Videos (`20261003000008_media_partners.sql`): sellers/admins get a signed upload URL (`/api/videos/upload-url`) into the private bucket `video-uploads`, then `/api/videos` checks the file with `storage.info()` and calls `request_lot_video`. Admin approval (`approve-video` in `api/admin/[action]`) copies it to the public bucket `lot-videos`. No storage policies: all storage access is server-side. Orphan uploads are removed by the clock (`video_orphans`).
+- Bidder names are never public: `bid_history` / `seller_lot_bids` return `bidder_mask` (a made-up name from a salted hash; salt in `app_secrets`, `bidder_mask()` not executable by clients). Shown blurred with `BlurName`. Don't add real names or per-member suffixes to any public payload.
+- No in-person inspections. Buyers order a mobile inspection (partner kind `inspection`) or call the listing's consultant (`consultants`, `lots.consultant_id`, one default).
+
+## Partners: finance, insurance, inspections (revenue)
+- Tables `partners` (public read of active), `partner_private` (lead email, admin only), `partner_leads` (admin only), `partner_clicks`. Read partners through `getPartnersCached()` (tag `partners`; sample partners hidden unless test mode).
+- `/go/[slug]` is the tracked outbound link (fills `{amount}` etc., dedupes clicks per IP per day, skips bots and prefetches). `/api/leads` sends an enquiry: signed-in members with a verified mobile only (inspections need `can_bid`); it uses the profile's verified name/mobile/email, never the request body; stores the exact consent text; emails go through the outbox.
+- Compliance (keep it): a comparison rate always sits next to any advertised rate, with `COMPARISON_WARNING` (`src/lib/finance.ts`); listing estimates are lender-neutral and use the all-in price (`listingEstimate`); `REFERRER_NOTE` (no credit licence, commissions disclosed) and the insurance general advice warning (`src/lib/partners.ts`); consent text (`consentText`) must list exactly what `/api/leads` sends (`FIELDS`). No ratings, "best" or recommendations of a partner.
+
 ## Phone app (`mobile/`)
 - Expo SDK 57 + expo-router (`mobile/src/app`), iOS and Android from one codebase. Store steps and listing copy: `mobile/README.md`, `mobile/store/LISTING.md`.
 - It imports the website's `src/lib` (search, vehicles, fees, format) through Metro `watchFolders` and the `@/lib/*` path. Keep those files free of Next/Node-only imports. Root `tsconfig.json` and `eslint.config.mjs` exclude `mobile/`.
@@ -40,4 +51,4 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Checks: `cd mobile && npm run typecheck && npm test`; `npx expo export -p ios -p android` must bundle. The web build (`npx expo export -p web`) is what the end-to-end tests drive.
 
 ## Tests
-`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser (run it after changing `vehicles.ts` or `search.ts`). `tests/load/search-bench.mjs` times search at scale.
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser and finance maths (run it after changing `vehicles.ts`, `search.ts` or `finance.ts`). `tests/load/search-bench.mjs` times search at scale.

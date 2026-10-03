@@ -1,5 +1,9 @@
-import { getFeesCached, getHistoryCached, getLotCached, getSimilarCached } from "@/lib/cache";
-import { photoUrl } from "@/lib/photos";
+import { getFeesCached, getHistoryCached, getLotCached, getPartnersCached, getSettingsCached, getSimilarCached } from "@/lib/cache";
+import { photoUrl, videoUrl } from "@/lib/photos";
+import { listingEstimate } from "@/lib/finance";
+import { priceBreakdown } from "@/lib/fees";
+import { env } from "@/lib/env";
+import type { FinanceSettings } from "@/lib/types";
 
 // Everything public about one vehicle, for the app's lot screen: the listing, photos,
 // flaws, answered questions, similar vehicles, recent bids and the fee table.
@@ -12,12 +16,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!Number.isSafeInteger(lotId) || lotId <= 0) return notFound();
   const bundle = await getLotCached(lotId);
   if (!bundle || ["draft", "scheduled", "cancelled"].includes(bundle.lot.status)) return notFound();
-  const [fees, similar, history] = await Promise.all([getFeesCached(), getSimilarCached(bundle.lot.category, lotId), getHistoryCached(lotId, 20)]);
-  const withUrl = <T extends { cover_path?: string | null }>(l: T) => ({ ...l, cover_url: l.cover_path ? photoUrl(l.cover_path) : null });
+  const [fees, similar, history, partners, settings] = await Promise.all([getFeesCached(), getSimilarCached(bundle.lot.category, lotId), getHistoryCached(lotId, 20), getPartnersCached(), getSettingsCached()]);
+  const abs = (u: string) => (u.startsWith("/") ? env.siteUrl + u : u);
+  const withUrl = <T extends { cover_path?: string | null }>(l: T) => ({ ...l, cover_url: l.cover_path ? abs(photoUrl(l.cover_path)) : null });
+  const { lot } = bundle;
+  const price = lot.buy_now_price || Math.max(lot.current_bid || 0, lot.start_price || 0);
+  const allIn = price ? priceBreakdown(price, fees).total : 0;
+  const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, (settings.finance || {}) as FinanceSettings) : null;
+  const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
   return Response.json({
     lot: withUrl(bundle.lot),
-    photos: bundle.photos.map((p) => ({ ...p, url: photoUrl(p.path) })),
-    flaws: bundle.flaws.map((f) => ({ ...f, url: f.photo_path ? photoUrl(f.photo_path) : null })),
+    photos: bundle.photos.map((p) => ({ ...p, url: abs(photoUrl(p.path)) })),
+    flaws: bundle.flaws.map((f) => ({ ...f, url: f.photo_path ? abs(photoUrl(f.photo_path)) : null })),
+    videos: bundle.videos.map((v) => ({ ...v, url: videoUrl(v.public_path) })),
+    consultant: bundle.consultant ? { ...bundle.consultant, photo_url: bundle.consultant.photo_path ? abs(photoUrl(bundle.consultant.photo_path)) : null } : null,
+    // Lender-neutral estimate on the all-in price (no lender is named or recommended).
+    finance: est ? { weekly: Math.round(est.weekly), amount: est.amount, months: est.months, rate: est.rate, comparison_rate: est.comparison, basis: est.basis, buyNow: !!lot.buy_now_price } : null,
+    inspector,
+    insurers: partners.some((p) => p.kind === "insurance"),
     questions: bundle.questions,
     watchers: bundle.watchers,
     similar: similar.map(withUrl),

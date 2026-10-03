@@ -12,6 +12,7 @@ import { STEP_NAMES, useSession } from "~/lib/session";
 import type { AppLot, BidRow, Fees, MyLotState } from "~/lib/types";
 import { Button, Check, LineItem, MoneyField, Notice, Sheet, Soft, T, Tag, digits, useNow } from "./kit";
 import { useLive } from "./useLive";
+import { AutoTag, BlurName } from "./BlurName";
 import { C, F } from "./theme";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
@@ -196,13 +197,15 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
       <Soft>
         <T v="strong">Bid history</T>
         {history.length === 0 ? <T v="muted">No bids yet. Be the first.</T> : history.map((h, i) => (
-          <View key={`${h.created_at}-${i}`} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, gap: 10 }}>
-            <T v="body" style={{ flex: 1, fontFamily: F.semibold }} numberOfLines={1}>{h.bidder_tag}{h.is_auto ? " (auto)" : ""}</T>
+          <View key={`${h.created_at}-${i}`} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4, gap: 10 }}>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", marginLeft: -4 }}>
+              <BlurName mask={h.bidder_mask || h.bidder_tag} style={{ flexShrink: 1 }} />{h.is_auto ? <AutoTag /> : null}
+            </View>
             <T v="strong">{money(h.amount)}</T>
             <T v="small" style={{ width: 82, textAlign: "right" }}>{new Date(h.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</T>
           </View>
         ))}
-        <T v="small">Bidders are shown by a private tag.</T>
+        <T v="small">Bidder names are hidden for privacy. Times are in your time zone.</T>
       </Soft>
 
       <Sheet visible={sheet === "confirm"} onClose={() => setSheet(null)} title={`Confirm your maximum: ${money(typed)}`} scroll testID="confirm-bid"

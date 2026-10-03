@@ -45,7 +45,7 @@ export default async function Account() {
           <h1 className="d2">Hi{profile.first_name ? `, ${profile.first_name}` : ""}.</h1>
           <div className="soft" style={{ padding: 28, background: miss.length ? "var(--sun)" : "var(--mint)" }}>
             <b style={{ fontSize: 22, letterSpacing: "-0.02em" }}>{miss.length ? `Finish ${miss.length} more step${miss.length === 1 ? "" : "s"} to start bidding.` : "You're ready to bid."}</b>
-            <span>{miss.length ? "You can browse and build a watchlist now. Bidding and inspections need your details, a verified mobile, a payment card and a verified ID." : "Your details, mobile, card and ID are all verified."}</span>
+            <span>{miss.length ? "You can browse and build a watchlist now. Bidding needs your details, a verified mobile, a payment card and a verified ID." : "Your details, mobile, card and ID are all verified."}</span>
             {profile.suspended && <span className="notice bad">Your account is suspended. Contact us to sort it out.</span>}
           </div>
           <div>

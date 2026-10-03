@@ -56,6 +56,8 @@ export function MobileMenu() {
           {CATEGORIES.map((c) => <Link key={c.key} href={`/auctions?cat=${c.key}`}>{c.label}</Link>)}
           <Link href="/auctions?ending=today">Ending today</Link>
           <Link href="/sell">Sell your vehicle</Link>
+          <Link href="/finance">Car finance</Link>
+          <Link href="/insurance">Car insurance</Link>
           <Link href="/watchlist">Watchlist</Link>
           <Link href="/help">Help</Link>
         </div>

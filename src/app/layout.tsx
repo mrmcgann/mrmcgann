@@ -12,7 +12,7 @@ const fraunces = Fraunces({ subsets: ["latin"], style: ["italic"], weight: ["500
 
 export const metadata: Metadata = {
   title: { default: "Tyrebiter · Car and truck auctions Australia-wide", template: "%s · Tyrebiter" },
-  description: "Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery, sold on behalf of their owners across Australia. Photographed beautifully, described honestly.",
+  description: "Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Professionally photographed, PPSR searched and sold to the highest bidder.",
   metadataBase: new URL(env.siteUrl),
   // iPhone Safari shows an "Open in the app" banner once the app is on the App Store.
   ...(APP_STORE_ID ? { itunes: { appId: APP_STORE_ID } } : {}),

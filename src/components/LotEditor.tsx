@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -35,6 +35,8 @@ const num = (v: string) => (v === "" ? null : Number(v));
 export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaws, seller }: { lot: Row | null; priv: Row | null; photos: Row[]; flaws: Row[]; seller?: SellerInfo }) {
   const router = useRouter();
   const db = supabaseBrowser();
+  const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { db.from("consultants").select("id, name").eq("active", true).order("sort").then(({ data }: { data: { id: string; name: string }[] | null }) => setConsultants(data || [])); }, [db]);
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
@@ -64,7 +66,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   function normalize(f: Row) {
     const out: Row = {};
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
-      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books",
+      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
@@ -248,13 +250,17 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>PPSR searched on</span><input className="input" type="date" value={f.ppsr_checked_at ? String(f.ppsr_checked_at).slice(0, 10) : ""} onChange={(e) => setF({ ...f, ppsr_checked_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
           <label className="field"><span>Service books</span><select className="input" value={f.service_books == null ? "" : String(f.service_books)} onChange={(e) => setF({ ...f, service_books: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label>
         </div>
-        {inp("video_url", "Walkaround / cold-start video link (optional)", { placeholder: "https://…" })}
+        <div className="grid2">
+          {inp("video_url", "External video link (optional, e.g. YouTube)", { placeholder: "https://…" })}
+          <label className="field"><span>Consultant shown on the listing</span><select className="input" value={String(f.consultant_id || "")} onChange={(e) => setF({ ...f, consultant_id: e.target.value || null })}><option value="">Default consultant</option>{consultants.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        </div>
+        <span className="hint">Seller-uploaded videos are approved in <a className="blue" href="/admin/videos">Videos</a>.</span>
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Story</h2>
-        {area("take", "Tyrebiter's take", "Two or three sentences that make someone want it. Opinion, not facts about condition.")}
-        {area("owner_note", "From the owner", "In the owner's words, with their permission.")}
+        {area("take", "Overview", "Two or three plain, factual sentences shown at the top of the listing: what it is, how it's equipped, what it suits. No hype, and nothing about condition the report doesn't support.")}
+        {area("owner_note", "Seller's comments", "In the seller's words, with their permission.")}
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -279,6 +285,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
                 <div key={String(ph.id)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <div className="photo" style={{ aspectRatio: "4/3" }}><img src={photoUrl(String(ph.path))} alt="" /></div>
                   <select className="input" style={{ height: 40, fontSize: 14 }} value={String(ph.angle || "")} onChange={(e) => updatePhoto(String(ph.id), { angle: e.target.value })}>{ANGLES.map((a) => <option key={a}>{a}</option>)}</select>
+                  <input className="input" style={{ height: 40, fontSize: 13 }} placeholder="Photo credit (if not ours)" defaultValue={String(ph.credit || "")} onBlur={(e) => { if (e.target.value !== String(ph.credit || "")) void updatePhoto(String(ph.id), { credit: e.target.value || null }); }} aria-label="Photo credit" />
                   <span style={{ display: "flex", gap: 8, fontSize: 13 }}><button className="linkbtn" onClick={() => movePhoto(i, -1)}>‹ Left</button><button className="linkbtn" onClick={() => movePhoto(i, 1)}>Right ›</button><button className="linkbtn" style={{ color: "#B4123E", marginLeft: "auto" }} onClick={() => deletePhoto(ph)}>Delete</button></span>
                 </div>
               ))}

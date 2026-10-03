@@ -1,6 +1,6 @@
 # Tyrebiter
 
-Online auctions for cars, utes and trucks, sold on behalf of their owners across Australia.
+Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia.
 
 Built with **Next.js** (the website), **Supabase** (database, logins, live bid updates, photo storage), **Stripe** (saved cards, automatic charging, ID checks), **Twilio** (SMS codes and alerts) and **Resend** (email). Hosted on **Vercel**.
 
@@ -10,7 +10,8 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 
 **For buyers**
 - Browse and search live auctions, collections and filters
-- Lot pages with gallery, visual grade, flaws, "What we know", live countdown and live bid updates
+- Lot pages with a big photo and four smaller ones, a full-screen viewer, walkaround videos (checked by us before they go live), visual grade, damage and wear, checks, live countdown and live bid updates
+- Bid history with every bidder's name blurred (a made-up name per bidder per vehicle; real names never leave the database)
 - Auto-bidding with private maximums, bid increments, ties go to the earlier maximum
 - Going, going, gone: bids in the last 10 minutes add 10 minutes
 - Reserve met / not met, referral to the seller, Make an Offer, Buy Now
@@ -19,7 +20,9 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Automatic payment when you win: under $5,000 charged in full, otherwise a non-refundable deposit plus bank transfer
 - Declined-card "Pay now" flow, invoices, nominate a collector
 - Watchlist with 1-hour reminders, saved searches with alerts, notification settings
-- Inspection booking at the seller's location, delivery quote request, report a concern
+- No in-person viewings: buyers order an independent mobile inspection, or call the vehicle's consultant
+- Finance and insurance comparison (`/finance`, `/insurance`), with a repayment estimate on every listing; enquiries go to partners only with the member's permission
+- Delivery quote request, report a concern
 - Sell page with appraisal form and photo upload
 - Help centre, Terms of sale, Privacy policy
 
@@ -28,7 +31,9 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - List a vehicle: details, story, condition report, photos, flaws, reserve, Buy Now, timing, private seller details
 - Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
 - Invoices: retry cards, mark balances received, mark collected, cancel with fee
-- Inspections: confirm a time (buyer gets the address by SMS)
+- Videos: approve or reject sellers' walkaround videos before they go live
+- Partners and leads: lenders, brokers, insurers and inspection companies, their clicks and enquiries, and the fee each one paid (CSV export)
+- Consultants: the named contact shown on each listing
 - Appraisals: see photos, update status, turn into a draft listing
 - Members: suspend, mark ID verified, make admin
 - Reports, and fees & auction rules
@@ -59,7 +64,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    5. `supabase/migrations/20260928000005_launch.sql`
    6. `supabase/migrations/20261003000006_search.sql`
    7. `supabase/migrations/20261003000007_app.sql` (phone apps: push notifications, account deletion)
-   8. `supabase/seed.sql` (optional sample vehicles; delete them before launch)
+   8. `supabase/migrations/20261003000008_media_partners.sql` (listing videos, blurred bidder names, consultants, finance/insurance/inspection partners and enquiries)
+   9. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   10. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -73,7 +80,8 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
 7. **Project Settings → API**: copy the Project URL, the `anon` key and the `service_role` key.
 8. **Project Settings → JWT Keys**: make sure the project uses the new asymmetric signing keys (new projects do by default; older ones: "Migrate JWT secret", then rotate). This lets the site check who's signed in without calling Supabase on every page.
 9. **Realtime → Settings**: leave **Allow public access** on (live prices use public Broadcast channels named `lot:<id>`; they carry only what's already on the page).
-10. **Authentication → Rate Limits**: raise "emails sent" (custom SMTP starts at 30 an hour), sign-ups/sign-ins and token refreshes to suit launch traffic. Tell Supabase support 2 weeks before a big launch.
+10. **Storage → Settings**: raise the upload file size limit to **250 MB** (needs the Pro plan; the free plan stops at 50 MB). Listing videos use it. Ask sellers for MP4 (H.264) from a phone in landscape; 1 to 3 minutes is plenty.
+11. **Authentication → Rate Limits**: raise "emails sent" (custom SMTP starts at 30 an hour), sign-ups/sign-ins and token refreshes to suit launch traffic. Tell Supabase support 2 weeks before a big launch.
 
 #### Plan and size for 1,000,000 accounts / 10,000 people online
 - **Pro plan with the spend cap turned off.** With the cap on, Realtime stops at 500 live connections and 100,000 monthly active users. Off, it allows 10,000 connections (about US$10 per extra 1,000 at peak) and bills MAU above 100,000 at US$0.00325 each.
@@ -132,7 +140,10 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 - [ ] Let it end: the winner's invoice appears, marked paid (test mode), and the win email arrives
 - [ ] Repeat with a bid below the reserve: it shows "Referred to the seller"; decline it in Admin → Referrals & offers, make an offer, accept it
 - [ ] Buy Now on a vehicle over $5,000: $500 deposit, balance shown with bank details
-- [ ] Book an inspection, confirm it in admin: the buyer gets the address by SMS/email
+- [ ] As a fully verified member, order a mobile inspection on a listing: you get a reference, emails go to the partner, the buyer and your team, and it shows in Admin → Leads
+- [ ] On a listing, open "Compare car loans" and send an enquiry to a lender; record a fee against it in Admin → Leads
+- [ ] As the seller, add a video from the seller dashboard; approve it in Admin → Videos; it plays on the listing
+- [ ] Bid from two accounts: the bid history shows blurred names, the same blurred name for the same bidder
 - [ ] Request an appraisal on the Sell page with photos: it appears in Admin → Appraisals
 - [ ] Seller flow: in Admin, turn the appraisal into a draft listing, copy the seller link (or "Text + email it"), open it signed in as a third account, verify ID, answer the questions, upload a photo as the rego papers, add bank details, sign
 - [ ] Try to publish before ticking "Papers match" and adding the VIN + PPSR date: it refuses and says why. Then publish
@@ -147,7 +158,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
 
 ## Automated tests
-`npm run test:db` runs 138 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on).
+`npm run test:db` runs 252 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser and the finance maths.
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -161,6 +172,23 @@ PGPORT=55432 node tests/load/storm.mjs     # sale day, last-second snipe, 2,000 
 ## Phone apps (iPhone and Android)
 The `mobile/` folder is the Tyrebiter app for the App Store and Google Play. It uses this website's database and API, so deploy the website first. Step-by-step store setup, costs and the listing copy are in [`mobile/README.md`](mobile/README.md) and [`mobile/store/LISTING.md`](mobile/store/LISTING.md).
 
+## Finance, insurance and inspections (partner income)
+Like carsales and Trade Me, the site earns from finance, insurance and inspection partners: a fee per enquiry, per funded loan or per policy, agreed with each partner. Buyers see the partners on `/finance`, `/insurance` and every listing.
+1. **Get the agreements signed first.** Each partner pays you under a written referral agreement that says what they pay and when.
+2. **Credit (finance)**: you can't give credit assistance without an Australian Credit Licence. The site is set up as a *referrer* only (it passes on details with permission, says it doesn't hold a licence, and shows the commission), which is how most car marketplaces work. Ask each lender or broker to confirm you're registered with them as a referrer, and have a lawyer check the pages before you switch lenders on.
+3. **Insurance**: comparing policies is a financial service. Either become an authorised representative of a licensed insurer or broker, or send buyers to a licensed comparison partner. Each insurer listed needs its PDS and TMD link.
+4. **Add the partners** in **Admin → Partners**: name, licence number, rates, the comparison rate and what it's based on (the law requires both together), fees, links (`{amount}`, `{term}`, `{make}`, `{model}`, `{year}`, `{postcode}` and `{lot}` are filled in for them), privacy policy, PDS/TMD, the email that receives enquiries, and how much they pay you (shown to buyers).
+5. **Consultants**: add your real consultant(s) in **Admin → Consultants**, pick one per listing in the vehicle editor, and make one the default.
+6. Clicks and enquiries per partner are in **Admin → Partners**; mark each enquiry's outcome and the fee received in **Admin → Leads**, and download the CSV for invoicing partners.
+
+## Sample photos
+The sample listings start without photos. Never copy photos from other listing sites: they belong to their sellers and photographers. To fill the samples with openly licensed photos of the same makes and models (Wikimedia Commons, with a credit on each), run on a computer with internet access:
+```bash
+npm run sample-photos -- --dry   # see what it would use
+npm run sample-photos            # saves photos to public/sample-photos/ and writes supabase/sample-photos.sql
+```
+Look through `public/sample-photos/`, delete any that don't match, then run `supabase/sample-photos.sql` in the SQL Editor. Each photo shows its credit on the listing. Delete them with the sample vehicles before launch.
+
 ## Before launch
 - [ ] `NEXT_PUBLIC_TEST_MODE=false`
 - [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically. Fill the remaining `[brackets]` in `src/content/legal.ts` (licence details, governing state, trust account)
@@ -169,7 +197,9 @@ The `mobile/` folder is the Tyrebiter app for the App Store and Google Play. It 
 - [ ] Terms of sale, Seller agency agreement and Privacy policy reviewed by an Australian lawyer: consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds must sit in a trust account, unfair contract terms (deposit forfeiture, withdrawal and cancellation fees), storage and abandonment
 - [ ] Accountant to confirm GST handling when a GST-registered seller sells through you as agent
 - [ ] ABN, licence number, phone, email and bank details in the environment variables and footer
-- [ ] Sample vehicles deleted
+- [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
+- [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
+- [ ] Storage upload limit raised to 250 MB
 - [ ] A full test sale with a real card, then refunded in Stripe
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
 

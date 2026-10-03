@@ -106,6 +106,15 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
+        {paidCard && !inv.collected_at && inv.status !== "cancelled" && (
+          <div className="soft" style={{ gap: 8 }}>
+            <b style={{ fontSize: 20 }}>Insure it before you collect.</b>
+            <span className="muted">The vehicle is your responsibility from handover. Compare cover and arrange it before collection day.</span>
+            <span className="pill-row"><Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/insurance?lot=${inv.lot_id}`}>Compare insurance</Link>
+              {!fullyPaid && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/finance?lot=${inv.lot_id}`}>Finance the balance</Link>}</span>
+          </div>
+        )}
+
         {(claims || []).length > 0 && (
           <div className="soft">
             <b>Your claims</b>

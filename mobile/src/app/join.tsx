@@ -251,7 +251,7 @@ export default function Join() {
     body = (
       <>
         <T v="d3">Verify your ID.</T>
-        <T v="muted">Required once, before your first bid or inspection. Your name and date of birth must match your document.</T>
+        <T v="muted">Required once, before your first bid. Your name and date of birth must match your document.</T>
         <Soft>
           <T v="body">You'll take a photo of your driver licence or passport and a quick selfie. It takes about two minutes.</T>
           <T v="small">Checking {p?.first_name} {p?.last_name}, born {fromIso(p?.dob)}. <Text style={{ color: C.blue, fontFamily: F.bold }} onPress={() => setStep(2)}>Wrong? Edit</Text></T>

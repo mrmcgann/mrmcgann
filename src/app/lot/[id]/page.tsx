@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getFeesCached, getHistoryCached, getLotCached, getSimilarCached } from "@/lib/cache";
+import { getFeesCached, getHistoryCached, getLotCached, getPartnersCached, getSettingsCached, getSimilarCached } from "@/lib/cache";
+import type { FinanceSettings } from "@/lib/types";
 import { LotView } from "@/components/LotView";
 import { photoUrl } from "@/lib/photos";
 import { money } from "@/lib/format";
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const b = await getLotCached(Number(id)).catch(() => null);
   if (!b) return {};
   const img = b.lot.cover_path ? photoUrl(b.lot.cover_path) : undefined;
-  const desc = `${b.lot.subtitle || ""} Current bid ${money(b.lot.current_bid)}. At the seller's location in ${b.lot.suburb}, ${b.lot.state}.`.trim();
+  const desc = `${b.lot.subtitle || ""} Current bid ${money(b.lot.current_bid)}. Located in ${b.lot.suburb}, ${b.lot.state}.`.trim();
   return {
     title: b.lot.title, description: desc,
     alternates: { canonical: `${env.siteUrl}/lot/${b.lot.id}` },
@@ -33,6 +34,6 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
   if (!Number.isFinite(lotId)) notFound();
   const bundle = await getLotCached(lotId);
   if (!bundle) notFound();
-  const [fees, similar, history] = await Promise.all([getFeesCached(), getSimilarCached(bundle.lot.category, lotId), getHistoryCached(lotId, 20)]);
-  return <LotView bundle={bundle} fees={fees} similar={similar} history={history} />;
+  const [fees, similar, history, partners, settings] = await Promise.all([getFeesCached(), getSimilarCached(bundle.lot.category, lotId), getHistoryCached(lotId, 20), getPartnersCached(), getSettingsCached()]);
+  return <LotView bundle={bundle} fees={fees} similar={similar} history={history} partners={partners} finance={(settings.finance || {}) as FinanceSettings} />;
 }

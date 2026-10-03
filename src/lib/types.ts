@@ -81,6 +81,7 @@ export interface Lot {
   disclosures?: Disclosures;
   views?: number;
   seller_id?: string | null;
+  consultant_id?: string | null;
 }
 
 // What the seller declared when they signed the agency agreement (shown on the listing).
@@ -90,7 +91,21 @@ export interface Disclosures {
   known_faults?: string; warning_lights?: string; rego_expiry?: string;
 }
 
-export interface LotPhoto { id: string; lot_id: number; path: string; angle: string | null; sort: number }
+export interface LotPhoto { id: string; lot_id: number; path: string; angle: string | null; sort: number; credit?: string | null; credit_url?: string | null }
+export interface LotVideo { id: string; public_path: string; title: string; approved_at: string | null }
+export interface Consultant { id: string; name: string; title: string; phone: string | null; email: string | null; photo_path: string | null; is_default: boolean }
+
+// Finance, insurance and mobile-inspection partners (see /finance, /insurance and the listing page).
+export type PartnerKind = "finance" | "insurance" | "inspection";
+export interface Partner {
+  id: string; kind: PartnerKind; slug: string; name: string; licence: string | null; blurb: string | null; logo_path: string | null;
+  rate_from: number | null; comparison_rate: number | null; comparison_basis: string | null;
+  establishment_fee: number | null; monthly_fee: number | null; min_amount: number | null; max_amount: number | null;
+  min_term_months: number | null; max_term_months: number | null; price_from: number | null; turnaround: string | null;
+  features: Record<string, string | number | boolean>; pds_url: string | null; tmd_url: string | null; privacy_url: string | null;
+  referral_url: string | null; accepts_leads: boolean; commission_note: string | null; sponsored: boolean; sample: boolean; sort: number; active: boolean; updated_at?: string;
+}
+export interface FinanceSettings { show_on_listings?: boolean; min_price?: number; term_months?: number; deposit_pct?: number }
 export interface LotFlaw { id: string; lot_id: number; title: string; note: string | null; photo_path: string | null; sort: number }
 
 export interface Profile {

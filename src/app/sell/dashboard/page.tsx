@@ -6,6 +6,9 @@ import type { Lot } from "@/lib/types";
 import { money, dateLong, dateTime } from "@/lib/format";
 import { env } from "@/lib/env";
 import { SellerDecision } from "./SellerDecision";
+import { SellerVideos } from "./SellerVideos";
+import { BlurName } from "@/components/BidPanel";
+import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
 
 export const metadata: Metadata = { title: "My vehicles for sale", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -19,6 +22,9 @@ const STATUS: Record<string, [string, string]> = {
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = { status: string; confirmed_for: string | null; collector: string; seller_token: string | null; collected_at: string | null };
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
+type Bid = { amount: number; created_at: string; bidder_mask: string; is_auto: boolean };
+type Video = { id: string; lot_id: number; title: string; status: string; review_note: string | null; created_at: string };
+const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
 
 // The seller's own view: live bids, watchers, decisions, collection and payout.
 export default async function SellerDashboard() {
@@ -27,13 +33,15 @@ export default async function SellerDashboard() {
   const { data: rows } = await supabase.from("lots").select("*").eq("seller_id", user.id).order("created_at", { ascending: false }).limit(50);
   const lots = (rows || []) as Lot[];
   const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at").eq("seller_id", user.id);
+  const { data: vids } = lots.length ? await supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : { data: [] };
   const extra = await Promise.all(lots.map(async (l) => {
-    const [offers, coll, watchers] = await Promise.all([
+    const [offers, coll, watchers, bids] = await Promise.all([
       ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       supabase.rpc("lot_watchers", { p_lot: l.id }),
+      HAS_BIDS.includes(l.status) && l.bid_count > 0 ? supabase.rpc("seller_lot_bids", { p_lot: l.id }) : Promise.resolve({ data: [] }),
     ]);
-    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0) };
+    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id) };
   }));
   const payoutFor = (id: number) => ((payouts || []) as Payout[]).find((p) => p.lot_id === id);
 
@@ -43,7 +51,7 @@ export default async function SellerDashboard() {
       <h1 className="d2">Your vehicles.</h1>
       {lots.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>Nothing listed yet.</b><span className="muted">Request a free appraisal and we&apos;ll send you a link to set up your listing.</span><Link className="btn btn-blue" href="/sell">Sell a vehicle</Link></div>}
       {lots.map((l, i) => {
-        const { offers, coll, watchers } = extra[i];
+        const { offers, coll, watchers, bids, videos } = extra[i];
         const p = payoutFor(l.id);
         const [label, colour] = STATUS[l.status] || [l.status, "var(--panel)"];
         const pending = offers.filter((o) => o.status === "pending");
@@ -61,6 +69,18 @@ export default async function SellerDashboard() {
               <div className="fact"><span className="k">{l.status === "live" ? "Ends" : "Reserve"}</span><span className="v">{l.status === "live" ? dateTime(l.ends_at) : l.has_reserve ? (l.reserve_met ? "Met" : "Not met") : "None"}</span></div>
             </div>
             {l.status === "draft" && <span className="muted">We&apos;re checking your papers and preparing the listing. We&apos;ll text you when it goes live.</span>}
+            {bids.length > 0 && (
+              <details open={l.status === "live"}>
+                <summary style={{ cursor: "pointer", fontWeight: 700 }}>Bids ({bids.length})</summary>
+                <div className="bidlist" style={{ marginTop: 8 }}>
+                  {bids.slice(0, 50).map((b, k) => (
+                    <div key={k}><span><BlurName mask={b.bidder_mask} />{b.is_auto ? <span className="muted" style={{ fontSize: 13 }}> · auto</span> : null}</span><b>{money(b.amount)}</b><span className="muted" style={{ textAlign: "right", fontSize: 14 }}>{dateTime(b.created_at)}</span></div>
+                  ))}
+                </div>
+                <span className="hint">Bidder names are hidden. Every bidder has verified their mobile, card and ID.</span>
+              </details>
+            )}
+            {(VIDEO_OPEN_STATUSES.includes(l.status) || videos.length > 0) && <SellerVideos lotId={l.id} videos={videos} canAdd={VIDEO_OPEN_STATUSES.includes(l.status)} />}
             {l.status === "referred" && (
               <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <b>Bidding ended at {money(l.current_bid)}, below your reserve. Decide by {dateLong(l.decision_by)}.</b>

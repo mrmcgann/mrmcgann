@@ -424,3 +424,99 @@ textarea.input{height:auto;min-height:110px;padding:12px 16px;resize:vertical}
 .drawer .filters{position:static;max-height:none;overflow:visible;padding:0}
 @media (max-width:1000px){.srch-grid{grid-template-columns:1fr}.srch-grid > .filters{display:none}.filters-btn{display:inline-flex}}
 @media (max-width:600px){.sb-go{display:none}.sb-form{height:54px;padding-right:12px}.sb-hero .sb-form{height:60px}.search-panel{position:absolute;top:0;bottom:auto;height:100vh;height:100dvh;padding-top:12px}.srch-sort{margin-left:0;width:100%}.srch-sort select{flex:1}}
+
+/* ---------- Listing photos: one large photo with four smaller ones ---------- */
+.mosaic{position:relative;display:grid;gap:8px;grid-template-columns:2fr 1fr 1fr;grid-template-rows:1fr 1fr;height:clamp(340px,42vw,600px);border-radius:32px;overflow:hidden;background:var(--panel)}
+.mosaic .tile{all:unset;position:relative;overflow:hidden;cursor:zoom-in;background:var(--panel);min-height:0;min-width:0}
+.mosaic .tile img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.7,.2,1),filter .3s ease}
+.mosaic .tile:hover img{transform:scale(1.035)}
+.mosaic .tile:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+.mosaic .t0{grid-row:1 / span 2}
+.mosaic.n1{grid-template-columns:1fr;grid-template-rows:1fr}
+.mosaic.n2{grid-template-columns:2fr 1fr;grid-template-rows:1fr}.mosaic.n2 .t0{grid-row:auto}
+.mosaic.n3{grid-template-columns:2fr 1fr}
+.mosaic.n4{grid-template-columns:2fr 1fr 1fr}.mosaic.n4 .t1{grid-column:2 / span 2}
+.mosaic .more{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(29,29,31,.42);color:#FFFFFF;font-size:24px;font-weight:800;letter-spacing:-0.02em}
+.mosaic-actions{position:absolute;left:18px;right:18px;bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;pointer-events:none;z-index:2}
+.mosaic-actions button{pointer-events:auto;height:40px;padding:0 18px;border-radius:20px;border:0;background:rgba(255,255,255,.95);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.mosaic-actions button:hover{background:#FFFFFF}
+.gallery .stage .mosaic-actions{left:28px;right:28px;bottom:28px}
+@media (max-width:760px){
+  .mosaic,.mosaic.n2,.mosaic.n3,.mosaic.n4{grid-template-columns:repeat(4,1fr);grid-template-rows:auto;height:auto;gap:6px;border-radius:24px;background:transparent}
+  .mosaic .t0,.mosaic.n2 .t0{grid-column:1 / -1;grid-row:auto;aspect-ratio:4 / 3;border-radius:24px}
+  .mosaic .tile:not(.t0),.mosaic.n4 .t1{grid-column:auto;aspect-ratio:1;border-radius:14px}
+  .mosaic .mosaic-actions{position:static;grid-column:1 / -1;padding-top:4px}
+  .mosaic-actions button{height:38px;padding:0 16px;font-size:14px;background:var(--panel);box-shadow:none}
+}
+.lb-strip{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 0;justify-content:center;scrollbar-width:none}
+.lb-strip button{flex:0 0 auto;width:72px;height:52px;border-radius:10px;overflow:hidden;border:2px solid transparent;padding:0;background:rgba(255,255,255,.08);cursor:pointer;opacity:.6}
+.lb-strip button.on{border-color:#FFFFFF;opacity:1}
+.lb-strip button img{width:100%;height:100%;object-fit:cover}
+.lb-strip button.vid{width:auto;padding:0 14px;color:#FFFFFF;font-weight:700;font-size:13px}
+@media (max-width:600px){.lb-strip{justify-content:flex-start}}
+
+/* Bidder names are blurred: the text is a made-up placeholder, never the real name. */
+.blurname{filter:blur(4.5px);user-select:none;-webkit-user-select:none;font-weight:700;letter-spacing:.02em;display:inline-block}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Consent checkbox on partner forms */
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--ink2,#3A3A3C)}
+.consent input{width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:var(--blue)}
+
+/* Listing: finance and insurance box, consultant card */
+.finbox .figs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.finbox .fig{background:#FFFFFF;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.finbox .fig b{font-size:22px;font-weight:800;letter-spacing:-0.03em;line-height:1.1}
+.finbox .fig span{font-size:13px;color:var(--muted);font-weight:600}
+.finbox .sep{height:1px;background:var(--line);margin:6px 0}
+.consult .who{display:flex;gap:14px;align-items:center}
+.consult .face{width:52px;height:52px;border-radius:26px;background:var(--lilac);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;overflow:hidden}
+.consult .face img{width:100%;height:100%;object-fit:cover}
+.consult .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.consult .acts .btn{height:44px;font-size:15px;padding:0 18px}
+.lotsec{display:flex;flex-direction:column;gap:18px}
+.lotsec .lead{font-size:clamp(19px,1.6vw,22px);line-height:1.5;font-weight:500;color:var(--ink)}
+.progress{height:8px;border-radius:4px;background:var(--panel);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--blue);transition:width .2s ease}
+.bidlist{display:flex;flex-direction:column}
+.bidlist div{display:grid;grid-template-columns:1fr auto 110px;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;align-items:center}
+.bidlist div:last-child{border-bottom:0}
+
+/* ---------- Finance and insurance comparison ---------- */
+.fintool{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+.fintool .seg{justify-content:flex-start;align-self:flex-start}
+.fintool .seg button{padding:0 14px;height:40px}
+.money-in{position:relative;display:block}
+.money-in i{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-style:normal;font-weight:700;color:var(--muted)}
+.money-in .input{padding-left:32px}
+.finresult{position:sticky;top:90px;background:var(--ink);color:#FFFFFF;gap:8px}
+.finresult .muted,.finresult .hint{color:rgba(255,255,255,.7)}
+.finresult .big{font-size:clamp(44px,5vw,64px);font-weight:800;letter-spacing:-0.05em;line-height:1}
+.finresult .big small{font-size:20px;font-weight:700;letter-spacing:-0.01em;opacity:.75;margin-left:4px}
+.finresult .rows div{border-color:rgba(255,255,255,.14)}
+@media (max-width:860px){.fintool{grid-template-columns:1fr}.finresult{position:static}}
+.partners{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:16px}
+.partner{border:1px solid var(--line);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:14px;background:#FFFFFF}
+.partner .ph-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.partner .nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.partner .nums div{background:var(--panel);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.partner .nums span{font-size:12px;font-weight:700;color:var(--muted)}
+.partner .nums b{font-size:17px;font-weight:800;letter-spacing:-0.02em}
+.partner .acts{display:flex;gap:8px;flex-wrap:wrap}
+.partner .acts .btn{height:46px;font-size:15px;padding:0 20px}
+.feat{display:flex;flex-direction:column}
+.feat div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.feat div:last-child{border-bottom:0}
+.feat span{color:var(--muted);font-weight:600}
+.feat b{text-align:right;font-weight:700}
+.feature .feature-mosaic{height:auto;min-height:420px;border-radius:0;gap:6px;background:transparent;padding:6px}
+.feature .feature-mosaic .tile{cursor:pointer;border-radius:22px}
+@media (max-width:900px){.feature .feature-mosaic{min-height:0}}
+.card .stage img.lotimg,.feature .stage img.lotimg,.wrow .stage img.lotimg{object-fit:cover}
+/* The bid column is taller than a screen now (bid box, history, finance, consultant), so it scrolls with the page;
+   a sticky column taller than the viewport hides its lower boxes. The "Place bid" button in the bar jumps to it. */
+.bidcard{position:static}
+
+.covers div{align-items:flex-start}
+.covers b{min-width:220px}
+@media (max-width:640px){.covers div{flex-direction:column;gap:4px}.covers b{min-width:0}.covers span{text-align:left !important}}

@@ -9,5 +9,6 @@ export const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
 export const PROJECT_ID: string | undefined =
   (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId || Constants.easConfig?.projectId;
 
+// Photo paths are storage paths (lot-photos bucket), full URLs, or website paths ("/sample-photos/...").
 export const photoUrl = (path: string | null | undefined) =>
-  !path ? null : path.startsWith("http") ? path : `${SUPABASE_URL}/storage/v1/object/public/lot-photos/${path}`;
+  !path ? null : path.startsWith("http") ? path : path.startsWith("/") ? SITE + path : `${SUPABASE_URL}/storage/v1/object/public/lot-photos/${path}`;

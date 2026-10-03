@@ -45,7 +45,7 @@ export default function Home() {
         <View style={{ gap: 12 }}>
           <T v="eyebrow" style={{ color: C.urgent }}>Live auctions · Australia-wide</T>
           <Text style={s.hero}>Every car.{"\n"}Beautifully <Text style={s.heroSerif}>sold.</Text></Text>
-          <T v="muted">Cars, utes, trucks, motorbikes, caravans, boats and machinery from real owners right across Australia.</T>
+          <T v="muted">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Professionally photographed, PPSR searched and sold to the highest bidder.</T>
         </View>
         <Pressable testID="home-search" accessibilityRole="search" accessibilityLabel="Search vehicles" onPress={() => router.push("/search?focus=1")} style={s.search}>
           <Icon name="search" color={C.muted} />
@@ -104,8 +104,8 @@ export default function Home() {
 
         <View style={s.sell}>
           <T v="eyebrow" style={{ color: C.sun }}>Sell with Tyrebiter</T>
-          <Text style={s.sellTitle}>Skip the <Text style={{ fontFamily: F.serif, color: C.sun }}>tyre-kickers.</Text></Text>
-          <Text style={s.sellBody}>Leave it in your driveway. We photograph it at your place, sell it Australia-wide and pay you when the buyer settles.</Text>
+          <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>From your driveway.</Text></Text>
+          <Text style={s.sellBody}>We photograph and inspect it at your place, list it Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
           <Button kind="white" title="Get a free appraisal" onPress={() => router.push("/appraisal")} />
         </View>
       </Screen>

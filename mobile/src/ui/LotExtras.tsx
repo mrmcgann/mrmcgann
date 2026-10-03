@@ -7,48 +7,6 @@ import type { MyLotState } from "~/lib/types";
 import { Button, Field, LinkText, Notice, Select, Sheet, Soft, T } from "./kit";
 import { C } from "./theme";
 
-const TIMES: [string, string][] = [["Morning (8 am – 12 pm)", "Morning (8 am – 12 pm)"], ["Afternoon (12 – 5 pm)", "Afternoon (12 – 5 pm)"], ["Evening (5 – 7 pm)", "Evening (5 – 7 pm)"]];
-
-/** Book a viewing at the seller's place (ID-verified buyers only). */
-export function InspectionBox({ lotId, suburb, state, endsAt, mine, path }: { lotId: number; suburb: string; state: string; endsAt: string | null; mine: MyLotState | null; path: string }) {
-  const { signedIn, me } = useSession();
-  const verified = signedIn && !(me?.missing || []).length;
-  const [open, setOpen] = useState(false);
-  const days: [string, string][] = [];
-  for (let i = 1; i <= 6; i++) {
-    const d = new Date(Date.now() + i * 86400000);
-    if (!endsAt || d.getTime() < new Date(endsAt).getTime()) { const l = d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" }); days.push([l, l]); }
-  }
-  const [day, setDay] = useState(days[0]?.[0] || "");
-  const [time, setTime] = useState(TIMES[0][0]);
-  const [done, setDone] = useState(mine?.inspection ? `${mine.inspection.day}, ${mine.inspection.time.toLowerCase()}` : null);
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function book() {
-    setBusy(true); setErr("");
-    try { await api("/api/inspections", { body: { lotId, day, time } }); setDone(`${day}, ${time.toLowerCase()}`); setOpen(false); }
-    catch (e) { setErr(errText(e)); }
-    setBusy(false);
-  }
-  return (
-    <Soft>
-      <T v="strong">Inspect before you bid.</T>
-      <T v="muted">It's at the seller's place in {suburb}, {state}. We book ID-verified buyers in and confirm the time with the seller.</T>
-      {done ? <Notice kind="ok">{`Requested: ${done}. We'll text you once the seller confirms, with the address.`}</Notice> : (
-        <Button small kind="dark" title={days.length ? "Book an inspection" : "Ends too soon to book"} disabled={!days.length} style={{ alignSelf: "flex-start" }}
-          onPress={() => { if (!signedIn) router.push(`/join?next=${encodeURIComponent(path)}`); else if (!verified) router.push(`/join?step=${me?.missing?.[0] || 2}&next=${encodeURIComponent(path)}`); else setOpen(true); }} />
-      )}
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Book an inspection"
-        footer={<Button title="Request this time" busy={busy} onPress={book} />}>
-        <Select label="Day" value={day} options={days} placeholder="Pick a day" onChange={(v) => setDay(v || days[0]?.[0] || "")} />
-        <Select label="Time" value={time} options={TIMES} placeholder="Pick a time" onChange={(v) => setTime(v || TIMES[0][0])} />
-        <T v="small">Bring your driver licence. The seller only shows the vehicle to the person booked.</T>
-        {err ? <Notice kind="bad">{err}</Notice> : null}
-      </Sheet>
-    </Soft>
-  );
-}
-
 /** Transport quote to the buyer's postcode. */
 export function QuoteBox({ lotId }: { lotId: number }) {
   const { me } = useSession();

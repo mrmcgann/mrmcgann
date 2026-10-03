@@ -1,6 +1,7 @@
-import { File, Paths } from "expo-file-system";
+import { File, Paths, UploadType } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as ImagePicker from "expo-image-picker";
+import { SUPABASE_ANON_KEY } from "./env";
 import { supabase } from "./supabase";
 
 /** Downloads a signed-in PDF (tax invoice, settlement statement) and opens the share sheet. */
@@ -35,4 +36,40 @@ export async function uploadPhotos(bucket: "appraisal-photos" | "claim-photos", 
     if (!error) paths.push(path);
   }
   return paths;
+}
+
+export type PickedVideo = Picked & { size: number };
+const VIDEO_EXT: Record<string, string> = { mp4: "video/mp4", mov: "video/quicktime", m4v: "video/x-m4v", webm: "video/webm" };
+
+/** One video from the library. The system picker needs no permission (and no microphone). */
+export async function pickVideo(): Promise<PickedVideo | null> {
+  const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["videos"], allowsMultipleSelection: false, allowsEditing: false });
+  if (r.canceled || !r.assets.length) return null;
+  const a = r.assets[0];
+  const name = a.fileName || `video-${Date.now()}.mp4`;
+  const type = a.mimeType || VIDEO_EXT[name.split(".").pop()?.toLowerCase() || ""] || "video/mp4";
+  let size = a.fileSize || 0;
+  if (!size) { try { size = new File(a.uri).size || 0; } catch { size = 0; } }
+  return { uri: a.uri, name, type, size };
+}
+
+const UPLOAD_FAILED = "The upload didn't finish. Check your connection and try again.";
+
+/**
+ * Sends a picked video to a one-off signed upload link (Supabase Storage), with progress
+ * from 0 to 100. The file streams from disk, so large videos don't have to fit in memory.
+ */
+export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) {
+  const headers: Record<string, string> = { "content-type": v.type, "x-upsert": "false", "cache-control": "max-age=3600" };
+  if (SUPABASE_ANON_KEY) headers.apikey = SUPABASE_ANON_KEY;
+  let status: number;
+  try {
+    const r = await new File(v.uri).upload(signedUrl, {
+      httpMethod: "PUT", uploadType: UploadType.BINARY_CONTENT, headers, mimeType: v.type,
+      onProgress: ({ bytesSent, totalBytes }) => { if (totalBytes > 0) onProgress?.(Math.min(100, Math.round((bytesSent / totalBytes) * 100))); },
+    });
+    status = r.status;
+  } catch { throw new Error(UPLOAD_FAILED); }
+  if (status < 200 || status >= 300) throw new Error(UPLOAD_FAILED);
+  onProgress?.(100);
 }

@@ -9,11 +9,14 @@ import { SITE } from "~/lib/env";
 import { downloadAndShare } from "~/lib/files";
 import { supabase } from "~/lib/supabase";
 import { useSession } from "~/lib/session";
-import type { AppLot } from "~/lib/types";
+import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
+import type { AppLot, SellerBid, SellerVideo } from "~/lib/types";
 import { Button, Loading, Notice, Screen, Sheet, Soft, T, Tag } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
+import { SellerBids, SellerVideos } from "~/ui/SellerTools";
 import { C, F } from "~/ui/theme";
 
+const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
 const STATUS: Record<string, [string, string]> = {
   draft: ["Getting ready", C.panel], scheduled: ["Scheduled", C.sky], live: ["Live now", C.mint], referred: ["Decision needed", C.sun],
   offers: ["Taking offers", C.sun], sold: ["Sold", C.lime], passed: ["Didn't sell", C.panel], cancelled: ["Withdrawn", C.panel],
@@ -21,7 +24,7 @@ const STATUS: Record<string, [string, string]> = {
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = { status: string; confirmed_for: string | null; collector: string; seller_token: string | null; collected_at: string | null };
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
-type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined };
+type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[] };
 type Decision = { lotId: number; kind: "referral" | "offer"; offerId?: string; amount: number; accept: boolean };
 
 export default function Sell() {
@@ -39,14 +42,22 @@ export default function Sell() {
     if (!uid) { setItems([]); return; }
     const { data: rows } = await supabase.from("lots").select("*").eq("seller_id", uid).order("created_at", { ascending: false }).limit(50);
     const lots = (rows || []) as AppLot[];
-    const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at").eq("seller_id", uid);
+    const [{ data: payouts }, { data: vids }] = await Promise.all([
+      supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at").eq("seller_id", uid),
+      // Every video on these listings in one query (row level security: the seller's own uploads).
+      lots.length ? supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at, public_path").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : Promise.resolve({ data: [] }),
+    ]);
     const extra = await Promise.all(lots.map(async (l) => {
-      const [offers, coll, watchers] = await Promise.all([
+      const [offers, coll, watchers, bids] = await Promise.all([
         ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         supabase.rpc("lot_watchers", { p_lot: l.id }),
+        HAS_BIDS.includes(l.status) && l.bid_count > 0 ? supabase.rpc("seller_lot_bids", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       ]);
-      return { lot: l, offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), payout: ((payouts || []) as Payout[]).find((p) => p.lot_id === l.id) };
+      return {
+        lot: l, offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), payout: ((payouts || []) as Payout[]).find((p) => p.lot_id === l.id),
+        bids: (bids.data || []) as SellerBid[], videos: ((vids || []) as SellerVideo[]).filter((v) => v.lot_id === l.id),
+      };
     }));
     setItems(extra);
   }, [uid]);
@@ -67,13 +78,13 @@ export default function Sell() {
   const intro = (
     <View style={{ gap: 14 }}>
       <T v="eyebrow" style={{ color: C.grape }}>Sell with Tyrebiter</T>
-      <Text style={s.hero}>Skip the{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>tyre-kickers.</Text></Text>
-      <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Leave it in your driveway. We photograph it at your place, sell it to buyers right across Australia, and pay you when the buyer settles.</T>
+      <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your driveway.</Text></Text>
+      <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>We photograph and inspect your vehicle at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</T>
       <View style={s.band}><CarArt type="ute" width={240} /></View>
       <Button title="Get a free appraisal" onPress={() => router.push("/appraisal")} />
-      {[["1", "Free appraisal", "Tell us about it. We call with a price range and a suggested reserve.", C.tangerine], ["2", "We come to you", "Our photographer shoots a full walkaround and condition report at your place.", C.sun],
-        ["3", "7-day auction", "Live to buyers nationwide. Watch every bid from your phone.", C.lime], ["4", "Viewings by appointment", "We book ID-verified bidders in with you. You just open the gate.", C.sky],
-        ["5", "Get paid", "The buyer pays us and collects from you. Your money lands within 3 business days of collection.", C.grape]].map(([n, h, b, c]) => (
+      {[["1", "Free appraisal", "Tell us about the vehicle. We call with a price guide and a suggested reserve.", C.tangerine], ["2", "Inspection and photos", "We photograph the vehicle and prepare its condition report at your place.", C.sun],
+        ["3", "7-day auction", "Listed to registered buyers nationwide. Follow every bid from your phone.", C.lime], ["4", "No viewings", "Buyers don't come to your home to look at it. Inspections are done by an independent mobile mechanic, booked through us.", C.sky],
+        ["5", "Settlement", "The buyer pays Tyrebiter, then collects at a booked time. You're paid within 3 business days of collection.", C.grape]].map(([n, h, b, c]) => (
         <View key={n} style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
           <View style={[s.dot, { backgroundColor: c }]}><Text style={[s.dotText, n === "5" && { color: "#FFFFFF" }]}>{n}</Text></View>
           <View style={{ flex: 1 }}><T v="title">{h}</T><T v="muted">{b}</T></View>
@@ -90,7 +101,7 @@ export default function Sell() {
           <T v="eyebrow" style={{ color: C.grape }}>Selling</T>
           <T v="d2">Your vehicles.</T>
           {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
-          {items.map(({ lot: l, offers, coll, watchers, payout: p }) => {
+          {items.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos }) => {
             const [label, colour] = STATUS[l.status] || [l.status, C.panel];
             const pending = offers.filter((o) => o.status === "pending");
             return (
@@ -106,6 +117,7 @@ export default function Sell() {
                   ))}
                 </View>
                 {l.status === "draft" ? <T v="muted">We're checking your papers and preparing the listing. We'll text you when it goes live.</T> : null}
+                <SellerBids bids={bids} startOpen={l.status === "live"} />
                 {l.status === "referred" ? (
                   <Notice>
                     <T v="strong">Bidding ended at {money(l.current_bid)}, below your reserve. Decide by {dateLong(l.decision_by)}.</T>
@@ -151,6 +163,7 @@ export default function Sell() {
                     ) : null}
                   </View>
                 ) : null}
+                {VIDEO_OPEN_STATUSES.includes(l.status) || videos.length ? <SellerVideos lotId={l.id} videos={videos} canAdd={VIDEO_OPEN_STATUSES.includes(l.status)} onChange={load} /> : null}
               </View>
             );
           })}
@@ -167,7 +180,7 @@ export default function Sell() {
 }
 
 const s = StyleSheet.create({
-  hero: { fontFamily: F.heavy, fontSize: 44, lineHeight: 46, letterSpacing: -2, color: C.ink },
+  hero: { fontFamily: F.heavy, fontSize: 40, lineHeight: 44, letterSpacing: -1.8, color: C.ink },
   band: { borderRadius: 28, backgroundColor: C.berry, height: 160, alignItems: "center", justifyContent: "flex-end", paddingBottom: 24 },
   dot: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   dotText: { fontFamily: F.heavy, fontSize: 15, color: C.ink },

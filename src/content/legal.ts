@@ -6,8 +6,8 @@ export const TERMS_VERSION_LABEL = "Version 1 October 2026";
 
 export const TERMS: [string, string, string[]][] = [
  ['t-summary','The short version',[
-  'Tyrebiter sells vehicles on behalf of their owners. We act as the seller’s agent. The contract of sale is between you and the seller, and we run the sale and collect the money.',
-  'Every vehicle stays at the seller’s location. You inspect it there, by appointment, and collect it from there.',
+  'Tyrebiter runs each auction as the seller’s agent. The contract of sale is between you and the seller; we run the sale and collect the money.',
+  'Vehicles stay at the seller’s location. In-person viewings aren’t available; you can order an independent mobile inspection before you bid. You collect from the seller’s location after paying in full.',
   'Vehicles are sold <b>as is, where is</b>, with <b>no warranty</b> about condition. Condition reports and grades are a guide only. But the facts in a listing (make, model, year, VIN, transmission, fuel, write-off status, finance) must be right, and if they’re materially wrong you can claim (section 12).',
   'Registering and bidding are free. To bid you need a verified mobile, a card on file and a verified ID.',
   'Bids are binding and can’t be withdrawn. If you win, payment is taken straight away: under {{CARD_LIMIT}} in full from your card; {{CARD_LIMIT}} or more, a non-refundable deposit by card and the balance by bank transfer within {{PAY_DAYS}} business days.',
@@ -20,25 +20,25 @@ export const TERMS: [string, string, string[]][] = [
   'We hold a motor dealer and/or auctioneer licence where the law in each state requires one: [LICENCE DETAILS BY STATE].']],
  ['t-location','2. Where vehicles are',[
   'Every vehicle is at the seller’s home or business, not a Tyrebiter yard. The listing shows the suburb and state.',
-  'We give the full address to ID-verified bidders when we confirm an inspection, and to the buyer when we confirm a collection time. Don’t visit a seller without a confirmed booking, and don’t contact a seller to deal outside Tyrebiter.']],
+  'We give the full address only to the buyer once collection is booked, and to the inspector for a mobile inspection you order. Don’t visit a seller’s address before collection, and don’t contact a seller to deal outside Tyrebiter.']],
  ['t-condition','3. Listings and condition reports',[
   'Each listing has two kinds of information. <b>Facts we check</b>: make, model, build year, VIN, registration, and the PPSR search (finance, written-off and stolen status). <b>Condition information</b>: our visual walkaround, visual grades (A to E), photos, flaw photos, and what the seller declared in writing (accidents, flood or hail, modifications, warning lights, known faults, service history, keys).',
   'Our condition reports come from a visual walkaround at the seller’s location. They are not mechanical, structural, electrical or roadworthy inspections, and they may not show every fault. Faults may exist that neither we nor the seller know about.',
   'Visual grades describe how the vehicle looks. They don’t assess mechanical condition. Grade definitions are in the Help centre.',
   'Odometer readings are as displayed on the vehicle and are not independently verified. The seller has declared in writing whether they know of any reason the reading may be inaccurate.',
   '“Year” means the build year unless the listing says it’s the compliance date. Keys, service books, manuals and accessories are included only if the listing says so. Any remaining manufacturer’s warranty is between you and the manufacturer. Reports supplied by the seller (for example an old roadworthy or a mechanic’s report) are passed on as the seller gave them and aren’t checked or warranted by us.',
-  'Used vehicles, especially older and commercial ones, often need repairs. Satisfy yourself before you bid, by inspecting in person or arranging an independent inspection.']],
+  'Used vehicles, especially older and commercial ones, often need repairs. Satisfy yourself before you bid, for example by ordering an independent mobile inspection.']],
  ['t-asis','4. As is, where is, and your consumer rights',[
   'Every vehicle is sold as is, where is: in its condition and location at the end of the auction, with all faults, whether or not they’re described. Neither Tyrebiter nor the seller warrants the vehicle’s mechanical condition, fitness for purpose, roadworthiness or history beyond the facts in section 3 and the seller’s written declarations.',
   'Nothing in these terms excludes, restricts or changes any right you have under the Australian Consumer Law that can’t lawfully be excluded, including the guarantees of title and undisturbed possession. Some consumer guarantees (such as acceptable quality) don’t apply to goods sold by auction where the auctioneer acts as the seller’s agent. Where a sale is made by Buy Now or an accepted offer, or the seller is a business, some guarantees may still apply. [LAWYER TO CONFIRM FOR EACH SALE PATH AND SELLER TYPE]',
   'No cooling-off period applies to auction purchases.']],
  ['t-inspect','5. Inspections',[
-  'ID-verified members can book an inspection through Tyrebiter. Inspections happen at the seller’s location at a time we confirm.',
-  'Show your driver licence to the seller before you’re given the keys. You may look over the vehicle and start the engine. Don’t rev it hard. Test drives on public roads aren’t allowed unless the seller agrees in writing and the vehicle is registered and insured.',
-  'Follow the seller’s reasonable safety directions. You are responsible for damage you cause. We may cancel your account for inappropriate behaviour at a seller’s property. [LAWYER: occupier liability and our public liability cover]']],
+  'Buyers can’t view or test drive vehicles in person. Before you bid you can order an independent mobile inspection through Tyrebiter: a mechanic from our inspection partner inspects the vehicle at its location and sends you a written report with photos.',
+  'The inspection provider is independent of Tyrebiter and the seller. Their report is their opinion of the vehicle’s condition on the day, under their own terms, and you pay them directly. We may receive a fee from them. A report doesn’t change these terms or the as is, where is basis of sale.',
+  'Ordering an inspection doesn’t extend the auction. Allow time for it before bidding closes. For anything else about a vehicle, contact the consultant shown on the listing.']],
  ['t-bidding','6. Registering and bidding',[
   'You must be 18 or over and give your legal name, date of birth, residential address and an Australian mobile. Business buyers can add their company name and ABN for their tax invoice.',
-  'Before your first bid or inspection you verify your mobile with an SMS code, add a card, and verify your identity with a driver licence or passport and a selfie, through Stripe Identity. Your name and date of birth must match your ID.',
+  'Before your first bid you verify your mobile with an SMS code, add a card, and verify your identity with a driver licence or passport and a selfie, through Stripe Identity. Your name and date of birth must match your ID.',
   'One account per person. Don’t bid for someone else unless we’ve approved it in writing. Don’t use more than one account, collude with other bidders, or bid to inflate a price.',
   'Every bid is a binding offer to buy at that amount plus the buyer’s premium and fees. Bids can’t be withdrawn. We ask you to confirm each bid and show the all-in cost before it’s placed.',
   'If you set a maximum, we bid for you one increment at a time, only as far as needed to keep you in front, up to your maximum. Nobody else sees your maximum. If two bidders set the same maximum, the one who set it first wins.',
@@ -105,14 +105,14 @@ export const SELLER_AGREEMENT: [string, string, string[]][] = [
   'This Seller Agency Agreement is between you (the “seller”) and {{LEGAL_NAME}} (ABN {{ABN}}) (“Tyrebiter”). It applies to the vehicle named in your listing link. You sign it electronically, and we record the date, time and device.',
   'You appoint Tyrebiter as your exclusive agent to sell the vehicle by online auction from your location, and during any referral and offer period that follows.']],
  ['s-exclusive','2. Exclusive period',[
-  'While the vehicle is listed, and for {{EXCLUSIVITY_DAYS}} days after the listing ends, you agree not to sell it to anyone introduced through Tyrebiter (for example someone who inspected it or bid on it) except through us. If you do, our seller fee is payable as if we’d sold it at the higher of the highest bid and your reserve, plus the buyer’s premium we would have earned.']],
+  'While the vehicle is listed, and for {{EXCLUSIVITY_DAYS}} days after the listing ends, you agree not to sell it to anyone introduced through Tyrebiter (for example someone who enquired about it or bid on it) except through us. If you do, our seller fee is payable as if we’d sold it at the higher of the highest bid and your reserve, plus the buyer’s premium we would have earned.']],
  ['s-fees','3. Fees',[
   'Seller fee: {{SELLER_FEE}}. It’s earned only when the vehicle sells, and it’s taken from the sale proceeds.',
   'There’s no charge for the appraisal, photos, condition report or PPSR search, unless we agree otherwise in writing.',
   'Buyers pay us a buyer’s premium and admin fee. Those are ours and don’t reduce your proceeds.']],
  ['s-reserve','4. Reserve and your decisions',[
   'You set the reserve when you sign. It stays secret from bidders. You may lower it at any time, but you can’t raise it once bidding has started.',
-  'You authorise us to accept any bid at or above the reserve on your behalf. If there’s no reserve, the vehicle sells to the highest bidder.',
+  'You authorise us to accept any bid at or above the reserve. If there’s no reserve, the vehicle sells to the highest bidder.',
   'If bidding ends below the reserve, we send you the highest bid. You have {{REFERRAL_DAYS}} business days to accept or decline in your seller dashboard. If you don’t respond in time, it counts as a decline and we open offers for {{OFFER_DAYS}} business days. Accepting a referred bid or an offer in your dashboard is binding.']],
  ['s-nobid','5. No seller bidding',[
   'You, your family, employees and associates must not bid on the vehicle or ask anyone to bid for you. If that happens, we may void the sale and cancel the listing, and our seller fee plus the buyer’s premium is payable on the higher of the highest bid and your reserve, plus our reasonable costs.']],
@@ -126,7 +126,7 @@ export const SELLER_AGREEMENT: [string, string, string[]][] = [
   'You must tell us straight away if anything you’ve told us stops being true.']],
  ['s-obligations','7. Looking after the vehicle until handover',[
   'Keep the vehicle at the listed address, insured, and in the same condition as when it was photographed. Only use it as needed (keep the odometer within 100 km of the listing).',
-  'Give ID-verified buyers access for inspections we confirm, and give the buyer access to collect at the time we confirm. Keep the battery charged and some fuel in the tank.',
+  'Give our inspection partner access for mobile inspections we arrange (we’ll call to agree a time), and give the buyer access to collect at the time we confirm. Buyers can’t visit to view the vehicle. Keep the battery charged and some fuel in the tank.',
   'The vehicle stays at your risk until handover. If it’s damaged, stolen or changes materially before handover, tell us immediately. The buyer may then cancel.',
   'At handover: check the collector’s photo ID matches the name we give you, and only hand over the vehicle when they give you the release code, which you enter on your handover page. Hand over every key, book and accessory in the listing. Remove any toll tag and personal data. Never accept money from the buyer directly.',
   'After handover: sign the transfer papers, remove your plates if your state requires it, and lodge your notice of disposal.']],
@@ -152,7 +152,7 @@ export const SELLER_AGREEMENT: [string, string, string[]][] = [
   'If you’re GST-registered and selling a business asset, the sale price includes GST and the listing says so. You’re responsible for that GST. Tell us your ABN when you sign. [ACCOUNTANT TO CONFIRM agent invoicing arrangements]',
   'GST applies to our seller fee.']],
  ['s-privacy','14. Your information',[
-  'We use your details to run the sale. We share your address with ID-verified buyers who book an inspection and with the buyer for collection, and your name for the transfer papers. We check your ID and ownership papers, run PPSR searches, and keep your bank details securely to pay you. See our <a class="blue" href="/privacy">Privacy policy</a>.']],
+  'We use your details to run the sale. We share your address with our inspection partner for mobile inspections and with the buyer for collection, and your name for the transfer papers. We check your ID and ownership papers, run PPSR searches, and keep your bank details securely to pay you. See our <a class="blue" href="/privacy">Privacy policy</a>.']],
  ['s-general','15. General',[
   'The Terms of Sale that apply to buyers form part of how we sell your vehicle. If this agreement and those terms conflict about you, this agreement applies.',
   'This agreement is governed by the laws of [STATE], Australia. Version 1 October 2026.']]
@@ -187,39 +187,46 @@ export const HELP: [string, string, [string, string][]][] = [
    ['h-grade','Visual grades',[
     ['What is the visual grade?','A quick guide to how a vehicle looks, from our walkaround at the seller’s location. We grade paint and body, interior and tyres, plus an overall grade. We don’t grade mechanical condition, because a walkaround can’t test it.'],
     ['What does each grade mean?','GRADES'],
-    ['Is the grade a guarantee?','No. It’s a guide, like the rest of the condition report. Inspect the vehicle, or arrange an independent inspection, before you bid.']]],
-   ['h-collect','Inspecting and collecting',[
-    ['Where are the vehicles?','At the seller’s home or business. The listing shows the suburb. Verified bidders can book an inspection, and we share the address when it’s confirmed.'],
-    ['Can I test drive?','You can look it over and start it with the seller’s permission (show your licence first). Test drives on public roads need the seller’s written agreement and a registered vehicle.'],
+    ['Is the grade a guarantee?','No. It’s a guide, like the rest of the condition report. Order an independent mobile inspection if you want a mechanic’s opinion before you bid.']]],
+   ['h-collect','Inspections and collection',[
+    ['Where are the vehicles?','At the seller’s home or business. The listing shows the suburb. The full address goes to the buyer once collection is booked.'],
+    ['Can I see the vehicle before I bid?','Not in person. Order an independent mobile inspection from the listing: a mechanic inspects it where it is and emails you a report with photos. Or contact the consultant shown on the listing with any questions.'],
+    ['Can I test drive?','No. Test drives aren’t available. A mobile inspection includes a mechanic’s assessment, and some inspectors can include a road test where the vehicle is registered.'],
     ['How do I collect?','Once you’ve paid in full, book a time from your invoice. We confirm it with the seller and send you the address and a 6-digit release code. Collect within {{COLLECT_DAYS}} business days. Give the seller the code only when you’re with the vehicle and happy with it.'],
     ['Can someone else collect for me?','Yes. Name them when you book. They need photo ID matching that name, and we text them the release code.'],
     ['What if I can’t collect in time?','Ask us before the window ends. Otherwise storage of {{STORAGE}} a day applies.'],
     ['Can you deliver?','Use the transport quote on any listing to get a price to your postcode.']]],
    ['h-returns','Claims and returns',[
-    ['Can I return a vehicle?','Not for change of mind. Vehicles are sold as is, where is, with no cooling-off period. Inspect before you bid.'],
+    ['Can I return a vehicle?','Not for change of mind. Vehicles are sold as is, where is, with no cooling-off period. Consider a mobile inspection before you bid.'],
     ['What if it’s not as described?','If it’s materially different from the listing (wrong year, VIN or transmission, an undisclosed write-off or finance, major damage we didn’t show), lodge a claim from your invoice before handover or within {{CLAIM_DAYS}} business days after. If it’s upheld you can cancel for a full refund.'],
     ['How accurate is the condition report?','It’s a guide from a visual walkaround and what the seller declares in writing. It isn’t a mechanical or roadworthy inspection. The facts (VIN, rego, PPSR) are checked by us.']]],
+   ['h-finance','Finance and insurance',[
+    ['Can I get finance?','Yes, through a lender or broker. Use Car finance (in the menu) to work out repayments and compare the lenders we work with, then apply with them directly. Get pre-approved before you bid: bids are binding and payment is due when you win. Tyrebiter isn’t a lender or credit broker, and we may receive a fee from the lender.'],
+    ['Do I need insurance before collecting?','The vehicle is your responsibility from handover, so arrange cover before collection day. Car insurance (in the menu) compares the insurers we work with. Tyrebiter isn’t an insurer and doesn’t give advice; read the PDS and TMD before you buy.'],
+    ['What happens to my details if I ask a partner to call?','We send the partner named on the form only the details you agree to share, and they contact you about that product. We record your consent. Ask us anytime and we’ll tell the partner to stop.']]],
    ['h-scams','Staying safe',[
     ['How do I know a message is really from Tyrebiter?','Our emails come from @tyrebiter.com.au and our texts from “Tyrebiter”. Links go to tyrebiter.com.au. We’ll never ask for your password or card number by email or SMS.'],
     ['Someone asked me to pay them directly.','Don’t. Only ever pay Tyrebiter, using the details on your invoice page. Report it to us on {{PHONE}}.'],
     ['I got an email saying your bank details changed.','That’s a scam. Our bank details never change by email. Call us before you pay anything.']]],
    ['h-sell','Selling',[
-    ['How does selling work?','Request a free appraisal. We visit to photograph the vehicle and write the condition report, you sign your seller agreement online (verify your ID, answer a few questions, add your bank details), and we run a 7-day auction. We book ID-verified buyers in to inspect, take payment, and you hand over the keys when the buyer gives you their release code.'],
+    ['How does selling work?','Request a free appraisal. We visit to photograph the vehicle and write the condition report, you sign your seller agreement online (verify your ID, answer a few questions, add your bank details), and we run a 7-day auction. Buyers don’t visit to view: we arrange any mobile inspections with you, take payment, and you hand over the keys when the buyer gives you their release code.'],
     ['What does it cost?','Seller fee: {{SELLER_FEE}}. No charge for photos, the condition report or the PPSR search.'],
     ['What if bidding doesn’t reach my reserve?','We send you the highest bid. Accept or decline it in your seller dashboard within {{REFERRAL_DAYS}} business days. If you decline, we open offers.'],
     ['When do I get paid?','Within {{PAYOUT_DAYS}} business days after the buyer collects and their {{CLAIM_DAYS}}-business-day claim window closes, less our fees. If there’s finance owing, we pay your lender first.'],
+    ['Can I add a video?','Yes. From your seller dashboard, add up to 3 videos of 250 MB each (a walkaround, a cold start, the interior). Our team checks every video before it appears on the listing.'],
+    ['Can I see who’s bidding?','You can see every bid and its time in your seller dashboard. Bidders’ names are hidden to protect their privacy, and every bidder has verified their mobile, card and ID.'],
     ['Can I bid on my own vehicle?','No, and nor can anyone bidding for you. It breaks our agreement, and shill bidding can breach consumer law.']]],
   ];
 
 export const PRIVACY: [string, string][] = [
    ['Who we are','{{LEGAL_NAME}} (ABN {{ABN}}). We handle personal information under the Privacy Act 1988 and the Australian Privacy Principles.'],
    ['What we collect','Buyers: name, date of birth, address, email, mobile, company and ABN if given, the result of your ID check, card tokens from our payment provider, bids, offers, purchases, questions and how you use the site. Sellers: the same identity details, plus vehicle ownership papers, answers about the vehicle, finance and lender details, and bank details for your payout.'],
-   ['Why we collect it','To run auctions, verify identity, check ownership and PPSR status, take and make payments, arrange inspections and collection, prevent fraud and shill bidding, send the alerts you choose, and meet our legal obligations (including record keeping).'],
-   ['Who we share it with','Sellers get the buyer’s (and collector’s) name for collection and transfer papers. ID-verified buyers who book an inspection, and the buyer, get the seller’s address. We also share with our identity-verification provider (Stripe Identity), payment provider (Stripe), SMS and email providers (Twilio, Resend), hosting providers (Vercel, Supabase), your lender for a payout, transport providers you book, and authorities where the law requires. Some providers store data outside Australia.'],
+   ['Why we collect it','To run auctions, verify identity, check ownership and PPSR status, take and make payments, arrange mobile inspections and collection, prevent fraud and shill bidding, send the alerts you choose, and meet our legal obligations (including record keeping).'],
+   ['Who we share it with','Sellers get the buyer’s (and collector’s) name for collection and transfer papers. The buyer, and the inspector for a mobile inspection, get the seller’s address. If you ask a finance, insurance or inspection partner to contact you, we share the details you agree to with that partner (they’re named on the form), and they may pay us a fee. We also share with our identity-verification provider (Stripe Identity), payment provider (Stripe), SMS and email providers (Twilio, Resend), hosting providers (Vercel, Supabase), your lender for a payout, transport providers you book, and authorities where the law requires. Some providers store data outside Australia.'],
    ['Card, bank and ID details','Card numbers are held by Stripe, never by Tyrebiter. ID documents are checked by Stripe Identity; we keep the result, not a copy of your document. Seller bank details and ownership papers are stored securely and seen only by our team.'],
    ['How long we keep it','For as long as your account is open, and afterwards for as long as the law requires for sale and tax records (generally 7 years).'],
    ['Access, correction and deletion','See and update your details in your account, or ask us for a copy of what we hold. You can delete your account yourself, in the app or on the website (Account, then Delete my account), once nothing is in progress (live bids, a purchase not yet paid for and collected, or a vehicle for sale). We then delete your personal details and keep only the sale and tax records the law requires.'],
-   ['Our apps','If you allow notifications, we store your phone’s push token, its platform and the app version, so we can send the alerts you choose (you can turn each kind off in the app). The app uses your camera or photos only when you choose to add photos to a claim or an appraisal. We don’t use advertising identifiers, track you across other apps or websites, or collect your location.'],
+   ['Our apps','If you allow notifications, we store your phone’s push token, its platform and the app version, so we can send the alerts you choose (you can turn each kind off in the app). The app uses your camera, photos or videos only when you choose to add them to a claim, an appraisal or your listing. We don’t use advertising identifiers, track you across other apps or websites, or collect your location.'],
    ['Marketing','We only send marketing if you opt in, and every optional email and SMS has a link to manage your alerts or unsubscribe.'],
    ['Complaints','Contact our privacy officer at [privacy@tyrebiter.com.au]. If you’re not satisfied, you can contact the Office of the Australian Information Commissioner (OAIC).']
   ];

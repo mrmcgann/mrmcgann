@@ -11,7 +11,7 @@ import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price">;
-type Hist = { amount: number; created_at: string; bidder_tag: string; is_auto: boolean }[];
+type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
 const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Payment card", 5: "Verify ID" };
 const pick = (x: Partial<Live>): Partial<Live> => {
@@ -315,13 +315,18 @@ export function BidPanel(props: {
         <div className="hist">
           {history.length === 0 && <span className="muted">No bids yet. Be the first.</span>}
           {history.map((h, i) => (
-            <div key={`${h.created_at}-${i}`}><span style={{ fontWeight: 600 }}>{h.bidder_tag}{h.is_auto ? " (auto)" : ""}</span><b>{money(h.amount)}</b><span className="muted" style={{ textAlign: "right" }}>{new Date(h.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span></div>
+            <div key={`${h.created_at}-${i}`}><span><BlurName mask={h.bidder_mask || h.bidder_tag} />{h.is_auto ? <span className="muted" style={{ fontSize: 13 }}> · auto</span> : null}</span><b>{money(h.amount)}</b><span className="muted" style={{ textAlign: "right" }}>{new Date(h.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span></div>
           ))}
         </div>
-        <span className="hint">Bidders are shown by a private tag. Times are in your time zone.</span>
+        <span className="hint">Bidder names are hidden for privacy. Times are in your time zone.</span>
       </div>
     </>
   );
+}
+
+// A bidder's name, blurred. The text is a made-up placeholder from the server, never the real name.
+export function BlurName({ mask }: { mask: string }) {
+  return <><span className="blurname" aria-hidden="true">{mask}</span><span className="sr-only">Bidder (name hidden)</span></>;
 }
 
 function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup }: { lotId: number; current: number; decisionBy: string | null; lastOffer: { amount: number; status: string } | null; onNeedSetup: () => boolean }) {

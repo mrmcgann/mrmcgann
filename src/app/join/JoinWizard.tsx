@@ -269,7 +269,7 @@ export function JoinWizard() {
   } else if (step === 5) {
     form = (
       <div style={{ display: "flex", flexDirection: "column", gap: 15, width: "min(500px,100%)" }}>
-        <H t="Verify your ID." sub="Required once, before your first bid or inspection. Your name and date of birth must match your document." />
+        <H t="Verify your ID." sub="Required once, before your first bid. Your name and date of birth must match your document." />
         <div className="soft">
           <span>You&apos;ll take a photo of your <b>driver licence or passport</b> and a quick selfie. It takes about two minutes.</span>
           <span style={{ fontSize: 14 }}>Checking <b>{p?.first_name} {p?.last_name}</b>, born <b>{p?.dob}</b>. <button className="linkbtn" onClick={() => setStep(2)}>Wrong? Edit</button></span>

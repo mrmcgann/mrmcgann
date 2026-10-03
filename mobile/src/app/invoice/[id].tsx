@@ -11,6 +11,7 @@ import { usePayments } from "~/lib/pay";
 import { useSession } from "~/lib/session";
 import type { InvoiceDetail } from "~/lib/types";
 import { Button, Empty, Field, LineItem, LinkText, Loading, Notice, Screen, Segmented, Select, Sheet, Soft, T } from "~/ui/kit";
+import { InsureBox } from "~/ui/Partners";
 import { C, F } from "~/ui/theme";
 
 const TIMES: [string, string][] = [["Morning (8 am – 12 pm)", "Morning (8 am – 12 pm)"], ["Afternoon (12 – 5 pm)", "Afternoon (12 – 5 pm)"], ["Evening (5 – 7 pm)", "Evening (5 – 7 pm)"]];
@@ -129,6 +130,8 @@ export default function InvoiceScreen() {
           {d.overdueDays > 0 && !inv.collected_at ? <Notice kind="bad">{`The collection window ended ${dateLong(inv.collect_by)}. Storage of ${money(d.storagePerDay)} a day applies (${money(d.overdueDays * d.storagePerDay)} so far), payable before release.`}</Notice> : null}
         </Soft>
       ) : null}
+
+      {paidCard && !inv.collected_at && inv.status !== "cancelled" ? <InsureBox lotId={inv.lot_id} balanceOwing={!fullyPaid} /> : null}
 
       {d.claims.length ? (
         <Soft>

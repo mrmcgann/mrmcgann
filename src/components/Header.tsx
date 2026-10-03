@@ -14,9 +14,9 @@ export function Header() {
           <Link href="/auctions?cat=utes">Utes &amp; 4x4</Link>
           <Link href="/auctions?cat=trucks">Trucks</Link>
           <Link href="/auctions?cat=motorbikes">Motorbikes</Link>
-          <Link href="/auctions?cat=caravans">Caravans</Link>
-          <Link href="/auctions?cat=boats">Boats</Link>
           <Link href="/auctions">More</Link>
+          <Link href="/finance">Finance</Link>
+          <Link href="/insurance">Insurance</Link>
           <Link href="/sell">Sell</Link>
         </nav>
         <div className="nav-right">

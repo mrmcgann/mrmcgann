@@ -394,6 +394,88 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   await c.query(`update lots set seller_id=null where id=${live}`);
 }
 
+// ---------- listing videos: every video is approved before anyone sees it ----------
+{
+  const lot = 10660, path = `${U.A}/walkaround-1.mp4`;
+  await c.query(`update lots set seller_id='${U.A}' where id=${lot}`);
+  r = await as('B', `select request_lot_video(${lot}, '${U.B}/x.mp4', 'Walkaround', 1000, 'video/mp4')`); ok('video: only the seller can add one', r.error?.includes('Only the seller'), r.error);
+  r = await as('anon', `select request_lot_video(${lot}, 'x/y.mp4', 'x', 1, 'video/mp4')`); ok('video: anon cannot request', !!r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${U.B}/x.mp4', 'Walkaround', 1000, 'video/mp4')`); ok("video: can't claim someone else's upload", r.error?.includes('Upload the video first'), r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${path}', 'Walkaround', 1000, 'application/pdf')`); ok('video: only video files', r.error?.includes('MP4'), r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${path}', 'Walkaround', 300000000, 'video/mp4')`); ok('video: size limit', r.error?.includes('250 MB'), r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${path}', 'Walkaround', 1000, 'video/mp4') id`); ok('video: seller requests a video', !!r.rows?.[0]?.id, r.error);
+  const vid = r.rows?.[0]?.id;
+  r = await as('anon', `select * from lot_videos_public(${lot})`); ok('video: pending videos are not public', r.rows?.length === 0);
+  r = await as('B', `select * from lot_videos`); ok('video: others cannot see the request', r.rows?.length === 0);
+  r = await as('A', `select status from lot_videos`); ok('video: seller sees it pending', r.rows?.length === 1 && r.rows[0].status === 'pending');
+  r = await as('A', `update lot_videos set status='approved' where id='${vid}'`); ok('video: seller cannot approve their own', r.error || r.count === 0);
+  r = await as('A', `select count(*)::int n from lot_videos where status='approved'`); ok('video: still pending after the attempt', r.rows?.[0]?.n === 0);
+  await as('service', `update lot_videos set status='approved', public_path='${lot}/${vid}.mp4', reviewed_at=now() where id='${vid}'`);
+  r = await as('anon', `select public_path, title from lot_videos_public(${lot})`); ok('video: approved video is public', r.rows?.length === 1 && r.rows[0].public_path === `${lot}/${vid}.mp4`, JSON.stringify(r));
+  await as('A', `select request_lot_video(${lot}, '${U.A}/w2.mp4', 'Cold start', 1000, 'video/mp4')`);
+  await as('A', `select request_lot_video(${lot}, '${U.A}/w3.mp4', 'Engine', 1000, 'video/mp4')`);
+  r = await as('A', `select request_lot_video(${lot}, '${U.A}/w4.mp4', 'More', 1000, 'video/mp4')`); ok('video: up to 3 per listing', r.error?.includes('up to 3'), r.error);
+  r = await as('A', `insert into storage.objects (bucket_id, name) values ('video-uploads', '${U.A}/w5.mp4')`); ok('video: no direct uploads (only signed links from the server)', !!r.error);
+  r = await as('A', `insert into storage.objects (bucket_id, name) values ('lot-videos', '${lot}/x.mp4')`); ok('video: nobody but the server writes public videos', !!r.error);
+  r = await as('anon', `select name from storage.objects where bucket_id in ('lot-videos','video-uploads')`); ok('video: buckets cannot be listed', r.rows?.length === 0 || !!r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${path}', 'Again', 1000, 'video/mp4')`); ok('video: the same upload cannot be added twice', !!r.error, r.error);
+  await c.query(`update lots set status='sold' where id=${lot}`);
+  r = await as('A', `select request_lot_video(${lot}, '${U.A}/w6.mp4', 'Late', 1000, 'video/mp4')`); ok('video: not after the sale', r.error?.includes('while the vehicle is listed'), r.error);
+  await c.query(`update lots set status='live', seller_id=null where id=${lot}`);
+}
+
+// ---------- bid history with blurred names; sellers see bids, not bidders ----------
+{
+  const lot = (await c.query(`select lot_id from bids group by lot_id having count(distinct bidder_id) > 1 order by lot_id limit 1`)).rows[0]?.lot_id;
+  r = await as('anon', `select bidder_mask, bidder_tag from bid_history(${lot}, 50)`);
+  const masks = (r.rows || []).map((x) => x.bidder_mask);
+  const names = (await c.query(`select distinct p.first_name, p.last_name from bids b join profiles p on p.id = b.bidder_id where b.lot_id = ${lot}`)).rows;
+  ok('history: every bid has a name-shaped mask', masks.length > 0 && masks.every((m) => /^[A-Z][a-z]{3,7} [A-Z][a-z]{4,8}$/.test(m)), JSON.stringify(masks));
+  ok('history: masks are never real names', !masks.some((m) => names.some((n) => m.includes(n.first_name || '#') || m.includes(n.last_name || '#'))));
+  ok('history: different bidders get different masks', new Set(masks).size > 1);
+  r = await as('anon', `select count(*)::int n from bid_history(${lot}, 100000)`); ok('history: capped at 100 rows', r.rows?.[0]?.n <= 100);
+  r = await as('anon', `select bidder_mask('${U.A}', ${lot})`); ok('history: masks cannot be computed by the public', !!r.error);
+  r = await as('A', `select bidder_mask('${U.A}', ${lot})`); ok('history: nor by members', !!r.error);
+  r = await as('anon', `select value from app_secrets`); ok('history: the mask key is private', r.rows?.length === 0 || !!r.error);
+  r = await as('anon', `select bidder_tag from bid_history(${lot}, 50)`);
+  ok('history: tags no longer carry a per-member suffix', (r.rows || []).every((x) => /^[A-Z]•••$/.test(x.bidder_tag)), JSON.stringify(r.rows?.slice(0, 3)));
+  await c.query(`update lots set seller_id='${U.NEW}' where id=${lot}`);
+  r = await as('NEW', `select * from seller_lot_bids(${lot})`); ok('seller bids: seller sees every bid with blurred names', r.rows?.length >= 2 && r.rows.every((x) => x.bidder_mask && !('bidder_id' in x)), JSON.stringify(r.rows?.[0]));
+  r = await as('B', `select * from seller_lot_bids(${lot})`); ok('seller bids: other members see nothing', r.rows?.length === 0);
+  r = await as('anon', `select * from seller_lot_bids(${lot})`); ok('seller bids: anon cannot call it', !!r.error);
+  await c.query(`update lots set seller_id=null where id=${lot}`);
+}
+
+// ---------- consultants, partners, leads; no in-person inspections ----------
+{
+  r = await as('ADM', `insert into consultants (name, phone, email) values ('Casey Consultant', '0400111222', 'casey@x.au') returning id`); ok('consultants: admin adds one', !r.error, r.error);
+  r = await as('ADM', `insert into consultants (name, is_default) values ('Second', true)`); ok('consultants: only one default (the sample one is already default)', !!r.error);
+  r = await as('anon', `select name, phone from consultants`); ok('consultants: public can read active consultants', r.rows?.some((x) => x.name === 'Casey Consultant'));
+  r = await as('A', `insert into consultants (name) values ('Me')`); ok('consultants: members cannot add', !!r.error);
+  r = await as('ADM', `insert into partners (kind, slug, name, rate_from) values ('finance', 'bad-rate', 'Bad', 7.5)`); ok('partners: a finance rate needs a comparison rate', !!r.error);
+  r = await as('ADM', `insert into partners (kind, slug, name, rate_from, comparison_rate) values ('finance', 'bad-basis', 'Bad', 7.5, 8.0)`); ok('partners: a comparison rate needs its example', !!r.error);
+  await as('ADM', `insert into partners (kind, slug, name, licence, rate_from, comparison_rate, comparison_basis, active) values ('finance', 'lender-on', 'Lender On', 'ACL 1', 7.5, 8.1, '$30,000 secured loan over 5 years', true), ('finance', 'lender-off', 'Lender Off', 'ACL 2', 6.5, 7.0, '$30,000 secured loan over 5 years', false)`);
+  r = await as('anon', `select slug from partners where kind='finance'`); ok('partners: public sees only active partners', r.rows?.length >= 1 && r.rows.every((x) => x.slug !== 'lender-off'), JSON.stringify(r.rows));
+  const pid = (await c.query(`select id from partners where slug='lender-on'`)).rows[0].id;
+  await as('ADM', `insert into partner_private (partner_id, lead_email) values ('${pid}', 'leads@lender.example')`);
+  r = await as('anon', `select * from partner_private`); ok('partners: lead emails are private', r.rows?.length === 0);
+  r = await as('A', `select * from partner_private`); ok('partners: members cannot read lead emails', r.rows?.length === 0);
+  r = await as('anon', `insert into partner_leads (partner_id, kind, name, email, phone, consent_text) values ('${pid}', 'finance', 'x', 'x@x', '1', 'x')`); ok('leads: only the server creates leads', !!r.error);
+  await as('service', `insert into partner_leads (partner_id, kind, user_id, name, email, phone, consent_text) values ('${pid}', 'finance', '${U.A}', 'Amy Ash', 'a@x.au', '0411111111', 'I agree'), ('${pid}', 'finance', '${U.B}', 'Bo', 'b@x.au', '0422', 'I agree')`);
+  r = await as('A', `select name from partner_leads`); ok("leads: members can't read leads directly (they hold internal notes)", r.rows?.length === 0);
+  r = await as('ADM', `select count(*)::int n from partner_leads`); ok('leads: admins see all', r.rows?.[0]?.n >= 2);
+  await as('service', `insert into partner_clicks (partner_id, source) values ('${pid}', 'lot')`);
+  r = await as('service', `select clicks, leads from partner_stats(now() - interval '1 day') where partner_id='${pid}'`); ok('partners: stats count clicks and leads', Number(r.rows?.[0]?.clicks) === 1 && Number(r.rows?.[0]?.leads) === 2, JSON.stringify(r.rows));
+  r = await as('A', `select * from partner_stats(now())`); ok('partners: stats are server only', !!r.error);
+  r = await as('A', `insert into inspections (lot_id, user_id, preferred_day, preferred_time) values (10432, '${U.A}', 'Mon', 'AM')`); ok('inspections: in-person bookings are switched off', !!r.error);
+  const D4 = 'd4d4d4d4-0000-4000-8000-000000000004';
+  await c.query(`insert into auth.users (id,email) values ('${D4}','d4@x.au')`);
+  await as('service', `insert into partner_leads (partner_id, kind, user_id, name, email, phone, consent_text) values ('${pid}', 'insurance', '${D4}', 'Dee Four', 'd4@x.au', '0444', 'I agree')`);
+  r = await as('service', `select delete_account('${D4}') r`); ok('leads: account deletion still works', r.rows?.[0]?.r?.ok === true, JSON.stringify(r));
+  r = await as('service', `select name, email, status from partner_leads where user_id='${D4}'`); ok('leads: deleting an account clears its leads', r.rows?.[0]?.name === 'Deleted member' && r.rows[0].email === '' && r.rows[0].status === 'withdrawn', JSON.stringify(r.rows));
+  r = await as('anon', `select key from settings where key='finance'`); ok('settings: finance settings are public', r.rows?.length === 1);
+}
+
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));
 await c.end();

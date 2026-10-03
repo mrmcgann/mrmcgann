@@ -1,8 +1,8 @@
 // Shapes the app receives. The listing, profile, invoice and fee types are the website's own.
-import type { Fees, Invoice, Lot, LotFlaw, LotPhoto, Profile } from "@/lib/types";
+import type { Consultant, Fees, Invoice, Lot, LotFlaw, LotPhoto, LotVideo, Partner, Profile } from "@/lib/types";
 import type { Facets, SearchFilters } from "@/lib/search";
 
-export type { Fees, Invoice, Lot, Profile, Facets, SearchFilters };
+export type { Fees, Invoice, Lot, Partner, Profile, Facets, SearchFilters };
 
 export type AppLot = Lot & { cover_url?: string | null };
 
@@ -29,12 +29,25 @@ export interface AppConfig {
   stores?: { ios: string | null; android: string | null };
 }
 
-export type BidRow = { amount: number; created_at: string; bidder_tag: string; is_auto: boolean };
+// bidder_mask is a made-up, name-shaped string (never the real name), shown blurred.
+export type BidRow = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean };
+
+/** An approved listing video; `url` plays directly (mp4, mov or webm). */
+export type AppVideo = LotVideo & { url: string };
+/** The named consultant buyers contact about a listing. */
+export type AppConsultant = Consultant & { photo_url: string | null };
+/** "Est. $X/wk" for a listing on its all-in price, worked out on the server (no lender is named). */
+export interface FinanceEstimate { weekly: number; amount: number; months: number; rate: number; comparison_rate: number; basis: string; buyNow?: boolean }
 
 export interface LotBundle {
   lot: AppLot;
   photos: (LotPhoto & { url: string })[];
   flaws: (LotFlaw & { url: string | null })[];
+  videos: AppVideo[];
+  consultant: AppConsultant | null;
+  finance: FinanceEstimate | null;
+  inspector: Partner | null;
+  insurers: boolean;
   questions: { question: string; answer: string; answered_at: string }[];
   watchers: number;
   similar: AppLot[];
@@ -49,7 +62,6 @@ export interface MyLotState {
   watched: boolean;
   invoice_id: string | null;
   last_offer: { amount: number; status: string } | null;
-  inspection: { day: string; time: string; status: string } | null;
   questions: { question: string; answer: string | null; status: string }[];
 }
 
@@ -57,6 +69,10 @@ export type LiveState = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends
 
 export interface HomeData { ending: AppLot[]; featured: AppLot | null; fresh: AppLot[]; cats: Record<string, number>; cheap: number; total: number }
 export interface SearchResult { lots: AppLot[]; hasMore: boolean; page: number; facets: Facets | null; filters: SearchFilters; parts: string[] }
+
+// The seller's own listing: bids (names blurred) and the videos they've added.
+export type SellerBid = { amount: number; created_at: string; bidder_mask: string; is_auto: boolean };
+export type SellerVideo = { id: string; lot_id: number; title: string; status: string; review_note: string | null; created_at: string; public_path: string | null };
 
 export interface InvoiceDetail {
   invoice: Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string; backdrop: string; cover_path: string | null } };
