@@ -9,6 +9,7 @@ import { bidIncrement, dateLong, dateTime, money } from "@/lib/format";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
+import { consumerRights, rightsLine } from "@/lib/listing";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price">;
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
@@ -231,13 +232,15 @@ export function BidPanel(props: {
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0, accentColor: "#2F5BFF" }} />
               <span>I understand this vehicle is sold <b>as is, where is</b>, at the seller&apos;s location, the condition report is a guide only, and if I win I authorise payment from my card straight away under the <Link className="blue" href="/terms" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
             </label>
+            <p className="hint" style={{ margin: 0 }} data-testid="rights-auction">{rightsLine("auction", lot.seller_type)}. <Link className="blue" href="/terms#t-asis" target="_blank">What that means ›</Link></p>
             <button className="btn btn-blue" onClick={placeBid} disabled={busy || !ack || (bigJump && !sure)}>{busy ? "Placing bid…" : `Place bid of up to ${money(typed)}`}</button>
             <button className="btn btn-soft" onClick={() => setConfirm(false)}>Change amount</button>
           </Modal>
         )}
         {buyOpen && bn && bnPrev && (
           <Modal title={`Buy it now for ${money(bn)}?`} onClose={() => setBuyOpen(false)}>
-            <p className="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is, with no warranty.</p>
+            <p className="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is.</p>
+            <p className="hint" style={{ margin: 0 }} data-testid="rights-outright">{consumerRights("outright", lot.seller_type)} <Link className="blue" href="/terms#t-asis" target="_blank">Your rights ›</Link></p>
             <div className="allin" style={{ border: 0, padding: 0 }}>
               <div><span className="muted">Buy Now price</span><span>{money(bn)}</span></div>
               <div><span className="muted">Premium, GST and admin fee</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
@@ -272,7 +275,7 @@ export function BidPanel(props: {
       </div>
     );
   } else if (live.status === "offers") {
-    body = <OfferForm lotId={lot.id} current={live.current_bid} decisionBy={live.decision_by} lastOffer={props.lastOffer} onNeedSetup={needsSetup} />;
+    body = <OfferForm lotId={lot.id} current={live.current_bid} decisionBy={live.decision_by} lastOffer={props.lastOffer} onNeedSetup={needsSetup} fees={fees} sellerType={lot.seller_type} />;
   } else if (live.status === "live") {
     body = <div className="soft" style={{ background: "var(--panel)" }}><b>Bidding has closed.</b><span className="muted">Working out the result…</span></div>;
   } else {
@@ -289,7 +292,7 @@ export function BidPanel(props: {
             : <span className="tag" style={{ background: "var(--berry)" }}>Outbid · your max {money(myMax)}</span>)}
         </div>
         <div className="big2">
-          <div><div className="k">{live.status === "sold" ? "Sold for" : "Current bid"}</div><div className="v">{money(live.status === "sold" ? live.sold_price : live.current_bid)}</div><div className="hint">{live.bid_count} bids{rt ? " · live" : ""}</div></div>
+          <div><div className="k">{live.status === "sold" ? "Sold for" : "Current bid"}</div><div className="v">{money(live.status === "sold" ? live.sold_price : live.current_bid)}</div><div className="hint">{live.status !== "sold" && <><b data-testid="allin-now">{money(priceBreakdown(Math.max(live.current_bid || 0, lot.start_price || 0), fees).total, true)} all-in</b> · </>}{live.bid_count} bids{rt ? " · live" : ""}</div></div>
           <div><div className="k">{ended ? "Status" : "Ends in"}</div>{ended ? <div className="v" style={{ fontSize: 28 }}>Closed</div> : <Countdown className="v" style={{ color: "var(--urgent)" }} endsAt={endsAtAdjusted} />}<div className="hint">{dateTime(live.ends_at)}</div></div>
         </div>
         {body}
@@ -329,7 +332,7 @@ export function BlurName({ mask }: { mask: string }) {
   return <><span className="blurname" aria-hidden="true">{mask}</span><span className="sr-only">Bidder (name hidden)</span></>;
 }
 
-function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup }: { lotId: number; current: number; decisionBy: string | null; lastOffer: { amount: number; status: string } | null; onNeedSetup: () => boolean }) {
+function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup, fees, sellerType }: { lotId: number; current: number; decisionBy: string | null; lastOffer: { amount: number; status: string } | null; onNeedSetup: () => boolean; fees: Fees; sellerType?: Lot["seller_type"] }) {
   const router = useRouter();
   const [amount, setAmount] = useState(String((lastOffer?.amount || current) + bidIncrement(lastOffer?.amount || current)));
   const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
@@ -338,7 +341,7 @@ function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup }: { lot
     e.preventDefault();
     if (onNeedSetup()) return;
     const n = Number(amount.replace(/[^0-9]/g, ""));
-    if (!confirm(`Offer ${money(n)}? If the seller accepts, it's binding and payment is taken the same way as a win.`)) return;
+    if (!confirm(`Offer ${money(n)} (${money(priceBreakdown(n, fees).total, true)} all-in with the buyer's premium and fees)? If the seller accepts, it's binding and payment is taken the same way as a win.`)) return;
     setBusy(true);
     const res = await fetch("/api/offer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId, amount: n }) });
     const data = await res.json();
@@ -353,6 +356,8 @@ function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup }: { lot
       {lastOffer && <span style={{ fontWeight: 600 }}>Your last offer: {money(lastOffer.amount)} ({lastOffer.status === "pending" ? "with the seller" : lastOffer.status})</span>}
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }} noValidate>
         <span className="moneyin" style={{ background: "#FFFFFF" }}><span className="muted">$</span><input inputMode="numeric" aria-label="Offer amount" value={amount} onChange={(e) => setAmount(e.target.value)} /></span>
+        {Number(amount.replace(/[^0-9]/g, "")) > 0 && <span className="hint">All-in if accepted: <b>{money(priceBreakdown(Number(amount.replace(/[^0-9]/g, "")), fees).total, true)}</b>, with the buyer&apos;s premium, GST and admin fee.</span>}
+        <span className="hint">{consumerRights("outright", sellerType)}</span>
         {msg && <div className={`notice ${msg.kind}`}>{msg.text}</div>}
         <button className="btn btn-blue" disabled={busy}>{busy ? "Sending…" : "Make offer"}</button>
       </form>

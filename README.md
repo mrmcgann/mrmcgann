@@ -15,7 +15,15 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Auto-bidding with private maximums, bid increments, ties go to the earlier maximum
 - Going, going, gone: bids in the last 10 minutes add 10 minutes
 - Reserve met / not met, referral to the seller, Make an Offer, Buy Now
-- All-in price preview as you type (premium, GST, admin fee, card surcharge)
+- All-in price beside every price (listing cards, the current bid, Buy Now, offers, the newsletter) and a preview as you type (premium, GST, admin fee; no card surcharge)
+- Listings checked against the vehicle before they go live (VIN plate, build date, odometer photo, transmission, fuel, features, warning lights, starts and drives, damage photos), shown as "Checked against the vehicle"; private or business seller on every listing; "Starts and drives" filter; EV battery health; plain consumer-rights wording for auction and Buy Now sales (`/listing-promise`, `src/lib/listing.ts`)
+- Corrections in public: any later change to a key fact is shown under "Changes to this listing", sent to bidders and watchers, and bidding gets at least 24 more hours
+- Fleet sales (`/sales`): one seller's vehicles on one page, closing a few minutes apart
+- Offer to the next bidder when a winner doesn't pay (`/offers/[id]`, no obligation, all-in price shown)
+- Landing pages for search engines (`/for-sale/utes`, `/for-sale/utes/qld`): real listings and recent results only, not indexed when empty
+- Recently viewed and "For you" (your saved search) on the home page, private notes on watched vehicles, help centre search, and on the Sell page what similar vehicles sold for here (only with 3 or more sales)
+- Transport quotes from a carrier partner (listing and invoice), carrier tracking link on the collection, and warranty and roadside assistance providers (`/warranty`)
+- Weekly newsletter for members who opt in (one-click unsubscribe)
 - 5-step sign-up: account → details → SMS code → card on file → ID check
 - Automatic payment when you win: under $5,000 charged in full, otherwise a non-refundable deposit plus bank transfer
 - Declined-card "Pay now" flow, invoices, nominate a collector
@@ -34,6 +42,12 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Invoices: retry cards, mark balances received, mark collected, cancel with fee
 - Videos: add the listing's video yourself in the vehicle editor (it goes live straight away), or approve or reject the seller's
 - Rego & VIN check: type a plate and state or a VIN; shows what we know, with one-click links to the state's free rego check and the PPSR
+- Listing checks in the vehicle editor (all needed to publish; who checked is recorded), seller type, EV battery health, and the sale a vehicle belongs to
+- Bidders on a live vehicle, with "Remove their bids" (bid before a material correction and asked out, or shill bidding; the price is worked out again)
+- Didn't sell: relist as a new draft (past bidders and watchers hear when it's back), or offer it to the next bidder
+- Fleet sales: create a sale page, stagger closing times, end-of-sale report (CSV); Bulk upload a fleet list (CSV) into drafts
+- Listing audits: a sample of live listings to re-check each month, with a record (part of the consumer law compliance program)
+- Newsletter: preview, send now, or weekly on a set day and hour; Licences shown in the footer and Terms (Fees & settings)
 - Transfers: check each buyer's transfer confirmation, chase the seller's part, complete it (the buyer can then book collection)
 - Partners and leads: lenders, brokers, insurers and inspection companies, their clicks and enquiries, and the fee each one paid (CSV export)
 - Consultants: the named contact shown on each listing
@@ -71,8 +85,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    9. `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on every listing, one video inside 10 photos and videos, plate lookups, transfer of ownership before collection)
    10. `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup)
    11. `supabase/migrations/20261004000011_lookup_australia_only.sql` (keeps the lookup to Australian sources)
-   12. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   13. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   12. `supabase/migrations/20261004000012_accuracy_fleet_partners.sql` (listing checks, public corrections, seller type, fleet sales, relisting, offers to the next bidder, transport and warranty partners, listing audits, newsletter)
+   13. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   14. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -189,6 +204,21 @@ Like carsales and Trade Me, the site earns from finance, insurance and inspectio
 5. **Consultants**: add your real consultant(s) in **Admin → Consultants**, pick one per listing in the vehicle editor, and make one the default.
 6. Clicks and enquiries per partner are in **Admin → Partners**; mark each enquiry's outcome and the fee received in **Admin → Leads**, and download the CSV for invoicing partners.
 
+## Listing accuracy and consumer law (ACCC)
+In 2024 the Federal Court ordered Grays to pay $10 million for misdescribing at least 750 cars sold online (wrong year and transmission, features the cars didn't have, damage and warning lights left out). Auctions aren't exempt from the ban on misleading descriptions, so:
+- **Checked before it's live.** A listing can't be published until staff tick each check against the vehicle itself (`LISTING_CHECKS` in `src/lib/listing.ts`, `listing_check_keys()` in the database), record whether it starts and drives, and record the written-off result. A statutory write-off can never be listed as registered. Buyers see what was checked (green) apart from what the seller declared (yellow).
+- **Corrections in public.** Changing a key fact on a live listing logs it in `lot_corrections` (shown on the listing), tells bidders and watchers, and makes sure 24 hours of bidding remain. Staff can remove a bidder's bids if they ask out after a material correction.
+- **Plain consumer rights.** No "no warranty" wording anywhere. Each listing says private or business seller, and the rights for an auction sale and for Buy Now/offers (`consumerRights()`), with `[LAWYER TO CONFIRM]` in the Terms.
+- **All-in prices** beside every price; no card surcharge (banned from 1 October 2026).
+- **Monthly listing audits** in Admin, as a record of the compliance program.
+- **Licence numbers** in the footer and Terms from Admin → Fees & settings (NSW requires the dealer licence number in every advertisement).
+- **Spam Act:** marketing only to members who opt in, with our details and one-click unsubscribe in every email.
+
+## Fleet sales, relisting and the next bidder
+- **Admin → Fleet sales**: create a sale (title, web address, the seller as shown publicly, about text), publish it, add vehicles from the editor or **Bulk upload**, then stagger closing times (one every few minutes; vehicles with bids keep their time). The sale page is `/sales/<web address>`; the CSV report has every result, fee and payout.
+- **Bulk upload**: download the template, one vehicle per row (make and model required), preview, then add them as drafts.
+- **Didn't sell**: on the vehicle's admin page, relist it as a new draft (re-run the PPSR and the listing checks before publishing), or, when the buyer didn't pay, offer it to the next highest bidder at their highest bid (24 hours, no obligation; below the reserve only with the seller's agreement).
+
 ## Plate and VIN lookups (Sell page): our own, free, Australian only
 Sellers type their plate and state, and the VIN if they have it handy; the form fills in what it can, and they check and correct it. It costs nothing to run and doesn't scrape anyone: the states' free rego checks don't allow automated use (Queensland, Victoria and WA say so in their terms, and Queensland and NSW sit behind reCAPTCHA), and full rego records are only sold through paid channels. Instead, in this order (`src/lib/vinDecode.ts`):
 1. **Our records.** A plate we've listed before fills in straight away (year, make, model, variant, body, colour, fuel, VIN).
@@ -216,7 +246,11 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 
 ## Before launch
 - [ ] `NEXT_PUBLIC_TEST_MODE=false`
-- [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically. Fill the remaining `[brackets]` in `src/content/legal.ts` (licence details, governing state, trust account)
+- [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically. Fill the remaining `[brackets]` in `src/content/legal.ts` (governing state, trust account)
+- [ ] Licence numbers for every state you sell in, in **Admin → Fees & settings → Licences** (shown in the footer and Terms). Don't sell in a state until its licence is in place
+- [ ] Lawyer to confirm the consumer-rights wording (`src/lib/listing.ts` and Terms section 4) for auction, Buy Now, accepted offers and offers to the next bidder, private and business sellers, and whether cooling-off or dealer warranties apply to Buy Now in any state
+- [ ] Transport and warranty partners signed (warranty providers: their AFSL, PDS and TMD), or the sample ones removed
+- [ ] The newsletter switched on in **Admin → Newsletter** only once you have opted-in members
 - [ ] **Admin → Fees & settings → Selling checks** is ON
 - [ ] Public holidays for next year added to the `public_holidays` table (the business-day maths skips them)
 - [ ] Terms of sale, Seller agency agreement and Privacy policy reviewed by an Australian lawyer: consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds must sit in a trust account, unfair contract terms (deposit forfeiture, withdrawal and cancellation fees), storage and abandonment

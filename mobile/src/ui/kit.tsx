@@ -22,8 +22,8 @@ const TV: Record<Variant, TextStyle> = {
   eyebrow: { fontFamily: F.bold, fontSize: 13, lineHeight: 17, letterSpacing: 0.4, color: C.muted, textTransform: "uppercase" },
   serif: { fontFamily: F.serif, fontSize: 36, lineHeight: 40, color: C.blue },
 };
-export function T({ v = "body", style, children, numberOfLines, selectable, accessibilityRole }: { v?: Variant; style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number; selectable?: boolean; accessibilityRole?: "header" | "text" }) {
-  return <Text style={[TV[v], style]} numberOfLines={numberOfLines} selectable={selectable} accessibilityRole={accessibilityRole ?? (v.startsWith("d") || v === "h" ? "header" : undefined)}>{children}</Text>;
+export function T({ v = "body", style, children, numberOfLines, selectable, accessibilityRole, testID }: { v?: Variant; style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number; selectable?: boolean; accessibilityRole?: "header" | "text"; testID?: string }) {
+  return <Text testID={testID} style={[TV[v], style]} numberOfLines={numberOfLines} selectable={selectable} accessibilityRole={accessibilityRole ?? (v.startsWith("d") || v === "h" ? "header" : undefined)}>{children}</Text>;
 }
 
 // ---------- buttons ----------

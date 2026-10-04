@@ -10,13 +10,15 @@ import { money } from "@/lib/format";
 import { env } from "@/lib/env";
 import type { PartnerKind } from "@/lib/types";
 
-const KINDS: PartnerKind[] = ["finance", "insurance", "inspection"];
+const KINDS: PartnerKind[] = ["finance", "insurance", "inspection", "transport", "warranty"];
 const clip = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 // What each kind of enquiry may carry to the partner (the consent text lists the same things).
 const FIELDS: Record<PartnerKind, string[]> = {
   finance: ["amount", "deposit", "term_months", "balloon", "frequency"],
   insurance: ["cover", "vehicle"],
   inspection: ["notes"],
+  transport: ["notes"],
+  warranty: ["vehicle", "odometer", "notes"],
 };
 
 // A member asks a partner (lender, insurer, mobile inspector) to contact them. Only signed-in
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
   const postcode = clip(b.postcode || p.postcode, 4);
   if (postcode && !isPostcode(postcode)) return fail("Enter a 4-digit postcode.");
   if (kind === "insurance" && !postcode) return fail("Enter your postcode. Insurers need it to quote.");
+  if (kind === "transport" && !postcode) return fail("Enter the postcode you want it delivered to.");
 
   const partner = (await getPartnersCached()).find((x) => x.id === b.partnerId && x.kind === kind);
   if (!partner || !partner.accepts_leads) return fail("That partner isn't taking enquiries right now.");
@@ -58,6 +61,7 @@ export async function POST(req: Request) {
     const { data } = await admin.from("lots").select("id, title, suburb, state, status").eq("id", Number(b.lotId)).neq("status", "draft").maybeSingle();
     lot = data;
   }
+  if (kind === "transport" && !lot) return fail("Choose the vehicle to move.");
   if (kind === "inspection") {
     if (!lot || !["live", "scheduled"].includes(lot.status)) return fail("Inspections can only be ordered while the vehicle is listed.");
     const { count } = await admin.from("partner_leads").select("id", { count: "exact", head: true }).eq("kind", "inspection").eq("lot_id", lot.id).in("status", ["new", "sent", "contacted", "booked"]);
@@ -77,6 +81,11 @@ export async function POST(req: Request) {
     if (d[k] == null || d[k] === "") continue;
     details[k] = typeof d[k] === "number" && Number.isFinite(d[k]) ? (d[k] as number) : clip(d[k], k === "notes" ? 500 : 80);
   }
+  if (kind === "transport" && lot) details.collect_from = `${lot.suburb}, ${lot.state}`;
+  if (kind === "warranty" && lot) {
+    const { data: odo } = await admin.from("lots").select("odometer").eq("id", lot.id).maybeSingle();
+    if (odo?.odometer != null) details.odometer = `${Number(odo.odometer).toLocaleString("en-AU")} km`;
+  }
   if (lot) details.vehicle = `${lot.title} (lot ${lot.id})`;
   const consent = consentText(partner, !!details.vehicle);
 
@@ -90,8 +99,8 @@ export async function POST(req: Request) {
   // inspections a note to our team (they give the inspector the address and seller's contact).
   const { data: priv } = await admin.from("partner_private").select("lead_email").eq("partner_id", partner.id).maybeSingle();
   const lines = [
-    `Reference: ${lead.ref}`, `Name: ${name}`, `Mobile: ${phone}`, `Email: ${email}`, postcode ? `Postcode: ${postcode}` : "",
-    ...Object.entries(details).map(([k, v]) => `${k.replace("_", " ")}: ${["amount", "deposit", "balloon"].includes(k) ? money(Number(v)) : v}`),
+    `Reference: ${lead.ref}`, `Name: ${name}`, `Mobile: ${phone}`, `Email: ${email}`, postcode ? `${kind === "transport" ? "Deliver to postcode" : "Postcode"}: ${postcode}` : "",
+    ...Object.entries(details).map(([k, v]) => `${k.replace(/_/g, " ")}: ${["amount", "deposit", "balloon"].includes(k) ? money(Number(v)) : v}`),
     kind === "inspection" && lot ? `Vehicle location: ${lot.suburb}, ${lot.state} (Tyrebiter will send the address and the seller's contact details)` : "",
     "", `They agreed to: "${consent}"`, `Please contact them within 10 business days and quote ${lead.ref}.`,
   ].filter((l) => l !== "");

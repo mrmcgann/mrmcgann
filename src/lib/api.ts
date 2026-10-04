@@ -38,5 +38,13 @@ export function friendly(message: string | undefined) {
   if (m.includes("forbidden")) return "You don't have permission to do that.";
   if (m.includes("referral_expired")) return "The time to accept this bid has passed, so offers are now open.";
   if (m.includes("status_locked")) return "This vehicle has already sold or closed, so it can't be put back on sale from here.";
+  // Errors that carry their own plain-English message after the code ("code:message").
+  for (const code of ["not_relistable", "already_relisted", "not_passed", "no_cancelled_sale", "offer_open", "no_next_bidder", "below_reserve",
+    "offer_closed", "offer_expired", "not_live", "too_soon", "bad_gap"]) {
+    if (m.includes(`${code}:`)) { const t = m.split(`${code}:`)[1]?.split("\n")[0].trim(); return t ? t[0].toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : "That can't be done right now."; }
+  }
+  if (m.includes("offer_not_found")) return "We couldn't find that offer.";
+  if (m.includes("no_bids")) return "That member hasn't bid on this vehicle.";
+  if (m.includes("reason_required")) return "Give a reason. It's sent to the bidder and kept on record.";
   return "Something went wrong. Please try again.";
 }

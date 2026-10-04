@@ -84,7 +84,14 @@ export async function GET(req: Request) {
     s.lookupsPruned = Number(pruned || 0);
   }
 
-  // 9. Use the rest of the minute to send messages (the sender job also runs every minute)
+  // 9. The weekly newsletter (only when switched on, at the set day and hour, once a week)
+  if (new Date().getMinutes() < 5) {
+    const { sendNewsletter } = await import("@/lib/newsletter");
+    const nl = await sendNewsletter().catch(() => ({ queued: 0 }));
+    if (nl.queued) s.newsletter = nl.queued;
+  }
+
+  // 10. Use the rest of the minute to send messages (the sender job also runs every minute)
   const out = await drainOutbox({ max: 5000, deadlineMs: Math.max(0, Math.min(40_000, left() - 20_000)) });
   s.sent = out.sent;
   s.sendFailed = out.failed;

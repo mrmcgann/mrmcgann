@@ -10,6 +10,7 @@ import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
 import { rulesFor } from "@/lib/transfer";
 import { AdminAction } from "@/components/AdminAction";
+import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified } from "@/lib/listing";
 
 export interface SellerInfo {
   inviteUrl: string | null;
@@ -40,6 +41,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const db = supabaseBrowser();
   const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => { db.from("consultants").select("id, name").eq("active", true).order("sort").then(({ data }: { data: { id: string; name: string }[] | null }) => setConsultants(data || [])); }, [db]);
+  const [sales, setSales] = useState<{ id: number; title: string }[]>([]);
+  useEffect(() => { db.from("sales").select("id, title").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string }[] | null }) => setSales(data || [])); }, [db]);
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
@@ -53,6 +56,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const [busy, setBusy] = useState(false);
   const id = lot?.id as number | undefined;
   const hasBids = Number(f.bid_count || 0) > 0;
+  const verified = (Array.isArray(f.verified) ? f.verified : []) as string[];
+  const toggleCheck = (k: string, on: boolean) => {
+    const next = on ? [...new Set([...verified, k])] : verified.filter((x) => x !== k);
+    setF({ ...f, verified: CHECK_KEYS.filter((x) => next.includes(x)), verified_at: new Date().toISOString() });
+  };
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const setPriv = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setP({ ...p, [k]: e.target.value });
@@ -72,11 +80,14 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     const out: Row = {};
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
-      "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m"];
+      "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
+      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
-    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
+    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
     for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.write_off_status = f.write_off_status || "unknown";
+    out.seller_type = f.seller_type || "private";
+    out.verified = Array.isArray(f.verified) ? f.verified : [];
     if (out.vin) out.vin = String(out.vin).toUpperCase().replace(/\s/g, "");
     if (out.rego_plate) out.rego_plate = String(out.rego_plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
@@ -104,7 +115,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         return null;
       }
     }
-    const privBody = { lot_id: lotId, reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null };
+    const checkedNow = JSON.stringify(normalize(f).verified) !== JSON.stringify(base.verified);
+    const me = checkedNow ? (await db.auth.getSession()).data.session?.user.id || null : null;
+    const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null };
     const { error: pe } = await db.from("lot_private").upsert(privBody);
     setBusy(false);
     if (pe) { setMsg({ kind: "bad", text: pe.message }); return null; }
@@ -120,7 +133,12 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   async function publish() {
     const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
       ...(f.registration === "registered" ? [["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry"]] : [])].filter(([k]) => !f[k]).map(([, l]) => l);
+    if (!f.runs) missing.push("Starts and drives");
+    if (!f.write_off_status || f.write_off_status === "unknown") missing.push("Write-off status");
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
+    const todo = LISTING_CHECKS.filter(([k]) => !verified.includes(k)).map(([, label]) => label);
+    if (todo.length) { setMsg({ kind: "bad", text: `Before publishing, check the listing against the vehicle: ${todo.join("; ")}.` }); return; }
+    if (f.registration === "registered" && f.write_off_status === "statutory") { setMsg({ kind: "bad", text: "A statutory write-off can never be registered. List it as unregistered." }); return; }
     if (new Date(String(f.ends_at)).getTime() < Date.now() + 3600000) { setMsg({ kind: "bad", text: "The end time must be at least an hour away." }); return; }
     if (f.registration === "registered" && f.rego_expiry && String(f.rego_expiry) < new Date().toISOString().slice(0, 10)) { setMsg({ kind: "bad", text: "The registration has expired. Renew it, or list the vehicle as unregistered." }); return; }
     if (!photos.length && !confirm("This vehicle has no photos yet. Publish anyway?")) return;
@@ -325,7 +343,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
         <div className="grid2">{inp("build_date", "Build date", { placeholder: "03/2009" })}{inp("compliance_date", "Compliance date", { placeholder: "05/2009" })}</div>
         <div className="grid3">
-          {sel("write_off_status", "Write-off status (PPSR)", [["unknown", "Not checked yet"], ["none", "Not written off"], ["repairable", "Repairable write-off"], ["statutory", "Statutory write-off"]])}
+          {sel("write_off_status", "Write-off status (PPSR)", [["unknown", "Not checked yet"], ["none", "Not written off"], ["repairable", "Repairable write-off"], ["inspected", "Inspected write-off (VIC)"], ["statutory", "Statutory write-off"]])}
           <label className="field"><span>Stolen check (PPSR)</span><select className="input" value={f.stolen_clear == null ? "" : String(f.stolen_clear)} onChange={(e) => setF({ ...f, stolen_clear: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Not checked</option><option value="true">Not recorded as stolen</option><option value="false">Recorded as stolen: DO NOT LIST</option></select></label>
           {inp("gvm_kg", "GVM (kg, trucks)", { inputMode: "numeric" })}
         </div>
@@ -334,11 +352,32 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>PPSR searched on</span><input className="input" type="date" value={f.ppsr_checked_at ? String(f.ppsr_checked_at).slice(0, 10) : ""} onChange={(e) => setF({ ...f, ppsr_checked_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
           <label className="field"><span>Service books</span><select className="input" value={f.service_books == null ? "" : String(f.service_books)} onChange={(e) => setF({ ...f, service_books: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label>
         </div>
+        <div className="grid3">
+          {sel("seller_type", "Seller", [["private", "Private seller"], ["business", "Business seller (fleet, company, GST-registered)"]])}
+          {isElectrified(String(f.fuel || "")) && inp("ev_battery_soh", "Battery health (% state of health)", { inputMode: "numeric", placeholder: "e.g. 94" })}
+          {isElectrified(String(f.fuel || "")) && inp("ev_battery_report", "Battery certificate link", { placeholder: "https://…" })}
+        </div>
+        <span className="hint" style={{ marginTop: -6 }}>Business sellers can mean extra consumer guarantees for Buy Now and offer sales. The seller&apos;s agreement sets this; change it only if it&apos;s wrong.</span>
         <div className="grid2">
           {inp("video_url", "External video link (optional, e.g. YouTube)", { placeholder: "https://…" })}
           <label className="field"><span>Consultant shown on the listing</span><select className="input" value={String(f.consultant_id || "")} onChange={(e) => setF({ ...f, consultant_id: e.target.value || null })}><option value="">Default consultant</option>{consultants.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         </div>
         <span className="hint">Add the listing&apos;s own video under Photos and video. Sellers&apos; videos are approved in <a className="blue" href="/admin/videos">Videos</a>.</span>
+      </div>
+
+      <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="listing-checks">
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Checked against the vehicle</h2>
+        <p className="hint">Tick each one only after checking it on the vehicle itself, at the walkaround. All are needed to publish. Buyers see them as verified by Tyrebiter, and your name is recorded. If you change a fact once it&apos;s live, the change is shown on the listing and sent to bidders and watchers, and bidding gets at least 24 more hours.</p>
+        <label className="field" style={{ maxWidth: 420 }}><span>Starts and drives?</span><select className="input" value={String(f.runs || "")} onChange={(e) => setF({ ...f, runs: e.target.value || null })} data-testid="runs"><option value="">Choose…</option>{Object.entries(RUNS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {LISTING_CHECKS.map(([k, label]) => (
+            <label key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 15 }}>
+              <input type="checkbox" checked={verified.includes(k)} onChange={(e) => toggleCheck(k, e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid={`check-${k}`} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        {verified.length > 0 && <span className="hint">{verified.length} of {LISTING_CHECKS.length} checked{f.verified_at ? ` · last changed ${new Date(String(f.verified_at)).toLocaleString("en-AU")}` : ""}.</span>}
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -426,6 +465,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>Starts</span><input className="input" type="datetime-local" value={toLocal(f.starts_at)} onChange={(e) => setF({ ...f, starts_at: fromLocal(e.target.value) })} /><span className="hint">Leave empty to start when published.</span></label>
           <label className="field"><span>Ends</span><input className="input" type="datetime-local" value={toLocal(f.ends_at)} onChange={(e) => setF({ ...f, ends_at: fromLocal(e.target.value) })} /><span className="hint">Bids in the last 10 minutes extend it automatically.</span></label>
         </div>
+        <label className="field" style={{ maxWidth: 420 }}><span>Part of a sale (optional)</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">Not part of a sale</option>{sales.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select><span className="hint">Group a fleet&apos;s vehicles in one sale page. Set up sales in <a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
         <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
       </div>
 

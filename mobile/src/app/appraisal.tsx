@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { CATEGORIES, CAT, makesFor, modelsFor } from "@/lib/vehicles";
 import { expiryDate, normalizePlate, normalizeVin, REGO_STATES, vehicleLine, type RegoVehicle } from "@/lib/rego";
-import { api, ApiError, errText } from "~/lib/api";
+import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
 import { pickPhotos, uploadPhotos, type Picked } from "~/lib/files";
 import { useSession } from "~/lib/session";
@@ -194,6 +194,7 @@ export default function Appraisal() {
           <Field testID="appraisal-model" label="Model" value={m.model} onChangeText={setMan("model")} autoCapitalize="words" autoCorrect={false} autoComplete="off" error={errors.model} />
           <Suggest testID="model" value={m.model} options={modelsFor(m.make, kind)} onPick={(x) => setM((y) => ({ ...y, model: x }))} />
           <Field testID="appraisal-variant" label="Variant (optional)" value={m.variant} onChangeText={setMan("variant")} placeholder="e.g. XLT 3.2 (4x4)" autoCorrect={false} error={errors.variant} />
+          <SoldGuide make={m.make} model={m.model} year={m.year} />
         </>
       ) : null}
 
@@ -246,3 +247,21 @@ const s = StyleSheet.create({
   remove: { fontFamily: F.semibold, fontSize: 14, color: C.muted },
   link: { fontFamily: F.bold, color: C.blue },
 });
+
+// What similar vehicles have sold for on Tyrebiter: our own results, only with at least 3 sales.
+function SoldGuide({ make, model, year }: { make: string; model: string; year: string }) {
+  const [r, setR] = useState<{ count: number; low?: number; high?: number } | null>(null);
+  useEffect(() => {
+    setR(null);
+    if (make.trim().length < 2 || !model.trim()) return;
+    const t = setTimeout(() => { pub<{ count: number; low?: number; high?: number }>(`/api/estimate?${new URLSearchParams({ make, model, year })}`).then(setR).catch(() => setR(null)); }, 400);
+    return () => clearTimeout(t);
+  }, [make, model, year]);
+  if (!r || r.count < 3 || r.low == null || r.high == null) return null;
+  const aud = (n: number) => `$${Math.round(n).toLocaleString("en-AU")}`;
+  return (
+    <Notice kind="info">
+      <T v="body" style={{ fontSize: 14, lineHeight: 20 }} testID="sold-guide"><Text style={{ fontFamily: F.bold }}>Similar vehicles we've sold: {aud(r.low)} to {aud(r.high)}. </Text>The middle half of {r.count} {make} {model} sales on Tyrebiter in the last 18 months (hammer prices). Based on past results, not a valuation of your vehicle: your consultant gives you a price guide after seeing it.</T>
+    </Notice>
+  );
+}

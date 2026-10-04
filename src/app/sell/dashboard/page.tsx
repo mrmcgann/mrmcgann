@@ -148,6 +148,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
           </div>
         );
       })}
+      {all.length > 0 && <p className="hint"><a className="blue" href="/api/seller/report" data-testid="seller-report">Download a report of all your vehicles (CSV) ›</a></p>}
       <p className="hint">Questions? Call {env.phone}. <Link className="blue" href="/seller-agreement">Read the Seller Agency Agreement ›</Link></p>
     </div>
   );

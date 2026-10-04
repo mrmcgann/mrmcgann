@@ -37,6 +37,17 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Up to 10 photos and videos per listing, one of them a video (`lot_media_count`, trigger `lot_photo_limit`, `request_lot_video`; `MEDIA_MAX` in `src/lib/videos.ts`). Staff uploads from the editor are published straight away (`publishVideo` in `src/lib/videoPublish.ts`).
 - Every listing is `registration` 'registered' (plate, state, current expiry) or 'unregistered' (sold without plates); `lot_publish_check` enforces it. Search filter `rego`.
 
+## Listing accuracy and consumer law (keep it)
+- `lot_publish_check` needs every check in `listing_check_keys()` (mirrored by `LISTING_CHECKS` in `src/lib/listing.ts`) in `lots.verified`, `lots.runs`, a write-off result, and never a registered statutory write-off. Who checked: `lot_private.checked_by`.
+- Trigger `lot_corrections_log` (before update on lots, live/referred/offers only): logs key-fact changes to `lot_corrections` (public), alerts bidders and watchers, keeps 24 hours of bidding. Add new key facts to both its field list and its WHEN clause. Seed edits run with it disabled.
+- `lots.seller_type` ('private'/'business', trigger `lot_a_seller_type` from GST status or the seller's `disclosures.business`) drives the rights wording and the `seller` search filter.
+- Consumer-rights wording only from `consumerRights()` / `rightsLine()` in `src/lib/listing.ts`. Never write "no warranty". Every price shows the all-in amount beside it (`priceBreakdown`), including `LotCard` (pass `fees`).
+- `admin_remove_bidder` recalculates the price as if the bidder never bid; `admin_relist` copies to a new draft (PPSR and checks redone); `admin_offer_next_bidder` / `respond_second_chance` (page `/offers/[id]`).
+- Fleet sales: `sales`, `lots.sale_id`, `sale_stats`, `admin_stagger_sale`, search filter `sale`. Bulk upload: `src/lib/importLots.ts` + `/api/admin/import` (drafts only). CSV via `src/lib/csv.ts` (formula-safe).
+- Partner kinds now include `transport` and `warranty` (same consent and referrer rules; warranty shows the general advice warning and says buyers don't need one for their consumer guarantees).
+- Newsletter: `src/lib/newsletter.ts` (weekly, from the clock) → `queue_newsletter()` only to members with `notify.marketing.email`. Kind `marketing` always gets the unsubscribe link and header.
+- Licences: settings key `business.licences`, shown in `Footer` and the Terms (`{{LICENCES}}`).
+
 ## Sell page and vehicle lookups (our own, free)
 - `/api/rego-lookup` takes plate+state and/or a VIN. Australian sources only. Default engine `freeLookup` in `src/lib/vinDecode.ts`: `plate_memory()` (plates we've listed), `vin_pattern()` (table `vin_patterns`, learned by trigger `learn_vin_pattern` from published listings only), then `src/lib/vin.ts` (maker/country from the first characters, model-year character). No overseas data sources. Never scrape the states' rego checks (their terms forbid it). A paid provider (`src/lib/regoLookup.ts`) is optional and off by default.
 - `src/lib/rego.ts` (shared: tidy names, category from body/model, `publicVehicle` strips the full VIN and engine number). Results are cached in `rego_lookups` (server only, pruned after 90 days); `/api/appraisals` copies the full lookup by `lookupId`.
@@ -61,4 +72,4 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Checks: `cd mobile && npm run typecheck && npm test`; `npx expo export -p ios -p android` must bundle. The web build (`npx expo export -p web`) is what the end-to-end tests drive.
 
 ## Tests
-`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser, finance maths, lookup tidying and VIN decoder (run it after changing `vehicles.ts`, `search.ts`, `finance.ts`, `rego.ts` or `vin.ts`). `tests/load/search-bench.mjs` times search at scale.
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser, finance maths, lookup tidying, VIN decoder, listing wording, bulk upload and CSV (run it after changing `vehicles.ts`, `search.ts`, `finance.ts`, `rego.ts`, `vin.ts`, `listing.ts`, `importLots.ts` or `csv.ts`). `tests/load/search-bench.mjs` times search at scale.

@@ -1,5 +1,7 @@
 -- Sample lots for local development and your first look at the live site.
 -- Delete these from the admin area before launch.
+-- Setting up sample listings isn't a correction: don't log these edits or alert anyone about them.
+alter table public.lots disable trigger lot_corrections_log;
 
 insert into public.lots (id, status, title, short_title, subtitle, vehicle_type, category, year, make, model, variant, body, engine, transmission, fuel, odometer, colour, seats, keys, suburb, state, postcode, backdrop, take, owner_note, service_history, known_faults, roadworthy_note, ppsr_clear, visual_grade, grade_paint, grade_interior, grade_tyres, tyre_tread, buy_now_price, start_price, current_bid, bid_count, starts_at, ends_at) values
 (10432,'live','2009 Toyota Corolla Ascent','2009 Toyota Corolla','Ascent sedan. One owner. Dealer service history.','car','cars',2009,'Toyota','Corolla','Ascent','4-door sedan','1.8L 4-cyl','Auto','Petrol',214300,'Silver',5,2,'Eagle Farm','QLD','4009','sun',
@@ -95,3 +97,18 @@ update public.lots l set vin = v.vin from (values
   (10432, 'JTNBV58E09J000432'), (10588, 'JAANPR85HE7000588'), (10590, '6F4T401K08B000590'), (10599, 'MNAUMFF50HW000599'), (10611, 'JM0DE1023C0000611'),
   (10620, '6G1EK52W06L000620'), (10633, 'KMHD3510AFU000633'), (10660, 'JYARM33E0LA000660'), (10661, '6T9T16CARGJ000661')
 ) v(id, vin) where l.id = v.id and l.vin is null;
+
+-- The sample vehicles were checked against the vehicle before listing (the listing checks),
+-- and whether they start and drive. Delete with the sample vehicles.
+update public.lots set verified = public.listing_check_keys(), verified_at = coalesce(published_at, now()),
+  runs = case when id = 10662 then 'untested' else 'drives' end
+  where status <> 'draft';
+
+-- Sample transport and warranty partners (shown in test mode only). Replace before launch.
+insert into public.partners (kind, slug, name, licence, blurb, price_from, turnaround, referral_url, commission_note, sample, active, sort, accepts_leads) values
+  ('transport', 'sample-carrier', 'Sample Car Carrier', null, 'Door-to-door vehicle transport between capital cities and regional centres, with tracking.', null, 'Quotes usually within 1 business day', null, 'We may receive a referral fee from Sample Car Carrier.', true, true, 1, true);
+insert into public.partners (kind, slug, name, licence, blurb, features, pds_url, tmd_url, referral_url, commission_note, sample, active, sort, accepts_leads) values
+  ('warranty', 'sample-warranty', 'Sample Warranty Co', 'AFSL 000004 (sample)', 'Mechanical breakdown cover with optional 24/7 roadside assistance.', '{"terms": "1 to 3 years", "roadside": "Optional", "claim_limit": "Up to the vehicle''s value", "excess": "From $0", "age_limit": "Under 15 years and 250,000 km"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/warranty?ref=tyrebiter', 'We may receive a commission from Sample Warranty Co if you buy.', true, true, 1, true);
+insert into public.partner_private (partner_id, lead_email) select id, 'partners@tyrebiter.com.au' from public.partners where sample and kind in ('transport', 'warranty');
+
+alter table public.lots enable trigger lot_corrections_log;

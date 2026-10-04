@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getFeesCached } from "@/lib/cache";
+import { getFeesCached, getPartnersCached } from "@/lib/cache";
+import { DeliveryBox } from "@/components/LotExtras";
 import { env } from "@/lib/env";
 import { dateLong, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
@@ -12,7 +13,7 @@ import { TransferStep, type TransferRow } from "./Transfer";
 
 export const dynamic = "force-dynamic";
 
-type Coll = { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null };
+type Coll = { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null; tracking_url: string | null };
 type Claim = { id: string; reason: string; status: string; resolution: string | null; created_at: string };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,12 +23,15 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) notFound();
   const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string } };
-  const [{ data: coll }, { data: claims }, fees, { data: tr }] = await Promise.all([
-    supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at").eq("invoice_id", inv.id).maybeSingle(),
+  const [{ data: coll }, { data: claims }, fees, { data: tr }, partners] = await Promise.all([
+    supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at, tracking_url").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
     supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
+    getPartnersCached(),
   ]);
+  const transporter = partners.find((p) => p.kind === "transport" && p.accepts_leads) || null;
+  const hasWarranty = partners.some((p) => p.kind === "warranty");
   const transfer = tr ? ({ ...tr, proof_count: (tr.proof_paths || []).length } as TransferRow) : null;
   const owned = transfer?.status === "complete";
   const c = coll as Coll | null;
@@ -108,16 +112,20 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 </ol>
               </>
             )}
+            {c?.tracking_url && <a className="blue" href={c.tracking_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }} data-testid="tracking-link">Track the delivery ›</a>}
             {c?.status === "collected" && <span className="notice ok">Collected {dateLong(c.collected_at)}. {inv.claim_until && new Date(inv.claim_until).getTime() > Date.now() ? `If something is materially different from the listing, you can claim until ${dateLong(inv.claim_until)}.` : ""}</span>}
             {overdueDays > 0 && !inv.collected_at && <span className="notice bad">The collection window ended {dateLong(inv.collect_by)}. Storage of {money(fees.storage_per_day || 50)} a day applies ({money(storageSoFar)} so far), payable before release.</span>}
           </div>
         )}
 
+        {paidCard && !inv.collected_at && inv.status !== "cancelled" && <DeliveryBox lotId={inv.lot_id} email={user.email || null} partner={transporter} vehicle={`${inv.lots.title} (lot ${inv.lot_id})`} />}
+
         {paidCard && !inv.collected_at && inv.status !== "cancelled" && (
           <div className="soft" style={{ gap: 8 }}>
             <b style={{ fontSize: 20 }}>Insure it before you collect.</b>
-            <span className="muted">The vehicle is your responsibility from handover. Compare cover and arrange it before collection day.</span>
+            <span className="muted">The vehicle is your responsibility from handover. Compare cover and arrange it before collection day.{hasWarranty ? " You can also arrange an extended warranty or roadside assistance." : ""}</span>
             <span className="pill-row"><Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/insurance?lot=${inv.lot_id}`}>Compare insurance</Link>
+              {hasWarranty && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/warranty?lot=${inv.lot_id}`}>Warranty &amp; roadside</Link>}
               {!fullyPaid && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/finance?lot=${inv.lot_id}`}>Finance the balance</Link>}</span>
           </div>
         )}

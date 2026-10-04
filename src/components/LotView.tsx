@@ -14,9 +14,9 @@ import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
 import { priceBreakdown } from "@/lib/fees";
 import { env } from "@/lib/env";
+import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified } from "@/lib/listing";
 
 const LETTER = "ABCDE";
-const WRITE_OFF: Record<string, string> = { none: "Not recorded as written off", repairable: "Repairable write-off", statutory: "Statutory write-off (can't be re-registered)", unknown: "Being checked" };
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
@@ -38,7 +38,7 @@ export const regoTag = (lot: Lot) => (lot.registration === "unregistered" ? "Unr
 export function LotView({ bundle, fees, similar, history, partners = [], finance = {}, preview = false }: {
   bundle: LotBundle; fees: Fees; similar: Lot[]; history: Hist; partners?: Partner[]; finance?: FinanceSettings; preview?: boolean;
 }) {
-  const { lot, photos, flaws, questions, watchers, videos, consultant } = bundle;
+  const { lot, photos, flaws, questions, watchers, videos, consultant, corrections = [], sale = null } = bundle;
   const g = gradeInfo(lot.visual_grade);
   const cats: [string, string | null, string][] = [["Paint & body", lot.grade_paint, "var(--tangerine)"], ["Interior", lot.grade_interior, "var(--sky)"], ["Tyres", lot.grade_tyres, "var(--berry)"]];
   const d: Disclosures = lot.disclosures || {};
@@ -53,6 +53,9 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
     ["Licence class", lot.licence_class ? LICENCES.find((l) => l[0] === lot.licence_class)?.[1] || lot.licence_class : null],
     ["LAMS approved", lot.lams == null ? null : lot.lams ? "Yes" : "No"],
     ["Write-off status", WRITE_OFF[lot.write_off_status || "unknown"]],
+    ["Starts and drives", lot.runs ? RUNS[lot.runs] : null],
+    ["Seller", lot.seller_type ? SELLER_TYPE[lot.seller_type] : null],
+    ["Battery health", isElectrified(lot.fuel) && lot.ev_battery_soh != null ? `${lot.ev_battery_soh}% state of health` : null],
     ["Stolen check", lot.stolen_clear == null ? null : lot.stolen_clear ? "Not recorded as stolen" : "See note"],
     ["Keys", lot.keys],
     ["Service books", yes(lot.service_books)],
@@ -60,7 +63,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
-    ["Warning lights", d.warning_lights], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
+    ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance],
     ["Known faults", d.known_faults || lot.known_faults],
   ];
@@ -71,6 +74,9 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, finance) : null;
   const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
   const hasInsurers = partners.some((p) => p.kind === "insurance");
+  const hasWarranty = partners.some((p) => p.kind === "warranty");
+  const transporter = partners.find((p) => p.kind === "transport" && p.accepts_leads) || null;
+  const checked = LISTING_CHECKS.filter(([k]) => (lot.verified || []).includes(k));
   const forSale = ["live", "scheduled"].includes(lot.status);
 
   return (
@@ -87,6 +93,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
         {preview && <div className="notice bad" style={{ marginTop: 20 }}>Admin preview ({lot.status}). {lot.status === "draft" ? "Only admins can see this." : ""}</div>}
         <div className="center" style={{ gap: 14, paddingTop: "clamp(40px,6vw,72px)" }}>
           <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id} · {lot.suburb}, {lot.state}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
+          {sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
           <h1 className="d2" style={{ fontSize: "clamp(44px,7vw,96px)" }}>{lot.short_title || lot.title}.</h1>
           {lot.subtitle && <p className="lede">{lot.subtitle}</p>}
           <div className="stat-row"><span>{watchers} watching</span><span>{(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</span><ShareButton title={lot.title} /></div>
@@ -111,7 +118,9 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <div className="facts">
                 {facts.filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => <div className="fact" key={k}><span className="k">{k}</span><span className="v">{String(v)}</span></div>)}
               </div>
-              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated, not independently verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
+              {lot.runs && <p className="hint" style={{ margin: 0 }}>{RUNS_HINT[lot.runs]}</p>}
+              {isElectrified(lot.fuel) && lot.ev_battery_soh != null && lot.ev_battery_report && <p className="hint" style={{ margin: 0 }}>Battery health from an independent test. <a className="blue" href={lot.ev_battery_report} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Battery certificate ›</a></p>}
+              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated on the vehicle (photographed), not independently verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
             </div>
 
             <div className="lotsec" style={{ gap: 28 }}>
@@ -160,6 +169,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 {([
                   ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
                   ["Seller identity", "ID and proof of ownership verified", true],
+                  ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
                   photos.some((ph) => ph.credit) ? ["Photographs", "Includes supplied photos (credited on each photo)", false] : ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
                   lot.odometer != null ? ["Odometer", "As indicated. Not independently verified", false] : lot.hours != null ? ["Hours", "As indicated. Not independently verified", false] : null,
                   ["Service history", lot.service_history || "As declared by the seller", false],
@@ -167,7 +177,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (
                   <div className="check" key={k}><span className="tick" style={{ background: ours ? "var(--mint)" : "var(--sun)" }}>{ours ? <Tick /> : <b style={{ fontSize: 14 }}>i</b>}</span><span style={{ display: "flex", flexDirection: "column" }}><b>{k}</b><span className="muted" style={{ fontSize: 14 }}>{v}</span></span></div>
                 ))}
-                <p className="hint" style={{ marginTop: 12 }}>Green: verified by Tyrebiter. Yellow: declared by the seller.</p>
+                <p className="hint" style={{ marginTop: 12 }}>Green: verified by Tyrebiter. Yellow: declared by the seller. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
               </div>
             </div>
 
@@ -179,6 +189,14 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               </div>
             )}
 
+            {corrections.length > 0 && (
+              <div className="lotsec" id="changes" style={{ gap: 14 }} data-testid="corrections">
+                <h2 className="d3" style={{ fontSize: 40 }}>Changes to this listing.</h2>
+                <p className="muted">We corrected these after the listing went live. Everyone who had bid on or was watching it was told, and bidding stayed open for at least 24 hours after each change.</p>
+                <div className="rows">{corrections.map((c, i) => <div key={i}><span className="muted">{c.label} · {new Date(c.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span><b style={{ textAlign: "right" }}><s style={{ color: "var(--muted)", fontWeight: 500 }}>{c.before}</s> → {c.after}</b></div>)}</div>
+              </div>
+            )}
+
             <div className="lotsec" id="inspection" style={{ gap: 14 }}>
               <h2 className="d3" style={{ fontSize: 40 }}>Inspection &amp; collection.</h2>
               <div className="rows">
@@ -186,9 +204,13 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"}</b></div>
                 <div><span className="muted">Collection</span><b style={{ textAlign: "right" }}>{lot.suburb}, {lot.state}{lot.registration === "unregistered" ? ". By carrier, trailer or permit" : ""}</b></div>
                 <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Sent once ownership is transferred and your collection time is confirmed</b></div>
+                <div><span className="muted">Your rights</span><span style={{ textAlign: "left", fontSize: 15, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 6, maxWidth: 620 }} data-testid="lot-rights">
+                  <span>{consumerRights("auction", lot.seller_type)}</span>
+                  {lot.buy_now_price && <span><b>Buy Now:</b> {consumerRights("outright", lot.seller_type)}</span>}
+                  <Link className="blue" href="/terms#t-asis" style={{ fontWeight: 700 }}>Your consumer rights ›</Link></span></div>
               </div>
               <MobileInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={forSale && !preview} />
-              {["live", "sold"].includes(lot.status) && <LotDelivery lotId={lot.id} />}
+              {["live", "sold"].includes(lot.status) && <LotDelivery lotId={lot.id} partner={transporter} vehicle={vehicle} />}
             </div>
 
             <div id="questions" className="lotsec" style={{ gap: 14 }}>
@@ -217,6 +239,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 <div className="sep" />
                 <span className="muted" style={{ fontSize: 15 }}>Arrange cover before you collect.</span>
                 <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/insurance?lot=${lot.id}`}>{hasInsurers ? "Compare insurance" : "Insurance options"}</Link>
+                {hasWarranty && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/warranty?lot=${lot.id}`} data-testid="lot-warranty">Warranty &amp; roadside</Link>}
               </div>
             )}
             {consultant && (
@@ -241,7 +264,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <h2 className="d3">Similar vehicles.</h2>
               <Link className="more" href={`/auctions?cat=${lot.category}`}>All {(CAT[lot.category]?.label || lot.category).toLowerCase()} ›</Link>
             </div>
-            <div className="grid">{similar.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path || undefined} />)}</div>
+            <div className="grid">{similar.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path || undefined} fees={fees} />)}</div>
           </section>
         )}
       </div>

@@ -31,18 +31,20 @@ export async function POST(req: Request) {
   const disclosures = {
     finance: yn(d.finance), finance_amount: d.finance === "yes" ? String(money(d.finance_amount) ?? "") : "",
     lender_name: d.finance === "yes" ? txt(d.lender_name, 120) : "", lender_ref: d.finance === "yes" ? txt(d.lender_ref, 60) : "",
-    write_off: ["none", "repairable", "statutory"].includes(d.write_off) ? d.write_off : "none",
+    write_off: ["none", "repairable", "inspected", "statutory"].includes(d.write_off) ? d.write_off : "none",
     accident: d.accident === "yes" ? `Yes: ${txt(d.accident_details)}` : yn(d.accident),
     flood: d.flood === "yes" ? `Yes: ${txt(d.flood_details)}` : yn(d.flood),
     hail: d.hail === "yes" ? `Yes: ${txt(d.hail_details)}` : yn(d.hail),
     modifications: d.modifications === "yes" ? `Yes: ${txt(d.modifications_details)}` : yn(d.modifications),
     warning_lights: d.warning_lights === "yes" ? `Yes: ${txt(d.warning_lights_details)}` : yn(d.warning_lights),
     odometer_concerns: d.odometer_concerns === "yes" ? `Yes: ${txt(d.odometer_details)}` : yn(d.odometer_concerns),
+    starts_and_drives: d.runs === "no" ? `No: ${txt(d.runs_details)}` : yn(d.runs),
+    business: d.business === "yes" || b.ownerType === "company" || !!b.gst ? "yes" : "no",
     known_faults: txt(d.known_faults, 1000), keys: String(Math.max(0, Math.min(9, Number(d.keys) || 0))), service_books: d.service_books === "yes",
     rego_expiry: txt(d.rego_expiry, 20),
   };
   if (d.finance === "yes" && !disclosures.finance_amount) return fail("Roughly how much finance is owing? We need it to pay your lender.");
-  if (["finance", "accident", "flood", "hail", "modifications", "warning_lights", "odometer_concerns"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
+  if (["finance", "accident", "flood", "hail", "modifications", "warning_lights", "odometer_concerns", "starts_and_drives"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
     return fail("Answer every yes/no question about the vehicle.");
   }
   const docs = (Array.isArray(b.docs) ? b.docs : []).filter((p: unknown) => typeof p === "string" && p.startsWith(`${user.id}/`)).slice(0, 10);

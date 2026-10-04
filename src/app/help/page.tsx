@@ -4,6 +4,7 @@ import { HELP as RAW, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 import { GRADES } from "@/lib/grades";
 import { env } from "@/lib/env";
+import { HelpSearch } from "./HelpSearch";
 
 export const metadata: Metadata = { title: "Help centre" };
 
@@ -15,6 +16,7 @@ export default async function Help() {
         <span className="eyebrow" style={{ color: "var(--blue)" }}>Help centre</span>
         <h1 className="d2">How can we help?</h1>
         <p className="lede">Everything about buying and selling on Tyrebiter, in plain English.</p>
+        <HelpSearch items={HELP.flatMap(([id, title, qs]) => qs.map(([q, a]) => ({ section: title, id, q, a })))} />
       </div>
       <div className="four" style={{ marginTop: 40 }}>
         {HELP.map(([id, title, qs], i) => (

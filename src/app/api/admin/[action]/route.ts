@@ -290,8 +290,66 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
     case "quote":
       await db.from("quote_requests").update({ status: "quoted", quote_note: b.note || null }).eq("id", b.quoteId);
       return done();
+    // ---- Listing accuracy, relisting, the next bidder ----
+    case "remove-bidder": {
+      const { data, error } = await supabase.rpc("admin_remove_bidder", { p_lot: Number(b.lotId), p_user: String(b.userId), p_reason: String(b.reason || "") });
+      if (error) return fail(friendly(error.message));
+      revalidateTag(`lot-${Number(b.lotId)}`);
+      return done({ result: data });
+    }
+    case "relist": {
+      const { data, error } = await supabase.rpc("admin_relist", { p_lot: Number(b.lotId) });
+      if (error) return fail(friendly(error.message));
+      return done({ id: data });
+    }
+    case "next-bidder": {
+      const { data, error } = await supabase.rpc("admin_offer_next_bidder", { p_lot: Number(b.lotId), p_hours: Number(b.hours) || 24, p_seller_ok: b.sellerOk === true || b.sellerOk === "yes" });
+      if (error) return fail(friendly(error.message));
+      return done({ offer: data });
+    }
+    case "audit": {
+      const checks = (b.checks && typeof b.checks === "object" ? b.checks : {}) as Record<string, boolean>;
+      const okAll = Object.values(checks).every(Boolean);
+      const { error } = await db.from("listing_audits").insert({ lot_id: Number(b.lotId), checks, ok: okAll, note: String(b.note || "").slice(0, 1000) || null, audited_by: profile.id });
+      if (error) return fail("Couldn't save the audit.");
+      return done({ ok: okAll });
+    }
+    // ---- Fleet sales ----
+    case "sale-save": {
+      const slug = String(b.slug || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+      const title = String(b.title || "").trim().slice(0, 120);
+      if (slug.length < 3 || title.length < 3) return fail("Add a title and a web address (at least 3 letters).");
+      const row = { slug, title, intro: String(b.intro || "").trim().slice(0, 2000) || null, seller_label: String(b.sellerLabel || "").trim().slice(0, 120) || null,
+        state: ["QLD", "NSW", "VIC", "WA", "SA", "TAS", "ACT", "NT"].includes(b.state) ? b.state : null, published: b.published === true, updated_at: new Date().toISOString() };
+      const q = b.id ? db.from("sales").update(row).eq("id", Number(b.id)).select("id").single() : db.from("sales").insert(row).select("id").single();
+      const { data, error } = await q;
+      if (error) return fail(error.message.includes("duplicate") ? "That web address is already used by another sale." : "Couldn't save the sale.");
+      revalidateTag("lots"); revalidateTag("sales");
+      return done({ id: data?.id });
+    }
+    case "stagger": {
+      const first = new Date(String(b.first || ""));
+      if (Number.isNaN(first.getTime())) return fail("Choose when the first vehicle closes.");
+      const { data, error } = await supabase.rpc("admin_stagger_sale", { p_sale: Number(b.saleId), p_first: first.toISOString(), p_gap_minutes: Number(b.gap) });
+      if (error) return fail(friendly(error.message));
+      revalidateTag("lots");
+      return done({ moved: data });
+    }
+    case "tracking": {
+      const url = String(b.url || "").trim();
+      if (url && !/^https:\/\/\S+$/.test(url)) return fail("Paste the carrier's tracking link (starting https://).");
+      const { error } = await db.from("collections").update({ tracking_url: url || null }).eq("id", b.collectionId);
+      if (error) return fail("Couldn't save the tracking link.");
+      return done();
+    }
+    case "newsletter-send": {
+      const { sendNewsletter } = await import("@/lib/newsletter");
+      const r = await sendNewsletter({ force: true });
+      if (!r.queued && r.reason) return fail(r.reason);
+      return done({ queued: r.queued });
+    }
     case "settings": {
-      if (!["fees", "auction", "selling", "terms", "finance"].includes(b.key)) return fail("Unknown setting.");
+      if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business"].includes(b.key)) return fail("Unknown setting.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");

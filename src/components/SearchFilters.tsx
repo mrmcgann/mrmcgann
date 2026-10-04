@@ -78,8 +78,9 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
           <option value="">All of Australia</option>{Object.entries(STATE_NAMES).map(([k, l]) => <option key={k} value={k}>{l}{n(facets?.states?.[k] ?? (facets ? 0 : undefined))}</option>)}
         </select>
       </div>
-      <div className="fgrp"><b>Seller</b>{chips("seller", [["private", "Private"], ["business", "Business (GST)"]])}</div>
+      <div className="fgrp"><b>Seller</b>{chips("seller", [["private", "Private"], ["business", "Business"]])}</div>
       <div className="fgrp"><b>Registration</b>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</div>
+      <div className="fgrp"><b>Condition</b>{chips("runs", [["drives", "Starts and drives"]])}</div>
       <div className="fgrp"><b>Visual grade</b>{sel("grade", "Minimum visual grade", GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`]), "Any grade")}</div>
       <div className="fgrp"><b>Auction</b>
         <label className="checkrow"><input type="checkbox" checked={f.nores === "1"} onChange={(e) => set({ nores: e.target.checked ? "1" : "" })} />No reserve, or reserve met</label>

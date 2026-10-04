@@ -11,6 +11,7 @@ const YN: [string, string, string?][] = [
   ["hail", "Does it have hail damage?", "hail_details"],
   ["modifications", "Has it been modified (lift, engine, suspension, towing, etc.)?", "modifications_details"],
   ["warning_lights", "Are any warning lights on the dash?", "warning_lights_details"],
+  ["runs", "Does it start and drive?", "runs_details"],
   ["odometer_concerns", "Any reason to think the odometer isn't accurate (replaced cluster, tampering)?", "odometer_details"],
 ];
 
@@ -68,10 +69,10 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
                 <span className="hint">We pay your lender out of the sale price first, so the buyer gets clear title. You get the rest.</span>
               </div>
             )}
-            {det && d[k] === "yes" && <textarea className="input" placeholder="Tell buyers what happened and what was fixed" value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
+            {det && (k === "runs" ? d[k] === "no" : d[k] === "yes") && <textarea className="input" placeholder={k === "runs" ? "What happens when you try? (e.g. flat battery, won't turn over)" : "Tell buyers what happened and what was fixed"} value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
           </div>
         ))}
-        <label className="field"><span>Write-off status</span><select className="input" value={d.write_off} onChange={(e) => set("write_off", e.target.value)}><option value="none">Never written off</option><option value="repairable">Repairable write-off</option><option value="statutory">Statutory write-off</option></select></label>
+        <label className="field"><span>Write-off status</span><select className="input" value={d.write_off} onChange={(e) => set("write_off", e.target.value)}><option value="none">Never written off</option><option value="repairable">Repairable write-off</option><option value="inspected">Inspected write-off (VIC)</option><option value="statutory">Statutory write-off</option></select></label>
         <div className="row2">
           <label className="field"><span>Number of keys</span><input className="input" inputMode="numeric" value={d.keys} onChange={(e) => set("keys", e.target.value)} /></label>
           <label className="field"><span>Service books?</span><select className="input" value={d.service_books} onChange={(e) => set("service_books", e.target.value)}><option value="yes">Yes</option><option value="no">No</option></select></label>
@@ -86,6 +87,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
           <span className="hint">If someone else co-owns it, we&apos;ll ask them to confirm by phone before it goes live.</span></label>
         <label className="field"><span>Photo of the registration papers (or other proof of ownership)</span><input type="file" accept="image/*,application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} required />
           <span className="hint">The name must match your verified ID (or the company you act for). Stored privately; only our team can see it.</span></label>
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" checked={d.business === "yes"} onChange={(e) => set("business", e.target.checked ? "yes" : "no")} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid="seller-business" /><span>I&apos;m selling it as part of a business (for example a fleet, company or work vehicle)<br /><span className="hint">Buyers are told whether the seller is private or a business. It can give them extra consumer rights when they buy outright.</span></span></label>
         <label style={{ display: "flex", gap: 10, alignItems: "center" }}><input type="checkbox" checked={gst} onChange={(e) => setGst(e.target.checked)} style={{ width: 20, height: 20 }} /><span>I&apos;m selling as a GST-registered business</span></label>
         {gst && <label className="field"><span>ABN</span><input className="input" name="abn" inputMode="numeric" required /><span className="hint">The sale price then includes GST, and it&apos;s shown that way to buyers.</span></label>}
       </section>

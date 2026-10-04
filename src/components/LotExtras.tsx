@@ -2,8 +2,27 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
+import { LeadForm } from "@/components/Partners";
+import type { Partner } from "@/lib/types";
 
-export function DeliveryBox({ lotId, email }: { lotId: number; email: string | null }) {
+// Transport: a quote from our transport partner when there is one, otherwise from our team.
+export function DeliveryBox({ lotId, email, partner, vehicle }: { lotId: number; email: string | null; partner?: Partner | null; vehicle?: string }) {
+  const [form, setForm] = useState(false);
+  if (partner) {
+    return (
+      <div className="soft" style={{ gap: 8 }}>
+        <b style={{ fontSize: 17 }}>Delivered to your door.</b>
+        <span className="muted" style={{ fontSize: 15 }}>{partner.blurb || `${partner.name} can collect it and deliver it to you.`}{partner.turnaround ? ` ${partner.turnaround}.` : ""}</span>
+        <button className="btn btn-dark" style={{ height: 50, fontSize: 15 }} onClick={() => setForm(true)} data-testid="transport-quote">Get a transport quote</button>
+        <span className="hint">From {partner.name}, an independent carrier. {partner.commission_note}</span>
+        {form && <LeadForm partner={partner} kind="transport" lotId={lotId} vehicle={vehicle} needPostcode onClose={() => setForm(false)} />}
+      </div>
+    );
+  }
+  return <TeamQuote lotId={lotId} email={email} />;
+}
+
+function TeamQuote({ lotId, email }: { lotId: number; email: string | null }) {
   const [pc, setPc] = useState("");
   const [em, setEm] = useState(email || "");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);

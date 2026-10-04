@@ -38,7 +38,7 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
     setRef(data.ref);
   }
 
-  const title = kind === "inspection" ? "Order a mobile inspection." : kind === "finance" ? `Talk to ${partner.name}.` : `Get a quote from ${partner.name}.`;
+  const title = kind === "inspection" ? "Order a mobile inspection." : kind === "finance" ? `Talk to ${partner.name}.` : kind === "transport" ? `Get a transport quote from ${partner.name}.` : `Get a quote from ${partner.name}.`;
   if (need) {
     return (
       <Modal title={title} onClose={onClose}>
@@ -59,7 +59,7 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
     <Modal title={ref ? "Sent." : title} onClose={onClose}>
       {ref ? (
         <>
-          <p style={{ fontSize: 17, lineHeight: 1.5 }}>{partner.name} will be in touch{kind === "inspection" ? " to confirm the price and a time. The report comes to you by email" : ""}. Your reference is <b>{ref}</b>. We&apos;ve emailed you a copy.</p>
+          <p style={{ fontSize: 17, lineHeight: 1.5 }}>{partner.name} will be in touch{kind === "inspection" ? " to confirm the price and a time. The report comes to you by email" : kind === "transport" ? " with a quote" : ""}. Your reference is <b>{ref}</b>. We&apos;ve emailed you a copy.</p>
           <button className="btn btn-blue" onClick={onClose}>Done</button>
         </>
       ) : (
@@ -73,8 +73,9 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
             <div><span className="muted">Mobile</span><b>{p?.mobile}</b></div>
             <div><span className="muted">Email</span><b>{v.user?.email}</b></div>
           </div>
-          <label className="field"><span>Postcode{needPostcode ? "" : " (optional)"}</span><input className="input" inputMode="numeric" maxLength={4} autoComplete="postal-code" value={postcode} onChange={(e) => setPostcode(e.target.value.replace(/\D/g, ""))} /></label>
+          <label className="field"><span>{kind === "transport" ? "Deliver to (postcode)" : "Postcode"}{needPostcode ? "" : " (optional)"}</span><input className="input" inputMode="numeric" maxLength={4} autoComplete="postal-code" value={postcode} onChange={(e) => setPostcode(e.target.value.replace(/\D/g, ""))} /></label>
           {kind === "inspection" && <label className="field"><span>Anything to check in particular? (optional)</span><textarea className="input" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>}
+          {(kind === "transport" || kind === "warranty") && <label className="field"><span>{kind === "transport" ? "Anything the carrier should know? (optional)" : "Anything else? (optional)"}</span><textarea className="input" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "transport" ? "e.g. doesn't start, needs a tilt tray" : ""} /></label>}
           <label className="consent"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> <span>{consentText(partner, !!vehicle || !!lotId)}</span></label>
           <span className="hint" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <a className="blue" href="/privacy" target="_blank" rel="noopener">Our privacy policy ›</a>

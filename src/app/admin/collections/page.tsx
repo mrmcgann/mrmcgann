@@ -34,6 +34,7 @@ export default async function Collections({ searchParams }: { searchParams: Prom
                 <td><span className="pill-row">
                   {["requested", "confirmed"].includes(c.status) && <AdminAction action="confirm-collection" payload={{ collectionId: c.id }} label={c.status === "confirmed" ? "Change time" : "Confirm time"} input={{ name: "when", placeholder: "e.g. Sat 12 Oct, 10 am" }} tone="blue" />}
                   {c.status !== "collected" && c.status !== "cancelled" && <AdminAction action="cancel-collection" payload={{ collectionId: c.id }} label="Cancel" confirmText="Cancel this booking?" tone="bad" />}
+                  {c.status !== "cancelled" && <AdminAction action="tracking" payload={{ collectionId: c.id }} label={c.tracking_url ? "Change tracking link" : "Add carrier tracking link"} input={{ name: "url", placeholder: "https://…" }} tone="soft" />}
                 </span></td>
               </tr>
             );

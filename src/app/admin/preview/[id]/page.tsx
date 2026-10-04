@@ -24,6 +24,6 @@ export default async function Preview({ params }: { params: Promise<{ id: string
   if (!lot) notFound();
   const cs = (consultants || []) as Consultant[];
   const consultant = cs.find((c) => c.id === lot.consultant_id) || cs.find((c) => c.is_default) || null;
-  return <LotView preview bundle={{ lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: [], watchers: 0, videos: (videos || []) as LotVideo[], consultant }}
+  return <LotView preview bundle={{ lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: [], watchers: 0, videos: (videos || []) as LotVideo[], consultant, corrections: [], sale: null }}
     fees={fees} similar={[]} history={[]} partners={partners} finance={(settings.finance || {}) as FinanceSettings} />;
 }

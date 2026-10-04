@@ -5,11 +5,12 @@ import { money, dateTime } from "@/lib/format";
 
 const STATUSES = ["", "draft", "live", "referred", "offers", "sold", "passed", "cancelled"];
 
-export default async function AdminLots({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+export default async function AdminLots({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; sale?: string }> }) {
   await requireAdmin(); // checked on every page, not just the layout
-  const { status = "", q = "" } = await searchParams;
+  const { status = "", q = "", sale = "" } = await searchParams;
   let query = supabaseAdmin().from("lots").select("id, title, status, current_bid, bid_count, ends_at, suburb, state, reserve_met, has_reserve, featured").order("created_at", { ascending: false }).limit(200);
   if (status) query = query.eq("status", status);
+  if (/^\d+$/.test(sale)) query = query.eq("sale_id", Number(sale));
   if (q) query = query.ilike("title", `%${q}%`);
   const { data } = await query;
   return (

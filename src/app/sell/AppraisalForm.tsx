@@ -166,6 +166,7 @@ export function AppraisalForm() {
           <datalist id="sell-makes">{makesFor(kind).map((x) => <option key={x} value={x} />)}</datalist>
           <datalist id="sell-models">{modelsFor(m.make, kind).map((x) => <option key={x} value={x} />)}</datalist>
           {mi("variant", "Variant (optional)", { placeholder: "e.g. XLT 3.2 (4x4)" })}
+          <SoldGuide make={m.make} model={m.model} year={m.year} />
         </>
       )}
 
@@ -193,5 +194,25 @@ export function AppraisalForm() {
         </>
       )}
     </form>
+  );
+}
+
+// What similar vehicles have sold for here: our own results, and only with at least 3 sales.
+function SoldGuide({ make, model, year }: { make: string; model: string; year: string }) {
+  const [r, setR] = useState<{ count: number; low?: number; high?: number } | null>(null);
+  useEffect(() => {
+    setR(null);
+    if (make.trim().length < 2 || model.trim().length < 1) return;
+    const t = setTimeout(() => {
+      fetch(`/api/estimate?${new URLSearchParams({ make, model, year })}`).then((x) => x.json()).then(setR).catch(() => setR(null));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [make, model, year]);
+  if (!r || r.count < 3 || r.low == null || r.high == null) return null;
+  const aud = (n: number) => `$${Math.round(n).toLocaleString("en-AU")}`;
+  return (
+    <div className="notice" data-testid="sold-guide">
+      <b>Similar vehicles we&apos;ve sold: {aud(r.low)} to {aud(r.high)}.</b> The middle half of {r.count} {make} {model} sales{year ? ` from about ${Number(year) - 2} to ${Number(year) + 2}` : ""} on Tyrebiter in the last 18 months (hammer prices). It&apos;s based on past results, not a valuation of your vehicle: your consultant gives you a price guide after seeing it.
+    </div>
   );
 }

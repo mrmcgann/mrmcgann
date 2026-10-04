@@ -43,10 +43,12 @@ export function MobileInspection({ lotId, title, partner, consultantPhone, consu
 /** The order form. Only signed-in members with a fully verified account can order (it sends a
  *  mechanic to the seller's address); their verified name, mobile and email are what's shared,
  *  with explicit consent, through /api/leads. */
-function InspectionSheet({ visible, onClose, partner, lotId, vehicle }: { visible: boolean; onClose: () => void; partner: Partner; lotId: number; vehicle: string }) {
+export function InspectionSheet({ visible, onClose, partner, lotId, vehicle, kind = "inspection" }: { visible: boolean; onClose: () => void; partner: Partner; lotId: number; vehicle: string; kind?: "inspection" | "transport" }) {
   const { me, signedIn } = useSession();
   const p = me?.profile;
-  const missing = me?.missing || [];
+  const transport = kind === "transport";
+  // Transport quotes need a verified mobile; inspections need a fully verified account (the mechanic goes to the seller's address).
+  const missing = (me?.missing || []).filter((n) => !transport || n === 2 || n === 3);
   const [postcode, setPostcode] = useState(p?.postcode || "");
   const [notes, setNotes] = useState("");
   const [agree, setAgree] = useState(false);
@@ -56,12 +58,12 @@ function InspectionSheet({ visible, onClose, partner, lotId, vehicle }: { visibl
   const path = `/lot/${lotId}`;
 
   async function submit() {
-    if (postcode.trim() && !isPostcode(postcode.trim())) return setErr("Enter a 4-digit postcode.");
+    if ((transport || postcode.trim()) && !isPostcode(postcode.trim())) return setErr(transport ? "Enter the postcode you want it delivered to." : "Enter a 4-digit postcode.");
     if (!agree) return setErr("Tick the box so we can pass your details on.");
     setBusy(true); setErr("");
     try {
       const r = await api<{ ok: boolean; ref: string }>("/api/leads", { body: {
-        partnerId: partner.id, kind: "inspection", lotId, postcode: postcode.trim() || undefined, consent: true, details: notes.trim() ? { notes: notes.trim() } : {},
+        partnerId: partner.id, kind, lotId, postcode: postcode.trim() || undefined, consent: true, details: notes.trim() ? { notes: notes.trim() } : {},
       } });
       setRef(r.ref);
     } catch (e) { setErr(errText(e)); }
@@ -73,21 +75,21 @@ function InspectionSheet({ visible, onClose, partner, lotId, vehicle }: { visibl
 
   if (!signedIn || missing.length) {
     return (
-      <Sheet visible={visible} onClose={onClose} title="Order a mobile inspection." testID="inspection-sheet"
+      <Sheet visible={visible} onClose={onClose} title={transport ? "Get a transport quote." : "Order a mobile inspection."} testID="inspection-sheet"
         footer={!signedIn
           ? <><Button testID="lead-signin" title="Sign in" onPress={() => go(`/signin?next=${encodeURIComponent(path)}`)} /><Button kind="soft" title="Join free" onPress={() => go(`/join?next=${encodeURIComponent(path)}`)} /></>
           : <Button testID="lead-verify" title="Continue" onPress={() => go(`/join?step=${missing[0]}&next=${encodeURIComponent(path)}`)} />}>
         <T v="body" style={{ fontSize: 17, lineHeight: 25 }}>{!signedIn
-          ? "Sign in or join first. Inspections are for verified members, because the inspector goes to the seller's address."
-          : "Finish verifying your account (mobile, card and ID) before ordering an inspection. It's the same check as bidding."}</T>
+          ? (transport ? "Sign in or join first. We only pass on details you've verified, and only with your permission." : "Sign in or join first. Inspections are for verified members, because the inspector goes to the seller's address.")
+          : (transport ? `Verify your mobile first, so ${partner.name} can reach you.` : "Finish verifying your account (mobile, card and ID) before ordering an inspection. It's the same check as bidding.")}</T>
       </Sheet>
     );
   }
   return (
-    <Sheet visible={visible} onClose={close} title={ref ? "Sent." : "Order a mobile inspection."} scroll testID="inspection-sheet"
-      footer={ref ? <Button title="Done" onPress={close} /> : <Button testID="lead-submit" title="Order the inspection" busy={busy} onPress={submit} />}>
+    <Sheet visible={visible} onClose={close} title={ref ? "Sent." : transport ? `Get a transport quote from ${partner.name}.` : "Order a mobile inspection."} scroll testID="inspection-sheet"
+      footer={ref ? <Button title="Done" onPress={close} /> : <Button testID="lead-submit" title={transport ? "Send my details" : "Order the inspection"} busy={busy} onPress={submit} />}>
       {ref ? (
-        <T v="body" style={{ fontSize: 17, lineHeight: 25 }}>{partner.name} will be in touch to confirm the price and a time. The report comes to you by email. Your reference is <Text style={{ fontFamily: F.heavy }}>{ref}</Text>. We've emailed you a copy.</T>
+        <T v="body" style={{ fontSize: 17, lineHeight: 25 }}>{partner.name} will be in touch {transport ? "with a quote" : "to confirm the price and a time. The report comes to you by email"}. Your reference is <Text style={{ fontFamily: F.heavy }}>{ref}</Text>. We've emailed you a copy.</T>
       ) : (
         <>
           {intro ? <T v="muted">{intro}</T> : null}
@@ -96,15 +98,15 @@ function InspectionSheet({ visible, onClose, partner, lotId, vehicle }: { visibl
             <T v="small">We'll share your verified details:</T>
             <T v="body">{[p?.first_name, p?.last_name].filter(Boolean).join(" ")} · {p?.mobile} · {me?.user?.email}</T>
           </View>
-          <Field testID="lead-postcode" label="Postcode (optional)" value={postcode} onChangeText={(t) => setPostcode(t.replace(/\D/g, "").slice(0, 4))} keyboardType="number-pad" autoComplete="postal-code" textContentType="postalCode" />
-          <Field testID="lead-notes" label="Anything to check in particular? (optional)" value={notes} onChangeText={setNotes} multiline maxLength={500} />
+          <Field testID="lead-postcode" label={transport ? "Deliver to (postcode)" : "Postcode (optional)"} value={postcode} onChangeText={(t) => setPostcode(t.replace(/\D/g, "").slice(0, 4))} keyboardType="number-pad" autoComplete="postal-code" textContentType="postalCode" />
+          <Field testID="lead-notes" label={transport ? "Anything the carrier should know? (optional)" : "Anything to check in particular? (optional)"} value={notes} onChangeText={setNotes} multiline maxLength={500} />
           <Check testID="lead-consent" checked={agree} onChange={setAgree}>{consentText(partner, true)}</Check>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
             <LinkText title="Our privacy policy ›" onPress={() => open("/privacy")} style={{ fontSize: 14 }} />
             {partner.privacy_url ? <LinkText title={`${partner.name} privacy policy ›`} onPress={() => WebBrowser.openBrowserAsync(partner.privacy_url!)} style={{ fontSize: 14 }} /> : null}
           </View>
           {err ? <Notice kind="bad">{err}</Notice> : null}
-          <T v="small">{REFERRER_NOTE.inspection}</T>
+          <T v="small">{REFERRER_NOTE[kind]}</T>
         </>
       )}
     </Sheet>
@@ -112,7 +114,7 @@ function InspectionSheet({ visible, onClose, partner, lotId, vehicle }: { visibl
 }
 
 /** Listing: estimated repayments (when the server has one) and links to compare loans and insurance. */
-export function FinanceBox({ lotId, finance, insurers, buyNow }: { lotId: number; finance: FinanceEstimate | null; insurers: boolean; buyNow: boolean }) {
+export function FinanceBox({ lotId, finance, insurers, buyNow, warranty = false }: { lotId: number; finance: FinanceEstimate | null; insurers: boolean; buyNow: boolean; warranty?: boolean }) {
   return (
     <Soft style={{ gap: 12 }}>
       <T v="strong" style={{ fontSize: 17 }}>Finance & insurance.</T>
@@ -133,6 +135,7 @@ export function FinanceBox({ lotId, finance, insurers, buyNow }: { lotId: number
       <View style={s.sep} />
       <T v="muted">Arrange cover before you collect.</T>
       <Button testID="insurance-compare" small kind="white" title={insurers ? "Compare insurance" : "Insurance options"} onPress={() => open(`/insurance?lot=${lotId}`)} />
+      {warranty ? <Button testID="warranty-compare" small kind="white" title="Warranty & roadside" onPress={() => open(`/warranty?lot=${lotId}`)} /> : null}
     </Soft>
   );
 }

@@ -69,8 +69,9 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
       {f.cat !== "trailers" && f.cat !== "caravans" ? <View style={{ gap: 8 }}><T v="label">Fuel</T>{chips("fuel", FUELS, facets?.fuels)}</View> : null}
       {!cat || extras.includes("drive") ? <View style={{ gap: 8 }}><T v="label">Drive</T>{chips("drive", DRIVES, facets?.drives)}</View> : null}
       <Select label="Location" value={f.state || ""} placeholder="All of Australia" options={Object.entries(STATE_NAMES).map(([k, l]) => [k, l + n(facets?.states?.[k] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ state: v })} />
-      <View style={{ gap: 8 }}><T v="label">Seller</T>{chips("seller", [["private", "Private"], ["business", "Business (GST)"]])}</View>
+      <View style={{ gap: 8 }}><T v="label">Seller</T>{chips("seller", [["private", "Private"], ["business", "Business"]])}</View>
       <View style={{ gap: 8 }}><T v="label">Registration</T>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</View>
+      <View style={{ gap: 8 }}><T v="label">Condition</T>{chips("runs", [["drives", "Starts and drives"]])}</View>
       <Select label="Visual grade" value={f.grade || ""} placeholder="Any grade" options={GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`] as [string, string])} onChange={(v) => set({ grade: v })} />
       <Check checked={f.nores === "1"} onChange={(v) => set({ nores: v ? "1" : "" })}>No reserve, or reserve met</Check>
       <Check checked={f.buynow === "1"} onChange={(v) => set({ buynow: v ? "1" : "" })}>Buy Now available</Check>

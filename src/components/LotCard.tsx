@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { Lot } from "@/lib/types";
+import type { Fees, Lot } from "@/lib/types";
+import { priceBreakdown } from "@/lib/fees";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
@@ -7,7 +8,8 @@ import { money } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 import { specLine } from "@/lib/vehicles";
 
-export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; cover?: string | null }) {
+// The all-in price (with the buyer's premium and fees) sits beside every price, when the fees are known.
+export function LotCard({ lot, watched, cover, fees }: { lot: Lot; watched?: boolean; cover?: string | null; fees?: Fees }) {
   const ends = lot.ends_at ? new Date(lot.ends_at).getTime() : 0;
   const soon = lot.status === "live" && ends - Date.now() < 86400000;
   const label = lot.status === "live" ? null : lot.status === "sold" ? "Sold" : lot.status === "offers" ? "Make an offer" : lot.status === "referred" ? "Under offer" : "Ended";
@@ -28,6 +30,7 @@ export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; 
           <b>{money(lot.status === "sold" ? lot.sold_price : lot.current_bid)}</b>
           <span className="muted">{lot.bid_count} bid{lot.bid_count === 1 ? "" : "s"}</span>
         </span>
+        {fees && lot.status !== "sold" && <span className="muted" style={{ fontSize: 13 }} data-testid="card-allin">{money(priceBreakdown(Math.max(lot.current_bid || 0, lot.start_price || 0), fees).total, true)} all-in with fees</span>}
       </Link>
     </article>
   );

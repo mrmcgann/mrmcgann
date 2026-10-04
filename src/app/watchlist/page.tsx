@@ -5,14 +5,14 @@ import { getSession } from "@/lib/auth";
 import type { Lot } from "@/lib/types";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
-import { RemindSwitch, RemoveWatch, DeleteSearch } from "@/components/WatchRowControls";
+import { RemindSwitch, RemoveWatch, DeleteSearch, WatchNote } from "@/components/WatchRowControls";
 import { money, km } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Watchlist" };
 export const dynamic = "force-dynamic";
 
-type Row = { lot_id: number; remind: boolean; lots: Lot };
+type Row = { lot_id: number; remind: boolean; note?: string | null; lots: Lot };
 const TABS = [["all", "All"], ["soon", "Ending today"], ["winning", "Winning"], ["outbid", "Outbid"], ["won", "Won"], ["lost", "Didn't win"]];
 
 export default async function Watchlist({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
@@ -20,7 +20,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   const { supabase, user } = await getSession();
   if (!user) redirect("/signin?next=/watchlist");
   const [{ data: rows }, { data: maxes }, { data: searches }] = await Promise.all([
-    supabase.from("watchlist").select("lot_id, remind, lots(*)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("watchlist").select("lot_id, remind, note, lots(*)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
     supabase.from("max_bids").select("lot_id, max_amount, lots(*)").eq("bidder_id", user.id).order("updated_at", { ascending: false }).limit(300),
     supabase.from("saved_searches").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
@@ -66,7 +66,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {list.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>{f === "all" ? "Your watchlist is empty." : "Nothing here right now."}</b><span className="muted">Tap the heart on any vehicle to keep an eye on it.</span><Link className="btn btn-blue" href="/auctions">Browse auctions</Link></div>}
-            {list.map(({ lots: l, remind }) => {
+            {list.map(({ lots: l, remind, note }) => {
               const s = status(l);
               const cta = l.status === "live" ? (s.k === "outbid" ? "Bid again" : s.k === "winning" ? "Raise max" : "Place bid") : s.k === "won" ? "View invoice" : s.k === "offers" ? "Make an offer" : "View lot";
               return (
@@ -76,6 +76,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
                     <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>LOT {l.id} · {l.suburb?.toUpperCase()} {l.state}</span>
                     <Link href={`/lot/${l.id}`} style={{ fontSize: 23, fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1.1 }}>{l.title}</Link>
                     <span className="muted">{km(l.odometer)} · {l.transmission} · Visual grade {l.visual_grade}</span>
+                    {seen.has(l.id) && <WatchNote lotId={l.id} initial={note || ""} />}
                   </div>
                   <div className="c-time"><div className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{l.status === "live" ? "Ends in" : "Status"}</div>{l.status === "live" ? <Countdown endsAt={l.ends_at} style={{ fontSize: 22, fontWeight: 800, color: soon(l) ? "var(--urgent)" : "var(--ink)" }} /> : <div style={{ fontSize: 18, fontWeight: 800 }}>Closed</div>}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}><b style={{ fontSize: 28, letterSpacing: "-0.03em" }}>{money(l.status === "sold" ? l.sold_price : l.current_bid)}</b><span className="tag" style={{ background: s.c }}>{s.t}</span></div>

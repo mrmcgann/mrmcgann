@@ -5,7 +5,7 @@
 import { CATEGORIES, CAT, MAKES, MAKE_ALIASES, STATE_WORDS, STATE_NAMES, FUELS, TRANS, LICENCES, kindLabel, categoryOf, type CategoryKey } from "./vehicles.ts";
 
 export const FILTER_KEYS = ["q", "cat", "type", "make", "model", "ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "lams", "lic", "berths", "lenmin", "lenmax",
-  "fuel", "trans", "drive", "state", "seller", "rego", "nores", "buynow", "ending", "grade", "sort", "view"] as const;
+  "fuel", "trans", "drive", "state", "seller", "rego", "runs", "nores", "buynow", "ending", "grade", "sale", "sort", "view"] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type SearchFilters = Partial<Record<FilterKey, string>>;
 
@@ -24,6 +24,7 @@ const VALID: Partial<Record<FilterKey, (v: string) => string | null>> = {
   lic: (v) => (LICENCES.some((l) => l[0] === v.toUpperCase()) ? v.toUpperCase() : null),
   seller: (v) => (v === "private" || v === "business" ? v : null),
   rego: (v) => (v === "registered" || v === "unregistered" ? v : null),
+  runs: (v) => (v === "drives" ? v : null),
   ending: (v) => (["1h", "today", "3d"].includes(v) ? v : null),
   grade: (v) => (/^[A-E]$/i.test(v) ? v.toUpperCase() : null),
   sort: (v) => (SORTS.some((s) => s[0] === v) ? v : null),
@@ -31,7 +32,7 @@ const VALID: Partial<Record<FilterKey, (v: string) => string | null>> = {
   lams: (v) => (v === "1" ? v : null), nores: (v) => (v === "1" ? v : null), buynow: (v) => (v === "1" ? v : null),
   make: (v) => v.trim().slice(0, 40) || null, model: (v) => v.trim().slice(0, 40) || null, q: (v) => v.replace(/\s+/g, " ").trim().slice(0, 80) || null,
 };
-for (const k of ["ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "berths"] as const) VALID[k] = (v) => (DIGITS.test(v) ? v : null);
+for (const k of ["ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "berths", "sale"] as const) VALID[k] = (v) => (DIGITS.test(v) ? v : null);
 for (const k of ["lenmin", "lenmax"] as const) VALID[k] = (v) => (/^\d{1,2}(\.\d)?$/.test(v) ? v : null);
 
 /** Keep only known filters with sane values (from a URL, a form or a saved search). */
@@ -129,6 +130,7 @@ const FLAG_WORDS: [string, Action][] = [
   ["hr licence", { lic: "HR" }], ["heavy rigid", { lic: "HR" }], ["hc licence", { lic: "HC" }], ["heavy combination", { lic: "HC" }], ["mc licence", { lic: "MC" }], ["multi combination", { lic: "MC" }],
   ["unregistered", { rego: "unregistered" }], ["unreg", { rego: "unregistered" }], ["no rego", { rego: "unregistered" }], ["without rego", { rego: "unregistered" }], ["not registered", { rego: "unregistered" }],
   ["registered", { rego: "registered" }], ["with rego", { rego: "registered" }], ["regod", { rego: "registered" }], ["road registered", { rego: "registered" }], ["current rego", { rego: "registered" }],
+  ["runs and drives", { runs: "drives" }], ["starts and drives", { runs: "drives" }], ["runner", { runs: "drives" }], ["drivable", { runs: "drives" }], ["driveable", { runs: "drives" }],
   ["no reserve", { nores: "1" }], ["without reserve", { nores: "1" }], ["buy now", { buynow: "1" }], ["buy it now", { buynow: "1" }],
   ["ending today", { ending: "today" }], ["closing today", { ending: "today" }], ["ends today", { ending: "today" }], ["ending soon", { ending: "1h" }], ["closing soon", { ending: "1h" }], ["ending this week", { ending: "3d" }],
   ["newest", { sort: "newest" }], ["latest", { sort: "newest" }], ["just listed", { sort: "newest" }], ["new listings", { sort: "newest" }], ["cheapest", { sort: "price" }], ["cheap", { sort: "price" }],
@@ -330,6 +332,8 @@ export function describeParts(f: SearchFilters): string[] {
   if (f.state) p.push(f.state);
   if (f.seller) p.push(f.seller === "private" ? "Private sellers" : "Business sellers");
   if (f.rego) p.push(f.rego === "registered" ? "Registered" : "Unregistered");
+  if (f.runs) p.push("Starts and drives");
+  if (f.sale) p.push("In one sale");
   if (f.nores) p.push("No reserve");
   if (f.buynow) p.push("Buy Now");
   if (f.ending) p.push(ENDINGS.find((e) => e[0] === f.ending)?.[1] || "Ending soon");

@@ -3,12 +3,29 @@ import { View } from "react-native";
 import { router } from "expo-router";
 import { api, errText } from "~/lib/api";
 import { useSession } from "~/lib/session";
-import type { MyLotState } from "~/lib/types";
+import type { MyLotState, Partner } from "~/lib/types";
+import { InspectionSheet } from "./Partners";
 import { Button, Field, LinkText, Notice, Select, Sheet, Soft, T } from "./kit";
 import { C } from "./theme";
 
 /** Transport quote to the buyer's postcode. */
-export function QuoteBox({ lotId }: { lotId: number }) {
+export function QuoteBox({ lotId, partner, title }: { lotId: number; partner?: Partner | null; title?: string }) {
+  const [sheet, setSheet] = useState(false);
+  if (partner) {
+    return (
+      <Soft>
+        <T v="strong">Need it delivered?</T>
+        <T v="muted">{partner.blurb || `${partner.name} can collect it and deliver it to you.`}{partner.turnaround ? ` ${partner.turnaround}.` : ""}</T>
+        <Button testID="transport-quote" small kind="dark" title="Get a transport quote" onPress={() => setSheet(true)} style={{ alignSelf: "flex-start" }} />
+        <T v="small">From {partner.name}, an independent carrier. {partner.commission_note || ""}</T>
+        <InspectionSheet visible={sheet} onClose={() => setSheet(false)} partner={partner} lotId={lotId} vehicle={`${title || "This vehicle"} (lot ${lotId})`} kind="transport" />
+      </Soft>
+    );
+  }
+  return <TeamQuote lotId={lotId} />;
+}
+
+function TeamQuote({ lotId }: { lotId: number }) {
   const { me } = useSession();
   const [pc, setPc] = useState("");
   const [email, setEmail] = useState(me?.user?.email || "");

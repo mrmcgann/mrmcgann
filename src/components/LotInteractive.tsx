@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Fees, Lot } from "@/lib/types";
+import type { Fees, Lot, Partner } from "@/lib/types";
 import { useViewer } from "@/components/Viewer";
 import { BidPanel } from "@/components/BidPanel";
 import { DeliveryBox, ReportButton } from "@/components/LotExtras";
@@ -49,9 +49,9 @@ export function LotInteractive({ lot, fees, history, phone }: { lot: Lot; fees: 
 }
 
 // Transport quote, for the Inspection & collection section.
-export function LotDelivery({ lotId }: { lotId: number }) {
+export function LotDelivery({ lotId, partner, vehicle }: { lotId: number; partner?: Partner | null; vehicle?: string }) {
   const v = useViewer();
-  return <DeliveryBox key={`deliv-${v.user?.id || "anon"}`} lotId={lotId} email={v.user?.email || null} />;
+  return <DeliveryBox key={`deliv-${v.user?.id || "anon"}`} lotId={lotId} email={v.user?.email || null} partner={partner} vehicle={vehicle} />;
 }
 
 export function LotQuestions({ lotId, open }: { lotId: number; open: boolean }) {

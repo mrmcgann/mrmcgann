@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getHomeCached } from "@/lib/cache";
+import { getFeesCached, getHomeCached } from "@/lib/cache";
+import { ForYou } from "@/components/ForYou";
+import { priceBreakdown } from "@/lib/fees";
 import { LotCard } from "@/components/LotCard";
 import { JoinOrWatchlist } from "@/components/HeaderUser";
 import { CarArt } from "@/components/CarArt";
@@ -15,7 +17,7 @@ import { CATEGORIES } from "@/lib/vehicles";
 export const revalidate = 15;
 
 export default async function Home() {
-  const home = await getHomeCached();
+  const [home, fees] = await Promise.all([getHomeCached(), getFeesCached()]);
   const lots = home.ending;
   const featured = home.featured;
   const fp = home.featuredPhotos;
@@ -29,7 +31,7 @@ export default async function Home() {
             <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
           </span>
           <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
-          <p className="lede">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Professionally photographed, PPSR searched and sold to the highest bidder.</p>
+          <p className="lede">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Photographed and checked against the vehicle before listing, PPSR searched, and always shown with the all-in price.</p>
           <div style={{ width: "min(780px,100%)", marginTop: 8 }}><SearchBar variant="hero" /></div>
           <div className="try-row" aria-label="Try a search">
             {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], ["Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
@@ -70,7 +72,7 @@ export default async function Home() {
               <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>{featured.short_title || featured.title}.</h2>
               <p style={{ fontSize: 20, fontWeight: 500 }}>{[featured.subtitle, featured.odometer != null ? km(featured.odometer) : null, `${featured.suburb}, ${featured.state}`].filter(Boolean).join(" · ")}</p>
               <div className="stat">
-                <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span></span>
+                <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span><span style={{ fontSize: 14, fontWeight: 600 }}>{money(priceBreakdown(Math.max(featured.current_bid || 0, featured.start_price || 0), fees).total, true)} all-in</span></span>
                 <span><span className="k">Ends in</span><Countdown className="v" endsAt={featured.ends_at} /></span>
               </div>
               <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
@@ -102,21 +104,23 @@ export default async function Home() {
           </div>
         </div>
         <div className="grid">
-          {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} cover={covers.get(l.id)} />) : (
+          {lots.length ? lots.map((l) => <LotCard key={l.id} lot={l} cover={covers.get(l.id)} fees={fees} />) : (
             <div className="empty"><b style={{ fontSize: 22 }}>New auctions are on their way.</b><span className="muted">Join free and we&apos;ll tell you when they go live.</span><Link className="btn btn-blue" href="/join">Join free</Link></div>
           )}
         </div>
         <div className="center" style={{ marginTop: 40 }}><Link className="more" href="/auctions">See all live auctions ›</Link></div>
       </section>
 
+      <ForYou />
+
       <section className="wrap">
         <div className="panel">
           <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Bid with <span className="serif">confidence.</span></h2>
           <div className="four">
-            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Condition report on every lot.">A visual grade, close-up photos of damage and wear, and the seller&apos;s written declarations.</Tile>
-            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Independent inspections.">Order a mobile inspection by a qualified mechanic before you bid, with a written report and photos.</Tile>
+            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Checked against the vehicle.">VIN, odometer, transmission, fuel, features and warning lights checked on the vehicle before listing. Any correction is shown on the listing. <Link href="/listing-promise" style={{ fontWeight: 700 }}>How we check ›</Link></Tile>
+            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Independent inspections.">Order a mobile inspection by an independent mechanic before you bid, with a written report and photos.</Tile>
             <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">Every vehicle is searched for finance owing, write-offs and theft before listing.</Tile>
-            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Buyer&apos;s premium, GST and fees are calculated as you bid. No card surcharge.</Tile>
+            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount with the buyer&apos;s premium, GST and fees. No card surcharge.</Tile>
           </div>
         </div>
       </section>
@@ -154,7 +158,7 @@ export default async function Home() {
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Tyrebiter</span>
             <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your driveway.</span></h2>
-            <p style={{ fontSize: 21, fontWeight: 500 }}>We photograph and inspect it at your place, list it Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
+            <p style={{ fontSize: 21, fontWeight: 500 }}>We photograph it and check it against the listing at your place, list it Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
             <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap" }}>
               <Link className="btn btn-white" href="/sell">Get a free appraisal</Link>
               <Link href="/sell#how-sell" style={{ fontSize: 19, fontWeight: 600 }}>How selling works ›</Link>

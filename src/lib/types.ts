@@ -70,6 +70,15 @@ export interface Lot {
   rego_expiry?: string | null;
   registration?: "registered" | "unregistered" | null;
   engine_no?: string | null;
+  runs?: "drives" | "starts" | "no_start" | "untested" | null;
+  seller_type?: "private" | "business" | null;
+  verified?: string[] | null;
+  verified_at?: string | null;
+  ev_battery_soh?: number | null;
+  ev_battery_report?: string | null;
+  relisted_from?: number | null;
+  corrected_at?: string | null;
+  sale_id?: number | null;
   build_date?: string | null;
   compliance_date?: string | null;
   gvm_kg?: number | null;
@@ -90,7 +99,7 @@ export interface Lot {
 export interface Disclosures {
   accident?: string; flood?: string; hail?: string; write_off?: string; modifications?: string;
   odometer_concerns?: string; finance?: string; keys?: string; service_books?: boolean | string;
-  known_faults?: string; warning_lights?: string; rego_expiry?: string;
+  known_faults?: string; warning_lights?: string; rego_expiry?: string; starts_and_drives?: string; business?: string;
 }
 
 export interface LotPhoto { id: string; lot_id: number; path: string; angle: string | null; sort: number; credit?: string | null; credit_url?: string | null }
@@ -98,7 +107,7 @@ export interface LotVideo { id: string; public_path: string; title: string; appr
 export interface Consultant { id: string; name: string; title: string; phone: string | null; email: string | null; photo_path: string | null; is_default: boolean }
 
 // Finance, insurance and mobile-inspection partners (see /finance, /insurance and the listing page).
-export type PartnerKind = "finance" | "insurance" | "inspection";
+export type PartnerKind = "finance" | "insurance" | "inspection" | "transport" | "warranty";
 export interface Partner {
   id: string; kind: PartnerKind; slug: string; name: string; licence: string | null; blurb: string | null; logo_path: string | null;
   rate_from: number | null; comparison_rate: number | null; comparison_basis: string | null;
@@ -197,3 +206,13 @@ export const DEFAULT_FEES: Fees = {
 };
 
 export const TERMS_VERSION = "2026-10-01";
+
+export interface Sale {
+  id: number;
+  slug: string;
+  title: string;
+  intro: string | null;
+  seller_label: string | null;
+  state: string | null;
+  published: boolean;
+}

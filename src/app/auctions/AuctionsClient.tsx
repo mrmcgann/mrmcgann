@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Lot } from "@/lib/types";
+import type { Fees, Lot } from "@/lib/types";
 import { LotCard } from "@/components/LotCard";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SearchBar } from "@/components/SearchBar";
@@ -10,7 +10,7 @@ import { SearchFilterPanel } from "@/components/SearchFilters";
 import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { SORTS, describeParts, filtersFromParams, heading, toQueryString, type Facets, type FilterKey, type SearchFilters } from "@/lib/search";
 
-type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null };
+type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null; fees?: Fees };
 
 // Keys that belong to one category: cleared when the category changes.
 const CAT_KEYS: FilterKey[] = ["type", "lams", "lic", "berths", "ccmin", "ccmax", "lenmin", "lenmax", "hrs"];
@@ -97,7 +97,7 @@ export function AuctionsClient() {
           {err && <div className="notice bad">We couldn&apos;t load vehicles just now. <Link href={href(f, page)}>Try again</Link>.</div>}
           <div className="grid" aria-busy={!data}>
             {!data && !err && Array.from({ length: 8 }, (_, i) => <div key={i} className="card" style={{ minHeight: 360, background: "var(--panel)", borderRadius: 32 }} />)}
-            {data && (data.lots.length ? data.lots.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path} />) : (
+            {data && (data.lots.length ? data.lots.map((l) => <LotCard key={l.id} lot={l} cover={l.cover_path} fees={data.fees} />) : (
               <div className="empty">
                 <b style={{ fontSize: 22 }}>{f.cat && CAT[f.cat] ? `No ${CAT[f.cat].label.toLowerCase()} match that yet.` : "Nothing matches that yet."}</b>
                 <span className="muted">Remove a filter, or save this search and we&apos;ll text or email you when one is listed.</span>

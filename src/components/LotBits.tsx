@@ -1,10 +1,11 @@
 "use client";
+import { rememberViewed } from "@/components/ForYou";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Counts one view per visitor per day (fire and forget).
 export function ViewBeacon({ lotId }: { lotId: number }) {
-  useEffect(() => { fetch(`/api/lots/${lotId}/view`, { method: "POST", keepalive: true }).catch(() => {}); }, [lotId]);
+  useEffect(() => { fetch(`/api/lots/${lotId}/view`, { method: "POST", keepalive: true }).catch(() => {}); rememberViewed(lotId); }, [lotId]);
   return null;
 }
 

@@ -4,7 +4,8 @@ import { supabasePublic } from "@/lib/supabase/anon";
 import { env } from "@/lib/env";
 import { searchLots, lotFacets, PAGE_SIZE } from "@/lib/data";
 import type { SearchFilters } from "@/lib/search";
-import { DEFAULT_FEES, type Consultant, type Fees, type Lot, type LotFlaw, type LotPhoto, type LotVideo, type Partner } from "@/lib/types";
+import { DEFAULT_FEES, type Consultant, type Fees, type Lot, type LotFlaw, type LotPhoto, type LotVideo, type Partner, type Sale } from "@/lib/types";
+import type { Correction } from "@/lib/listing";
 
 // Public data, cached and shared by every visitor. At 10,000 people on the site
 // the database sees a few queries a second for these pages, not thousands.
@@ -29,6 +30,8 @@ export interface LotBundle {
   watchers: number;
   videos: LotVideo[];
   consultant: Consultant | null;
+  corrections: Correction[];
+  sale: Pick<Sale, "id" | "slug" | "title"> | null;
 }
 
 const CONSULTANT_COLS = "id, name, title, phone, email, photo_path, is_default";
@@ -38,7 +41,7 @@ export function getLotCached(id: number) {
     const db = supabasePublic();
     const { data: lot } = await db.from("lots").select("*").eq("id", id).maybeSingle();
     if (!lot) return null;
-    const [{ data: photos }, { data: flaws }, { data: questions }, { data: watchers }, { data: videos }, { data: consultants }] = await Promise.all([
+    const [{ data: photos }, { data: flaws }, { data: questions }, { data: watchers }, { data: videos }, { data: consultants }, { data: corrections }, { data: sale }] = await Promise.all([
       db.from("lot_photos").select("*").eq("lot_id", id).order("sort"),
       db.from("lot_flaws").select("*").eq("lot_id", id).order("sort"),
       db.from("lot_questions").select("question, answer, answered_at").eq("lot_id", id).eq("public", true).eq("status", "answered").order("created_at").limit(50),
@@ -48,10 +51,13 @@ export function getLotCached(id: number) {
       lot.consultant_id
         ? db.from("consultants").select(CONSULTANT_COLS).or(`id.eq.${lot.consultant_id},is_default.eq.true`).eq("active", true)
         : db.from("consultants").select(CONSULTANT_COLS).eq("is_default", true).eq("active", true),
+      db.from("lot_corrections").select("field, label, before, after, created_at").eq("lot_id", id).order("created_at").limit(100),
+      lot.sale_id ? db.from("sales").select("id, slug, title").eq("id", lot.sale_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
     const cs = (consultants || []) as Consultant[];
     const consultant = cs.find((c) => c.id === lot.consultant_id) || cs.find((c) => c.is_default) || null;
-    return { lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: questions || [], watchers: Number(watchers || 0), videos: (videos || []) as LotVideo[], consultant };
+    return { lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: questions || [], watchers: Number(watchers || 0), videos: (videos || []) as LotVideo[], consultant,
+      corrections: (corrections || []) as Correction[], sale: (sale as LotBundle["sale"]) || null };
   }, ["lot", String(id)], { revalidate: 20, tags: [`lot-${id}`] })();
 }
 
@@ -104,4 +110,24 @@ export function getHistoryCached(id: number, seconds = 2) {
     const { data } = await supabasePublic().rpc("bid_history", { p_lot: id, p_limit: 10 });
     return ((data || []) as BidRow[]).map(({ amount, created_at, bidder_tag, bidder_mask, is_auto }) => ({ amount, created_at, bidder_tag, bidder_mask, is_auto }));
   }, ["history", String(id), String(seconds)], { revalidate: seconds, tags: [`lot-${id}`] })();
+}
+
+// Published fleet sales, with live counts and closing windows.
+export type SaleStats = { live: number; sold: number; total: number; first_end: string | null; last_end: string | null };
+export const getSalesCached = unstable_cache(async () => {
+  const db = supabasePublic();
+  const { data } = await db.from("sales").select("*").eq("published", true).order("created_at", { ascending: false }).limit(50);
+  const sales = (data || []) as Sale[];
+  const stats = await Promise.all(sales.map((x) => db.rpc("sale_stats", { p_sale: x.id }).then((r) => (r.data || {}) as SaleStats)));
+  return sales.map((x, i) => ({ ...x, stats: stats[i] }));
+}, ["sales"], { revalidate: 60, tags: ["sales", "lots"] });
+
+export function getSaleCached(slug: string) {
+  return unstable_cache(async () => {
+    const db = supabasePublic();
+    const { data } = await db.from("sales").select("*").eq("slug", slug).eq("published", true).maybeSingle();
+    if (!data) return null;
+    const { data: stats } = await db.rpc("sale_stats", { p_sale: data.id });
+    return { ...(data as Sale), stats: (stats || {}) as SaleStats };
+  }, ["sale", slug], { revalidate: 30, tags: ["sales", "lots"] })();
 }

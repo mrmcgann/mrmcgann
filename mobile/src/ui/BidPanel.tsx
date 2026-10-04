@@ -14,6 +14,7 @@ import { Button, Check, LineItem, MoneyField, Notice, Sheet, Soft, T, Tag, digit
 import { useLive } from "./useLive";
 import { AutoTag, BlurName } from "./BlurName";
 import { C, F } from "./theme";
+import { consumerRights, rightsLine } from "@/lib/listing";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
@@ -165,7 +166,7 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
       </Soft>
     );
   } else if (L.status === "offers") {
-    body = <OfferBox lotId={lot.id} current={Number(L.current_bid)} decisionBy={L.decision_by} lastOffer={mine?.last_offer || null} needsSetup={needsSetup} onSent={onMineChange} />;
+    body = <OfferBox lotId={lot.id} current={Number(L.current_bid)} decisionBy={L.decision_by} lastOffer={mine?.last_offer || null} needsSetup={needsSetup} onSent={onMineChange} fees={fees} sellerType={lot.seller_type} />;
   } else if (L.status === "live") {
     body = <Soft><T v="strong">Bidding has closed.</T><T v="muted">Working out the result…</T></Soft>;
   } else {
@@ -183,6 +184,7 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
           <View style={{ flex: 1 }}>
             <Text style={s.k}>{L.status === "sold" ? "Sold for" : L.bid_count ? "Current bid" : "Starting bid"}</Text>
             <Text testID="current-bid" style={s.v}>{money(L.status === "sold" ? L.sold_price : L.bid_count ? L.current_bid : minNext)}</Text>
+            {L.status !== "sold" ? <T v="small" testID="allin-now" style={{ fontFamily: F.bold, color: C.ink }}>{money(priceBreakdown(L.bid_count ? L.current_bid : minNext, fees).total, true)} all-in</T> : null}
             <T v="small">{L.bid_count} bid{L.bid_count === 1 ? "" : "s"}{rt ? " · live" : ""}</T>
           </View>
           <View style={{ flex: 1 }}>
@@ -225,11 +227,13 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
           <Check testID="ack" checked={ack} onChange={setAck}>I understand this vehicle is sold as is, where is, at the seller's location, the condition report is a guide only, and if I win I authorise payment from my card straight away under the terms of sale.</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the terms of sale ›</Text>
         </Soft>
+        <T v="small" testID="rights-auction">{rightsLine("auction", lot.seller_type)}. <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)}>What that means ›</Text></T>
       </Sheet>
 
       <Sheet visible={sheet === "buy" && !!bnPrev} onClose={() => setSheet(null)} title={`Buy it now for ${money(bn)}?`}
         footer={<><Button title="Confirm purchase" busy={busy} disabled={!ack} onPress={buyNow} /><Button kind="soft" title="Cancel" onPress={() => setSheet(null)} /></>}>
-        <T v="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is, with no warranty.</T>
+        <T v="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is.</T>
+        <T v="small" testID="rights-outright">{consumerRights("outright", lot.seller_type)}</T>
         {bnPrev ? <View>
           <LineItem k="Buy Now price" v={money(bn)} />
           <LineItem k="Premium, GST and admin fee" v={money(bnPrev.subtotal - (bn || 0), true)} />
@@ -255,7 +259,7 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
   );
 }
 
-function OfferBox({ lotId, current, decisionBy, lastOffer, needsSetup, onSent }: { lotId: number; current: number; decisionBy: string | null; lastOffer: { amount: number; status: string } | null; needsSetup: () => boolean; onSent: () => void }) {
+function OfferBox({ lotId, current, decisionBy, lastOffer, needsSetup, onSent, fees, sellerType }: { lotId: number; current: number; decisionBy: string | null; lastOffer: { amount: number; status: string } | null; needsSetup: () => boolean; onSent: () => void; fees: Fees; sellerType?: AppLot["seller_type"] }) {
   const base = lastOffer?.amount || current;
   const [amount, setAmount] = useState(String(base + bidIncrement(base)));
   const [msg, setMsg] = useState<Msg>(null);
@@ -280,7 +284,9 @@ function OfferBox({ lotId, current, decisionBy, lastOffer, needsSetup, onSent }:
       <Button title="Make offer" busy={busy} onPress={() => { if (!needsSetup()) setConfirm(true); }} />
       <Sheet visible={confirm} onClose={() => setConfirm(false)} title={`Offer ${money(digits(amount))}?`}
         footer={<><Button title="Send offer" busy={busy} onPress={send} /><Button kind="soft" title="Cancel" onPress={() => setConfirm(false)} /></>}>
-        <T v="muted">If the seller accepts, it's binding and payment is taken the same way as a win.</T>
+        <LineItem k="All-in if accepted" v={money(priceBreakdown(digits(amount), fees).total, true)} bold />
+        <T v="muted">With the buyer's premium, GST and admin fee. If the seller accepts, it's binding and payment is taken the same way as a win.</T>
+        <T v="small">{consumerRights("outright", sellerType)}</T>
       </Sheet>
     </Soft>
   );

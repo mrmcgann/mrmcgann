@@ -199,6 +199,16 @@ r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('registr
 await as('ADM', `update lots set rego_plate='ABC123', rego_state='QLD', rego_expiry=current_date - 1 where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('registration: expired rego cannot be listed as registered', r.error?.includes('expired'), r.error);
 await as('ADM', `update lots set rego_expiry=current_date + 90 where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('accuracy: must say whether it starts and drives', r.error?.includes('starts and drives'), r.error);
+await as('ADM', `update lots set runs='drives' where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('accuracy: every listing check must be ticked', r.error?.includes('listing check') && r.error?.includes('odometer'), r.error);
+await as('ADM', `update lots set verified=array['vin','year','odometer','transmission','fuel','features','warning_lights','runs','damage'] where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('accuracy: says which check is missing', r.error?.includes('photos') && !r.error?.includes('odometer'), r.error);
+await as('ADM', `update lots set write_off_status='statutory', verified=listing_check_keys(), verified_at=now() where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("accuracy: a statutory write-off can't be listed as registered", r.error?.includes('statutory'), r.error);
+await as('ADM', `update lots set write_off_status='unknown' where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('accuracy: the written-off check must be recorded', r.error?.includes('written-off'), r.error);
+await as('ADM', `update lots set write_off_status='none' where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('publishes once every check is done', !r.error, r.error);
 r = await as('service', `select published_at is not null p from lots where id=${SL}`); ok('published time recorded', r.rows?.[0]?.p === true);
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'live:${SL}%'`); ok('seller told their vehicle is live', r.rows?.[0]?.n >= 1);
@@ -562,6 +572,130 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select make, model from vin_pattern('MR0FB22G400000123')`); ok('vin: publishing a listing teaches its VIN pattern', r.rows?.[0]?.model === 'HiLux', JSON.stringify(r));
   await c.query(`update lots set model = 'HiLux SR5' where id = 10997`);
   r = await as('service', `select string_agg(model, ',' order by model) m from vin_patterns where left(prefix, 8) = 'MR0FB22G'`); ok('vin: a corrected model is learned too', r.rows?.[0]?.m === 'HiLux,HiLux SR5', JSON.stringify(r));
+}
+
+// ---------- listing accuracy: corrections, removing bids ----------
+{
+  await c.query(`insert into lots (id, status, title, make, model, year, odometer, transmission, start_price, ends_at, registration, runs, verified, published_at)
+    values (10960, 'live', 'Correction test ute', 'Ford', 'Ranger', 2018, 85000, 'Manual', 1000, now() + interval '2 hours', 'unregistered', 'drives', listing_check_keys(), now())`);
+  await c.query(`insert into lot_private (lot_id) values (10960)`);
+  r = await as('A', `select place_bid(10960, 2000) r`); ok('corrections: A bids', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
+  await c.query(`insert into watchlist (user_id, lot_id) values ('${U.ADM}', 10960) on conflict do nothing`);
+  r = await as('service', `select count(*)::int n from lot_corrections where lot_id = 10960`); ok('corrections: bidding is not a correction', r.rows?.[0]?.n === 0);
+  r = await as('ADM', `update lots set odometer = 58000, transmission = 'Automatic' where id = 10960`); ok('corrections: staff correct the listing', !r.error, r.error);
+  r = await as('anon', `select field, before, after from lot_corrections where lot_id = 10960 order by field`);
+  ok('corrections: shown publicly with before and after', r.rows?.length === 2 && r.rows[0].before === '85,000 km' && r.rows[0].after === '58,000 km' && r.rows[1].after === 'Automatic', JSON.stringify(r.rows));
+  r = await as('service', `select ends_at > now() + interval '23 hours' e, corrected_at is not null c from lots where id = 10960`); ok('corrections: at least 24 hours of bidding left', r.rows?.[0]?.e === true && r.rows[0].c === true, JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.A}' and title like 'Correction to a vehicle you bid on%'`); ok('corrections: bidders are told', r.rows?.[0]?.n === 1);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.ADM}' and title like 'Correction to a vehicle you''re watching%'`); ok('corrections: watchers are told', r.rows?.[0]?.n === 1);
+  r = await as('ADM', `update lots set disclosures = disclosures || '{"accident":"Yes: rear bar replaced"}' where id = 10960`);
+  r = await as('anon', `select label, after from lot_corrections where lot_id = 10960 and field = 'disclosures.accident'`); ok('corrections: seller declarations are tracked', r.rows?.[0]?.after === 'Yes: rear bar replaced', JSON.stringify(r.rows));
+  r = await as('A', `insert into lot_corrections (lot_id, field, label) values (10960, 'x', 'x')`); ok("corrections: members can't write them", !!r.error);
+
+  r = await as('B', `select place_bid(10960, 3000) r`); ok('remove bids: B takes the lead', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
+  r = await as('B', `select admin_remove_bidder(10960, '${U.B}', 'asked out')`); ok('remove bids: staff only', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_remove_bidder(10960, '${U.B}', '')`); ok('remove bids: needs a reason', r.error?.includes('reason_required'), r.error);
+  r = await as('ADM', `select admin_remove_bidder(10960, '${U.B}', 'Bid before the odometer correction and asked out') r`); ok('remove bids: staff remove B', !r.error, r.error);
+  r = await as('service', `select current_bid, leader_id, bid_count, (select count(*)::int from bids where lot_id = 10960 and bidder_id = '${U.B}') b, (select max(amount) from bids where lot_id = 10960) top from lots where id = 10960`);
+  ok('remove bids: price worked out again without them', Number(r.rows?.[0]?.current_bid) === 1000 && r.rows[0].leader_id === U.A && r.rows[0].b === 0 && Number(r.rows[0].top) === 1000, JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.A}' and title like 'You''re the highest bidder again%'`); ok('remove bids: the new leader is told', r.rows?.[0]?.n === 1);
+  r = await as('B', `select place_bid(10960, 1500) r`); ok('remove bids: bidding carries on normally', r.rows?.[0]?.r?.status === 'outbid' && Number(r.rows[0].r.current_bid) === 1600, JSON.stringify(r));
+}
+
+// ---------- relisting and offers to the next bidder ----------
+{
+  await c.query(`insert into lots (id, status, title, make, model, start_price, ends_at, registration, runs, verified, ppsr_checked_at, vin, has_reserve)
+    values (10961, 'live', 'Relist test car', 'Mazda', 'CX-5', 1000, now() + interval '1 day', 'unregistered', 'drives', listing_check_keys(), now(), 'JM0KF4W7A00000961', true)`);
+  await c.query(`insert into lot_private (lot_id, reserve_price, seller_name) values (10961, 9000, 'Rae Seller')`);
+  await c.query(`insert into lot_photos (lot_id, path, sort) values (10961, 'x/1.jpg', 0), (10961, 'x/2.jpg', 1)`);
+  await as('A', `select place_bid(10961, 5000)`);
+  await as('B', `select place_bid(10961, 4000)`);
+  await c.query(`update lots set ends_at = now() - interval '1 second' where id = 10961`);
+  await as('service', `select close_due_lots()`);
+  // seller accepts the referred bid, then the buyer doesn't pay
+  r = await as('ADM', `select admin_accept(10961, null) i`); const RINV = r.rows?.[0]?.i; ok('next bidder: sale made', !!RINV, r.error);
+  await c.query(`update invoices set status = 'cancelled' where id = '${RINV}'`);
+  await c.query(`update lots set status = 'passed' where id = 10961`);
+  r = await as('A', `select admin_offer_next_bidder(10961)`); ok('next bidder: staff only', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_offer_next_bidder(10961)`); ok('next bidder: below the reserve needs the seller to agree', r.error?.includes('below_reserve'), r.error);
+  r = await as('ADM', `select admin_offer_next_bidder(10961, 24, true) o`); const OFF = r.rows?.[0]?.o;
+  ok('next bidder: offered to the next highest bidder at their highest bid', OFF && Number(OFF.amount) === 4000, JSON.stringify(r));
+  r = await as('service', `select user_id from second_chance_offers where id = '${OFF?.id}'`); ok('next bidder: not the buyer who did not pay', r.rows?.[0]?.user_id === U.B);
+  r = await as('ADM', `select admin_offer_next_bidder(10961, 24, true)`); ok('next bidder: one offer open at a time', r.error?.includes('offer_open'), r.error);
+  r = await as('A', `select * from second_chance_offers`); ok("next bidder: others can't see the offer", r.rows?.length === 0);
+  r = await as('A', `select respond_second_chance('${OFF?.id}', true)`); ok("next bidder: only they can answer", r.error?.includes('offer_not_found'), r.error);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.B}' and title like 'You can still buy%'`); ok('next bidder: they are told', r.rows?.[0]?.n === 1);
+  r = await as('B', `select respond_second_chance('${OFF?.id}', true) i`); const SCI = r.rows?.[0]?.i; ok('next bidder: accepting makes the sale', !!SCI, r.error);
+  r = await as('service', `select l.status, l.winner_id, l.sold_price, i.price from lots l join invoices i on i.lot_id = l.id and i.id = '${SCI}' where l.id = 10961`);
+  ok('next bidder: invoice at their bid', r.rows?.[0]?.status === 'sold' && r.rows[0].winner_id === U.B && Number(r.rows[0].price) === 4000, JSON.stringify(r.rows));
+  r = await as('B', `select respond_second_chance('${OFF?.id}', true)`); ok('next bidder: can only be answered once', r.error?.includes('offer_closed'), r.error);
+
+  // relist a vehicle that didn't sell
+  await c.query(`insert into lots (id, status, title, make, model, start_price, ends_at, registration, runs, verified, ppsr_checked_at, vin)
+    values (10962, 'passed', 'Unsold boat', 'Quintrex', '420', 500, now() - interval '1 day', 'unregistered', 'untested', listing_check_keys(), now(), 'AUQXN42000000962')`);
+  await c.query(`insert into lot_private (lot_id, seller_name) values (10962, 'Bo Seller')`);
+  await c.query(`insert into lot_photos (lot_id, path, sort) values (10962, 'y/1.jpg', 0)`);
+  await c.query(`insert into watchlist (user_id, lot_id) values ('${U.A}', 10962)`);
+  r = await as('A', `select admin_relist(10962)`); ok('relist: staff only', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_relist(10961)`); ok('relist: not a sold vehicle', r.error?.includes('not_relistable'), r.error);
+  r = await as('ADM', `select admin_relist(10962) id`); const NEWL = r.rows?.[0]?.id; ok('relist: copies to a new draft', !!NEWL, r.error);
+  r = await as('service', `select status, relisted_from, title, ppsr_checked_at, verified, (select count(*)::int from lot_photos where lot_id = ${NEWL}) ph, (select seller_name from lot_private where lot_id = ${NEWL}) sn from lots where id = ${NEWL}`);
+  ok('relist: draft with photos and seller details, PPSR and checks to redo', r.rows?.[0]?.status === 'draft' && Number(r.rows[0].relisted_from) === 10962 && r.rows[0].ph === 1 && r.rows[0].sn === 'Bo Seller' && r.rows[0].ppsr_checked_at === null && r.rows[0].verified.length === 0, JSON.stringify(r.rows));
+  r = await as('ADM', `select admin_relist(10962)`); ok('relist: only once', r.error?.includes('already_relisted'), r.error);
+  await c.query(`update lots set status = 'live', ends_at = now() + interval '3 days' where id = ${NEWL}`);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.A}' and title = 'Back for auction: Unsold boat'`); ok('relist: past watchers told when it is back', r.rows?.[0]?.n === 1);
+}
+
+// ---------- fleet sales, search filters, seller type ----------
+{
+  r = await as('A', `insert into sales (slug, title) values ('my-sale', 'My sale')`); ok("sales: members can't create sales", !!r.error);
+  r = await as('ADM', `insert into sales (slug, title, seller_label, published) values ('council-fleet', 'Ex-council fleet', 'Local council', false) returning id`); const SID = r.rows?.[0]?.id; ok('sales: staff create a sale', !!SID, r.error);
+  r = await as('anon', `select * from sales`); ok('sales: hidden until published', r.rows?.length === 0);
+  await c.query(`insert into lots (id, status, title, sale_id, start_price, ends_at, runs, registration) values
+    (10963, 'live', 'Fleet ute 1', ${SID}, 1000, now() + interval '3 days', 'drives', 'registered'),
+    (10964, 'draft', 'Fleet ute 2', ${SID}, 1000, now() + interval '3 days', 'starts', 'unregistered'),
+    (10965, 'draft', 'Fleet ute 3', ${SID}, 1000, now() + interval '3 days', 'no_start', 'unregistered')`);
+  await as('ADM', `update sales set published = true where id = ${SID}`);
+  r = await as('anon', `select title from sales`); ok('sales: shown once published', r.rows?.length === 1);
+  r = await as('anon', `select sale_stats(${SID}) s`); ok('sales: stats count live vehicles', r.rows?.[0]?.s?.live === 1, JSON.stringify(r.rows));
+  r = await as('anon', `select count(*)::int n from search_lots('{"sale":"${SID}"}'::jsonb, 50, 0)`); ok('search: sale filter', r.rows?.[0]?.n === 1, JSON.stringify(r));
+  r = await as('A', `select admin_stagger_sale(${SID}, now() + interval '2 days', 3)`); ok('sales: staff only stagger end times', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_stagger_sale(${SID}, now() + interval '2 days', 3) n`); ok('sales: end times staggered', r.rows?.[0]?.n === 3, r.error);
+  r = await as('service', `select extract(epoch from (max(ends_at) - min(ends_at)))::int s from lots where sale_id = ${SID}`); ok('sales: one closes every 3 minutes', r.rows?.[0]?.s === 360, JSON.stringify(r.rows));
+  r = await as('anon', `select count(*)::int n, bool_and(runs = 'drives') d from search_lots('{"runs":"drives"}'::jsonb, 50, 0)`); ok('search: starts-and-drives filter', r.rows?.[0]?.n > 0 && r.rows[0].d === true, JSON.stringify(r));
+  await c.query(`update lots set status = 'draft' where id = 10963`);
+  await c.query(`update lots set disclosures = '{"business":"yes"}' where id = 10964`);
+  r = await as('service', `select seller_type from lots where id = 10964`); ok('seller type: business when the seller says so', r.rows?.[0]?.seller_type === 'business');
+  await c.query(`update lots set disclosures = '{"business":"no"}', gst_status = 'inc' where id = 10965`);
+  r = await as('service', `select seller_type from lots where id = 10965`); ok('seller type: GST-registered sellers are business sellers', r.rows?.[0]?.seller_type === 'business');
+  r = await as('anon', `select count(*)::int n, bool_and(seller_type = 'private') p from search_lots('{"seller":"private"}'::jsonb, 50, 0)`); ok('search: private seller filter uses seller type', r.rows?.[0]?.p === true, JSON.stringify(r));
+}
+
+// ---------- price ranges, notes, partners, audits, newsletter ----------
+{
+  await c.query(`insert into lots (id, status, title, make, model, year, sold_price, ends_at) values
+    (10970, 'sold', 'Sold 1', 'Isuzu', 'D-Max', 2019, 20000, now() - interval '10 days'),
+    (10971, 'sold', 'Sold 2', 'Isuzu', 'D-Max', 2020, 24000, now() - interval '20 days')`);
+  r = await as('anon', `select price_estimate('isuzu', 'd-max', 2019) e`); ok('estimate: needs at least 3 sales', r.rows?.[0]?.e?.count === 2 && r.rows[0].e.mid === undefined, JSON.stringify(r.rows));
+  await c.query(`insert into lots (id, status, title, make, model, year, sold_price, ends_at) values (10972, 'sold', 'Sold 3', 'Isuzu', 'D-Max', 2021, 28000, now() - interval '30 days')`);
+  r = await as('anon', `select price_estimate('Isuzu', 'D-Max', 2020) e`); ok('estimate: range from our own sales', r.rows?.[0]?.e?.count === 3 && Number(r.rows[0].e.mid) === 24000 && Number(r.rows[0].e.low) <= Number(r.rows[0].e.high), JSON.stringify(r.rows));
+
+  await c.query(`insert into watchlist (user_id, lot_id) values ('${U.B}', 10432) on conflict do nothing`);
+  r = await as('A', `update watchlist set note = 'Check the tow bar' where lot_id = 10962 returning note`); ok('notes: members add a note to a watched vehicle', r.rows?.[0]?.note === 'Check the tow bar', r.error);
+  r = await as('A', `update watchlist set note = 'mine now' where user_id = '${U.B}'`); ok("notes: can't touch someone else's", r.count === 0);
+
+  r = await as('ADM', `insert into partners (kind, slug, name) values ('transport', 'test-carrier', 'Test Carrier'), ('warranty', 'test-warranty', 'Test Warranty')`); ok('partners: transport and warranty partners', !r.error, r.error);
+  r = await as('ADM', `insert into partners (kind, slug, name) values ('bogus', 'bogus-kind', 'Bogus')`); ok('partners: unknown kinds refused', !!r.error);
+
+  r = await as('A', `insert into listing_audits (lot_id, ok) values (10432, true)`); ok("audits: members can't record audits", !!r.error);
+  r = await as('ADM', `insert into listing_audits (lot_id, checks, ok, note) values (10432, '{"odometer":true}', true, 'Matches') returning id`); ok('audits: staff record audits', !r.error, r.error);
+  r = await as('A', `select * from listing_audits`); ok("audits: members can't read them", r.rows?.length === 0);
+
+  await c.query(`update profiles set notify = notify || '{"marketing":{"sms":false,"email":true}}' where id = '${U.A}'`);
+  r = await as('A', `select queue_newsletter('News', 'Body', '/auctions', 'nl:test')`); ok('newsletter: only the server sends it', !!r.error);
+  r = await as('service', `select queue_newsletter('This week at Tyrebiter', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: only to members who opted in', r.rows?.[0]?.n === 1, JSON.stringify(r));
+  r = await as('service', `select queue_newsletter('This week at Tyrebiter', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: never sent twice', r.rows?.[0]?.n === 0);
+  r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'nl:test:%' and user_id = '${U.B}'`); ok('newsletter: nothing for members who did not opt in', r.rows?.[0]?.n === 0);
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

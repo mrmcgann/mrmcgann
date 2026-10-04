@@ -1,6 +1,7 @@
 // Shapes the app receives. The listing, profile, invoice and fee types are the website's own.
 import type { Consultant, Fees, Invoice, Lot, LotFlaw, LotPhoto, LotVideo, Partner, Profile } from "@/lib/types";
 import type { Facets, SearchFilters } from "@/lib/search";
+import type { Correction } from "@/lib/listing";
 
 export type { Fees, Invoice, Lot, Partner, Profile, Facets, SearchFilters };
 
@@ -48,6 +49,10 @@ export interface LotBundle {
   finance: FinanceEstimate | null;
   inspector: Partner | null;
   insurers: boolean;
+  warranty?: boolean;
+  transporter?: Partner | null;
+  corrections?: Correction[];
+  sale?: { id: number; slug: string; title: string } | null;
   questions: { question: string; answer: string; answered_at: string }[];
   watchers: number;
   similar: AppLot[];

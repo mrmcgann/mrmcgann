@@ -20,9 +20,9 @@ import { ConsultantCard, FinanceBox, MobileInspection } from "~/ui/Partners";
 import { LotCard } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
+import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified } from "@/lib/listing";
 
 const LETTER = "ABCDE";
-const WRITE_OFF: Record<string, string> = { none: "Not recorded as written off", repairable: "Repairable write-off", statutory: "Statutory write-off (can't be re-registered)", unknown: "Being checked" };
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
 const viewed = new Set<number>();
 
@@ -79,6 +79,8 @@ export default function LotScreen() {
   const { lot, photos, flaws, questions, watchers, similar, history, fees } = b;
   // Fields added to the bundle later; an older cached response may not have them yet.
   const videos = b.videos || [], consultant = b.consultant || null, finance = b.finance || null, inspector = b.inspector || null;
+  const corrections = b.corrections || [], sale = b.sale || null, transporter = b.transporter || null;
+  const checked = LISTING_CHECKS.filter(([k]) => (lot.verified || []).includes(k));
   const g = gradeInfo(lot.visual_grade);
   const d: Disclosures = lot.disclosures || {};
   const facts: [string, unknown][] = [
@@ -90,6 +92,9 @@ export default function LotScreen() {
     ["Licence class", lot.licence_class ? LICENCES.find((l) => l[0] === lot.licence_class)?.[1] || lot.licence_class : null],
     ["LAMS approved", lot.lams == null ? null : lot.lams ? "Yes" : "No"],
     ["Write-off status", WRITE_OFF[lot.write_off_status || "unknown"]],
+    ["Starts and drives", lot.runs ? RUNS[lot.runs] : null],
+    ["Seller", lot.seller_type ? SELLER_TYPE[lot.seller_type] : null],
+    ["Battery health", isElectrified(lot.fuel) && lot.ev_battery_soh != null ? `${lot.ev_battery_soh}% state of health` : null],
     ["Stolen check", lot.stolen_clear == null ? null : lot.stolen_clear ? "Not recorded as stolen" : "See note"],
     ["Keys", lot.keys], ["Service books", yes(lot.service_books)],
     ["GST", lot.gst_status === "inc" ? "Price includes GST" : "No GST on the hammer price (private sale)"],
@@ -102,12 +107,13 @@ export default function LotScreen() {
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
-    ["Warning lights", d.warning_lights], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
+    ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance], ["Known faults", d.known_faults || lot.known_faults],
   ];
   const known: [string, string, boolean][] = [
     ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
     ["Seller identity", "ID and proof of ownership verified", true],
+    ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
     ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
     ...(lot.odometer != null ? [["Odometer", "As indicated. Not independently verified", false] as [string, string, boolean]] : lot.hours != null ? [["Hours", "As indicated. Not independently verified", false] as [string, string, boolean]] : []),
     ["Service history", lot.service_history || "As declared by the seller", false],
@@ -127,6 +133,7 @@ export default function LotScreen() {
         <Gallery photos={photos} videos={videos} externalVideo={lot.video_url} backdropKey={lot.backdrop} vehicleType={lot.vehicle_type} title={lot.title} />
         <View style={s.pad}>
           <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id} · {lot.suburb}, {lot.state}{tag ? ` · ${tag}` : ""}</T>
+          {sale ? <LinkText testID="lot-sale" title={`Part of the ${sale.title} ›`} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/sales/${sale.slug}`)} style={{ fontSize: 15 }} /> : null}
           <T v="d2">{lot.short_title || lot.title}.</T>
           {lot.subtitle ? <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>{lot.subtitle}</T> : null}
           <T v="small">{watchers} watching · {(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</T>
@@ -134,7 +141,7 @@ export default function LotScreen() {
 
         <View style={s.pad}>
           <BidPanel lot={lot} fees={fees} mine={mine} history={history} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />
-          {["live", "scheduled", "offers", "referred"].includes(lot.status) ? <FinanceBox lotId={lot.id} finance={finance} insurers={!!b.insurers} buyNow={!!lot.buy_now_price} /> : null}
+          {["live", "scheduled", "offers", "referred"].includes(lot.status) ? <FinanceBox lotId={lot.id} finance={finance} insurers={!!b.insurers} buyNow={!!lot.buy_now_price} warranty={!!b.warranty} /> : null}
           {consultant ? <ConsultantCard consultant={consultant} lotId={lot.id} title={lot.title} /> : null}
         </View>
 
@@ -151,7 +158,8 @@ export default function LotScreen() {
           <View style={s.facts}>
             {show(facts).map(([k, v]) => <View key={k} style={s.fact}><T v="small">{k}</T><T v="strong" selectable>{String(v)}</T></View>)}
           </View>
-          <T v="small">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated, not independently verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
+          {lot.runs ? <T v="small">{RUNS_HINT[lot.runs]}</T> : null}
+          <T v="small">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated on the vehicle (photographed), not independently verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
         </View>
 
         <View style={s.pad}>
@@ -200,7 +208,7 @@ export default function LotScreen() {
               <View style={{ flex: 1 }}><T v="strong">{k}</T><T v="small">{v}</T></View>
             </View>
           ))}
-          <T v="small">Green: verified by Tyrebiter. Yellow: declared by the seller.</T>
+          <T v="small">Green: verified by Tyrebiter. Yellow: declared by the seller. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
         </View>
 
         {show(declared).length ? (
@@ -208,6 +216,14 @@ export default function LotScreen() {
             <T v="d3">Seller declarations.</T>
             <T v="muted">Made in writing by the seller, who is responsible for their accuracy.</T>
             <View>{show(declared).map(([k, v]) => <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{String(v)}</T></View>)}</View>
+          </View>
+        ) : null}
+
+        {corrections.length ? (
+          <View style={s.pad} testID="corrections">
+            <T v="d3">Changes to this listing.</T>
+            <T v="muted">We corrected these after the listing went live. Everyone who had bid on or was watching it was told, and bidding stayed open for at least 24 hours after each change.</T>
+            <View>{corrections.map((c, i) => <View key={i} style={s.spec}><T v="muted">{c.label}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{c.before} → {c.after}</T></View>)}</View>
           </View>
         ) : null}
 
@@ -224,7 +240,10 @@ export default function LotScreen() {
             ))}
           </View>
           <MobileInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder={forSale} />
-          {["live", "sold"].includes(lot.status) ? <QuoteBox lotId={lot.id} /> : null}
+          <Soft testID="lot-rights"><T v="strong">Your rights.</T><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{consumerRights("auction", lot.seller_type)}</T>
+            {lot.buy_now_price ? <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Buy Now: </Text>{consumerRights("outright", lot.seller_type)}</T> : null}
+            <LinkText title="Your consumer rights ›" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)} style={{ fontSize: 15 }} /></Soft>
+          {["live", "sold"].includes(lot.status) ? <QuoteBox lotId={lot.id} partner={transporter} title={lot.title} /> : null}
         </View>
 
         <View style={s.pad}>
