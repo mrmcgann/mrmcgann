@@ -33,6 +33,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
 - Invoices: retry cards, mark balances received, mark collected, cancel with fee
 - Videos: add the listing's video yourself in the vehicle editor (it goes live straight away), or approve or reject the seller's
+- Rego & VIN check: type a plate and state or a VIN; shows what we know, with one-click links to the state's free rego check and the PPSR
 - Transfers: check each buyer's transfer confirmation, chase the seller's part, complete it (the buyer can then book collection)
 - Partners and leads: lenders, brokers, insurers and inspection companies, their clicks and enquiries, and the fee each one paid (CSV export)
 - Consultants: the named contact shown on each listing
