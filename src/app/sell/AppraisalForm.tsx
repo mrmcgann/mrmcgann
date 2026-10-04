@@ -8,7 +8,7 @@ import { expiryDate, normalizePlate, normalizeVin, REGO_STATES, vehicleLine, typ
 
 type Found = { id: string | null; vehicle: RegoVehicle; sources: string[]; complete: boolean };
 
-const SOURCE: Record<string, string> = { "our records": "our records", "nz open data": "open vehicle data", nhtsa: "the VIN", vin: "the VIN" };
+const SOURCE: Record<string, string> = { "our records": "our records", vin: "the VIN" };
 export const sourceLine = (sources: string[]) => `From ${[...new Set(sources.map((x) => SOURCE[x] || x))].join(" and ")}`;
 
 // Sell your vehicle: the plate (any state) and, if they have it handy, the VIN. Our own free
@@ -150,7 +150,6 @@ export function AppraisalForm() {
             {[fv.vinEnding ? `VIN ending ${fv.vinEnding}` : null, fv.country ? `Made in ${fv.country}` : null, fv.regoExpiry ? `Rego expires ${expiryDate(fv.regoExpiry)}` : null, fv.engine].filter(Boolean).join(" · ")}
           </span>
           <span style={{ fontSize: 14 }}>{found.complete ? "Check the details below and fix anything that's wrong." : "Fill in the rest below."}</span>
-          {found.sources.includes("nz open data") && <span className="hint">Includes open data from NZ Transport Agency Waka Kotahi (CC BY 4.0).</span>}
         </div>
       )}
 

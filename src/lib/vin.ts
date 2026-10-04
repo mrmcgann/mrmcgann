@@ -1,7 +1,7 @@
 // Our own VIN decoder (free, runs anywhere): who made the vehicle and where (from the first
 // characters, the World Manufacturer Identifier), and the likely model year (10th character).
 // Shared by the website, the server and the app. The server adds what we've learned from our
-// own listings and open data (vin_patterns) and NHTSA's free decoder (src/lib/vinDecode.ts).
+// own listings (vin_patterns, src/lib/vinDecode.ts).
 
 export const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
 

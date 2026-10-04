@@ -40,7 +40,7 @@ The app talks to the live website, so these go first:
 - Run `supabase/migrations/20261003000007_app.sql` in the Supabase SQL editor (push devices, push alerts, account deletion).
 - Then run `supabase/migrations/20261003000008_media_partners.sql` (listing videos, consultants, mobile inspections, finance and insurance partners, blurred bidder names).
 - Then run `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on listings, one video in 10 photos and videos, plate lookups, transfer of ownership before collection).
-- Then run `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup).
+- Then run `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup) and `supabase/migrations/20261004000011_lookup_australia_only.sql`.
 - Deploy the website (it has the new `/api` routes the app uses).
 
 ### 5. Tell Expo the app's settings

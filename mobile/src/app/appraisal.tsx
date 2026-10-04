@@ -19,7 +19,7 @@ const UNAVAILABLE = "We couldn't look it up just now. Enter the details below.";
 const STATE_OPTIONS = REGO_STATES.map((s) => [s, s] as [string, string]);
 
 // Where the details came from (the website's sourceLine in src/app/sell/AppraisalForm.tsx; keep them in step).
-const SOURCE: Record<string, string> = { "our records": "our records", "nz open data": "open vehicle data", nhtsa: "the VIN", vin: "the VIN" };
+const SOURCE: Record<string, string> = { "our records": "our records", vin: "the VIN" };
 const sourceLine = (sources: string[]) => `From ${[...new Set(sources.map((x) => SOURCE[x] || x))].join(" and ")}`;
 const isRegoState = (s?: string | null) => !!s && (REGO_STATES as readonly string[]).includes(s);
 
@@ -180,7 +180,6 @@ export default function Appraisal() {
           {vehicleLine(fv) ? <T v="body">{vehicleLine(fv)}</T> : null}
           {facts ? <T v="small" style={{ color: C.ink2 }}>{facts}</T> : null}
           <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{found.complete ? "Check the details below and fix anything that's wrong." : "Fill in the rest below."}</T>
-          {found.sources.includes("nz open data") ? <T v="small" style={{ color: C.ink2 }}>Includes open data from NZ Transport Agency Waka Kotahi (CC BY 4.0).</T> : null}
         </View>
       ) : null}
 

@@ -548,6 +548,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   r = await as('service', `select make, model, exact, source from vin_pattern('JTNBV58E09J000999')`); ok('vin: same first 8 and year character finds the model', r.rows?.[0]?.make === 'Toyota' && r.rows[0].model === 'Corolla' && r.rows[0].exact === true && r.rows[0].source === 'listing', JSON.stringify(r));
   r = await as('service', `select make, model, exact, year from vin_pattern('JTNBV58E0AJ000111')`); ok('vin: another year still finds the model (year left out)', r.rows?.[0]?.model === 'Corolla' && r.rows[0].exact === false && r.rows[0].year === null, JSON.stringify(r));
+  r = await as('service', `insert into vin_patterns (prefix, source, make, model) values ('JTNBV58E9', 'nzta', 'Toyota', 'Corolla')`); ok('vin: only our own Australian listings can teach it', !!r.error, r.error);
   r = await as('service', `select count(*)::int n from vin_pattern('ZZZZZZZZZZZZZZZZZ')`); ok('vin: unknown VIN finds nothing', r.rows?.[0]?.n === 0);
   r = await as('service', `select count(*)::int n from vin_pattern('short')`); ok('vin: invalid VIN finds nothing', r.rows?.[0]?.n === 0);
   r = await as('service', `select make, model, vin from plate_memory('smpl32', 'qld')`); ok('plate: a plate we have listed is remembered', r.rows?.[0]?.make === 'Toyota' && r.rows[0].vin === 'JTNBV58E09J000432', JSON.stringify(r));

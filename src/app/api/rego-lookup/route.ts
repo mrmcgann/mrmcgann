@@ -9,7 +9,7 @@ const DAILY_CAP = Number(process.env.REGO_LOOKUP_DAILY_CAP || 300);
 
 // Sell form and listing editor: plate and state, and/or the VIN, in; whatever we can find out
 // about the vehicle back, to fill in the form. Our own free lookup by default (our records,
-// learned VIN patterns, NHTSA's free decoder, the VIN itself); a paid provider only if one is
+// learned VIN patterns, the VIN itself); a paid provider only if one is
 // switched on. Results are kept for 30 days. The full VIN never leaves the server.
 export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
