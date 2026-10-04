@@ -89,3 +89,9 @@ update public.lots set registration = 'registered', rego_state = state, rego_pla
   rego_expiry = (current_date + interval '5 months')::date
   where id in (10432, 10588, 10590, 10599, 10611, 10620, 10633, 10660, 10661) and registration is null;
 update public.lots set registration = 'unregistered' where registration is null;
+
+-- Made-up VINs for the sample vehicles (they also teach the free VIN lookup). Delete with the sample vehicles.
+update public.lots l set vin = v.vin from (values
+  (10432, 'JTNBV58E09J000432'), (10588, 'JAANPR85HE7000588'), (10590, '6F4T401K08B000590'), (10599, 'MNAUMFF50HW000599'), (10611, 'JM0DE1023C0000611'),
+  (10620, '6G1EK52W06L000620'), (10633, 'KMHD3510AFU000633'), (10660, 'JYARM33E0LA000660'), (10661, '6T9T16CARGJ000661')
+) v(id, vin) where l.id = v.id and l.vin is null;

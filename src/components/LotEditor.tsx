@@ -8,6 +8,7 @@ import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
+import { rulesFor } from "@/lib/transfer";
 import { AdminAction } from "@/components/AdminAction";
 
 export interface SellerInfo {
@@ -207,6 +208,25 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     else setMsg({ kind: "bad", text: "Couldn't remove the video." });
   }
 
+  // Fill empty vehicle fields from our own free lookup (plate memory, learned VIN patterns, the VIN).
+  const [vinMsg, setVinMsg] = useState("");
+  async function fillFromVin() {
+    setVinMsg("Looking it up…");
+    const r = await fetch("/api/rego-lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vin: f.vin, plate: f.rego_plate, state: f.rego_state }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return setVinMsg(d.error || "Couldn't look it up.");
+    if (!d.found) return setVinMsg("Nothing found for this VIN yet. Enter the details; we'll learn them when it's published.");
+    const v = d.vehicle || {};
+    const next: Row = { ...f };
+    const put = (k: string, x: unknown) => { if (x != null && x !== "" && (next[k] == null || next[k] === "")) next[k] = x; };
+    put("year", v.year); put("make", v.make); put("model", v.model); put("variant", v.variant); put("body", v.body); put("colour", v.colour);
+    put("fuel", v.fuel); put("transmission", v.transmission); put("drive", v.drive); put("engine", v.engine);
+    if (v.category && !id) { next.category = v.category; next.vehicle_type = CAT[v.category]?.silhouette || next.vehicle_type; }
+    put("kind", v.kind);
+    setF(next);
+    setVinMsg(`Filled in the empty fields (${(d.sources || []).join(", ")}). Check them against the papers.`);
+  }
+
   async function addFlaw() {
     if (!id) return;
     const { data } = await db.from("lot_flaws").insert({ lot_id: id, title: "New flaw", sort: flaws.length }).select("*").single();
@@ -292,6 +312,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           {sel("registration", "Registration (required)", [["", "Choose…"], ["registered", "Registered"], ["unregistered", "Unregistered (sold without plates)"]])}
           {inp("vin", "VIN", { placeholder: "17 characters" })}{inp("engine_no", "Engine number", { placeholder: "On the certificate of sale" })}
         </div>
+        <span className="hint" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="linkbtn" onClick={fillFromVin} disabled={String(f.vin || "").replace(/\s/g, "").length !== 17} data-testid="fill-from-vin">Fill in empty fields from the VIN ›</button>
+          {f.registration !== "unregistered" && <a className="blue" href={rulesFor(String(f.rego_state || f.state || "QLD")).checkUrl} target="_blank" rel="noopener noreferrer">Check the rego free with {rulesFor(String(f.rego_state || f.state || "QLD")).authority} ›</a>}
+          {vinMsg && <span>{vinMsg}</span>}
+        </span>
         <div className="grid3">
           {inp("rego_plate", f.registration === "unregistered" ? "Previous rego plate (if any)" : "Rego plate")}
           {sel("rego_state", f.registration === "unregistered" ? "Previous rego state" : "Rego state", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}

@@ -37,8 +37,9 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Up to 10 photos and videos per listing, one of them a video (`lot_media_count`, trigger `lot_photo_limit`, `request_lot_video`; `MEDIA_MAX` in `src/lib/videos.ts`). Staff uploads from the editor are published straight away (`publishVideo` in `src/lib/videoPublish.ts`).
 - Every listing is `registration` 'registered' (plate, state, current expiry) or 'unregistered' (sold without plates); `lot_publish_check` enforces it. Search filter `rego`.
 
-## Sell page and plate lookups
-- `src/lib/rego.ts` (shared: tidy provider data, category from body type, `publicVehicle` strips the full VIN) and `src/lib/regoLookup.ts` (server: providers chosen by `REGO_LOOKUP_PROVIDER`; test mode returns made-up vehicles). `/api/rego-lookup` caches results in `rego_lookups` (server only, pruned after 90 days) and rate-limits; never send the full VIN or engine number to the browser. `/api/appraisals` copies the full lookup into the request by `lookupId`.
+## Sell page and vehicle lookups (our own, free)
+- `/api/rego-lookup` takes plate+state and/or a VIN. Default engine `freeLookup` in `src/lib/vinDecode.ts`: `plate_memory()` (plates we've listed), `vin_pattern()` (table `vin_patterns`, learned by trigger `learn_vin_pattern` from published listings, plus NZ open data loaded by `scripts/vin-data-nz.mjs`), NHTSA vPIC (only when it knows make and model; `VPIC_DISABLED`), then `src/lib/vin.ts` (WMI maker/country, model-year character). Never scrape the states' rego checks (their terms forbid it). Only staff-checked listings may teach `vin_patterns`. A paid provider (`src/lib/regoLookup.ts`) is optional and off by default.
+- `src/lib/rego.ts` (shared: tidy names, category from body/model, `publicVehicle` strips the full VIN and engine number). Results are cached in `rego_lookups` (server only, pruned after 90 days); `/api/appraisals` copies the full lookup by `lookupId`. Credit NZTA (CC BY 4.0) wherever its data is shown.
 
 ## Transfer of ownership (between payment and collection)
 - `ownership_transfers` (one per paid invoice, created by trigger `start_ownership_transfer`); buyer `transfer_submit`, seller `transfer_seller_done`, staff `admin_transfer_review`; `seller_lot_transfer` for the seller's view (never the buyer's documents). Trigger `collection_needs_transfer` blocks collection bookings until it's complete, so the address can't be released early. Proof files: private bucket `transfer-docs` via `/api/transfers/upload-url`.
@@ -60,4 +61,4 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Checks: `cd mobile && npm run typecheck && npm test`; `npx expo export -p ios -p android` must bundle. The web build (`npx expo export -p web`) is what the end-to-end tests drive.
 
 ## Tests
-`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser and finance maths (run it after changing `vehicles.ts`, `search.ts` or `finance.ts`). `tests/load/search-bench.mjs` times search at scale.
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser, finance maths, lookup tidying and VIN decoder (run it after changing `vehicles.ts`, `search.ts`, `finance.ts`, `rego.ts` or `vin.ts`). `tests/load/search-bench.mjs` times search at scale.

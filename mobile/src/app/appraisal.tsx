@@ -13,9 +13,14 @@ import { Icon } from "~/ui/art";
 import { C, F } from "~/ui/theme";
 
 type Registration = "registered" | "unregistered";
-type Found = { id: string | null; vehicle: RegoVehicle };
-const UNAVAILABLE = "We can't look vehicles up right now. Enter the details yourself.";
+type Found = { id: string | null; vehicle: RegoVehicle; sources: string[]; complete: boolean };
+type Lookup = { found: boolean; id: string | null; complete?: boolean; sources?: string[]; vehicle: RegoVehicle | null };
+const UNAVAILABLE = "We couldn't look it up just now. Enter the details below.";
 const STATE_OPTIONS = REGO_STATES.map((s) => [s, s] as [string, string]);
+
+// Where the details came from (the website's sourceLine in src/app/sell/AppraisalForm.tsx; keep them in step).
+const SOURCE: Record<string, string> = { "our records": "our records", "nz open data": "open vehicle data", nhtsa: "the VIN", vin: "the VIN" };
+const sourceLine = (sources: string[]) => `From ${[...new Set(sources.map((x) => SOURCE[x] || x))].join(" and ")}`;
 const isRegoState = (s?: string | null) => !!s && (REGO_STATES as readonly string[]).includes(s);
 
 /** Up to five names that start with what's been typed (the website's datalist). */
@@ -28,9 +33,9 @@ function Suggest({ value, options, onPick, testID }: { value: string; options: s
 }
 
 /**
- * Sell your vehicle (the website's AppraisalForm): type the plate (any state) and we fill in the
- * vehicle; the seller adds what only they know (kilometres, condition) and how to reach them.
- * Unregistered vehicles use the VIN instead, or the seller enters the details themselves. No account needed.
+ * Sell your vehicle (the website's AppraisalForm): the plate (any state) and, if they have it handy,
+ * the VIN. Our own free lookup fills in what it can; the seller checks it, adds what only they know
+ * (kilometres, condition) and how to reach them. No account needed.
  */
 export default function Appraisal() {
   const { me } = useSession();
@@ -42,8 +47,7 @@ export default function Appraisal() {
   const [looking, setLooking] = useState(false);
   const [lookErr, setLookErr] = useState("");
   const [found, setFound] = useState<Found | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
-  const [manual, setManual] = useState(false);
+  const [details, setDetails] = useState(false);
   const [kind, setKind] = useState("cars");
   const [m, setM] = useState({ year: "", make: "", model: "", variant: "" });
   const [v, setV] = useState({ odometer: "", postcode: p?.postcode || "", description: "", name: [p?.first_name, p?.last_name].filter(Boolean).join(" "), mobile: p?.mobile || "", email: me?.user?.email || "" });
@@ -55,7 +59,9 @@ export default function Appraisal() {
   const setMan = (k: keyof typeof m) => (t: string) => setM((x) => ({ ...x, [k]: t }));
 
   // The profile can arrive after the screen opens: fill in anything still empty.
-  useEffect(() => { if (isRegoState(p?.state)) setState(p!.state!); }, [p?.state]);
+  // Default to the member's state, unless they've already picked one.
+  const [stateTouched, setStateTouched] = useState(false);
+  useEffect(() => { if (!stateTouched && isRegoState(p?.state)) setState(p!.state!); }, [p?.state, stateTouched]);
   const email = me?.user?.email;
   useEffect(() => {
     setV((x) => ({
@@ -65,29 +71,34 @@ export default function Appraisal() {
     }));
   }, [email, p?.postcode, p?.mobile, p?.first_name, p?.last_name]);
 
-  const reset = () => { setFound(null); setConfirmed(false); setLookErr(""); };
+  const reset = () => { setFound(null); setLookErr(""); };
 
   async function lookup() {
-    setLookErr(""); setFound(null); setConfirmed(false);
-    const body = registration === "registered" ? { plate: normalizePlate(plate), state } : { vin: normalizeVin(vin) };
-    if (registration === "registered" && !body.plate) return setLookErr("Enter the plate.");
-    if (registration === "unregistered" && (body.vin || "").length !== 17) return setLookErr("A VIN is 17 letters and numbers. For an older chassis number, enter the details yourself.");
+    setLookErr(""); setFound(null);
+    const pl = normalizePlate(plate), vn = normalizeVin(vin);
+    if (registration === "registered" && !pl) return setLookErr("Enter the plate.");
+    if (vn && vn.length !== 17) return setLookErr("A VIN is 17 letters and numbers. For an older chassis number, enter the details yourself.");
+    if (registration === "unregistered" && !vn) return setLookErr("Enter the VIN, or enter the details yourself.");
     setLooking(true);
+    let d: Lookup | null = null, err = "";
     try {
-      const d = await api<{ found: boolean; id: string | null; vehicle: RegoVehicle | null }>("/api/rego-lookup", { body });
-      if (!d.found || !d.vehicle) {
-        setLookErr(registration === "registered" ? `We couldn't find ${body.plate} in ${state}. Check the plate and state, or enter the details yourself.` : "We couldn't find that VIN. Check it, or enter the details yourself.");
-      } else {
-        setFound({ id: d.id, vehicle: d.vehicle });
-        if (d.vehicle.category && CAT[d.vehicle.category]) setKind(d.vehicle.category);
-        setManual(false);
-      }
+      d = await api<Lookup>("/api/rego-lookup", { body: { plate: registration === "registered" ? pl : "", state, vin: vn } });
     } catch (e) {
-      // Not available (503), too many lookups (429), or offline: carry on by hand.
-      setLookErr(e instanceof ApiError && typeof e.data.error === "string" ? e.data.error : UNAVAILABLE);
-      setManual(true);
+      // Too many lookups (429), a bad request, or offline: the seller carries on by hand.
+      err = e instanceof ApiError && typeof e.data.error === "string" && e.data.error ? e.data.error : UNAVAILABLE;
     }
     setLooking(false);
+    // Whatever happened, the details fields appear (prefilled when we found something).
+    setDetails(true);
+    if (!d) { setLookErr(err || UNAVAILABLE); return; }
+    if (!d.found || !d.vehicle) {
+      setLookErr(vn ? "We couldn't fill this in from the VIN. Enter the details below." : `We don't have ${pl} on record yet. Add the VIN to fill in the details, or enter them below.`);
+      return;
+    }
+    const fv = d.vehicle;
+    setFound({ id: d.id, vehicle: fv, sources: d.sources || [], complete: !!d.complete });
+    setM((x) => ({ year: fv.year ? String(fv.year) : x.year, make: fv.make || x.make, model: fv.model || x.model, variant: fv.variant || x.variant }));
+    if (fv.category && CAT[fv.category]) setKind(fv.category);
   }
 
   async function submit() {
@@ -96,8 +107,8 @@ export default function Appraisal() {
       const paths = photos.length ? await uploadPhotos("appraisal-photos", `app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, photos.slice(0, 12)) : [];
       const d = await api<{ ref: string }>("/api/appraisals", { body: {
         odometer: CAT[kind]?.usage === "none" ? "" : v.odometer, postcode: v.postcode, description: v.description, name: v.name, mobile: v.mobile, email: v.email,
-        kind, registration, rego: normalizePlate(plate), state, vin: normalizeVin(vin), lookupId: confirmed ? found?.id ?? null : null,
-        ...(confirmed ? {} : m), photos: paths,
+        kind, registration, rego: registration === "registered" ? normalizePlate(plate) : "", state, vin: normalizeVin(vin), lookupId: found?.id || null,
+        ...m, photos: paths,
       } });
       setDone({ ref: d.ref, name: v.name.trim().split(" ")[0] });
     } catch (e) {
@@ -122,61 +133,59 @@ export default function Appraisal() {
   }
 
   const usage = CAT[kind]?.usage;
-  const ready = confirmed || manual;
+  const ready = details;
   const fv = found?.vehicle;
-  const facts = fv ? [fv.vinEnding ? `VIN ending ${fv.vinEnding}` : null, fv.regoExpiry ? `Rego expires ${expiryDate(fv.regoExpiry)}` : null, fv.engine].filter(Boolean).join(" · ") : "";
+  const facts = fv ? [fv.vinEnding ? `VIN ending ${fv.vinEnding}` : null, fv.country ? `Made in ${fv.country}` : null, fv.regoExpiry ? `Rego expires ${expiryDate(fv.regoExpiry)}` : null, fv.engine].filter(Boolean).join(" · ") : "";
   const fieldErrors = Object.keys(errors).filter((k) => k !== "make" && k !== "form");
+  const again = details && !found && !looking && !!(normalizePlate(plate) || normalizeVin(vin));
 
   return (
     <Screen keyboard testID="appraisal">
       <View style={{ gap: 4 }}>
         <T v="d3">Sell your vehicle.</T>
-        <T v="muted">Start with the plate. We fill in the rest.</T>
+        <T v="muted">Start with the plate and VIN. We fill in what we can.</T>
       </View>
 
       <Segmented testID="registration" options={[["registered", "Registered"], ["unregistered", "Unregistered"]]} value={registration}
-        onChange={(r) => { setRegistration(r); reset(); setManual(false); }} />
+        onChange={(r) => { setRegistration(r); reset(); }} />
 
       {registration === "registered" ? (
         <View style={s.plateRow}>
           <Field testID="rego-plate" label="Rego plate" value={plate} onChangeText={(t) => { setPlate(t.toUpperCase()); reset(); }} placeholder="ABC123" autoCapitalize="characters" autoCorrect={false} autoComplete="off" spellCheck={false} maxLength={10}
             returnKeyType="search" onSubmitEditing={() => { void lookup(); }} error={errors.rego} inputStyle={s.plate} style={{ flex: 1 }} />
-          <View style={{ width: 104 }}><Select testID="rego-state" label="State" value={state} options={STATE_OPTIONS} placeholder="State" onChange={(x) => { if (x) { setState(x); reset(); } }} /></View>
+          <View style={{ width: 104 }}><Select testID="rego-state" label="State" value={state} options={STATE_OPTIONS} placeholder="State" onChange={(x) => { if (x) { setState(x); setStateTouched(true); reset(); } }} /></View>
         </View>
       ) : (
-        <View style={s.plateRow}>
-          <Field testID="rego-vin" label="VIN or chassis number" value={vin} onChangeText={(t) => { setVin(t.toUpperCase()); reset(); }} placeholder="17 characters" autoCapitalize="characters" autoCorrect={false} autoComplete="off" spellCheck={false} maxLength={20}
-            returnKeyType="search" onSubmitEditing={() => { void lookup(); }} error={errors.vin} inputStyle={[s.plate, { fontSize: 18, letterSpacing: 0.8 }]} style={{ flex: 1 }} />
-          <View style={{ width: 104 }}><Select testID="rego-state" label="State it's in" value={state} options={STATE_OPTIONS} placeholder="State" onChange={(x) => { if (x) setState(x); }} /></View>
-        </View>
+        <Select testID="rego-state" label="State it's in" value={state} options={STATE_OPTIONS} placeholder="State" onChange={(x) => { if (x) { setState(x); setStateTouched(true); } }} />
       )}
       {errors.state ? <T v="small" style={{ color: C.badInk, fontFamily: F.semibold, marginTop: -12 }}>{errors.state}</T> : null}
+      <Field testID="sell-vin" label={registration === "registered" ? "VIN (fills in the details)" : "VIN or chassis number"} value={vin} onChangeText={(t) => { setVin(t.toUpperCase()); reset(); }}
+        placeholder="17 letters and numbers" autoCapitalize="characters" autoCorrect={false} autoComplete="off" spellCheck={false} maxLength={20}
+        returnKeyType="search" onSubmitEditing={() => { void lookup(); }} error={errors.vin} inputStyle={s.vin}
+        hint="On the rego papers, and on a plate at the bottom of the windscreen or inside the driver's door." />
 
-      {!found && !manual ? (
+      {!details ? (
         <View style={{ gap: 14, alignItems: "flex-start" }}>
-          <Button testID="rego-lookup" kind="dark" title={looking ? "Looking it up…" : "Find my vehicle"} disabled={looking} onPress={lookup} />
-          <LinkText testID="rego-manual" title="Enter the details yourself" onPress={() => { setManual(true); setLookErr(""); }} />
+          <Button testID="rego-lookup" kind="dark" title={looking ? "Looking it up…" : "Fill in the details"} disabled={looking} onPress={lookup} />
+          <LinkText testID="rego-manual" title="Enter them yourself" onPress={() => { setDetails(true); setLookErr(""); }} />
         </View>
       ) : null}
+      {again ? <LinkText testID="rego-again" title="Fill in from the plate and VIN again" onPress={() => { void lookup(); }} style={{ alignSelf: "flex-start" }} /> : null}
       {lookErr ? <Notice>{lookErr}</Notice> : null}
 
       {found && fv ? (
-        <View testID="rego-found" style={[s.found, confirmed && { backgroundColor: C.mint }]}>
-          <T v="eyebrow" style={{ color: C.ink2 }}>{confirmed ? "Your vehicle" : "Is this your vehicle?"}{fv.test ? " · test data" : ""}</T>
+        <View testID="rego-found" style={s.found}>
+          <T v="eyebrow" style={{ color: C.ink2 }}>{sourceLine(found.sources)}{fv.test ? " · test data" : ""}</T>
           <Text style={s.foundTitle}>{fv.description}</Text>
           {vehicleLine(fv) ? <T v="body">{vehicleLine(fv)}</T> : null}
-          {facts ? <T v="small" style={{ color: confirmed ? C.ink2 : C.muted }}>{facts}</T> : null}
-          {!confirmed ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-              <Button testID="rego-confirm" small title="Yes, that's it" onPress={() => setConfirmed(true)} />
-              <Button testID="rego-reject" small kind="white" title="No, enter it myself" onPress={() => { setFound(null); setManual(true); }} />
-            </View>
-          ) : null}
+          {facts ? <T v="small" style={{ color: C.ink2 }}>{facts}</T> : null}
+          <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{found.complete ? "Check the details below and fix anything that's wrong." : "Fill in the rest below."}</T>
+          {found.sources.includes("nz open data") ? <T v="small" style={{ color: C.ink2 }}>Includes open data from NZ Transport Agency Waka Kotahi (CC BY 4.0).</T> : null}
         </View>
       ) : null}
 
       {ready ? <Select testID="appraisal-kind" label="What is it?" value={kind} options={CATEGORIES.map((c) => [c.key, c.label] as [string, string])} placeholder="Cars" onChange={(k) => setKind(k || "cars")} /> : null}
-      {manual && !confirmed ? (
+      {details ? (
         <>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Field testID="appraisal-year" label="Year" value={m.year} onChangeText={(t) => setMan("year")(t.replace(/\D/g, "").slice(0, 4))} keyboardType="number-pad" maxLength={4} placeholder="2017" error={errors.year} style={{ width: 96 }} />
@@ -229,7 +238,8 @@ export default function Appraisal() {
 const s = StyleSheet.create({
   plateRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   plate: { height: 64, fontFamily: F.heavy, fontSize: 24, letterSpacing: 2 },
-  found: { gap: 6, paddingVertical: 18, paddingHorizontal: 20, borderRadius: 24, backgroundColor: C.panel },
+  vin: { fontFamily: F.bold, letterSpacing: 1 },
+  found: { gap: 6, paddingVertical: 18, paddingHorizontal: 20, borderRadius: 24, backgroundColor: C.mint },
   foundTitle: { fontFamily: F.heavy, fontSize: 22, lineHeight: 27, letterSpacing: -0.4, color: C.ink },
   suggest: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -10 },
   drop: { flexDirection: "row", gap: 14, alignItems: "flex-start", padding: 16, borderRadius: 16, borderWidth: 2, borderStyle: "dashed", borderColor: "#CFCFD6" },

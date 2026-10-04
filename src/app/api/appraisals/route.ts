@@ -34,11 +34,11 @@ export async function POST(req: Request) {
   let lookupId: string | null = null;
   if (typeof b.lookupId === "string" && /^[0-9a-f-]{36}$/.test(b.lookupId)) {
     const { data: l } = await admin.from("rego_lookups").select("id, plate, state, vin, found, vehicle").eq("id", b.lookupId).maybeSingle();
-    if (l?.found && ((l.plate && l.plate === rego && l.state === state) || (!l.plate && l.vin && l.vin === vin))) { vehicle = l.vehicle as RegoVehicle; lookupId = l.id; }
+    if (l?.found && ((l.plate && l.plate === rego && l.state === state) || (l.vin && l.vin === vin))) { const { sources: _s, ...lv } = l.vehicle as RegoVehicle & { sources?: string[] }; vehicle = lv; lookupId = l.id; }
   }
   const typed: RegoVehicle = { year: Number(b.year) || null, make: clip(b.make, 40) || null, model: clip(b.model, 40) || null, variant: clip(b.variant, 60) || null };
   vehicle = finishVehicle({ ...vehicle, ...Object.fromEntries(Object.entries(typed).filter(([, v]) => v)), category: kind as RegoVehicle["category"] });
-  if (!lookupId && !(vehicle.make && vehicle.model)) err.make = "Tell us the make and model.";
+  if (!(vehicle.make && vehicle.model)) err.make = "Tell us the make and model.";
   if (Object.keys(err).length) return json({ errors: err }, 400);
   if (!(await allow(`appraisal:${await clientIp()}`, 10, 3600))) return fail("Too many requests. Please call us instead.", 429);
 

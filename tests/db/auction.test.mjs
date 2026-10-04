@@ -544,6 +544,25 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select * from transfer_completed('00000000-0000-0000-0000-000000000000')`); ok('transfer: internal step not callable', !!r.error);
 }
 
+// ---------- free lookup: our own plate memory and VIN patterns ----------
+{
+  r = await as('service', `select make, model, exact, source from vin_pattern('JTNBV58E09J000999')`); ok('vin: same first 8 and year character finds the model', r.rows?.[0]?.make === 'Toyota' && r.rows[0].model === 'Corolla' && r.rows[0].exact === true && r.rows[0].source === 'listing', JSON.stringify(r));
+  r = await as('service', `select make, model, exact, year from vin_pattern('JTNBV58E0AJ000111')`); ok('vin: another year still finds the model (year left out)', r.rows?.[0]?.model === 'Corolla' && r.rows[0].exact === false && r.rows[0].year === null, JSON.stringify(r));
+  r = await as('service', `select count(*)::int n from vin_pattern('ZZZZZZZZZZZZZZZZZ')`); ok('vin: unknown VIN finds nothing', r.rows?.[0]?.n === 0);
+  r = await as('service', `select count(*)::int n from vin_pattern('short')`); ok('vin: invalid VIN finds nothing', r.rows?.[0]?.n === 0);
+  r = await as('service', `select make, model, vin from plate_memory('smpl32', 'qld')`); ok('plate: a plate we have listed is remembered', r.rows?.[0]?.make === 'Toyota' && r.rows[0].vin === 'JTNBV58E09J000432', JSON.stringify(r));
+  r = await as('service', `select count(*)::int n from plate_memory('NOPE99', 'QLD')`); ok('plate: unknown plate finds nothing', r.rows?.[0]?.n === 0);
+  r = await as('anon', `select * from vin_pattern('JTNBV58E09J000999')`); ok('vin: the public cannot query patterns', !!r.error);
+  r = await as('A', `select * from plate_memory('SMPL32', 'QLD')`); ok('plate: members cannot query plate memory', !!r.error);
+  r = await as('A', `select * from vin_patterns`); ok('vin: members cannot read patterns', r.rows?.length === 0 || !!r.error);
+  await c.query(`insert into lots (id, status, title, make, model, vin) values (10997, 'draft', 'Draft ute', 'Toyota', 'HiLux', 'MR0FB22G400000997')`);
+  r = await as('service', `select count(*)::int n from vin_pattern('MR0FB22G400000123')`); ok('vin: drafts do not teach', r.rows?.[0]?.n === 0);
+  await c.query(`update lots set status = 'live' where id = 10997`);
+  r = await as('service', `select make, model from vin_pattern('MR0FB22G400000123')`); ok('vin: publishing a listing teaches its VIN pattern', r.rows?.[0]?.model === 'HiLux', JSON.stringify(r));
+  await c.query(`update lots set model = 'HiLux SR5' where id = 10997`);
+  r = await as('service', `select string_agg(model, ',' order by model) m from vin_patterns where left(prefix, 8) = 'MR0FB22G'`); ok('vin: a corrected model is learned too', r.rows?.[0]?.m === 'HiLux,HiLux SR5', JSON.stringify(r));
+}
+
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));
 await c.end();

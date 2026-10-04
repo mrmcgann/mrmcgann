@@ -1,13 +1,11 @@
 import "server-only";
 import { finishVehicle, type RegoVehicle } from "@/lib/rego";
-import { env } from "@/lib/env";
 
-// Plate (and VIN) lookups against a paid vehicle-data provider. Choose one with
-// REGO_LOOKUP_PROVIDER and its key in REGO_LOOKUP_KEY:
+// OPTIONAL paid plate lookups. By default the site uses our own free lookup (src/lib/vinDecode.ts)
+// and this file isn't used. To switch a paid provider on, set REGO_LOOKUP_PROVIDER and REGO_LOOKUP_KEY:
 //   carregistrationapi  carregistrationapi.com (self-serve, about $0.30 a lookup). Key = your username.
 //   autograb            AutoGrab (api.autograb.com.au). Key = your ApiKey. Also does VIN lookups.
-// Blue Flag and InfoAgent (NEVDIS data from every state) can be added here once you have their API docs.
-// In test mode with no provider set, made-up sample vehicles come back (plate NOTFOUND finds nothing).
+// REGO_LOOKUP_PROVIDER=test returns made-up sample vehicles (plate NOTFOUND finds nothing).
 
 export class LookupUnavailable extends Error {}
 export type LookupResult = { found: boolean; provider: string; vehicle: RegoVehicle };
@@ -16,9 +14,11 @@ const PROVIDER = (process.env.REGO_LOOKUP_PROVIDER || "").toLowerCase();
 const KEY = process.env.REGO_LOOKUP_KEY || "";
 const TIMEOUT = 12000;
 
+/** The paid provider switched on, if any ("test" for made-up data); null means use our own free lookup. */
 export function lookupProvider() {
+  if (PROVIDER === "test") return "test";
   if (PROVIDER && KEY) return PROVIDER;
-  return env.testMode ? "test" : null;
+  return null;
 }
 
 export async function lookupPlate(plate: string, state: string): Promise<LookupResult> {

@@ -23,7 +23,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - No in-person viewings: buyers order an independent mobile inspection, or call the vehicle's consultant
 - Finance and insurance comparison (`/finance`, `/insurance`), with a repayment estimate on every listing; enquiries go to partners only with the member's permission
 - Delivery quote request, report a concern
-- Sell page: type the rego plate (any state) and the vehicle details fill in; the seller adds kilometres, condition and photos. Unregistered vehicles use the VIN or are typed in
+- Sell page: type the rego plate (any state) and VIN, and our own free lookup fills in the vehicle (vehicles we've listed, VIN patterns we've learned, NZ open data, the VIN itself); the seller checks it and adds kilometres, condition and photos
 - Transfer of ownership between payment and collection: registered vehicles are transferred into the buyer's name (seller lodges their part, buyer uploads the confirmation, we check it); unregistered vehicles get a certificate of sale and the buyer says how they'll move it. The pickup address is only released after payment, the transfer and a confirmed collection time
 - Help centre, Terms of sale, Privacy policy
 
@@ -68,8 +68,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    7. `supabase/migrations/20261003000007_app.sql` (phone apps: push notifications, account deletion)
    8. `supabase/migrations/20261003000008_media_partners.sql` (listing videos, blurred bidder names, consultants, finance/insurance/inspection partners and enquiries)
    9. `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on every listing, one video inside 10 photos and videos, plate lookups, transfer of ownership before collection)
-   10. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   11. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   10. `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup)
+   11. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   12. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -137,7 +138,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 ## Test it after your first deploy (test mode)
 - [ ] Join with a real email address: the 6-digit email code arrives and works
 - [ ] Add details, then SMS code `123456`, test card, test ID
-- [ ] On the Sell page, type a plate: the vehicle fills in (test data in test mode); send the request and see it in Admin → Appraisals
+- [ ] On the Sell page, type a plate you've listed (it fills in from our records), then a VIN you haven't (it fills in the maker and year); send the request and see it in Admin → Appraisals
 - [ ] As admin, list a vehicle ending in 15 minutes with a reserve, registered (plate, state, expiry), and publish it; add a video in the editor and see it second in the gallery
 - [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
 - [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
@@ -163,7 +164,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
 
 ## Automated tests
-`npm run test:db` runs 299 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths and the plate lookup tidying.
+`npm run test:db` runs 311 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying and the VIN decoder.
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -186,11 +187,17 @@ Like carsales and Trade Me, the site earns from finance, insurance and inspectio
 5. **Consultants**: add your real consultant(s) in **Admin → Consultants**, pick one per listing in the vehicle editor, and make one the default.
 6. Clicks and enquiries per partner are in **Admin → Partners**; mark each enquiry's outcome and the fee received in **Admin → Leads**, and download the CSV for invoicing partners.
 
-## Plate lookups (Sell page)
-Sellers type their plate and state, and the make, model, year, body, colour, VIN and (where the provider has it) rego expiry fill in. Lookups are paid per search, so results are kept for 30 days and reused, limited to 10 an hour and 25 a day per person, and capped at `REGO_LOOKUP_DAILY_CAP` (default 300) a day in total. The full VIN is never sent to the browser: the seller sees "VIN ending 123456" and the full VIN is saved with their request for your team.
-1. **Pick a provider.** Quickest to start: **CarRegistrationAPI** (carregistrationapi.com, self-serve, about A$0.30 a lookup, all states; fields vary by state: Victoria gives the expiry, Queensland gives little more than the VIN). Better data from every state's register (NEVDIS): **Blue Flag** (blueflag.com.au, pay per request, needs an ABN) or **InfoAgent**; once you have their API documents, they can be added to `src/lib/regoLookup.ts`. **AutoGrab** is also supported.
-2. In Vercel, set `REGO_LOOKUP_PROVIDER` (`carregistrationapi` or `autograb`) and `REGO_LOOKUP_KEY` (your CarRegistrationAPI username, or your AutoGrab API key).
-3. Without a provider, sellers enter the details themselves. In test mode the lookup returns made-up vehicles (marked "test data"); the plate NOTFOUND finds nothing.
+## Plate and VIN lookups (Sell page): our own, free
+Sellers type their plate and state, and the VIN if they have it handy; the form fills in what it can, and they check and correct it. It costs nothing to run and doesn't scrape anyone: the states' free rego checks don't allow automated use (Queensland, Victoria and WA say so in their terms, and Queensland and NSW sit behind reCAPTCHA), and full rego records are only sold through paid channels. Instead, in this order (`src/lib/vinDecode.ts`):
+1. **Our records.** A plate we've listed before fills in straight away (year, make, model, variant, body, colour, fuel, VIN).
+2. **What we've learned from VINs.** Every vehicle we publish, checked by our team against the papers and the PPSR, teaches the system what its VIN pattern means (`vin_patterns`). Members can't teach it, so nobody can feed it wrong details.
+3. **New Zealand's open vehicle register** (optional, free, CC BY 4.0). NZ has most of the same right-hand-drive models, so its 5-million-vehicle register tells us what most VIN patterns are. To load it: download the Motor Vehicle Register CSV files from [NZTA's open data portal](https://opendata-nzta.opendata.arcgis.com/datasets/NZTA::motor-vehicle-register) into a folder, unzip any zips, then run `npm run vin-data -- path/to/folder --upload` (it needs `.env.local` with your Supabase URL and service role key). Run it again every few months with newer files. The sell form credits NZTA whenever its data is used.
+4. **NHTSA's free VIN decoder** (US government, no key). It mostly knows US-market vehicles, so it's used only when it recognises both the make and the model. Set `VPIC_DISABLED=true` to turn it off.
+5. **The VIN itself.** Who made it and where (the first characters) and the likely model year (the 10th character).
+
+The full VIN never goes to the browser ("VIN ending 123456"); it's saved with the seller's request for your team. Lookups are limited to 20 an hour and 60 a day per person. In the vehicle editor, **Fill in empty fields from the VIN** uses the same lookup, and **Check the rego free** opens the state's own rego check for a person to look at (allowed for manual use).
+
+Optional, if you ever want plate-only lookups for vehicles we haven't seen: a paid provider can be switched on with `REGO_LOOKUP_PROVIDER` (`carregistrationapi` or `autograb`) and `REGO_LOOKUP_KEY`. It's off unless you set them.
 
 ## Transfer of ownership (between payment and collection)
 When an invoice is paid in full, the buyer's invoice shows a **Transfer of ownership** step and the seller's dashboard shows theirs, with the steps and official links for the vehicle's state (`src/lib/transfer.ts`, checked October 2026; recheck each state's page before launch).
@@ -218,7 +225,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
 - [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
 - [ ] Storage upload limit raised to 250 MB
-- [ ] Plate lookup provider set up (`REGO_LOOKUP_PROVIDER`, `REGO_LOOKUP_KEY`) and tried with a real plate from each state you sell in
+- [ ] NZ open vehicle data loaded (`npm run vin-data -- folder --upload`), and the Sell page tried with a few real VINs
 - [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)
 - [ ] A full test sale with a real card, then refunded in Stripe
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
