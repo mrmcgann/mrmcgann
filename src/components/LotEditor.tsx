@@ -5,7 +5,9 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { BACKDROPS, GRADES, STATES } from "@/lib/grades";
 import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@/lib/vehicles";
-import { photoUrl } from "@/lib/photos";
+import { photoUrl, videoUrl } from "@/lib/photos";
+import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
+import { env } from "@/lib/env";
 import { AdminAction } from "@/components/AdminAction";
 
 export interface SellerInfo {
@@ -32,7 +34,7 @@ const toLocal = (iso: unknown) => {
 const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
 const num = (v: string) => (v === "" ? null : Number(v));
 
-export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaws, seller }: { lot: Row | null; priv: Row | null; photos: Row[]; flaws: Row[]; seller?: SellerInfo }) {
+export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaws, seller, videos = [] }: { lot: Row | null; priv: Row | null; photos: Row[]; flaws: Row[]; seller?: SellerInfo; videos?: Row[] }) {
   const router = useRouter();
   const db = supabaseBrowser();
   const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([]);
@@ -44,6 +46,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", ...(priv || {}) });
   const [photos, setPhotos] = useState<Row[]>(initialPhotos);
   const [flaws, setFlaws] = useState<Row[]>(initialFlaws);
+  const [vids, setVids] = useState<Row[]>(videos);
+  const [vidProgress, setVidProgress] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const id = lot?.id as number | undefined;
@@ -66,13 +70,14 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   function normalize(f: Row) {
     const out: Row = {};
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
-      "vin", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
+      "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
     for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.write_off_status = f.write_off_status || "unknown";
     if (out.vin) out.vin = String(out.vin).toUpperCase().replace(/\s/g, "");
+    if (out.rego_plate) out.rego_plate = String(out.rego_plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
     out.featured = f.featured === true || f.featured === "true";
     out.updated_at = new Date().toISOString();
@@ -112,23 +117,31 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   }
 
   async function publish() {
-    const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"]].filter(([k]) => !f[k]).map(([, l]) => l);
+    const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
+      ...(f.registration === "registered" ? [["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry"]] : [])].filter(([k]) => !f[k]).map(([, l]) => l);
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
     if (new Date(String(f.ends_at)).getTime() < Date.now() + 3600000) { setMsg({ kind: "bad", text: "The end time must be at least an hour away." }); return; }
+    if (f.registration === "registered" && f.rego_expiry && String(f.rego_expiry) < new Date().toISOString().slice(0, 10)) { setMsg({ kind: "bad", text: "The registration has expired. Renew it, or list the vehicle as unregistered." }); return; }
     if (!photos.length && !confirm("This vehicle has no photos yet. Publish anyway?")) return;
     await save({ status: "live", starts_at: f.starts_at || new Date().toISOString(), ...(hasBids ? {} : { current_bid: Number(f.start_price || 100) }) }, "Published. It's live on the site.");
   }
 
+  const liveVideos = vids.filter((v) => v.status === "pending" || v.status === "approved");
+  const mediaUsed = photos.length + liveVideos.length;
   async function uploadPhotos(files: FileList | null) {
     if (!files || !id) return;
+    const room = MEDIA_MAX - mediaUsed;
+    if (room <= 0) { setMsg({ kind: "bad", text: "A listing can have 10 photos and videos in total. Delete one first." }); return; }
+    if (files.length > room) setMsg({ kind: "bad", text: `Only ${room} more fit (10 photos and videos in total). The first ${room} were added.` });
     setBusy(true);
     let sort = photos.length;
     const added: Row[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of Array.from(files).slice(0, room)) {
       const path = `${id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       const { error } = await db.storage.from("lot-photos").upload(path, file, { contentType: file.type });
       if (error) { setMsg({ kind: "bad", text: `Upload failed: ${error.message}` }); continue; }
-      const { data } = await db.from("lot_photos").insert({ lot_id: id, path, angle: ANGLES[Math.min(sort, 3)], sort }).select("*").single();
+      const { data, error: ie } = await db.from("lot_photos").insert({ lot_id: id, path, angle: ANGLES[Math.min(sort, 3)], sort }).select("*").single();
+      if (ie) { await db.storage.from("lot-photos").remove([path]); setMsg({ kind: "bad", text: ie.message.includes("media_limit") ? "A listing can have 10 photos and videos in total." : ie.message }); break; }
       if (data) added.push(data);
       sort++;
     }
@@ -152,6 +165,46 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     await db.from("lot_photos").delete().eq("id", ph.id);
     await db.storage.from("lot-photos").remove([String(ph.path)]);
     setPhotos(photos.filter((x) => x.id !== ph.id));
+  }
+
+  // One video per listing, inside the 10. Staff uploads go straight onto the listing.
+  async function uploadVideo(file: File | undefined) {
+    if (!file || !id) return;
+    if (!VIDEO_TYPES[file.type]) { setMsg({ kind: "bad", text: "Use an MP4, MOV or WebM video." }); return; }
+    if (file.size > VIDEO_MAX) { setMsg({ kind: "bad", text: "Videos can be up to 250 MB." }); return; }
+    setMsg(null); setVidProgress(0);
+    try {
+      const r1 = await fetch("/api/videos/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: id, size: file.size, mime: file.type }) });
+      const s1 = await r1.json();
+      if (!r1.ok) throw new Error(s1.error || "Couldn't start the upload.");
+      await new Promise<void>((resolve, reject) => {
+        const x = new XMLHttpRequest();
+        x.open("PUT", s1.signedUrl);
+        x.setRequestHeader("content-type", file.type);
+        x.setRequestHeader("x-upsert", "false");
+        if (env.supabaseAnonKey) x.setRequestHeader("apikey", env.supabaseAnonKey);
+        x.upload.onprogress = (e) => { if (e.lengthComputable) setVidProgress(Math.round((e.loaded / e.total) * 100)); };
+        x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : reject(new Error("The upload didn't finish.")));
+        x.onerror = () => reject(new Error("The upload didn't finish."));
+        x.send(file);
+      });
+      const r2 = await fetch("/api/videos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: id, path: s1.path, title: "Walkaround" }) });
+      const d2 = await r2.json();
+      if (!r2.ok) throw new Error(d2.error || "Couldn't add the video.");
+      const { data } = await db.from("lot_videos").select("*").eq("lot_id", id).in("status", ["pending", "approved"]);
+      setVids(data || []);
+      setMsg({ kind: "ok", text: "Video added. It's on the listing now." });
+    } catch (e) {
+      setMsg({ kind: "bad", text: e instanceof Error ? e.message : "Couldn't upload the video." });
+    } finally {
+      setVidProgress(null);
+    }
+  }
+  async function removeVideo(v: Row) {
+    if (!confirm("Remove this video from the listing?")) return;
+    const r = await fetch(`/api/videos/${v.id}`, { method: "DELETE" });
+    if (r.ok) setVids(vids.filter((x) => x.id !== v.id));
+    else setMsg({ kind: "bad", text: "Couldn't remove the video." });
   }
 
   async function addFlaw() {
@@ -235,11 +288,17 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Facts &amp; checks</h2>
         <p className="hint">These are the facts buyers can claim on (the ACCC fined Grays $10m for listings with the wrong year, transmission and missing damage). Check them against the rego papers and the PPSR certificate. Required before publishing.</p>
-        <div className="grid3">{inp("vin", "VIN", { placeholder: "17 characters" })}{inp("rego_plate", "Rego plate")}{sel("rego_state", "Rego state", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}</div>
         <div className="grid3">
-          <label className="field"><span>Rego expiry</span><input className="input" type="date" value={String(f.rego_expiry || "")} onChange={set("rego_expiry")} /></label>
-          {inp("build_date", "Build date", { placeholder: "03/2009" })}{inp("compliance_date", "Compliance date", { placeholder: "05/2009" })}
+          {sel("registration", "Registration (required)", [["", "Choose…"], ["registered", "Registered"], ["unregistered", "Unregistered (sold without plates)"]])}
+          {inp("vin", "VIN", { placeholder: "17 characters" })}{inp("engine_no", "Engine number", { placeholder: "On the certificate of sale" })}
         </div>
+        <div className="grid3">
+          {inp("rego_plate", f.registration === "unregistered" ? "Previous rego plate (if any)" : "Rego plate")}
+          {sel("rego_state", f.registration === "unregistered" ? "Previous rego state" : "Rego state", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}
+          {f.registration === "unregistered" ? <span className="hint" style={{ alignSelf: "center" }}>Buyers move it by carrier, trailer or permit. The certificate of sale is their record of ownership.</span>
+            : <label className="field"><span>Rego expiry</span><input className="input" type="date" value={String(f.rego_expiry || "")} onChange={set("rego_expiry")} /></label>}
+        </div>
+        <div className="grid2">{inp("build_date", "Build date", { placeholder: "03/2009" })}{inp("compliance_date", "Compliance date", { placeholder: "05/2009" })}</div>
         <div className="grid3">
           {sel("write_off_status", "Write-off status (PPSR)", [["unknown", "Not checked yet"], ["none", "Not written off"], ["repairable", "Repairable write-off"], ["statutory", "Statutory write-off"]])}
           <label className="field"><span>Stolen check (PPSR)</span><select className="input" value={f.stolen_clear == null ? "" : String(f.stolen_clear)} onChange={(e) => setF({ ...f, stolen_clear: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Not checked</option><option value="true">Not recorded as stolen</option><option value="false">Recorded as stolen: DO NOT LIST</option></select></label>
@@ -254,7 +313,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           {inp("video_url", "External video link (optional, e.g. YouTube)", { placeholder: "https://…" })}
           <label className="field"><span>Consultant shown on the listing</span><select className="input" value={String(f.consultant_id || "")} onChange={(e) => setF({ ...f, consultant_id: e.target.value || null })}><option value="">Default consultant</option>{consultants.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         </div>
-        <span className="hint">Seller-uploaded videos are approved in <a className="blue" href="/admin/videos">Videos</a>.</span>
+        <span className="hint">Add the listing&apos;s own video under Photos and video. Sellers&apos; videos are approved in <a className="blue" href="/admin/videos">Videos</a>.</span>
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -276,10 +335,25 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Photos</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Photos and video</h2>
         {!id ? <p className="muted">Save the listing first, then add photos.</p> : (
           <>
-            <label className="drop"><b>Add photos</b><span className="hint">Upload the studio shots on their colour backdrop. The first photo is the cover.</span><input type="file" multiple accept="image/*" hidden onChange={(e) => uploadPhotos(e.target.files)} /></label>
+            <span className="muted" data-testid="media-count">{mediaUsed} of {MEDIA_MAX} used: up to 10 photos and videos, one of them a video. The first photo is the cover; the video shows second.</span>
+            <div className="grid2">
+              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">Studio shots on their colour backdrop.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
+              {liveVideos.length === 0 ? (
+                <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">One walkaround, MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
+              ) : (
+                <div className="soft" style={{ gap: 8 }}>
+                  {liveVideos.map((v) => (
+                    <div key={String(v.id)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {v.public_path ? <video src={videoUrl(String(v.public_path))} controls preload="metadata" style={{ width: "100%", borderRadius: 12, background: "#000", aspectRatio: "16 / 9" }} /> : null}
+                      <span style={{ display: "flex", gap: 8, fontSize: 14 }}><b>Video</b><span className="muted">{VIDEO_STATUS[String(v.status)]}</span>{v.status === "pending" && <a className="blue" href="/admin/videos">Review ›</a>}<button className="linkbtn" style={{ color: "#B4123E", marginLeft: "auto" }} onClick={() => removeVideo(v)}>Remove</button></span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 12 }}>
               {photos.map((ph, i) => (
                 <div key={String(ph.id)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>

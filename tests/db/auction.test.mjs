@@ -193,6 +193,12 @@ r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('still b
 await as('ADM', `update lot_private set ownership_checked_at=now() where lot_id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('still blocked until VIN + PPSR', r.error?.includes('VIN'), r.error);
 await as('ADM', `update lots set vin='JTDBR32E720000000', ppsr_checked_at=now(), ppsr_cert_no='123' where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('registration: must say registered or unregistered', r.error?.includes('registered or unregistered'), r.error);
+await as('ADM', `update lots set registration='registered' where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('registration: registered needs plate, state and expiry', r.error?.includes('rego plate'), r.error);
+await as('ADM', `update lots set rego_plate='ABC123', rego_state='QLD', rego_expiry=current_date - 1 where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('registration: expired rego cannot be listed as registered', r.error?.includes('expired'), r.error);
+await as('ADM', `update lots set rego_expiry=current_date + 90 where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('publishes once every check is done', !r.error, r.error);
 r = await as('service', `select published_at is not null p from lots where id=${SL}`); ok('published time recorded', r.rows?.[0]?.p === true);
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'live:${SL}%'`); ok('seller told their vehicle is live', r.rows?.[0]?.n >= 1);
@@ -218,6 +224,39 @@ r = await as('service', `select * from seller_payouts where invoice_id='${SINV}'
 ok('seller payout prepared (finance paid out first)', Number(r.rows?.[0]?.lender_payout) === 3000 && Number(r.rows[0].net_amount) === 1100 && r.rows[0].status === 'pending', JSON.stringify(r.rows));
 r = await as('A', `select * from seller_payouts`); ok("buyers can't see payouts", r.rows?.length === 0);
 r = await as('S', `select * from seller_payouts`); ok('seller sees their payout', r.rows?.length === 1);
+// ---------- transfer of ownership before collection (registered vehicle) ----------
+r = await as('service', `select status, registration, rego_state from ownership_transfers where invoice_id='${SINV}'`);
+ok('transfer: starts when paid in full', r.rows?.[0]?.status === 'waiting' && r.rows[0].registration === 'registered' && r.rows[0].rego_state === 'QLD', JSON.stringify(r.rows));
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-start:${SINV}%'`); ok('transfer: buyer told what happens next', r.rows?.[0]?.n >= 1);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-seller:${SINV}%'`); ok('transfer: seller told to lodge their part', r.rows?.[0]?.n >= 1);
+r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning')`);
+ok('transfer: no collection booking (or address) until ownership is done', r.error?.includes('transfer_not_done'), r.error);
+r = await as('A', `select status from ownership_transfers`); ok('transfer: buyer sees their transfer', r.rows?.length === 1);
+r = await as('B', `select * from ownership_transfers`); ok("transfer: others can't see it", r.rows?.length === 0);
+r = await as('anon', `select * from ownership_transfers`); ok("transfer: anon can't see it", r.rows?.length === 0 || !!r.error);
+r = await as('S', `select * from ownership_transfers`); ok("transfer: seller can't read the buyer's documents", r.rows?.length === 0);
+r = await as('S', `select status, seller_done_at from seller_lot_transfer(${SL})`); ok('transfer: seller sees where it is up to', r.rows?.[0]?.status === 'waiting', JSON.stringify(r));
+r = await as('B', `select * from seller_lot_transfer(${SL})`); ok('transfer: other members see nothing', r.rows?.length === 0);
+r = await as('B', `select transfer_seller_done(${SL}, 'x')`); ok("transfer: only the seller marks the seller's part", r.error?.includes('forbidden'), r.error);
+r = await as('S', `select transfer_seller_done(${SL}, 'NOD-1234')`); ok('transfer: seller marks their part done', !r.error, r.error);
+r = await as('B', `select transfer_submit('${SINV}', 'transfer', null, 'X1', '{}')`); ok("transfer: someone else can't submit it", r.error?.includes('not_found'), r.error);
+r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, '', '{}')`); ok('transfer: needs proof or a receipt number', r.error?.includes('proof_needed'), r.error);
+r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, '', '{"other/11111111-1111-1111-1111-111111111111.jpg"}')`); ok("transfer: only files uploaded for this invoice", r.error?.includes('bad_files'), r.error);
+r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, 'TR-998', '{"${SINV}/11111111-2222-3333-4444-555555555555.jpg"}') s`); ok('transfer: buyer uploads the confirmation', r.rows?.[0]?.s === 'submitted', r.error);
+r = await as('A', `update ownership_transfers set status='complete'`); ok("transfer: buyer can't mark it complete", !!r.error || r.count === 0);
+r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning')`);
+ok('transfer: still no collection while it is being checked', r.error?.includes('transfer_not_done'), r.error);
+r = await as('service', `select id from ownership_transfers where invoice_id='${SINV}'`); const TID = r.rows?.[0]?.id;
+r = await as('A', `select admin_transfer_review('${TID}', true, null)`); ok('transfer: only staff can approve it', r.error?.includes('forbidden'), r.error);
+r = await as('ADM', `select admin_transfer_review('${TID}', false, '')`); ok('transfer: sending it back needs a note', r.error?.includes('note_needed'), r.error);
+r = await as('ADM', `select admin_transfer_review('${TID}', false, 'The photo is blurry. Please upload it again.') s`); ok('transfer: staff send it back with a note', r.rows?.[0]?.s === 'waiting', r.error);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-back:${TID}%'`); ok('transfer: buyer told what is needed', r.rows?.[0]?.n >= 1);
+await as('A', `select transfer_submit('${SINV}', 'transfer', null, 'TR-998', '{"${SINV}/11111111-2222-3333-4444-666666666666.jpg"}')`);
+await c.query(`update invoices set collect_by = now() - interval '1 day' where id='${SINV}'`);
+r = await as('ADM', `select admin_transfer_review('${TID}', true, 'Checked with TMR') s`); ok('transfer: staff approve it', r.rows?.[0]?.s === 'complete', r.error);
+r = await as('service', `select collect_by > now() c from invoices where id='${SINV}'`); ok('transfer: the collection window starts once ownership is done', r.rows?.[0]?.c === true);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-done:${TID}%'`); ok('transfer: buyer told to book collection', r.rows?.[0]?.n >= 1);
+r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, 'again', '{}')`); ok('transfer: nothing changes once complete', r.error?.includes('already_done'), r.error);
 r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning') returning seller_token, release_code`);
 const tok = r.rows?.[0]?.seller_token, code = r.rows?.[0]?.release_code;
 ok('release code is 6 digits', /^\d{6}$/.test(code || ''));
@@ -412,9 +451,16 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('A', `select count(*)::int n from lot_videos where status='approved'`); ok('video: still pending after the attempt', r.rows?.[0]?.n === 0);
   await as('service', `update lot_videos set status='approved', public_path='${lot}/${vid}.mp4', reviewed_at=now() where id='${vid}'`);
   r = await as('anon', `select public_path, title from lot_videos_public(${lot})`); ok('video: approved video is public', r.rows?.length === 1 && r.rows[0].public_path === `${lot}/${vid}.mp4`, JSON.stringify(r));
-  await as('A', `select request_lot_video(${lot}, '${U.A}/w2.mp4', 'Cold start', 1000, 'video/mp4')`);
-  await as('A', `select request_lot_video(${lot}, '${U.A}/w3.mp4', 'Engine', 1000, 'video/mp4')`);
-  r = await as('A', `select request_lot_video(${lot}, '${U.A}/w4.mp4', 'More', 1000, 'video/mp4')`); ok('video: up to 3 per listing', r.error?.includes('up to 3'), r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${U.A}/w2.mp4', 'Cold start', 1000, 'video/mp4')`); ok('video: one per listing', r.error?.includes('one video'), r.error);
+  // 10 photos and videos in total: the video counts as one.
+  await c.query(`delete from lot_photos where lot_id=${lot}`);
+  for (let k = 0; k < 9; k++) await c.query(`insert into lot_photos (lot_id, path, sort) values (${lot}, '${lot}/p${k}.jpg', ${k})`);
+  r = await as('ADM', `insert into lot_photos (lot_id, path, sort) values (${lot}, '${lot}/p9.jpg', 9)`); ok('media: a 10th photo is refused when there is a video', r.error?.includes('media_limit'), r.error);
+  await as('service', `update lot_videos set status='removed' where lot_id=${lot}`);
+  r = await as('ADM', `insert into lot_photos (lot_id, path, sort) values (${lot}, '${lot}/p9.jpg', 9)`); ok('media: up to 10 photos', !r.error, r.error);
+  r = await as('ADM', `insert into lot_photos (lot_id, path, sort) values (${lot}, '${lot}/p10.jpg', 10)`); ok('media: no 11th', r.error?.includes('media_limit'), r.error);
+  r = await as('A', `select request_lot_video(${lot}, '${U.A}/w3.mp4', 'Engine', 1000, 'video/mp4')`); ok('media: no video when there are already 10 photos', r.error?.includes('10 photos and videos'), r.error);
+  await c.query(`delete from lot_photos where lot_id=${lot}`);
   r = await as('A', `insert into storage.objects (bucket_id, name) values ('video-uploads', '${U.A}/w5.mp4')`); ok('video: no direct uploads (only signed links from the server)', !!r.error);
   r = await as('A', `insert into storage.objects (bucket_id, name) values ('lot-videos', '${lot}/x.mp4')`); ok('video: nobody but the server writes public videos', !!r.error);
   r = await as('anon', `select name from storage.objects where bucket_id in ('lot-videos','video-uploads')`); ok('video: buckets cannot be listed', r.rows?.length === 0 || !!r.error);
@@ -474,6 +520,28 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select delete_account('${D4}') r`); ok('leads: account deletion still works', r.rows?.[0]?.r?.ok === true, JSON.stringify(r));
   r = await as('service', `select name, email, status from partner_leads where user_id='${D4}'`); ok('leads: deleting an account clears its leads', r.rows?.[0]?.name === 'Deleted member' && r.rows[0].email === '' && r.rows[0].status === 'withdrawn', JSON.stringify(r.rows));
   r = await as('anon', `select key from settings where key='finance'`); ok('settings: finance settings are public', r.rows?.length === 1);
+}
+
+// ---------- unregistered sale: certificate of sale and how it's moved; registration search; lookups ----------
+{
+  const lot = 10662;
+  r = await as('service', `select registration from lots where id=${lot}`); ok('seed: the boat is listed unregistered', r.rows?.[0]?.registration === 'unregistered');
+  r = await as('service', `select create_invoice(${lot}, '${U.B}', 1000, 'auction') id`); const inv = r.rows?.[0]?.id; ok('unregistered: invoice created', !!inv, r.error);
+  await as('service', `update invoices set status='paid', paid_at=now() where id='${inv}'`);
+  r = await as('B', `select registration, status from ownership_transfers where invoice_id='${inv}'`); ok('unregistered: transfer step starts', r.rows?.[0]?.registration === 'unregistered' && r.rows[0].status === 'waiting', JSON.stringify(r));
+  r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-seller:${inv}%'`); ok('unregistered: nothing for the seller to lodge', r.rows?.[0]?.n === 0);
+  r = await as('B', `select transfer_submit('${inv}', null, null, null, '{}')`); ok('unregistered: buyer says how it will be moved', r.error?.includes('transport_needed'), r.error);
+  r = await as('B', `select transfer_submit('${inv}', null, 'carrier', null, '{}') s`); ok('unregistered: complete once the buyer confirms', r.rows?.[0]?.s === 'complete', r.error);
+  r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${inv}', ${lot}, '${U.B}', 'Mon', 'Morning')`); ok('unregistered: collection can then be booked', !r.error, r.error);
+  r = await as('anon', `select count(*)::int n, bool_and(registration = 'registered') u from search_lots('{"rego":"registered"}'::jsonb, 50, 0)`); ok('search: registered filter', r.rows?.[0]?.n > 0 && r.rows[0].u === true, JSON.stringify(r));
+  r = await as('anon', `select count(*)::int n from search_lots('{"rego":"nonsense"}'::jsonb, 50, 0)`); const all = (await as('anon', `select count(*)::int n from search_lots('{}'::jsonb, 50, 0)`)).rows?.[0]?.n;
+  ok('search: unknown registration values are ignored', r.rows?.[0]?.n === all, JSON.stringify(r));
+  await as('service', `insert into rego_lookups (plate, state, vin, provider, found, vehicle) values ('ABC123', 'QLD', 'JTDBR32E720000000', 'test', true, '{"make":"Toyota"}')`);
+  r = await as('anon', `select * from rego_lookups`); ok("lookups: the public can't read lookups", r.rows?.length === 0 || !!r.error);
+  r = await as('A', `select * from rego_lookups`); ok("lookups: members can't read lookups (full VINs)", r.rows?.length === 0 || !!r.error);
+  r = await as('A', `select prune_rego_lookups()`); ok('lookups: only the server prunes them', !!r.error);
+  r = await as('anon', `insert into appraisals (state, name, mobile, registration) values ('QLD', 'Una', '0400000001', 'unregistered')`); ok('appraisal: unregistered vehicles need no plate', !r.error, r.error);
+  r = await as('anon', `select * from transfer_completed('00000000-0000-0000-0000-000000000000')`); ok('transfer: internal step not callable', !!r.error);
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

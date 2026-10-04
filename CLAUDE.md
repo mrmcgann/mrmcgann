@@ -34,6 +34,15 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Videos (`20261003000008_media_partners.sql`): sellers/admins get a signed upload URL (`/api/videos/upload-url`) into the private bucket `video-uploads`, then `/api/videos` checks the file with `storage.info()` and calls `request_lot_video`. Admin approval (`approve-video` in `api/admin/[action]`) copies it to the public bucket `lot-videos`. No storage policies: all storage access is server-side. Orphan uploads are removed by the clock (`video_orphans`).
 - Bidder names are never public: `bid_history` / `seller_lot_bids` return `bidder_mask` (a made-up name from a salted hash; salt in `app_secrets`, `bidder_mask()` not executable by clients). Shown blurred with `BlurName`. Don't add real names or per-member suffixes to any public payload.
 - No in-person inspections. Buyers order a mobile inspection (partner kind `inspection`) or call the listing's consultant (`consultants`, `lots.consultant_id`, one default).
+- Up to 10 photos and videos per listing, one of them a video (`lot_media_count`, trigger `lot_photo_limit`, `request_lot_video`; `MEDIA_MAX` in `src/lib/videos.ts`). Staff uploads from the editor are published straight away (`publishVideo` in `src/lib/videoPublish.ts`).
+- Every listing is `registration` 'registered' (plate, state, current expiry) or 'unregistered' (sold without plates); `lot_publish_check` enforces it. Search filter `rego`.
+
+## Sell page and plate lookups
+- `src/lib/rego.ts` (shared: tidy provider data, category from body type, `publicVehicle` strips the full VIN) and `src/lib/regoLookup.ts` (server: providers chosen by `REGO_LOOKUP_PROVIDER`; test mode returns made-up vehicles). `/api/rego-lookup` caches results in `rego_lookups` (server only, pruned after 90 days) and rate-limits; never send the full VIN or engine number to the browser. `/api/appraisals` copies the full lookup into the request by `lookupId`.
+
+## Transfer of ownership (between payment and collection)
+- `ownership_transfers` (one per paid invoice, created by trigger `start_ownership_transfer`); buyer `transfer_submit`, seller `transfer_seller_done`, staff `admin_transfer_review`; `seller_lot_transfer` for the seller's view (never the buyer's documents). Trigger `collection_needs_transfer` blocks collection bookings until it's complete, so the address can't be released early. Proof files: private bucket `transfer-docs` via `/api/transfers/upload-url`.
+- State steps and links: `src/lib/transfer.ts` (shared with the app). Certificate of sale PDF: `saleCertificatePdf` in `src/lib/pdf.ts`, `/api/invoices/[id]/certificate`.
 
 ## Partners: finance, insurance, inspections (revenue)
 - Tables `partners` (public read of active), `partner_private` (lead email, admin only), `partner_leads` (admin only), `partner_clicks`. Read partners through `getPartnersCached()` (tag `partners`; sample partners hidden unless test mode).

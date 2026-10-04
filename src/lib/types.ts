@@ -68,6 +68,8 @@ export interface Lot {
   rego_plate?: string | null;
   rego_state?: string | null;
   rego_expiry?: string | null;
+  registration?: "registered" | "unregistered" | null;
+  engine_no?: string | null;
   build_date?: string | null;
   compliance_date?: string | null;
   gvm_kg?: number | null;

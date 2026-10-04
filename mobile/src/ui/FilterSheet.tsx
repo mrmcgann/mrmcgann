@@ -31,8 +31,8 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
 
   const chips = (key: keyof SearchFilters, opts: [string, string][], counts?: Record<string, number>) => (
     <View style={s.chips}>
-      <Chip label="Any" on={!f[key]} onPress={() => set({ [key]: "" })} />
-      {opts.map(([v, l]) => <Chip key={v} label={l} count={counts ? counts[v] || 0 : undefined} on={f[key] === v} onPress={() => set({ [key]: f[key] === v ? "" : v })} />)}
+      <Chip testID={`filter-${key}-any`} label="Any" on={!f[key]} onPress={() => set({ [key]: "" })} />
+      {opts.map(([v, l]) => <Chip key={v} testID={`filter-${key}-${v}`} label={l} count={counts ? counts[v] || 0 : undefined} on={f[key] === v} onPress={() => set({ [key]: f[key] === v ? "" : v })} />)}
     </View>
   );
   const pair = (a: keyof SearchFilters, b: keyof SearchFilters, la: string, lb: string, opts: [string, string][], pa: string, pb: string) => (
@@ -70,6 +70,7 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
       {!cat || extras.includes("drive") ? <View style={{ gap: 8 }}><T v="label">Drive</T>{chips("drive", DRIVES, facets?.drives)}</View> : null}
       <Select label="Location" value={f.state || ""} placeholder="All of Australia" options={Object.entries(STATE_NAMES).map(([k, l]) => [k, l + n(facets?.states?.[k] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ state: v })} />
       <View style={{ gap: 8 }}><T v="label">Seller</T>{chips("seller", [["private", "Private"], ["business", "Business (GST)"]])}</View>
+      <View style={{ gap: 8 }}><T v="label">Registration</T>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</View>
       <Select label="Visual grade" value={f.grade || ""} placeholder="Any grade" options={GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`] as [string, string])} onChange={(v) => set({ grade: v })} />
       <Check checked={f.nores === "1"} onChange={(v) => set({ nores: v ? "1" : "" })}>No reserve, or reserve met</Check>
       <Check checked={f.buynow === "1"} onChange={(v) => set({ buynow: v ? "1" : "" })}>Buy Now available</Check>
@@ -78,9 +79,9 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
   );
 }
 
-function Chip({ label, on, onPress, count }: { label: string; on: boolean; onPress: () => void; count?: number }) {
+function Chip({ label, on, onPress, count, testID }: { label: string; on: boolean; onPress: () => void; count?: number; testID?: string }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} onPress={onPress} style={[s.chip, on && { backgroundColor: C.ink }]}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={onPress} style={[s.chip, on && { backgroundColor: C.ink }]}>
       <Text style={[s.chipText, on && { color: "#FFFFFF" }]}>{label}{count != null ? <Text style={{ opacity: 0.6 }}>{`  ${count}`}</Text> : null}</Text>
     </Pressable>
   );

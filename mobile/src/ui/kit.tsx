@@ -44,14 +44,14 @@ export function Button({ title, onPress, kind = "blue", busy, disabled, small, s
     </Pressable>
   );
 }
-export function LinkText({ title, onPress, color = C.blue, style }: { title: string; onPress: () => void; color?: string; style?: StyleProp<TextStyle> }) {
-  return <Text accessibilityRole="link" onPress={onPress} style={[{ fontFamily: F.bold, fontSize: 15, color }, style]}>{title}</Text>;
+export function LinkText({ title, onPress, color = C.blue, style, testID }: { title: string; onPress: () => void; color?: string; style?: StyleProp<TextStyle>; testID?: string }) {
+  return <Text testID={testID} accessibilityRole="link" onPress={onPress} style={[{ fontFamily: F.bold, fontSize: 15, color }, style]}>{title}</Text>;
 }
 
 // ---------- pills, tags, notices ----------
-export function Pill({ label, on, onPress, count, style }: { label: string; on?: boolean; onPress?: () => void; count?: number; style?: StyleProp<ViewStyle> }) {
+export function Pill({ label, on, onPress, count, style, testID }: { label: string; on?: boolean; onPress?: () => void; count?: number; style?: StyleProp<ViewStyle>; testID?: string }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected: !!on }} onPress={onPress} style={[s.pill, { backgroundColor: on ? C.ink : C.panel }, style]}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ selected: !!on }} onPress={onPress} style={[s.pill, { backgroundColor: on ? C.ink : C.panel }, style]}>
       <Text style={[s.pillText, { color: on ? "#FFFFFF" : C.ink2 }]}>{label}{count != null ? <Text style={{ opacity: 0.6, fontFamily: F.semibold }}>{`  ${count.toLocaleString("en-AU")}`}</Text> : null}</Text>
     </Pressable>
   );
@@ -63,8 +63,8 @@ export function Notice({ kind = "sun", children, style }: { kind?: "sun" | "ok" 
   const bg = kind === "ok" ? C.mint : kind === "bad" ? C.badBg : kind === "info" ? C.panel : C.sun;
   return <View accessibilityRole="alert" style={[s.notice, { backgroundColor: bg }, style]}>{typeof children === "string" ? <T v="strong" style={{ fontSize: 15, lineHeight: 21 }}>{children}</T> : children}</View>;
 }
-export function Soft({ children, style, bg = C.panel }: { children: ReactNode; style?: StyleProp<ViewStyle>; bg?: string }) {
-  return <View style={[s.soft, { backgroundColor: bg }, style]}>{children}</View>;
+export function Soft({ children, style, bg = C.panel, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; bg?: string; testID?: string }) {
+  return <View testID={testID} style={[s.soft, { backgroundColor: bg }, style]}>{children}</View>;
 }
 
 // ---------- fields ----------
@@ -102,24 +102,38 @@ export function Check({ checked, onChange, children, testID }: { checked: boolea
     </Pressable>
   );
 }
-export function Segmented<K extends string>({ options, value, onChange }: { options: [K, string][]; value: K; onChange: (k: K) => void }) {
+/** One of a few options, as a card with a radio dot (title, then a hint or anything else below). */
+export function Choice({ on, onPress, title, hint, children, testID }: { on: boolean; onPress: () => void; title: string; hint?: ReactNode; children?: ReactNode; testID?: string }) {
+  return (
+    <Pressable testID={testID} accessibilityRole="radio" accessibilityState={{ checked: on }} onPress={onPress} style={[s.choice, on && { borderColor: C.ink }]}>
+      <View style={[s.radio, on && { borderColor: C.ink }]}>{on ? <View style={s.radioDot} /> : null}</View>
+      <View style={{ flex: 1, gap: 3 }}>
+        <T v="strong" style={{ fontSize: 15, lineHeight: 21 }}>{title}</T>
+        {typeof hint === "string" ? <T v="small">{hint}</T> : hint}
+        {children}
+      </View>
+    </Pressable>
+  );
+}
+/** Two to five options side by side. With `testID`, each option gets `${testID}-${key}`. */
+export function Segmented<K extends string>({ options, value, onChange, testID }: { options: [K, string][]; value: K; onChange: (k: K) => void; testID?: string }) {
   return (
     <View style={s.seg} accessibilityRole="tablist">
       {options.map(([k, l]) => (
-        <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: value === k }} onPress={() => onChange(k)} style={[s.segItem, value === k && s.segOn]}>
+        <Pressable key={k} testID={testID ? `${testID}-${k || "any"}` : undefined} accessibilityRole="tab" accessibilityState={{ selected: value === k }} onPress={() => onChange(k)} style={[s.segItem, value === k && s.segOn]}>
           <Text style={[s.segText, value === k && { color: C.ink }]} numberOfLines={1}>{l}</Text>
         </Pressable>
       ))}
     </View>
   );
 }
-export function Select<K extends string>({ label, value, options, onChange, placeholder = "Any" }: { label: string; value: K | ""; options: [K, string][]; onChange: (k: K | "") => void; placeholder?: string }) {
+export function Select<K extends string>({ label, value, options, onChange, placeholder = "Any", testID }: { label: string; value: K | ""; options: [K, string][]; onChange: (k: K | "") => void; placeholder?: string; testID?: string }) {
   const [open, setOpen] = useState(false);
   const cur = options.find((o) => o[0] === value)?.[1];
   return (
     <View style={{ gap: 7, flex: 1 }}>
       <T v="label">{label}</T>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${cur || placeholder}`} onPress={() => setOpen(true)} style={[s.input, { justifyContent: "center" }]}>
+      <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${label}: ${cur || placeholder}`} onPress={() => setOpen(true)} style={[s.input, { justifyContent: "center" }]}>
         <Text style={{ fontFamily: F.medium, fontSize: 16, color: cur ? C.ink : C.muted }} numberOfLines={1}>{cur || placeholder}</Text>
         <Text style={s.caret}>⌄</Text>
       </Pressable>
@@ -244,6 +258,9 @@ const s = StyleSheet.create({
   moneySign: { fontFamily: F.heavy, fontSize: 26, color: C.muted },
   moneyInput: { flex: 1, fontFamily: F.heavy, fontSize: 28, color: C.ink, letterSpacing: -0.6, height: "100%" },
   box: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: C.line, alignItems: "center", justifyContent: "center", marginTop: 1, backgroundColor: "#FFFFFF" },
+  choice: { flexDirection: "row", gap: 12, alignItems: "flex-start", paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1.5, borderColor: C.line },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: C.line, alignItems: "center", justifyContent: "center", marginTop: 0, backgroundColor: "#FFFFFF" },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.ink },
   seg: { flexDirection: "row", backgroundColor: C.panel, borderRadius: 22, padding: 4, gap: 4 },
   segItem: { flex: 1, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   segOn: { backgroundColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },

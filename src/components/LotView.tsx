@@ -20,6 +20,19 @@ const WRITE_OFF: Record<string, string> = { none: "Not recorded as written off",
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
+// Registered (plate, state, expiry) or unregistered (sold without plates), like Grays.
+const shortDate = (s: string) => new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+function regoFacts(lot: Lot): [string, unknown][] {
+  if (lot.registration === "unregistered") {
+    return [["Registration", "Unregistered, sold without plates"], ["Previous registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || lot.state})` : null]];
+  }
+  if (lot.registration === "registered" || lot.rego_plate) {
+    return [["Registration", `Registered${lot.rego_plate ? ` · ${lot.rego_plate}` : ""} (${lot.rego_state || lot.state})`], ["Registration expiry", lot.rego_expiry ? shortDate(lot.rego_expiry) : null]];
+  }
+  return [["Registration", "Not supplied"]];
+}
+export const regoTag = (lot: Lot) => (lot.registration === "unregistered" ? "Unregistered" : lot.registration === "registered" ? `Registered ${lot.rego_state || lot.state || ""}`.trim() : null);
+
 // The vehicle page. Identical for every visitor (so it can be cached at the edge);
 // personal parts are in <LotInteractive> and <LotQuestions>, which load in the browser.
 export function LotView({ bundle, fees, similar, history, partners = [], finance = {}, preview = false }: {
@@ -31,8 +44,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   const d: Disclosures = lot.disclosures || {};
   const facts: [string, unknown][] = [
     ["VIN", lot.vin],
-    ["Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || lot.state})` : "Unregistered or not supplied"],
-    ["Registration expiry", lot.rego_expiry ? new Date(lot.rego_expiry).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : null],
+    ...regoFacts(lot),
     ["Build date", lot.build_date],
     ["Compliance date", lot.compliance_date],
     ["Indicated odometer", lot.odometer != null ? km(lot.odometer) : null],
@@ -74,7 +86,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
       <div className="wrap">
         {preview && <div className="notice bad" style={{ marginTop: 20 }}>Admin preview ({lot.status}). {lot.status === "draft" ? "Only admins can see this." : ""}</div>}
         <div className="center" style={{ gap: 14, paddingTop: "clamp(40px,6vw,72px)" }}>
-          <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id} · {lot.suburb}, {lot.state}</span>
+          <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id} · {lot.suburb}, {lot.state}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
           <h1 className="d2" style={{ fontSize: "clamp(44px,7vw,96px)" }}>{lot.short_title || lot.title}.</h1>
           {lot.subtitle && <p className="lede">{lot.subtitle}</p>}
           <div className="stat-row"><span>{watchers} watching</span><span>{(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</span><ShareButton title={lot.title} /></div>
@@ -170,11 +182,12 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
             <div className="lotsec" id="inspection" style={{ gap: 14 }}>
               <h2 className="d3" style={{ fontSize: 40 }}>Inspection &amp; collection.</h2>
               <div className="rows">
-                <div><span className="muted">Inspection</span><b style={{ textAlign: "right" }}>Independent mobile inspection only</b></div>
-                <div><span className="muted">Collection</span><b style={{ textAlign: "right" }}>{lot.suburb}, {lot.state}, after payment in full</b></div>
-                <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Provided once collection is booked</b></div>
+                <div><span className="muted">Inspection</span><b style={{ textAlign: "right" }}>Independent mobile inspection, or through your consultant</b></div>
+                <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"}</b></div>
+                <div><span className="muted">Collection</span><b style={{ textAlign: "right" }}>{lot.suburb}, {lot.state}{lot.registration === "unregistered" ? ". By carrier, trailer or permit" : ""}</b></div>
+                <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Sent once ownership is transferred and your collection time is confirmed</b></div>
               </div>
-              <MobileInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || null} open={forSale && !preview} />
+              <MobileInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={forSale && !preview} />
               {["live", "sold"].includes(lot.status) && <LotDelivery lotId={lot.id} />}
             </div>
 
@@ -212,7 +225,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                   <span className="face" aria-hidden="true">{consultant.photo_path ? <img src={photoUrl(consultant.photo_path)} alt="" /> : consultant.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>
                   <span style={{ display: "flex", flexDirection: "column" }}><b style={{ fontSize: 17 }}>{consultant.name}</b><span className="muted" style={{ fontSize: 14 }}>{consultant.title}</span></span>
                 </div>
-                <span className="muted" style={{ fontSize: 15 }}>Questions about this vehicle, inspections or collection? Contact your consultant.</span>
+                <span className="muted" style={{ fontSize: 15 }}>Questions about this vehicle, or want an inspection organised? Call your consultant.</span>
                 <div className="acts">
                   {consultant.phone && <a className="btn btn-dark" href={`tel:${consultant.phone.replace(/\s/g, "")}`}>Call {consultant.phone}</a>}
                   {consultant.email && <a className="btn btn-soft" style={{ background: "#FFFFFF" }} href={`mailto:${consultant.email}?subject=${encodeURIComponent(`Lot ${lot.id}: ${lot.title}`)}`}>Email</a>}

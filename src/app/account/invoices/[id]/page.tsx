@@ -8,6 +8,7 @@ import { dateLong, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 import { InvoiceActions } from "./InvoiceActions";
 import { BookCollection, ClaimBox } from "./Collection";
+import { TransferStep, type TransferRow } from "./Transfer";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) notFound();
   const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string } };
-  const [{ data: coll }, { data: claims }, fees] = await Promise.all([
+  const [{ data: coll }, { data: claims }, fees, { data: tr }] = await Promise.all([
     supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
+    supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
   ]);
+  const transfer = tr ? ({ ...tr, proof_count: (tr.proof_paths || []).length } as TransferRow) : null;
+  const owned = transfer?.status === "complete";
   const c = coll as Coll | null;
   // The seller's address is released only once the collection time is confirmed.
   let address: string | null = null;
@@ -81,11 +85,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         {inv.status === "payment_failed" && <InvoiceActions id={inv.id} mode="pay" amount={inv.card_amount} reason={inv.failure_reason} />}
         {inv.status === "cancelled" && <div className="notice bad">This sale was cancelled{inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.</div>}
 
+        {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}
+
         {paidCard && (
           <div className="soft">
             <b style={{ fontSize: 20 }}>Collection.</b>
-            {!fullyPaid && <span>Once your balance clears, book a time here. You then have {5} business days to collect.</span>}
-            {fullyPaid && !c && <><span>Collect from the seller in {inv.lots.suburb}, {inv.lots.state}{collectBy ? <> by <b>{dateLong(inv.collect_by)}</b></> : ""}. Pick a time and we&apos;ll confirm it with the seller.</span><BookCollection invoiceId={inv.id} existing={null} /></>}
+            {!fullyPaid && <span>Once your balance clears and the vehicle is in your name, book a time here. The address is sent once the time is confirmed.</span>}
+            {fullyPaid && !c && !owned && <span className="muted">Book a time once the transfer of ownership above is done. The address is sent once your collection time is confirmed.</span>}
+            {fullyPaid && !c && owned && <><span>Collect from the seller in {inv.lots.suburb}, {inv.lots.state}{collectBy ? <> by <b>{dateLong(inv.collect_by)}</b></> : ""}. Pick a time and we&apos;ll confirm it with the seller.</span><BookCollection invoiceId={inv.id} existing={null} /></>}
             {fullyPaid && c?.status === "requested" && <BookCollection invoiceId={inv.id} existing={c} />}
             {c?.status === "confirmed" && (
               <>
@@ -97,7 +104,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                   <li>Bring photo ID{c.collector_name ? ` (${c.collector_name} brings theirs)` : ""} and this invoice.</li>
                   <li>Check the vehicle against the listing before you take the keys. Photograph anything that&apos;s different.</li>
                   <li>Give the seller the code. They enter it on their phone to confirm handover.</li>
-                  <li>From handover, the vehicle is your responsibility. Arrange insurance and transfer the registration in your state.</li>
+                  <li>From handover, the vehicle is your responsibility. Arrange insurance before you drive or move it.</li>
                 </ol>
               </>
             )}

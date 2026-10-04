@@ -39,7 +39,12 @@ export async function uploadPhotos(bucket: "appraisal-photos" | "claim-photos", 
 }
 
 export type PickedVideo = Picked & { size: number };
+/** A picked file with its size (videos, proof of transfer). */
+export type PickedFile = Picked & { size: number };
 const VIDEO_EXT: Record<string, string> = { mp4: "video/mp4", mov: "video/quicktime", m4v: "video/x-m4v", webm: "video/webm" };
+const DOC_EXT: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", pdf: "application/pdf" };
+const ext = (name: string) => name.split(".").pop()?.toLowerCase() || "";
+const sizeOf = (uri: string, known?: number | null) => { if (known) return known; try { return new File(uri).size || 0; } catch { return 0; } };
 
 /** One video from the library. The system picker needs no permission (and no microphone). */
 export async function pickVideo(): Promise<PickedVideo | null> {
@@ -47,25 +52,47 @@ export async function pickVideo(): Promise<PickedVideo | null> {
   if (r.canceled || !r.assets.length) return null;
   const a = r.assets[0];
   const name = a.fileName || `video-${Date.now()}.mp4`;
-  const type = a.mimeType || VIDEO_EXT[name.split(".").pop()?.toLowerCase() || ""] || "video/mp4";
-  let size = a.fileSize || 0;
-  if (!size) { try { size = new File(a.uri).size || 0; } catch { size = 0; } }
-  return { uri: a.uri, name, type, size };
+  const type = a.mimeType || VIDEO_EXT[ext(name)] || "video/mp4";
+  return { uri: a.uri, name, type, size: sizeOf(a.uri, a.fileSize) };
+}
+
+/**
+ * Photos or PDFs of a document (the transfer receipt, a permit): from the photo library, the camera,
+ * or the Files app (photos and PDFs). Up to `max`, each with its size and type.
+ */
+export async function pickDocuments(max: number, from: "photos" | "camera" | "files"): Promise<PickedFile[]> {
+  if (from === "files") {
+    const r = await File.pickFileAsync({ multipleFiles: true, mimeTypes: ["image/*", "application/pdf"] }).catch(() => null);
+    if (!r || r.canceled || !r.result) return [];
+    return r.result.slice(0, max).map((f, i) => {
+      const name = f.name || `document-${Date.now()}-${i}`;
+      return { uri: f.uri, name, type: f.type || DOC_EXT[ext(name)] || "", size: sizeOf(f.uri, f.size) };
+    });
+  }
+  if (from === "camera" && !(await ImagePicker.requestCameraPermissionsAsync()).granted) return [];
+  const r = from === "camera"
+    ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8 })
+    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: true, selectionLimit: max, quality: 0.8 });
+  if (r.canceled) return [];
+  return r.assets.slice(0, max).map((a, i) => {
+    const name = a.fileName || `photo-${Date.now()}-${i}.jpg`;
+    return { uri: a.uri, name, type: a.mimeType || DOC_EXT[ext(name)] || "image/jpeg", size: sizeOf(a.uri, a.fileSize) };
+  });
 }
 
 const UPLOAD_FAILED = "The upload didn't finish. Check your connection and try again.";
 
 /**
- * Sends a picked video to a one-off signed upload link (Supabase Storage), with progress
- * from 0 to 100. The file streams from disk, so large videos don't have to fit in memory.
+ * Sends a picked file to a one-off signed upload link (Supabase Storage), with progress from
+ * 0 to 100. The file streams from disk, so large files don't have to fit in memory.
  */
-export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) {
-  const headers: Record<string, string> = { "content-type": v.type, "x-upsert": "false", "cache-control": "max-age=3600" };
+export async function uploadSigned(signedUrl: string, f: Picked, onProgress?: (pct: number) => void, extraHeaders: Record<string, string> = {}) {
+  const headers: Record<string, string> = { "content-type": f.type, "x-upsert": "false", ...extraHeaders };
   if (SUPABASE_ANON_KEY) headers.apikey = SUPABASE_ANON_KEY;
   let status: number;
   try {
-    const r = await new File(v.uri).upload(signedUrl, {
-      httpMethod: "PUT", uploadType: UploadType.BINARY_CONTENT, headers, mimeType: v.type,
+    const r = await new File(f.uri).upload(signedUrl, {
+      httpMethod: "PUT", uploadType: UploadType.BINARY_CONTENT, headers, mimeType: f.type,
       onProgress: ({ bytesSent, totalBytes }) => { if (totalBytes > 0) onProgress?.(Math.min(100, Math.round((bytesSent / totalBytes) * 100))); },
     });
     status = r.status;
@@ -73,3 +100,7 @@ export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?
   if (status < 200 || status >= 300) throw new Error(UPLOAD_FAILED);
   onProgress?.(100);
 }
+
+/** A listing video, through its signed upload link. */
+export const uploadVideo = (signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) =>
+  uploadSigned(signedUrl, v, onProgress, { "cache-control": "max-age=3600" });

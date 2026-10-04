@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { kickOutbox } from "@/lib/notify";
 import { json, fail, friendly } from "@/lib/api";
 import { env } from "@/lib/env";
+import { publishVideo } from "@/lib/videoPublish";
 
 // Step 2: once the file is uploaded, ask for it to be added to the listing (pending review).
 // The size and type come from the stored file, not from what the browser says.
@@ -22,6 +23,13 @@ export async function POST(req: Request) {
   const mime = String(meta.contentType ?? meta.metadata?.mimetype ?? "");
   const { data: id, error } = await db.rpc("request_lot_video", { p_lot: Number(lotId), p_path: String(path), p_title: String(title || ""), p_size: size, p_mime: mime });
   if (error) return fail(friendly(error.message));
+  // Added by our own staff from the listing editor: it goes straight onto the listing.
+  const { data: isAdmin } = await db.rpc("is_admin");
+  if (isAdmin) {
+    const r = await publishVideo(String(id), user.id);
+    if (!r.ok) return fail(r.error);
+    return json({ ok: true, id, published: true });
+  }
   const { data: lot } = await admin.from("lots").select("title").eq("id", Number(lotId)).maybeSingle();
   await admin.from("outbox").insert({ channel: "email", to_addr: env.supportEmail, kind: "lead", title: `Video to review: lot ${lotId} ${lot?.title || ""}`,
     body: "A new listing video is waiting for approval.", link: "/admin/videos", dedupe_key: `video:${id}:staff`, priority: 3 });

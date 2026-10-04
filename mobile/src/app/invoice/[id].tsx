@@ -12,6 +12,7 @@ import { useSession } from "~/lib/session";
 import type { InvoiceDetail } from "~/lib/types";
 import { Button, Empty, Field, LineItem, LinkText, Loading, Notice, Screen, Segmented, Select, Sheet, Soft, T } from "~/ui/kit";
 import { InsureBox } from "~/ui/Partners";
+import { TransferStep } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
 
 const TIMES: [string, string][] = [["Morning (8 am – 12 pm)", "Morning (8 am – 12 pm)"], ["Afternoon (12 – 5 pm)", "Afternoon (12 – 5 pm)"], ["Evening (5 – 7 pm)", "Evening (5 – 7 pm)"]];
@@ -61,6 +62,9 @@ export default function InvoiceScreen() {
   const c = d.collection;
   const paidCard = ["paid", "deposit_paid"].includes(inv.status);
   const fullyPaid = inv.status === "paid";
+  // Collection is booked once the vehicle is in the buyer's name (servers without the transfer step: straight away).
+  const transfer = d.transfer ?? null;
+  const owned = !("transfer" in d) || transfer?.status === "complete";
 
   return (
     <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} testID="invoice">
@@ -106,11 +110,14 @@ export default function InvoiceScreen() {
       ) : null}
       {inv.status === "cancelled" ? <Notice kind="bad">{`This sale was cancelled${inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</Notice> : null}
 
+      {fullyPaid && transfer ? <TransferStep invoiceId={inv.id} invoiceRef={inv.ref} t={transfer} title={inv.lots.title} consultantPhone={d.seller.phone} certificateUrl={d.certificateUrl} onDone={load} /> : null}
+
       {paidCard ? (
         <Soft>
           <T v="h">Collection.</T>
-          {!fullyPaid ? <T v="body">Once your balance clears, book a time here. You then have 5 business days to collect.</T> : null}
-          {fullyPaid && (!c || c.status === "requested") ? (
+          {!fullyPaid ? <T v="body">Once your balance clears and the vehicle is in your name, book a time here. The address is sent once the time is confirmed.</T> : null}
+          {fullyPaid && !c && !owned ? <T v="muted">Book a time once the transfer of ownership above is done. The address is sent once your collection time is confirmed.</T> : null}
+          {fullyPaid && ((!c && owned) || c?.status === "requested") ? (
             <>
               {!c ? <T v="body">Collect from the seller in {inv.lots.suburb}, {inv.lots.state}{inv.collect_by ? ` by ${dateLong(inv.collect_by)}` : ""}. Pick a time and we'll confirm it with the seller.</T> : null}
               <BookCollection invoiceId={inv.id} existing={c} onDone={load} />
@@ -123,7 +130,7 @@ export default function InvoiceScreen() {
               {d.address ? <LinkText title="Open in Maps ›" onPress={() => Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(d.address!)}`)} /> : null}
               <T v="body">Your release code. Give it to the seller only when you{c.collector_name ? ` (or ${c.collector_name})` : ""} are with the vehicle:</T>
               <Text testID="release-code" selectable style={s.code}>{c.release_code}</Text>
-              {["Bring photo ID and this invoice.", "Check the vehicle against the listing before you take the keys. Photograph anything that's different.", "Give the seller the code. They enter it on their phone to confirm handover.", "From handover, the vehicle is your responsibility. Arrange insurance and transfer the registration in your state."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
+              {[`Bring photo ID${c.collector_name ? ` (${c.collector_name} brings theirs)` : ""} and this invoice.`, "Check the vehicle against the listing before you take the keys. Photograph anything that's different.", "Give the seller the code. They enter it on their phone to confirm handover.", "From handover, the vehicle is your responsibility. Arrange insurance before you drive or move it."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
             </>
           ) : null}
           {c?.status === "collected" ? <Notice kind="ok">{`Collected ${dateLong(c.collected_at)}.${inv.claim_until && new Date(inv.claim_until).getTime() > Date.now() ? ` If something is materially different from the listing, you can claim until ${dateLong(inv.claim_until)}.` : ""}`}</Notice> : null}

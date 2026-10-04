@@ -1,3 +1,5 @@
+import { publishVideo } from "@/lib/videoPublish";
+import type { RegoVehicle } from "@/lib/rego";
 import { revalidateTag } from "next/cache";
 import { CAT } from "@/lib/vehicles";
 import { getSession } from "@/lib/auth";
@@ -200,19 +202,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
 
     // ---- Listing videos (every video is approved here before it's public) ----
     case "approve-video": {
-      const { data: v } = await db.from("lot_videos").select("id, lot_id, upload_path, status").eq("id", b.videoId).maybeSingle();
-      if (!v || v.status !== "pending") return fail("That video isn't waiting for approval.");
-      const ext = v.upload_path.split(".").pop() || "mp4";
-      const publicPath = `${v.lot_id}/${v.id}.${ext}`;
-      const { error: copyErr } = await db.storage.from("video-uploads").copy(v.upload_path, publicPath, { destinationBucket: "lot-videos" });
-      if (copyErr) return fail(`Couldn't publish the video: ${copyErr.message}`);
-      // Only if it's still waiting (the seller may have withdrawn it meanwhile).
-      const { data: done1 } = await db.from("lot_videos").update({ status: "approved", public_path: publicPath, reviewed_by: profile.id, reviewed_at: new Date().toISOString(), review_note: null }).eq("id", v.id).eq("status", "pending").select("id");
-      if (!done1?.length) { await db.storage.from("lot-videos").remove([publicPath]); return fail("That video was withdrawn."); }
-      await db.storage.from("video-uploads").remove([v.upload_path]); // the public copy is the one we keep
-      const { data: lot } = await db.from("lots").select("title").eq("id", v.lot_id).single();
-      await notifySeller(v.lot_id, "Your video is live", `Your video is now on the ${lot?.title} listing.`, `/lot/${v.lot_id}`, `video-ok:${v.id}`);
-      revalidateTag(`lot-${v.lot_id}`);
+      const r = await publishVideo(String(b.videoId), profile.id);
+      if (!r.ok) return fail(r.error);
+      const { data: lot } = await db.from("lots").select("title").eq("id", r.lotId).single();
+      await notifySeller(r.lotId, "Your video is live", `Your video is now on the ${lot?.title} listing.`, `/lot/${r.lotId}`, `video-ok:${b.videoId}`);
       return done();
     }
     case "reject-video": {
@@ -265,11 +258,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       if (b.status) await db.from("appraisals").update({ status: b.status }).eq("id", b.appraisalId);
       if (b.createLot) {
         const { data: ap } = await db.from("appraisals").select("*").eq("id", b.appraisalId).single();
-        const { data: lot } = await db.from("lots").insert({ status: "draft", title: `Vehicle ${ap.rego} (${ap.state})`, rego_plate: ap.rego, rego_state: ap.state, state: ap.state, postcode: ap.postcode, category: catOf(ap.kind), vehicle_type: CAT[catOf(ap.kind)].silhouette }).select("id").single();
-        await db.from("lot_private").insert({ lot_id: lot!.id, seller_name: ap.name, seller_phone: ap.mobile, seller_email: ap.email });
+        const v = (ap.vehicle || {}) as RegoVehicle;
+        const cat = catOf(v.category || ap.kind);
+        const name = [v.year, v.make, v.model, v.variant].filter(Boolean).join(" ");
+        const km = Number(String(ap.odometer || "").replace(/[^0-9]/g, "")) || null;
+        const { data: lot } = await db.from("lots").insert({
+          status: "draft", title: name || `Vehicle ${ap.rego || ""} (${ap.state})`.replace("  ", " "), short_title: [v.year, v.make, v.model].filter(Boolean).join(" ") || null,
+          registration: ap.registration || (ap.rego ? "registered" : "unregistered"), rego_plate: ap.rego, rego_state: ap.rego ? ap.state : null, rego_expiry: v.regoExpiry || null,
+          vin: ap.vin || v.vin || null, engine_no: v.engineNo || null, year: v.year || null, make: v.make || null, model: v.model || null, variant: v.variant || null,
+          body: v.body || null, colour: v.colour || null, fuel: v.fuel || null, transmission: v.transmission || null, drive: v.drive || null, engine: v.engine || null,
+          ...(CAT[cat].usage === "hours" ? { hours: km } : CAT[cat].usage === "km" ? { odometer: km } : {}),
+          state: ap.state, postcode: ap.postcode, category: cat, kind: v.kind || null, vehicle_type: CAT[cat].silhouette,
+        }).select("id").single();
+        await db.from("lot_private").insert({ lot_id: lot!.id, seller_name: ap.name, seller_phone: ap.mobile, seller_email: ap.email, seller_notes: ap.description || null });
         await db.from("appraisals").update({ lot_id: lot!.id, status: "booked" }).eq("id", b.appraisalId);
         return json({ ok: true, lotId: lot!.id });
       }
+      return done();
+    }
+    // ---- Transfer of ownership ----
+    case "transfer-review": {
+      const { error } = await supabase.rpc("admin_transfer_review", { p_id: String(b.id), p_ok: b.ok === true, p_note: String(b.note || "") });
+      if (error) return fail(error.message.includes("note_needed") ? "Say what the buyer needs to do." : "Couldn't save that.");
+      return done();
+    }
+    case "transfer-seller-done": {
+      const { error } = await supabase.rpc("transfer_seller_done", { p_lot: Number(b.lotId), p_reference: String(b.reference || "") });
+      if (error) return fail("Couldn't save that.");
       return done();
     }
     case "quote":

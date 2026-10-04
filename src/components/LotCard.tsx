@@ -23,7 +23,7 @@ export function LotCard({ lot, watched, cover }: { lot: Lot; watched?: boolean; 
       <Link href={`/lot/${lot.id}`} className="meta">
         <span className="loc">{lot.suburb} {lot.state}</span>
         <span className="ttl">{lot.title}</span>
-        <span className="muted">{specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" ")}</span>
+        <span className="muted">{[specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" "), lot.registration === "unregistered" ? "Unregistered" : null].filter(Boolean).join(" · ")}</span>
         <span className="price">
           <b>{money(lot.status === "sold" ? lot.sold_price : lot.current_bid)}</b>
           <span className="muted">{lot.bid_count} bid{lot.bid_count === 1 ? "" : "s"}</span>

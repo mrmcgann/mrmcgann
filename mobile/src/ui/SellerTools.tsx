@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { dateTime, money } from "@/lib/format";
-import { VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
+import { VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES, VIDEOS_PER_LOT } from "@/lib/videos";
 import { api, errText } from "~/lib/api";
 import { pickVideo, uploadVideo } from "~/lib/files";
 import type { SellerBid, SellerVideo } from "~/lib/types";
@@ -40,7 +40,7 @@ export function SellerBids({ bids, startOpen }: { bids: SellerBid[]; startOpen: 
 
 const TITLES: [string, string][] = ["Walkaround", "Cold start", "Engine running", "Interior", "Underbody", "Features"].map((t) => [t, t]);
 
-/** The seller adds a video to their listing. It uploads privately and stays hidden until our team approves it. */
+/** The seller adds a video to their listing (one per listing). It uploads privately and stays hidden until our team approves it. */
 export function SellerVideos({ lotId, videos, canAdd, onChange }: { lotId: number; videos: SellerVideo[]; canAdd: boolean; onChange: () => void }) {
   const [title, setTitle] = useState(TITLES[0][0]);
   const [progress, setProgress] = useState<number | null>(null);
@@ -48,7 +48,7 @@ export function SellerVideos({ lotId, videos, canAdd, onChange }: { lotId: numbe
   const [removing, setRemoving] = useState<SellerVideo | null>(null);
   const [busy, setBusy] = useState(false);
   const live = videos.filter((v) => v.status !== "removed");
-  const room = live.filter((v) => v.status === "pending" || v.status === "approved").length < 3;
+  const room = live.filter((v) => v.status === "pending" || v.status === "approved").length < VIDEOS_PER_LOT;
 
   async function add() {
     setMsg(null);
@@ -79,7 +79,7 @@ export function SellerVideos({ lotId, videos, canAdd, onChange }: { lotId: numbe
 
   return (
     <View style={{ gap: 10 }}>
-      <T v="strong">Videos</T>
+      <T v="strong">Video</T>
       {live.length === 0 ? <T v="muted">Listings with a walkaround video attract more bidders. Film in landscape, in daylight, for 1 to 3 minutes.</T> : null}
       {live.map((v) => (
         <View key={v.id} style={s.video}>
@@ -102,7 +102,7 @@ export function SellerVideos({ lotId, videos, canAdd, onChange }: { lotId: numbe
         </View>
       ) : null}
       {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
-      <T v="small">Up to 3 videos, 250 MB each (MP4, MOV or WebM). Every video is checked by our team before it goes live. No number plates of other vehicles, people's faces or contact details, please.</T>
+      <T v="small">One video per listing, up to 250 MB (MP4, MOV or WebM). It counts as one of the listing's 10 photos and videos. Every video is checked by our team before it goes live. No number plates of other vehicles, people's faces or contact details, please.</T>
       <Sheet visible={!!removing} onClose={() => setRemoving(null)} title="Remove this video?"
         footer={<><Button title="Remove video" kind="danger" busy={busy} onPress={remove} /><Button kind="soft" title="Cancel" onPress={() => setRemoving(null)} /></>}>
         <T v="muted">{removing?.status === "approved" ? "It comes off your listing straight away." : "It won't be reviewed or shown on your listing."}</T>

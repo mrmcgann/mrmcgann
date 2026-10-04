@@ -6,7 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import { gradeInfo } from "@/lib/grades";
 import { km } from "@/lib/format";
 import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
-import type { Disclosures } from "@/lib/types";
+import type { Disclosures, Lot } from "@/lib/types";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
 import { useSession } from "~/lib/session";
@@ -25,6 +25,19 @@ const LETTER = "ABCDE";
 const WRITE_OFF: Record<string, string> = { none: "Not recorded as written off", repairable: "Repairable write-off", statutory: "Statutory write-off (can't be re-registered)", unknown: "Being checked" };
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
 const viewed = new Set<number>();
+
+// Registered (plate, state, expiry) or unregistered (sold without plates): the website's regoFacts and regoTag.
+const shortDate = (s: string) => new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+function regoFacts(lot: Lot): [string, unknown][] {
+  if (lot.registration === "unregistered") {
+    return [["Registration", "Unregistered, sold without plates"], ["Previous registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || lot.state})` : null]];
+  }
+  if (lot.registration === "registered" || lot.rego_plate) {
+    return [["Registration", `Registered${lot.rego_plate ? ` · ${lot.rego_plate}` : ""} (${lot.rego_state || lot.state})`], ["Registration expiry", lot.rego_expiry ? shortDate(lot.rego_expiry) : null]];
+  }
+  return [["Registration", "Not supplied"]];
+}
+const regoTag = (lot: Lot) => (lot.registration === "unregistered" ? "Unregistered" : lot.registration === "registered" ? `Registered ${lot.rego_state || lot.state || ""}`.trim() : null);
 
 export default function LotScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -69,8 +82,7 @@ export default function LotScreen() {
   const g = gradeInfo(lot.visual_grade);
   const d: Disclosures = lot.disclosures || {};
   const facts: [string, unknown][] = [
-    ["VIN", lot.vin], ["Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || lot.state})` : "Unregistered or not supplied"],
-    ["Registration expiry", lot.rego_expiry ? new Date(lot.rego_expiry).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : null],
+    ["VIN", lot.vin], ...regoFacts(lot),
     ["Build date", lot.build_date], ["Compliance date", lot.compliance_date],
     ["Indicated odometer", lot.odometer != null ? km(lot.odometer) : null],
     ["Indicated hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hours` : null],
@@ -105,6 +117,8 @@ export default function LotScreen() {
   const show = (rows: [string, unknown][]) => rows.filter(([, v]) => v !== null && v !== undefined && v !== "");
   const questionsOpen = ["live", "scheduled", "referred", "offers"].includes(lot.status);
   const forSale = ["live", "scheduled"].includes(lot.status);
+  const tag = regoTag(lot);
+  const unreg = lot.registration === "unregistered";
 
   return (
     <>
@@ -112,7 +126,7 @@ export default function LotScreen() {
       <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await Promise.all([load(), loadMine()]); setRefreshing(false); }} contentStyle={{ paddingHorizontal: 0, gap: 22 }} testID="lot-screen">
         <Gallery photos={photos} videos={videos} externalVideo={lot.video_url} backdropKey={lot.backdrop} vehicleType={lot.vehicle_type} title={lot.title} />
         <View style={s.pad}>
-          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id} · {lot.suburb}, {lot.state}</T>
+          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id} · {lot.suburb}, {lot.state}{tag ? ` · ${tag}` : ""}</T>
           <T v="d2">{lot.short_title || lot.title}.</T>
           {lot.subtitle ? <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>{lot.subtitle}</T> : null}
           <T v="small">{watchers} watching · {(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</T>
@@ -200,11 +214,16 @@ export default function LotScreen() {
         <View style={s.pad}>
           <T v="d3">Inspection & collection.</T>
           <View>
-            {([["Inspection", "Independent mobile inspection only"], ["Collection", `${lot.suburb}, ${lot.state}, after payment in full`], ["Address", "Provided once collection is booked"]] as [string, string][]).map(([k, v]) => (
+            {([
+              ["Inspection", "Independent mobile inspection, or through your consultant"],
+              ["Before collection", unreg ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"],
+              ["Collection", `${lot.suburb}, ${lot.state}${unreg ? ". By carrier, trailer or permit" : ""}`],
+              ["Address", "Sent once ownership is transferred and your collection time is confirmed"],
+            ] as [string, string][]).map(([k, v]) => (
               <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>
             ))}
           </View>
-          <MobileInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || null} canOrder={forSale} />
+          <MobileInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder={forSale} />
           {["live", "sold"].includes(lot.status) ? <QuoteBox lotId={lot.id} /> : null}
         </View>
 

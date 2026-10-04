@@ -106,7 +106,7 @@ export default function Home() {
           <T v="eyebrow" style={{ color: C.sun }}>Sell with Tyrebiter</T>
           <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>From your driveway.</Text></Text>
           <Text style={s.sellBody}>We photograph and inspect it at your place, list it Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
-          <Button kind="white" title="Get a free appraisal" onPress={() => router.push("/appraisal")} />
+          <Button testID="home-sell" kind="white" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
         </View>
       </Screen>
     </View>

@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { allow } from "@/lib/ratelimit";
 import { json, fail } from "@/lib/api";
-import { VIDEO_MAX, VIDEO_OPEN_STATUSES as OPEN, VIDEO_TYPES } from "@/lib/videos";
+import { MEDIA_MAX, VIDEO_MAX, VIDEO_OPEN_STATUSES as OPEN, VIDEO_TYPES, VIDEOS_PER_LOT } from "@/lib/videos";
 
 // Step 1 of adding a video: check the seller may add one, then hand back a one-off upload link
 // for the private uploads bucket. Nothing is public until an admin approves it.
@@ -24,8 +24,12 @@ export async function POST(req: Request) {
   if (!lot) return fail("That vehicle wasn't found.", 404);
   if (lot.seller_id !== user.id && !isAdmin) return fail("Only the seller can add a video to this listing.", 403);
   if (!OPEN.includes(lot.status)) return fail("Videos can only be added while the vehicle is listed.");
-  const { count } = await admin.from("lot_videos").select("id", { count: "exact", head: true }).eq("lot_id", lot.id).in("status", ["pending", "approved"]);
-  if ((count || 0) >= 3) return fail("A listing can have up to 3 videos. Remove one first.");
+  const [{ count: vids }, { data: media }] = await Promise.all([
+    admin.from("lot_videos").select("id", { count: "exact", head: true }).eq("lot_id", lot.id).in("status", ["pending", "approved"]),
+    admin.rpc("lot_media_count", { p_lot: lot.id }),
+  ]);
+  if ((vids || 0) >= VIDEOS_PER_LOT) return fail("A listing can have one video. Remove the current one first.");
+  if (Number(media || 0) >= MEDIA_MAX) return fail("A listing can have 10 photos and videos in total. Remove a photo first.");
   const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
   const { data, error } = await admin.storage.from("video-uploads").createSignedUploadUrl(path);
   if (error || !data) return fail("Couldn't start the upload. Please try again.", 500);

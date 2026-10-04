@@ -28,24 +28,31 @@ export async function uploadPhotos(bucket: "appraisal-photos" | "claim-photos", 
 }
 
 export type PickedVideo = Picked & { size: number };
+export type PickedFile = Picked & { size: number };
+const choose = (accept: string, multiple: boolean, capture = false) => new Promise<PickedFile[]>((resolve) => {
+  if (typeof document === "undefined") return resolve([]);
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = accept; input.multiple = multiple;
+  if (capture) input.setAttribute("capture", "environment");
+  input.onchange = () => resolve(Array.from(input.files || []).map((f) => ({ uri: URL.createObjectURL(f), name: f.name, type: f.type, size: f.size })));
+  input.click();
+});
 export async function pickVideo(): Promise<PickedVideo | null> {
-  if (typeof document === "undefined") return null;
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file"; input.accept = "video/mp4,video/quicktime,video/webm,video/x-m4v";
-    input.onchange = () => { const f = input.files?.[0]; resolve(f ? { uri: URL.createObjectURL(f), name: f.name, type: f.type || "video/mp4", size: f.size } : null); };
-    input.click();
-  });
+  const f = (await choose("video/mp4,video/quicktime,video/webm,video/x-m4v", false))[0];
+  return f ? { ...f, type: f.type || "video/mp4" } : null;
 }
-export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) {
-  const blob = await (await fetch(v.uri)).blob();
+export async function pickDocuments(max: number, from: "photos" | "camera" | "files"): Promise<PickedFile[]> {
+  return (await choose(from === "files" ? "image/*,application/pdf" : "image/*", from !== "camera", from === "camera")).slice(0, max);
+}
+export async function uploadSigned(signedUrl: string, f: Picked, onProgress?: (pct: number) => void, extraHeaders: Record<string, string> = {}) {
+  const blob = await (await fetch(f.uri)).blob();
   await new Promise<void>((resolve, reject) => {
     const failed = () => reject(new Error("The upload didn't finish. Check your connection and try again."));
     const x = new XMLHttpRequest();
     x.open("PUT", signedUrl);
-    x.setRequestHeader("content-type", v.type);
+    x.setRequestHeader("content-type", f.type);
     x.setRequestHeader("x-upsert", "false");
-    x.setRequestHeader("cache-control", "max-age=3600");
+    for (const [k, v] of Object.entries(extraHeaders)) x.setRequestHeader(k, v);
     if (SUPABASE_ANON_KEY) x.setRequestHeader("apikey", SUPABASE_ANON_KEY);
     x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100)); };
     x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : failed());
@@ -54,3 +61,5 @@ export async function uploadVideo(signedUrl: string, v: PickedVideo, onProgress?
   });
   onProgress?.(100);
 }
+export const uploadVideo = (signedUrl: string, v: PickedVideo, onProgress?: (pct: number) => void) =>
+  uploadSigned(signedUrl, v, onProgress, { "cache-control": "max-age=3600" });

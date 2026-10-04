@@ -74,11 +74,24 @@ export interface SearchResult { lots: AppLot[]; hasMore: boolean; page: number; 
 export type SellerBid = { amount: number; created_at: string; bidder_mask: string; is_auto: boolean };
 export type SellerVideo = { id: string; lot_id: number; title: string; status: string; review_note: string | null; created_at: string; public_path: string | null };
 
+/** Transfer of ownership between payment and collection (the buyer's side). */
+export interface TransferRow {
+  status: "waiting" | "submitted" | "complete"; registration: "registered" | "unregistered"; rego_state: string | null;
+  buyer_choice: string | null; transport: string | null; reference: string | null; review_note: string | null;
+  seller_done_at: string | null; proof_count: number;
+}
+/** The seller's side of the same transfer (seller_lot_transfer). */
+export interface SellerTransferRow { registration: string; rego_state: string | null; status: string; buyer_choice: string | null; seller_done_at: string | null; seller_reference: string | null }
+
 export interface InvoiceDetail {
   invoice: Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string; backdrop: string; cover_path: string | null } };
   lines: [string, number][];
   total: number;
   gstTotal: number;
+  /** Null when there's no transfer step for this sale (yet). Missing from older servers. */
+  transfer?: TransferRow | null;
+  /** Certificate of sale (PDF, needs the session), once paid in full. */
+  certificateUrl?: string | null;
   collection: { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null } | null;
   address: string | null;
   claims: { id: string; reason: string; status: string; resolution: string | null; created_at: string }[];

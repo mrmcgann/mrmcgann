@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
@@ -10,10 +10,11 @@ import { downloadAndShare } from "~/lib/files";
 import { supabase } from "~/lib/supabase";
 import { useSession } from "~/lib/session";
 import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
-import type { AppLot, SellerBid, SellerVideo } from "~/lib/types";
-import { Button, Loading, Notice, Screen, Sheet, Soft, T, Tag } from "~/ui/kit";
+import type { AppLot, SellerBid, SellerTransferRow, SellerVideo } from "~/lib/types";
+import { Button, Empty, Loading, Notice, Pill, Screen, Sheet, Soft, T, Tag } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
 import { SellerBids, SellerVideos } from "~/ui/SellerTools";
+import { SellerTransfer } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
 
 const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
@@ -24,7 +25,10 @@ const STATUS: Record<string, [string, string]> = {
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = { status: string; confirmed_for: string | null; collector: string; seller_token: string | null; collected_at: string | null };
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
-type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[] };
+type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null };
+// Grouped like the website's seller dashboard: Pending, Active, Referred, Sold, Unsold.
+type TabKey = "pending" | "active" | "referred" | "sold" | "unsold";
+const TABS: [TabKey, string, string[]][] = [["pending", "Pending", ["draft", "scheduled"]], ["active", "Active", ["live"]], ["referred", "Referred", ["referred", "offers"]], ["sold", "Sold", ["sold"]], ["unsold", "Unsold", ["passed", "cancelled"]]];
 type Decision = { lotId: number; kind: "referral" | "offer"; offerId?: string; amount: number; accept: boolean };
 
 export default function Sell() {
@@ -36,6 +40,7 @@ export default function Sell() {
   const [decision, setDecision] = useState<Decision | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tab, setTab] = useState<TabKey | null>(null);
 
   // The website's seller dashboard queries, with this member's session.
   const load = useCallback(async () => {
@@ -48,15 +53,17 @@ export default function Sell() {
       lots.length ? supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at, public_path").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : Promise.resolve({ data: [] }),
     ]);
     const extra = await Promise.all(lots.map(async (l) => {
-      const [offers, coll, watchers, bids] = await Promise.all([
+      const [offers, coll, watchers, bids, tr] = await Promise.all([
         ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         supabase.rpc("lot_watchers", { p_lot: l.id }),
         HAS_BIDS.includes(l.status) && l.bid_count > 0 ? supabase.rpc("seller_lot_bids", { p_lot: l.id }) : Promise.resolve({ data: [] }),
+        // Transfer of ownership, once the buyer has paid in full.
+        l.status === "sold" ? supabase.rpc("seller_lot_transfer", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       ]);
       return {
         lot: l, offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), payout: ((payouts || []) as Payout[]).find((p) => p.lot_id === l.id),
-        bids: (bids.data || []) as SellerBid[], videos: ((vids || []) as SellerVideo[]).filter((v) => v.lot_id === l.id),
+        bids: (bids.data || []) as SellerBid[], videos: ((vids || []) as SellerVideo[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as SellerTransferRow[])[0] || null,
       };
     }));
     setItems(extra);
@@ -81,10 +88,10 @@ export default function Sell() {
       <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your driveway.</Text></Text>
       <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>We photograph and inspect your vehicle at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</T>
       <View style={s.band}><CarArt type="ute" width={240} /></View>
-      <Button title="Get a free appraisal" onPress={() => router.push("/appraisal")} />
-      {[["1", "Free appraisal", "Tell us about the vehicle. We call with a price guide and a suggested reserve.", C.tangerine], ["2", "Inspection and photos", "We photograph the vehicle and prepare its condition report at your place.", C.sun],
-        ["3", "7-day auction", "Listed to registered buyers nationwide. Follow every bid from your phone.", C.lime], ["4", "No viewings", "Buyers don't come to your home to look at it. Inspections are done by an independent mobile mechanic, booked through us.", C.sky],
-        ["5", "Settlement", "The buyer pays Tyrebiter, then collects at a booked time. You're paid within 3 business days of collection.", C.grape]].map(([n, h, b, c]) => (
+      <Button testID="sell-start" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
+      {[["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Inspection and photos", "We photograph the vehicle and prepare its condition report at your place.", C.sun],
+        ["3", "7-day auction", "Listed to registered buyers nationwide. Follow every bid from your phone.", C.lime], ["4", "No viewings", "Buyers don't visit to look at it. Inspections are done by an independent mobile mechanic, booked through us or your consultant.", C.sky],
+        ["5", "Settlement", "The buyer pays Tyrebiter and the registration is transferred, then they collect at a booked time. You're paid within 3 business days of collection.", C.grape]].map(([n, h, b, c]) => (
         <View key={n} style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
           <View style={[s.dot, { backgroundColor: c }]}><Text style={[s.dotText, n === "5" && { color: "#FFFFFF" }]}>{n}</Text></View>
           <View style={{ flex: 1 }}><T v="title">{h}</T><T v="muted">{b}</T></View>
@@ -94,14 +101,23 @@ export default function Sell() {
     </View>
   );
 
+  const count = (st: string[]) => (items || []).filter((x) => st.includes(x.lot.status)).length;
+  const auto: TabKey = count(["referred", "offers"]) ? "referred" : count(["live"]) ? "active" : count(["sold"]) ? "sold" : count(["draft", "scheduled"]) ? "pending" : "active";
+  const cur = TABS.find(([k]) => k === (tab || auto))!;
+  const shown = (items || []).filter((x) => cur[2].includes(x.lot.status));
+
   return (
     <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} contentStyle={{ paddingTop: insets.top + 20 }} testID="sell">
       {!signedIn || (items && items.length === 0) ? intro : !items ? <Loading /> : (
         <>
           <T v="eyebrow" style={{ color: C.grape }}>Selling</T>
           <T v="d2">Your vehicles.</T>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }} style={{ marginHorizontal: -20 }} accessibilityRole="tablist" accessibilityLabel="Your listings">
+            {TABS.map(([k, label, st]) => <Pill key={k} testID={`tab-${k}`} label={label} count={count(st)} on={k === cur[0]} onPress={() => setTab(k)} />)}
+          </ScrollView>
           {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
-          {items.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos }) => {
+          {shown.length === 0 ? <Empty title={`No ${cur[1].toLowerCase()} listings.`} /> : null}
+          {shown.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos, transfer }) => {
             const [label, colour] = STATUS[l.status] || [l.status, C.panel];
             const pending = offers.filter((o) => o.status === "pending");
             return (
@@ -144,7 +160,9 @@ export default function Sell() {
                 ) : null}
                 {l.status === "sold" ? (
                   <View style={{ gap: 8 }}>
-                    {!coll ? <T v="body">We're taking payment from the buyer. We'll text you once they book a collection time.</T> : null}
+                    {!transfer && !coll ? <T v="body">We're taking payment from the buyer. We'll text you once it's paid.</T> : null}
+                    {transfer && transfer.status !== "complete" ? <SellerTransfer lotId={l.id} transfer={transfer} state={l.rego_state || l.state} onDone={load} /> : null}
+                    {transfer?.status === "complete" && !coll ? <T v="body">Ownership transferred. We'll call you to confirm the buyer's collection time.</T> : null}
                     {coll?.status === "requested" ? <T v="body">The buyer has asked to collect. We'll call you to confirm a time.</T> : null}
                     {coll?.status === "confirmed" ? (
                       <>
@@ -153,7 +171,7 @@ export default function Sell() {
                         {coll.seller_token ? <Button small title="Open the handover page" onPress={() => router.push(`/handover/${coll.seller_token}`)} style={{ alignSelf: "flex-start" }} /> : null}
                       </>
                     ) : null}
-                    {coll?.status === "collected" ? <Notice kind="ok">{`Collected ${dateLong(coll.collected_at)}. Remember to lodge your notice of disposal with your state's transport authority.`}</Notice> : null}
+                    {coll?.status === "collected" ? <Notice kind="ok">{`Collected ${dateLong(coll.collected_at)}.`}</Notice> : null}
                     {p ? (
                       <Soft>
                         <T v="strong">Payout: {money(p.net_amount, true)}</T>

@@ -40,7 +40,7 @@ INDEPENDENT MOBILE INSPECTIONS
 Order an inspection from the listing. An independent mobile mechanic inspects the vehicle where it is and sends you a written report with photos before you bid. Questions? Call or email the consultant named on the listing.
 
 WATCH THE VIDEOS
-Listings can include walkaround, cold start and interior videos, checked by our team before they appear. Play them full screen in the app.
+Each listing has up to 10 photos and a walkaround video, checked by our team before it appears. Play it full screen in the app.
 
 FINANCE AND INSURANCE
 Eligible listings show estimated weekly repayments and a comparison rate. Compare car loans and insurance from our partners before you bid or collect. Estimates only, not an offer of credit.
@@ -58,7 +58,7 @@ PAY, BOOK PICKUP, COLLECT
 When you win, your tax invoice is in the app and your saved card is charged. Book a collection time, get the address once it's confirmed, and show your release code when you pick the vehicle up.
 
 SELLING WITH TYREBITER
-Get a free appraisal with photos from your phone. We photograph and inspect the vehicle at your place and auction it to buyers Australia-wide. Buyers don't come to view it: inspections are done by an independent mobile mechanic. Add videos to your listing, follow every bid, watcher and view, and if bidding ends below your reserve, accept or decline from the app.
+Type your rego plate and we fill in the vehicle; add the kilometres and a few phone photos. We photograph and inspect the vehicle at your place and auction it to buyers Australia-wide. Buyers don't come to view it: inspections are done by an independent mobile mechanic. Add a video to your listing, follow every bid, watcher and view, and if bidding ends below your reserve, accept or decline from the app.
 
 SAFE BY DESIGN
 Every bidder verifies their mobile, card and ID before bidding. We never ask you to pay a seller directly, and our bank details never change by email or SMS.
@@ -97,7 +97,7 @@ Answer "None" or "No" to everything (violence, gambling, contests, unrestricted 
 | Contact info: Physical address | App Functionality |
 | Financial info: Payment info | App Functionality (cards are entered into Stripe's secure form; we keep the brand and last 4 digits) |
 | Purchases: Purchase history | App Functionality |
-| User content: Photos or videos | App Functionality (appraisal and claim photos, and videos sellers add to their own listing, only when you choose them) |
+| User content: Photos or videos | App Functionality (photos of a vehicle to sell, transfer documents, claim photos, and the video a seller adds to their own listing, only when you choose them) |
 | User content: Customer support | App Functionality |
 | Identifiers: User ID | App Functionality |
 | Identifiers: Device ID | App Functionality (the push notification token) |
@@ -119,7 +119,7 @@ Demo account: [email] / [password]. It has its mobile and ID already verified so
 
 - Account deletion: Account tab, scroll to the bottom, "Delete my account" (guideline 5.1.1(v)).
 - Push notifications are optional; we ask the first time you watch a vehicle, bid or save a search.
-- The camera and photo library are used only when you choose to add photos to a free appraisal (Sell tab) or to a claim on a purchase. Sellers can also choose a video from the library for their own listing (Sell tab, after a listing exists; the demo account has none). No microphone access is requested.
+- The camera and photo library are used only when you choose to add photos of a vehicle to sell (Sell tab), a transfer document or a claim on a purchase (invoice screen). Sellers can also choose a video from the library for their own listing (Sell tab, after a listing exists; the demo account has none). No microphone access is requested.
 - There are no in-person inspections. "Order a mobile inspection" on a listing sends a real enquiry to an independent inspection company, so it's only open to fully verified members (mobile, card and ID). The demo account has no card, so it will be asked to finish verifying; that's expected.
 - "Compare car loans" and "Compare insurance" open our website in an in-app browser. Tyrebiter doesn't lend money or sell insurance in the app.
 - Bidder names in the bid history are blurred on purpose, for privacy. It isn't a display fault.
@@ -144,7 +144,7 @@ Demo account: [email] / [password]. It has its mobile and ID already verified so
 - **Privacy policy:** https://tyrebiter.com.au/privacy
 - **App access:** "All or some functionality is restricted". Add the demo account (same as Apple) with the instruction "Sign in from the Account tab. Bids are binding, so please don't add a real card. The 'Order a mobile inspection' form on a listing sends a real enquiry to an inspection company, so please don't submit it (or write 'App Review test' in the notes)."
 - **Ads:** No.
-- **Content rating (IARC questionnaire):** category "All other app types". Answer No to violence, sexuality, language, controlled substances, gambling and crude humour. "Can users interact or exchange content?": **Yes** (members can ask public questions on a listing, and sellers can add videos to their listing; we moderate both before they appear). "Does the app share the user's location?": No. "Does the app allow purchases of digital goods?": No (physical vehicles).
+- **Content rating (IARC questionnaire):** category "All other app types". Answer No to violence, sexuality, language, controlled substances, gambling and crude humour. "Can users interact or exchange content?": **Yes** (members can ask public questions on a listing, and sellers can add a video to their listing; we moderate both before they appear). "Does the app share the user's location?": No. "Does the app allow purchases of digital goods?": No (physical vehicles).
 - **Target audience:** 18 and over only.
 - **News app:** No. **Health:** No. **Government app:** No. **Financial features:** "My app doesn't provide any financial features" (it takes card payments for vehicles but is not a financial product). Some listings show an estimated weekly repayment, and "Compare car loans" and "Compare insurance" open the website's comparison pages in the browser. The app doesn't lend, broker credit or sell insurance, and no finance or insurance enquiry is sent from inside the app. If finance or insurance enquiry forms are ever added inside the app, revisit this answer (Google's personal loan rules would then apply).
 - **Data deletion:** "Users can request that data is deleted" (in the app, and on the web at https://tyrebiter.com.au/delete-account).

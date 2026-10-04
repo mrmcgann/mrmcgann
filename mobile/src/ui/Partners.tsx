@@ -15,11 +15,12 @@ import { C, F } from "./theme";
 
 const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}`);
 
-/** Listing: an independent mobile inspection is the only way to inspect before bidding. */
-export function MobileInspection({ lotId, title, partner, consultantPhone, canOrder }: {
-  lotId: number; title: string; partner: Partner | null; consultantPhone: string | null; canOrder: boolean;
+/** Listing: buyers don't view in person. They order an independent mobile inspection here, or call the vehicle's consultant to organise one. */
+export function MobileInspection({ lotId, title, partner, consultantPhone, consultantName, canOrder }: {
+  lotId: number; title: string; partner: Partner | null; consultantPhone: string | null; consultantName?: string | null; canOrder: boolean;
 }) {
   const [form, setForm] = useState(false);
+  const who = consultantName ? consultantName.split(" ")[0] : "your consultant";
   return (
     <Soft style={{ gap: 8 }}>
       <T v="strong" style={{ fontSize: 17 }}>Mobile inspection.</T>
@@ -27,10 +28,13 @@ export function MobileInspection({ lotId, title, partner, consultantPhone, canOr
         In-person viewings aren't available.{" "}
         {partner
           ? <>An independent mechanic from {partner.name} can inspect the vehicle where it is and send you a written report with photos{partner.price_from ? <>, from <Text style={{ fontFamily: F.bold, color: C.ink }}>{money(partner.price_from)}</Text></> : null}.</>
-          : `Your consultant can arrange an independent inspection${consultantPhone ? ` on ${consultantPhone}` : ""}.`}
+          : "An independent mechanic can inspect it where it is and send you a written report."}
       </T>
       {partner && canOrder ? <Button testID="order-inspection" small kind="dark" title="Order a mobile inspection" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} /> : null}
       {partner?.turnaround && canOrder ? <T v="small">{partner.turnaround}. Allow time before bidding closes.</T> : null}
+      {consultantPhone ? (
+        <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>Or call {who} on <Text testID="inspection-call" accessibilityRole="link" style={s.link} onPress={() => Linking.openURL(`tel:${consultantPhone.replace(/[^\d+]/g, "")}`)}>{consultantPhone}</Text> to organise an inspection.</T>
+      ) : null}
       {partner ? <InspectionSheet visible={form} onClose={() => setForm(false)} partner={partner} lotId={lotId} vehicle={`${title} (lot ${lotId})`} /> : null}
     </Soft>
   );
@@ -147,7 +151,7 @@ export function InsureBox({ lotId, balanceOwing }: { lotId: number; balanceOwing
   );
 }
 
-/** The listing's named consultant, for questions about the vehicle, inspections or collection. */
+/** The listing's named consultant, for questions about the vehicle or to organise an inspection. */
 export function ConsultantCard({ consultant, lotId, title }: { consultant: AppConsultant; lotId: number; title: string }) {
   const initials = consultant.name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const phone = consultant.phone?.trim();
@@ -162,7 +166,7 @@ export function ConsultantCard({ consultant, lotId, title }: { consultant: AppCo
           {consultant.title ? <T v="small">{consultant.title}</T> : null}
         </View>
       </View>
-      <T v="muted">Questions about this vehicle, inspections or collection? Contact your consultant.</T>
+      <T v="muted">Questions about this vehicle, or want an inspection organised? Call your consultant.</T>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {phone ? <Button testID="consultant-call" small kind="dark" title={`Call ${phone}`} onPress={() => Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`)} /> : null}
         {consultant.email ? <Button testID="consultant-email" small kind="white" title="Email" onPress={() => Linking.openURL(`mailto:${consultant.email}?subject=${encodeURIComponent(`Lot ${lotId}: ${title}`)}`)} /> : null}

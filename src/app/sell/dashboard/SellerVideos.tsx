@@ -15,7 +15,7 @@ export function SellerVideos({ lotId, videos, canAdd }: { lotId: number; videos:
   const [progress, setProgress] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const live = videos.filter((v) => v.status !== "removed");
-  const room = live.filter((v) => v.status === "pending" || v.status === "approved").length < 3;
+  const room = live.filter((v) => v.status === "pending" || v.status === "approved").length < 1;
 
   async function upload(file: File) {
     setMsg(null);
@@ -59,7 +59,7 @@ export function SellerVideos({ lotId, videos, canAdd }: { lotId: number; videos:
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <b>Videos</b>
+      <b>Video</b>
       {live.length === 0 && <span className="muted" style={{ fontSize: 15 }}>Listings with a walkaround video attract more bidders. Film in landscape, in daylight, for 1 to 3 minutes.</span>}
       {live.map((v) => (
         <div key={v.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px", borderRadius: 14, background: "var(--panel)" }}>
@@ -80,7 +80,7 @@ export function SellerVideos({ lotId, videos, canAdd }: { lotId: number; videos:
       )}
       {progress != null && <div className="progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${progress}%` }} /></div>}
       {msg && <span className={msg.ok ? "notice ok" : "notice bad"} style={{ fontSize: 14 }}>{msg.text}</span>}
-      <span className="hint">Up to 3 videos, 250 MB each (MP4, MOV or WebM). Every video is checked by our team before it goes live. No number plates of other vehicles, people&apos;s faces or contact details, please.</span>
+      <span className="hint">One video per listing, up to 250 MB (MP4, MOV or WebM). It counts as one of the listing&apos;s 10 photos and videos. Every video is checked by our team before it goes live. No number plates of other vehicles, people&apos;s faces or contact details, please.</span>
     </div>
   );
 }

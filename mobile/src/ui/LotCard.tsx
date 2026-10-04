@@ -48,7 +48,7 @@ export const LotCard = memo(function LotCard({ lot, watched, onWatch, compact }:
       <View style={{ gap: 3, paddingHorizontal: 4 }}>
         <T v="eyebrow">{[lot.suburb, lot.state].filter(Boolean).join(" ")}</T>
         <T v="title" numberOfLines={2} style={{ fontSize: compact ? 17 : 19, lineHeight: compact ? 21 : 23 }}>{lot.title}</T>
-        <T v="small" numberOfLines={1}>{specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" ")}</T>
+        <T v="small" numberOfLines={1}>{[specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" "), lot.registration === "unregistered" ? "Unregistered" : null].filter(Boolean).join(" · ")}</T>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 4 }}>
           <Text style={s.price}>{money(price)}</Text>
           <T v="small">{lot.status === "live" && lot.bid_count === 0 ? "Starting bid" : `${lot.bid_count} bid${lot.bid_count === 1 ? "" : "s"}`}</T>

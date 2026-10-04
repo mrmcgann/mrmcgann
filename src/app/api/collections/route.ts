@@ -14,6 +14,8 @@ export async function POST(req: Request) {
   const { data: inv } = await db.from("invoices").select("id, lot_id, status, ref").eq("id", b.invoiceId).eq("buyer_id", user.id).maybeSingle();
   if (!inv) return fail("Invoice not found.", 404);
   if (inv.status !== "paid") return fail("You can book collection once the invoice is paid in full.");
+  const { data: t } = await db.from("ownership_transfers").select("status").eq("invoice_id", inv.id).maybeSingle();
+  if (t?.status !== "complete") return fail("Finish the transfer of ownership first. Your invoice shows the steps.");
   const day = String(b.day || "").slice(0, 60), time = String(b.time || "").slice(0, 60);
   if (!day || !time) return fail("Pick a day and a time.");
   const collector = String(b.collectorName || "").trim().slice(0, 120) || null;

@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-const NAV = [["/admin", "Dashboard"], ["/admin/lots", "Vehicles"], ["/admin/sales", "Referrals & offers"], ["/admin/invoices", "Invoices"], ["/admin/collections", "Collections"], ["/admin/claims", "Claims"], ["/admin/payouts", "Seller payouts"], ["/admin/questions", "Questions"], ["/admin/videos", "Videos"], ["/admin/leads", "Leads"], ["/admin/partners", "Partners"], ["/admin/consultants", "Consultants"], ["/admin/appraisals", "Appraisals"], ["/admin/quotes", "Transport quotes"], ["/admin/messages", "Contact messages"], ["/admin/users", "Members"], ["/admin/reports", "Reports"], ["/admin/settings", "Fees & settings"]];
+const NAV = [["/admin", "Dashboard"], ["/admin/lots", "Vehicles"], ["/admin/sales", "Referrals & offers"], ["/admin/invoices", "Invoices"], ["/admin/transfers", "Transfers"], ["/admin/collections", "Collections"], ["/admin/claims", "Claims"], ["/admin/payouts", "Seller payouts"], ["/admin/questions", "Questions"], ["/admin/videos", "Videos"], ["/admin/leads", "Leads"], ["/admin/partners", "Partners"], ["/admin/consultants", "Consultants"], ["/admin/appraisals", "Appraisals"], ["/admin/quotes", "Transport quotes"], ["/admin/messages", "Contact messages"], ["/admin/users", "Members"], ["/admin/reports", "Reports"], ["/admin/settings", "Fees & settings"]];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();

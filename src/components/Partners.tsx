@@ -89,17 +89,20 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
   );
 }
 
-// Listing page: an independent mobile inspection is the only way to inspect before bidding.
-export function MobileInspection({ lotId, partner, vehicle, consultantPhone, open }: { lotId: number; partner: Partner | null; vehicle: string; consultantPhone: string | null; open: boolean }) {
+// Listing page: buyers don't view in person. They order an independent mobile inspection here,
+// or call the vehicle's consultant to organise one.
+export function MobileInspection({ lotId, partner, vehicle, consultantPhone, consultantName, open }: { lotId: number; partner: Partner | null; vehicle: string; consultantPhone: string | null; consultantName?: string | null; open: boolean }) {
   const [form, setForm] = useState(false);
+  const who = consultantName ? consultantName.split(" ")[0] : "your consultant";
   return (
     <div className="soft" style={{ gap: 8 }}>
       <b style={{ fontSize: 17 }}>Mobile inspection.</b>
       <span className="muted" style={{ fontSize: 15 }}>
-        In-person viewings aren&apos;t available. {partner ? <>An independent mechanic from {partner.name} can inspect the vehicle where it is and send you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b></> : null}.</> : <>Your consultant can arrange an independent inspection{consultantPhone ? ` on ${consultantPhone}` : ""}.</>}
+        In-person viewings aren&apos;t available. {partner ? <>An independent mechanic from {partner.name} can inspect the vehicle where it is and send you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b></> : null}.</> : <>An independent mechanic can inspect it where it is and send you a written report.</>}
       </span>
       {partner && open && <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)}>Order a mobile inspection</button>}
       {partner?.turnaround && open && <span className="hint">{partner.turnaround}. Allow time before bidding closes.</span>}
+      {consultantPhone && <span style={{ fontSize: 15 }}>Or call {who} on <a className="blue" href={`tel:${consultantPhone.replace(/[^\d+]/g, "")}`} style={{ fontWeight: 700 }}>{consultantPhone}</a> to organise an inspection.</span>}
       {form && partner && <LeadForm partner={partner} kind="inspection" lotId={lotId} vehicle={vehicle} onClose={() => setForm(false)} />}
     </div>
   );

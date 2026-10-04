@@ -77,7 +77,7 @@ function Shell() {
         <Stack.Screen name="join" options={{ title: "Join Tyrebiter" }} />
         <Stack.Screen name="signin" options={{ title: "Sign in" }} />
         <Stack.Screen name="forgot" options={{ title: "Reset password" }} />
-        <Stack.Screen name="appraisal" options={{ title: "Free appraisal" }} />
+        <Stack.Screen name="appraisal" options={{ title: "Sell your vehicle" }} />
       </Stack>
     </>
   );

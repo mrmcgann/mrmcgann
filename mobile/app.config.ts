@@ -38,8 +38,8 @@ const config: ExpoConfig = {
     associatedDomains: [`applinks:${SITE_HOST}`, `webcredentials:${SITE_HOST}`],
     config: { usesNonExemptEncryption: false },
     infoPlist: {
-      NSCameraUsageDescription: "Take photos of a vehicle for an appraisal, or of a problem for a claim.",
-      NSPhotoLibraryUsageDescription: "Choose photos of a vehicle for an appraisal, or of a problem for a claim.",
+      NSCameraUsageDescription: "Take photos of a vehicle you're selling, a transfer document, or a problem for a claim.",
+      NSPhotoLibraryUsageDescription: "Choose photos of a vehicle you're selling, a transfer document, or a problem for a claim.",
     },
     privacyManifests: {
       NSPrivacyTracking: false,
@@ -85,8 +85,8 @@ const config: ExpoConfig = {
     "expo-sharing",
     ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#2F5BFF", defaultChannel: "updates" }],
     ["expo-image-picker", {
-      photosPermission: "Choose photos of a vehicle for an appraisal, or of a problem for a claim.",
-      cameraPermission: "Take photos of a vehicle for an appraisal, or of a problem for a claim.",
+      photosPermission: "Choose photos of a vehicle you're selling, a transfer document, or a problem for a claim.",
+      cameraPermission: "Take photos of a vehicle you're selling, a transfer document, or a problem for a claim.",
       microphonePermission: false,
     }],
     // No Apple Pay or Google Pay yet (cards only), so no merchant ID is needed in the Apple account.

@@ -73,7 +73,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.line(14); s.rule();
 
   const privateSale = lot.gst_status !== "inc";
-  s.row(`Vehicle price (sold on behalf of the seller${privateSale ? ", private sale, no GST" : ""})`, aud(inv.price));
+  s.row(`Vehicle price (sold as agent for the seller${privateSale ? ", private sale, no GST" : ""})`, aud(inv.price));
   if (!privateSale) s.row("   includes GST on the vehicle (seller is GST-registered)", aud(inv.vehicle_gst));
   s.row("Buyer's premium", aud(inv.premium));
   s.row("GST on buyer's premium", aud(inv.gst));
@@ -103,6 +103,47 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is paid to the seller. The buyer's premium and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and a separate tax invoice for the vehicle can be issued on the seller's behalf on request.`, 50, 495, 8);
 
   return { bytes: await doc.save(), filename: `Tyrebiter-${inv.ref}.pdf` };
+}
+
+// Certificate of sale: the buyer's proof that they own the vehicle. For an unregistered vehicle it's
+// the ownership record (a bill of sale from the auction house); for a registered one it goes with the
+// transfer of registration.
+export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
+  const db = supabaseAdmin();
+  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, sold_via, status, paid_at, lots(title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state)").eq("id", invoiceId).maybeSingle();
+  if (!inv || inv.status !== "paid") return null;
+  const lot = (inv.lots || {}) as unknown as Record<string, string | number | null>;
+  const [{ data: buyer }, { data: t }] = await Promise.all([
+    db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, company_name, abn").eq("id", inv.buyer_id).single(),
+    db.from("ownership_transfers").select("registration, buyer_choice, transport, status, completed_at").eq("invoice_id", invoiceId).maybeSingle(),
+  ]);
+  const { doc, sheet: s } = await newSheet();
+  s.text("Certificate of sale", 50, 26, { bold: true }); s.line(26);
+  s.text(`Sale ${inv.ref}  ·  Lot ${inv.lot_id}`, 50, 11, { bold: true }); s.text(`Paid in full ${day(inv.paid_at)}`, 0, 10, { right: 545 }); s.line(26);
+
+  s.text("Buyer (new owner)", 50, 9, { color: MUTED }); s.line(14);
+  for (const l of [buyer?.company_name ? `${buyer.company_name}${buyer.abn ? ` (ABN ${buyer.abn})` : ""}` : null, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" ")].filter(Boolean)) { s.text(l, 50, 11); s.line(15); }
+  s.line(6);
+  s.text("Seller", 50, 9, { color: MUTED }); s.line(14);
+  s.text(`${env.legalName}, as agent for the owner`, 50, 11); s.line(15);
+  s.line(10); s.rule();
+
+  s.text("Vehicle", 50, 12, { bold: true }); s.line(18);
+  const unreg = (t?.registration || lot.registration) !== "registered";
+  const rows: [string, unknown][] = [
+    ["Description", lot.title], ["Year, make, model", [lot.year, lot.make, lot.model, lot.variant].filter(Boolean).join(" ")], ["Body and colour", [lot.body, lot.colour].filter(Boolean).join(", ")],
+    ["VIN / chassis number", lot.vin || "Not recorded"], ["Engine number", lot.engine_no || "Not recorded"],
+    [unreg ? "Previous registration" : "Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || ""})` : unreg ? "None" : ""],
+    ["Registration status", unreg || t?.buyer_choice === "unregistered" ? "Sold unregistered, without plates" : `Registered${lot.rego_expiry ? `, expires ${day(String(lot.rego_expiry))}` : ""}. To be transferred to the buyer.`],
+    [lot.hours != null ? "Hours (as indicated)" : "Odometer (as indicated)", lot.hours != null ? `${Number(lot.hours).toLocaleString("en-AU")} hours` : lot.odometer != null ? `${Number(lot.odometer).toLocaleString("en-AU")} km` : "Not recorded"],
+    ["Sale price", aud(Number(inv.price))], ["Sold by", inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "offer" ? "Accepted offer" : "Online auction"], ["Located at", `${lot.suburb || ""}, ${lot.state || ""}`],
+  ];
+  for (const [k, v] of rows) s.row(k, safe(v));
+  s.line(10); s.rule();
+  s.wrap(`${env.legalName} sold this vehicle as agent for its owner under our Terms of Sale (tyrebiter.com.au/terms), and has received payment in full. Ownership passes to the buyer named above. ${unreg ? "The vehicle is unregistered and must not be driven on a road without a permit; move it by carrier or trailer, or under a permit from the state transport authority. To register it, the new owner applies to their state transport authority with this certificate and any inspection that state requires." : "The registration is transferred to the buyer through the state transport authority before collection."} Keep this certificate with the vehicle's papers.`, 50, 495, 9);
+  s.line(8);
+  s.wrap(`Issued ${day(new Date().toISOString())}. Check it at ${env.siteUrl.replace(/^https?:\/\//, "")} or call ${env.phone}, quoting ${inv.ref}.`, 50, 495, 8);
+  return { bytes: await doc.save(), filename: `Tyrebiter-certificate-of-sale-${inv.ref}.pdf` };
 }
 
 // Settlement statement for a seller.

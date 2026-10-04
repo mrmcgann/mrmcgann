@@ -79,6 +79,9 @@ export async function GET(req: Request) {
       await db.from("video_upload_slots").delete().in("path", paths);
     }
     s.videoOrphans = paths.length;
+    // Plate lookups older than 90 days (kept only when an appraisal used them)
+    const { data: pruned } = await db.rpc("prune_rego_lookups");
+    s.lookupsPruned = Number(pruned || 0);
   }
 
   // 9. Use the rest of the minute to send messages (the sender job also runs every minute)

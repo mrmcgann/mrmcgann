@@ -1,6 +1,6 @@
 # Tyrebiter for iPhone and Android
 
-A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, bid, buy now, offers, alerts, invoices, collection, claims, appraisals and the seller dashboard. It adds push notifications, the phone's own card form (Stripe) and in-app account deletion.
+A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, bid, buy now, offers, alerts, invoices, transfer of ownership, collection, claims, selling (with the plate lookup) and the seller dashboard. It adds push notifications, the phone's own card form (Stripe) and in-app account deletion.
 
 - Screens live in `src/app` (one file per screen). Shared pieces are in `src/ui`, plumbing in `src/lib`.
 - Search, vehicle lists, fees and formatting are the website's own code (`../src/lib`), so both stay in step.
@@ -39,6 +39,7 @@ eas init
 The app talks to the live website, so these go first:
 - Run `supabase/migrations/20261003000007_app.sql` in the Supabase SQL editor (push devices, push alerts, account deletion).
 - Then run `supabase/migrations/20261003000008_media_partners.sql` (listing videos, consultants, mobile inspections, finance and insurance partners, blurred bidder names).
+- Then run `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on listings, one video in 10 photos and videos, plate lookups, transfer of ownership before collection).
 - Deploy the website (it has the new `/api` routes the app uses).
 
 ### 5. Tell Expo the app's settings

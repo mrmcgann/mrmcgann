@@ -9,7 +9,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const db = supabaseAdmin();
   const lotId = Number(id);
-  const [{ data: lot }, { data: priv }, { data: photos }, { data: flaws }, { data: agreements }, { data: selling }, { data: snaps }] = await Promise.all([
+  const [{ data: lot }, { data: priv }, { data: photos }, { data: flaws }, { data: agreements }, { data: selling }, { data: snaps }, { data: videos }] = await Promise.all([
     db.from("lots").select("*").eq("id", lotId).single(),
     db.from("lot_private").select("*").eq("lot_id", lotId).maybeSingle(),
     db.from("lot_photos").select("*").eq("lot_id", lotId).order("sort"),
@@ -17,6 +17,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     db.from("seller_agreements").select("*").eq("lot_id", lotId).eq("status", "signed").order("signed_at", { ascending: false }).limit(1),
     db.from("settings").select("value").eq("key", "selling").maybeSingle(),
     db.from("lot_snapshots").select("id, reason, taken_at, data").eq("lot_id", lotId).order("taken_at", { ascending: false }).limit(3),
+    db.from("lot_videos").select("id, status, public_path, title").eq("lot_id", lotId).in("status", ["pending", "approved"]),
   ]);
   if (!lot) notFound();
   const agreement = agreements?.[0] || null;
@@ -40,7 +41,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
   };
   return (
     <>
-      <LotEditor lot={lot} priv={priv} photos={photos || []} flaws={flaws || []} seller={seller} />
+      <LotEditor lot={lot} priv={priv} photos={photos || []} flaws={flaws || []} seller={seller} videos={videos || []} />
       {(snaps || []).length > 0 && (
         <div className="admin-card">
           <h2 style={{ fontSize: 22, fontWeight: 800 }}>Listing as sold (snapshot)</h2>

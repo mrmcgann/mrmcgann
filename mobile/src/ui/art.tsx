@@ -131,7 +131,7 @@ export function LogoMark({ size = 26 }: { size?: number }) {
 }
 
 // ---------- icons (24 × 24, stroke) ----------
-type IconName = "home" | "search" | "heart" | "heartOn" | "tag" | "user" | "bell" | "filter" | "close" | "back" | "share" | "pin" | "clock" | "check" | "doc";
+type IconName = "home" | "search" | "heart" | "heartOn" | "tag" | "user" | "bell" | "filter" | "close" | "back" | "share" | "pin" | "clock" | "check" | "doc" | "camera";
 const ICON: Record<IconName, string> = {
   home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
   search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
@@ -148,6 +148,7 @@ const ICON: Record<IconName, string> = {
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
   check: "M5 12l5 5 9-10",
   doc: "M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M8 13h8M8 17h6",
+  camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 9.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z",
 };
 export function Icon({ name, size = 22, color = C.ink, strokeWidth = 2, style }: { name: IconName; size?: number; color?: ColorValue; strokeWidth?: number; style?: StyleProp<ViewStyle> }) {
   const on = name === "heartOn";

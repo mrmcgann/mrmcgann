@@ -33,7 +33,7 @@ function fromParams(p: Record<string, string | string[] | undefined>): SearchFil
 
 function chipsFor(f: SearchFilters): [FilterKey, string][] {
   const out: [FilterKey, string][] = [];
-  const order: FilterKey[] = ["make", "cat", "ymin", "min", "km", "hrs", "ccmin", "lams", "lic", "berths", "lenmin", "fuel", "trans", "drive", "state", "seller", "nores", "buynow", "ending", "grade", "q"];
+  const order: FilterKey[] = ["make", "cat", "ymin", "min", "km", "hrs", "ccmin", "lams", "lic", "berths", "lenmin", "fuel", "trans", "drive", "state", "seller", "rego", "nores", "buynow", "ending", "grade", "q"];
   const single = (k: FilterKey) => describeParts({ [k]: f[k], ...(k === "ymin" ? { ymax: f.ymax } : {}), ...(k === "min" ? { max: f.max } : {}), ...(k === "make" ? { model: f.model } : {}), ...(k === "cat" ? { type: f.type } : {}), ...(k === "ccmin" ? { ccmax: f.ccmax } : {}), ...(k === "lenmin" ? { lenmax: f.lenmax } : {}) }).join("");
   for (const k of order) {
     const on = k === "ymin" ? f.ymin || f.ymax : k === "min" ? f.min || f.max : k === "ccmin" ? f.ccmin || f.ccmax : k === "lenmin" ? f.lenmin || f.lenmax : f[k];

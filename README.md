@@ -10,7 +10,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 
 **For buyers**
 - Browse and search live auctions, collections and filters
-- Lot pages with a big photo and four smaller ones, a full-screen viewer, walkaround videos (checked by us before they go live), visual grade, damage and wear, checks, live countdown and live bid updates
+- Lot pages with a big photo and four smaller ones, a full-screen viewer, up to 10 photos and videos (one walkaround video, shown second), registered or unregistered (plate, state and expiry, like Grays), visual grade, damage and wear, checks, live countdown and live bid updates
 - Bid history with every bidder's name blurred (a made-up name per bidder per vehicle; real names never leave the database)
 - Auto-bidding with private maximums, bid increments, ties go to the earlier maximum
 - Going, going, gone: bids in the last 10 minutes add 10 minutes
@@ -23,7 +23,8 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - No in-person viewings: buyers order an independent mobile inspection, or call the vehicle's consultant
 - Finance and insurance comparison (`/finance`, `/insurance`), with a repayment estimate on every listing; enquiries go to partners only with the member's permission
 - Delivery quote request, report a concern
-- Sell page with appraisal form and photo upload
+- Sell page: type the rego plate (any state) and the vehicle details fill in; the seller adds kilometres, condition and photos. Unregistered vehicles use the VIN or are typed in
+- Transfer of ownership between payment and collection: registered vehicles are transferred into the buyer's name (seller lodges their part, buyer uploads the confirmation, we check it); unregistered vehicles get a certificate of sale and the buyer says how they'll move it. The pickup address is only released after payment, the transfer and a confirmed collection time
 - Help centre, Terms of sale, Privacy policy
 
 **For you (admin at /admin)**
@@ -31,7 +32,8 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - List a vehicle: details, story, condition report, photos, flaws, reserve, Buy Now, timing, private seller details
 - Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
 - Invoices: retry cards, mark balances received, mark collected, cancel with fee
-- Videos: approve or reject sellers' walkaround videos before they go live
+- Videos: add the listing's video yourself in the vehicle editor (it goes live straight away), or approve or reject the seller's
+- Transfers: check each buyer's transfer confirmation, chase the seller's part, complete it (the buyer can then book collection)
 - Partners and leads: lenders, brokers, insurers and inspection companies, their clicks and enquiries, and the fee each one paid (CSV export)
 - Consultants: the named contact shown on each listing
 - Appraisals: see photos, update status, turn into a draft listing
@@ -65,8 +67,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    6. `supabase/migrations/20261003000006_search.sql`
    7. `supabase/migrations/20261003000007_app.sql` (phone apps: push notifications, account deletion)
    8. `supabase/migrations/20261003000008_media_partners.sql` (listing videos, blurred bidder names, consultants, finance/insurance/inspection partners and enquiries)
-   9. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   10. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   9. `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on every listing, one video inside 10 photos and videos, plate lookups, transfer of ownership before collection)
+   10. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   11. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -134,7 +137,8 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 ## Test it after your first deploy (test mode)
 - [ ] Join with a real email address: the 6-digit email code arrives and works
 - [ ] Add details, then SMS code `123456`, test card, test ID
-- [ ] As admin, list a vehicle ending in 15 minutes with a reserve, and publish it
+- [ ] On the Sell page, type a plate: the vehicle fills in (test data in test mode); send the request and see it in Admin → Appraisals
+- [ ] As admin, list a vehicle ending in 15 minutes with a reserve, registered (plate, state, expiry), and publish it; add a video in the editor and see it second in the gallery
 - [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
 - [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
 - [ ] Let it end: the winner's invoice appears, marked paid (test mode), and the win email arrives
@@ -149,6 +153,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 - [ ] Try to publish before ticking "Papers match" and adding the VIN + PPSR date: it refuses and says why. Then publish
 - [ ] Sign in as the seller and try to bid on your own vehicle: refused
 - [ ] End it below the reserve: the seller gets a text, accepts in their dashboard, the buyer is charged and gets the tax invoice PDF by email
+- [ ] After payment, the buyer's invoice shows the transfer step: upload a photo as the transfer confirmation, complete it in Admin → Transfers; the seller marks their part done from their dashboard
 - [ ] Buyer books a collection; confirm it in Admin → Collections; the buyer sees the address and release code, the seller gets the handover link; enter the code on the handover page
 - [ ] Lodge a claim from the invoice: the payout goes on hold; reject it: the payout goes back
 - [ ] Wind the claim window back (or wait 2 business days): the payout shows Ready; confirm the bank details by phone and mark it paid; the seller gets the statement
@@ -158,7 +163,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
 
 ## Automated tests
-`npm run test:db` runs 252 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser and the finance maths.
+`npm run test:db` runs 299 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths and the plate lookup tidying.
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -181,6 +186,19 @@ Like carsales and Trade Me, the site earns from finance, insurance and inspectio
 5. **Consultants**: add your real consultant(s) in **Admin → Consultants**, pick one per listing in the vehicle editor, and make one the default.
 6. Clicks and enquiries per partner are in **Admin → Partners**; mark each enquiry's outcome and the fee received in **Admin → Leads**, and download the CSV for invoicing partners.
 
+## Plate lookups (Sell page)
+Sellers type their plate and state, and the make, model, year, body, colour, VIN and (where the provider has it) rego expiry fill in. Lookups are paid per search, so results are kept for 30 days and reused, limited to 10 an hour and 25 a day per person, and capped at `REGO_LOOKUP_DAILY_CAP` (default 300) a day in total. The full VIN is never sent to the browser: the seller sees "VIN ending 123456" and the full VIN is saved with their request for your team.
+1. **Pick a provider.** Quickest to start: **CarRegistrationAPI** (carregistrationapi.com, self-serve, about A$0.30 a lookup, all states; fields vary by state: Victoria gives the expiry, Queensland gives little more than the VIN). Better data from every state's register (NEVDIS): **Blue Flag** (blueflag.com.au, pay per request, needs an ABN) or **InfoAgent**; once you have their API documents, they can be added to `src/lib/regoLookup.ts`. **AutoGrab** is also supported.
+2. In Vercel, set `REGO_LOOKUP_PROVIDER` (`carregistrationapi` or `autograb`) and `REGO_LOOKUP_KEY` (your CarRegistrationAPI username, or your AutoGrab API key).
+3. Without a provider, sellers enter the details themselves. In test mode the lookup returns made-up vehicles (marked "test data"); the plate NOTFOUND finds nothing.
+
+## Transfer of ownership (between payment and collection)
+When an invoice is paid in full, the buyer's invoice shows a **Transfer of ownership** step and the seller's dashboard shows theirs, with the steps and official links for the vehicle's state (`src/lib/transfer.ts`, checked October 2026; recheck each state's page before launch).
+- **Registered:** the seller lodges their part (notice of disposal, or starting the transfer online); your consultant gives them the buyer's details the form needs. The buyer transfers the registration and uploads the confirmation (or enters the receipt number). Check it in **Admin → Transfers** and complete it. A buyer who can't register it in that state can choose to take it unregistered: the seller cancels the registration and keeps the plates.
+- **Unregistered:** the buyer confirms the certificate of sale (a PDF from their invoice, issued by Tyrebiter as agent for the owner) and how it will be moved: carrier, trailer, or the state's unregistered vehicle permit. This completes straight away.
+- Collection can only be booked once the transfer is complete, and the collection window starts then. The pickup address is sent once the collection time is confirmed.
+- Proof files are kept in the private `transfer-docs` storage bucket.
+
 ## Sample photos
 The sample listings start without photos. Never copy photos from other listing sites: they belong to their sellers and photographers. To fill the samples with openly licensed photos of the same makes and models (Wikimedia Commons, with a credit on each), run on a computer with internet access:
 ```bash
@@ -200,6 +218,8 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
 - [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
 - [ ] Storage upload limit raised to 250 MB
+- [ ] Plate lookup provider set up (`REGO_LOOKUP_PROVIDER`, `REGO_LOOKUP_KEY`) and tried with a real plate from each state you sell in
+- [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)
 - [ ] A full test sale with a real card, then refunded in Stripe
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
 

@@ -83,3 +83,9 @@ insert into public.partners (kind, slug, name, licence, blurb, features, pds_url
 insert into public.partners (kind, slug, name, licence, blurb, price_from, turnaround, referral_url, commission_note, sample, active, sort) values
   ('inspection', 'sample-inspections', 'Sample Mobile Inspections', null, 'An independent mechanic inspects the vehicle where it is and sends you a written report with photos.', 249, 'Usually within 2 business days', null, 'Sample: Tyrebiter receives $30 from the inspection provider for each inspection.', true, true, 1);
 insert into public.partner_private (partner_id, lead_email) select id, 'partners@tyrebiter.com.au' from public.partners where sample;
+
+-- Registration for the sample vehicles (made-up plates). Delete with the sample vehicles.
+update public.lots set registration = 'registered', rego_state = state, rego_plate = 'SMPL' || right(id::text, 2),
+  rego_expiry = (current_date + interval '5 months')::date
+  where id in (10432, 10588, 10590, 10599, 10611, 10620, 10633, 10660, 10661) and registration is null;
+update public.lots set registration = 'unregistered' where registration is null;
