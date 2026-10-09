@@ -101,7 +101,8 @@ update public.lots l set vin = v.vin from (values
 -- The sample vehicles were checked against the vehicle before listing (the listing checks),
 -- and whether they start and drive. Delete with the sample vehicles.
 update public.lots set verified = public.listing_check_keys(), verified_at = coalesce(published_at, now()),
-  runs = case when id = 10662 then 'untested' else 'drives' end
+  runs = case when id = 10662 then 'untested' else 'drives' end,
+  write_off_status = case when write_off_status = 'unknown' then 'none' else write_off_status end
   where status <> 'draft';
 
 -- Sample transport and warranty partners (shown in test mode only). Replace before launch.
