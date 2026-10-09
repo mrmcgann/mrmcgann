@@ -19,7 +19,7 @@ export default async function Sell() {
       <div className="center hero">
         <span className="eyebrow" style={{ color: "var(--grape)" }}>Sell your car, ute or truck</span>
         <h1 className="d1" style={{ fontSize: "clamp(56px,10vw,124px)" }}>Sold properly.<br /><span className="serif" style={{ color: "var(--grape)" }}>From your driveway.</span></h1>
-        <p className="lede">We photograph and inspect your vehicle at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</p>
+        <p className="lede">We photograph your vehicle and check it against the listing at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</p>
       </div>
       <div className="sellhero" id="appraisal">
         <div className="stage bg-berry">
