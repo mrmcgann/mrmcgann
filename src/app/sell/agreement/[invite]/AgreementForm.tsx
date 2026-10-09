@@ -10,6 +10,8 @@ const YN: [string, string, string?][] = [
   ["flood", "Has it ever had flood or water damage?", "flood_details"],
   ["hail", "Does it have hail damage?", "hail_details"],
   ["modifications", "Has it been modified (lift, engine, suspension, towing, etc.)?", "modifications_details"],
+  ["previous_use", "Has it been used as a taxi, rideshare, hire car, driving-school or police vehicle?", "previous_use_details"],
+  ["recalls", "Is there a safety recall on it that hasn't been fixed?", "recalls_details"],
   ["warning_lights", "Are any warning lights on the dash?", "warning_lights_details"],
   ["runs", "Does it start and drive?", "runs_details"],
   ["odometer_concerns", "Any reason to think the odometer isn't accurate (replaced cluster, tampering)?", "odometer_details"],
@@ -69,7 +71,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
                 <span className="hint">We pay your lender out of the sale price first, so the buyer gets clear title. You get the rest.</span>
               </div>
             )}
-            {det && (k === "runs" ? d[k] === "no" : d[k] === "yes") && <textarea className="input" placeholder={k === "runs" ? "What happens when you try? (e.g. flat battery, won't turn over)" : "Tell buyers what happened and what was fixed"} value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
+            {det && (k === "runs" ? d[k] === "no" : d[k] === "yes") && <textarea className="input" placeholder={k === "runs" ? "What happens when you try? (e.g. flat battery, won't turn over)" : k === "previous_use" ? "How was it used, and for how long?" : k === "recalls" ? "Which recall, and is it booked in to be fixed?" : "Tell buyers what happened and what was fixed"} value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
           </div>
         ))}
         <label className="field"><span>Write-off status</span><select className="input" value={d.write_off} onChange={(e) => set("write_off", e.target.value)}><option value="none">Never written off</option><option value="repairable">Repairable write-off</option><option value="inspected">Inspected write-off (VIC)</option><option value="statutory">Statutory write-off</option></select></label>

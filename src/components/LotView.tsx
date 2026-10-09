@@ -12,7 +12,7 @@ import { km, money } from "@/lib/format";
 import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { env } from "@/lib/env";
 import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified } from "@/lib/listing";
 
@@ -63,6 +63,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
+    ["Taxi, rideshare, hire or police use", d.previous_use], ["Unfixed safety recall", d.recalls],
     ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance],
     ["Known faults", d.known_faults || lot.known_faults],
@@ -70,7 +71,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   const questionsOpen = ["live", "scheduled", "referred", "offers"].includes(lot.status);
   const vehicle = `${lot.title} (lot ${lot.id})`;
   const price = lot.buy_now_price || Math.max(lot.current_bid || 0, lot.start_price || 0);
-  const allIn = price ? priceBreakdown(price, fees).total : 0;
+  const allIn = price ? priceBreakdown(price, lotFees(fees, lot)).total : 0;
   const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, finance) : null;
   const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
   const hasInsurers = partners.some((p) => p.kind === "insurance");
@@ -120,7 +121,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               </div>
               {lot.runs && <p className="hint" style={{ margin: 0 }}>{RUNS_HINT[lot.runs]}</p>}
               {isElectrified(lot.fuel) && lot.ev_battery_soh != null && lot.ev_battery_report && <p className="hint" style={{ margin: 0 }}>Battery health from an independent test. <a className="blue" href={lot.ev_battery_report} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Battery certificate ›</a></p>}
-              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated on the vehicle (photographed), not independently verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
+              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours readings are photographed on the vehicle; whether they show the true distance can’t be verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
             </div>
 
             <div className="lotsec" style={{ gap: 28 }}>
@@ -171,7 +172,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                   ["Seller identity", "ID and proof of ownership verified", true],
                   ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
                   photos.some((ph) => ph.credit) ? ["Photographs", "Includes supplied photos (credited on each photo)", false] : ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
-                  lot.odometer != null ? ["Odometer", "As indicated. Not independently verified", false] : lot.hours != null ? ["Hours", "As indicated. Not independently verified", false] : null,
+                  lot.odometer != null ? ["Odometer", "Reading photographed on the dash. True distance can't be verified", false] : lot.hours != null ? ["Hours", "Reading photographed on the meter. True hours can't be verified", false] : null,
                   ["Service history", lot.service_history || "As declared by the seller", false],
                   ["Roadworthy / safety certificate", lot.roadworthy_note || "Not supplied unless stated. See your state's rules", false],
                 ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (

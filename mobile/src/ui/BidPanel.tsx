@@ -3,7 +3,7 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, countdown, dateLong, dateTime, money } from "@/lib/format";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -19,9 +19,10 @@ import { consumerRights, rightsLine } from "@/lib/listing";
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
 /** Live price, bidding, Buy Now and offers for one vehicle (the website's BidPanel). */
-export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusChange, onMineChange }: {
+export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, onStatusChange, onMineChange }: {
   lot: AppLot; fees: Fees; mine: MyLotState | null; history: BidRow[]; onStatusChange: () => void; onMineChange: () => void;
 }) {
+  const fees = useMemo(() => lotFees(allFees, lot), [allFees, lot]);
   const { me, signedIn, refresh } = useSession();
   const userId = me?.user?.id || null;
   const missing = signedIn ? me?.missing || [] : [1, 2, 3, 4, 5];
@@ -61,7 +62,7 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
   const bigJump = typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
   const payNote = preview.mode === "card"
     ? `Charged in full to ${cardLabel} as soon as the auction ends.`
-    : `A ${money(preview.cardBase)} non-refundable deposit is charged to ${cardLabel} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
+    : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
   const bn = L.buy_now_price && Number(L.current_bid) < Number(L.buy_now_price) ? Number(L.buy_now_price) : null;
   const bnPrev = bn ? priceBreakdown(bn, fees) : null;
 
@@ -238,7 +239,7 @@ export function BidPanel({ lot, fees, mine, history: initialHistory, onStatusCha
           <LineItem k="Buy Now price" v={money(bn)} />
           <LineItem k="Premium, GST and admin fee" v={money(bnPrev.subtotal - (bn || 0), true)} />
           <LineItem k="All-in" v={money(bnPrev.total, true)} bold />
-          <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} non-refundable deposit is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</T>
+          <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</T>
         </View> : null}
         <Check checked={ack} onChange={setAck}>I've read the listing and accept the terms of sale.</Check>
       </Sheet>

@@ -23,7 +23,7 @@ const STATUS: Record<string, [string, string]> = {
 
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = { status: string; confirmed_for: string | null; collector: string; seller_token: string | null; collected_at: string | null };
-type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
+type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null; kind?: string };
 type Bid = { amount: number; created_at: string; bidder_mask: string; is_auto: boolean };
 type Video = { id: string; lot_id: number; title: string; status: string; review_note: string | null; created_at: string };
 type Transfer = { registration: string; rego_state: string | null; status: string; buyer_choice: string | null; seller_done_at: string | null; seller_reference: string | null };
@@ -41,7 +41,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
   const { tab: asked } = await searchParams;
   const tab = TABS.find(([k]) => k === asked)?.[0] || (count(["referred", "offers"]) ? "referred" : count(["live"]) ? "active" : count(["sold"]) ? "sold" : count(["draft", "scheduled"]) ? "pending" : "active");
   const lots = all.filter((l) => TABS.find(([k]) => k === tab)![2].includes(l.status));
-  const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at").eq("seller_id", user.id);
+  const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at, kind").eq("seller_id", user.id);
   const { data: vids } = lots.length ? await supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : { data: [] };
   const extra = await Promise.all(lots.map(async (l) => {
     const [offers, coll, watchers, bids, tr] = await Promise.all([
@@ -53,7 +53,9 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
     ]);
     return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as Transfer[])[0] || null };
   }));
-  const payoutFor = (id: number) => ((payouts || []) as Payout[]).find((p) => p.lot_id === id);
+  const payoutFor = (id: number) => ((payouts || []) as Payout[]).find((p) => p.lot_id === id && p.kind !== "forfeit");
+  // A buyer who didn't pay forfeits their deposit or a cancellation fee; the seller gets half (seller agreement, section 9).
+  const forfeitsFor = (id: number) => ((payouts || []) as Payout[]).filter((p) => p.lot_id === id && p.kind === "forfeit");
 
   return (
     <div className="wrap" style={{ maxWidth: 980, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 24 }}>
@@ -97,6 +99,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                 <span className="hint">Bidder names are hidden. Every bidder has verified their mobile, card and ID.</span>
               </details>
             )}
+            {forfeitsFor(l.id).map((fp) => <span key={fp.id} className="notice">A buyer didn&apos;t pay. You get half of what they forfeited: <b>{money(fp.net_amount, true)}</b>, {fp.status === "paid" ? `paid ${dateLong(fp.paid_at)}` : "being paid now"}. <a className="blue" href={`/api/payouts/${fp.id}/pdf`} style={{ fontWeight: 700 }}>Statement</a></span>)}
             {(VIDEO_OPEN_STATUSES.includes(l.status) || videos.length > 0) && <SellerVideos lotId={l.id} videos={videos} canAdd={VIDEO_OPEN_STATUSES.includes(l.status)} />}
             {l.status === "referred" && (
               <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 10 }}>

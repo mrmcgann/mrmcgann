@@ -187,7 +187,7 @@ export default function Join() {
         <Field testID="join-email" label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="username" error={errors.email} />
         <Field testID="join-password" label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" error={errors.password} hint="At least 10 characters." />
         <Check testID="join-terms" checked={terms} onChange={setTerms}>
-          <Text style={{ fontFamily: F.medium, fontSize: 15, lineHeight: 21, color: C.ink2 }}>I'm 18 or over and agree to the <Text style={{ color: C.blue, fontFamily: F.bold }} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Terms of sale</Text>, including that vehicles are sold as is, where is, with no warranty.</Text>
+          <Text style={{ fontFamily: F.medium, fontSize: 15, lineHeight: 21, color: C.ink2 }}>I'm 18 or over and agree to the <Text style={{ color: C.blue, fontFamily: F.bold }} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Terms of sale</Text> and <Text style={{ color: C.blue, fontFamily: F.bold }} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/website-terms`)}>Website terms</Text>, including that vehicles are sold as is, where is. My rights under the Australian Consumer Law aren't affected.</Text>
         </Check>
         {errors.terms ? <T v="small" style={{ color: C.badInk }}>{errors.terms}</T> : null}
         <Button testID="join-continue" title="Continue" busy={busy} onPress={submitAccount} />
@@ -237,7 +237,7 @@ export default function Join() {
         <Soft>
           <T v="strong">How paying works</T>
           <T v="body"><Text style={{ fontFamily: F.bold }}>Total under $5,000: </Text>charged to your card in full straight away when the auction ends.</T>
-          <T v="body"><Text style={{ fontFamily: F.bold }}>$5,000 or more: </Text>a non-refundable deposit ($500, or $1,000 over $20,000) is charged straight away. Pay the balance by bank transfer within 2 business days.</T>
+          <T v="body"><Text style={{ fontFamily: F.bold }}>$5,000 or more: </Text>a deposit ($500, or $1,000 over $20,000) is charged straight away. You lose it only if you don’t pay. Pay the balance by bank transfer within 2 business days.</T>
         </Soft>
         {p?.payment_method_id ? <Notice kind="ok">{`${p.card_brand} ending ${p.card_last4} is on file.`}</Notice> : null}
         {errors.card ? <Notice kind="bad">{errors.card}</Notice> : null}

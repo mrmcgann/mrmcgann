@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test:db": "node tests/db/auction.test.mjs",
     "sample-photos": "node scripts/sample-photos.mjs",
-    "test:unit": "node --experimental-strip-types --no-warnings tests/unit/search.test.mjs && node --experimental-strip-types --no-warnings tests/unit/finance.test.mjs && node --experimental-strip-types --no-warnings tests/unit/rego.test.mjs && node --experimental-strip-types --no-warnings tests/unit/vin.test.mjs && node --experimental-strip-types --no-warnings tests/unit/listing.test.mjs"
+    "test:unit": "node --experimental-strip-types --no-warnings tests/unit/search.test.mjs && node --experimental-strip-types --no-warnings tests/unit/finance.test.mjs && node --experimental-strip-types --no-warnings tests/unit/rego.test.mjs && node --experimental-strip-types --no-warnings tests/unit/vin.test.mjs && node --experimental-strip-types --no-warnings tests/unit/listing.test.mjs && node --experimental-strip-types --no-warnings tests/unit/legal.test.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.12.0",

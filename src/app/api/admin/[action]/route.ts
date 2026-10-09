@@ -13,6 +13,12 @@ import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
 const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
+// Business days the same way the database counts them (Brisbane time, weekends and public holidays skipped).
+async function addBusinessDays(from: Date, n: number) {
+  const { data } = await supabaseAdmin().rpc("business_days_from", { p_from: from.toISOString(), p_days: n });
+  return data ? new Date(data as string) : new Date(from.getTime() + n * 86400000);
+}
+const whenText = (d: Date) => d.toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
   const { action } = await params;
@@ -66,36 +72,92 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       const { data: inv } = await db.from("invoices").update({ status: "paid", balance_paid_at: new Date().toISOString() }).eq("id", b.invoiceId).eq("status", "deposit_paid").select("buyer_id, lot_id, ref").single();
       if (!inv) return fail("That invoice isn't waiting on a balance.");
       await db.from("invoices").update({ receipt_sent_at: new Date().toISOString() }).eq("id", b.invoiceId);
-      await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, book a collection time from your invoice. The seller will only hand over the vehicle with your release code.", `/account/invoices/${b.invoiceId}`, { dedupe: `receipt:${b.invoiceId}`, invoiceId: b.invoiceId });
+      await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle with your release code.", `/account/invoices/${b.invoiceId}`, { dedupe: `receipt:${b.invoiceId}`, invoiceId: b.invoiceId });
       return done();
     }
     case "cancel-invoice": {
-      const { data: inv } = await db.from("invoices").select("*").eq("id", b.invoiceId).single();
+      // The buyer didn't pay (Terms of sale, section 11). Keep the deposit or charge the cancellation fee, never both.
+      const { data: inv } = await db.from("invoices").select("*, lots(title, fees, seller_id)").eq("id", b.invoiceId).single();
       if (!inv) return fail("Not found");
-      if (!["payment_failed", "deposit_paid"].includes(inv.status)) return fail("Only unpaid sales can be cancelled (payment failed, or balance not received). Refund paid sales in Stripe first.");
+      if (!["payment_failed", "deposit_paid"].includes(inv.status)) return fail("Only unpaid sales can be cancelled for non-payment (payment failed, or balance not received). For anything else, use Cancel and refund.");
+      // A declined card gets 1 business day from the decline (section 8); an overdue balance 1 business day after the overdue reminder (section 11).
+      const from = inv.status === "deposit_paid" ? inv.due_at : inv.failed_at;
+      if (from) {
+        const until = await addBusinessDays(new Date(from), 1);
+        if (Date.now() < until.getTime()) return fail(`The buyer has until ${whenText(until)} to pay (Terms of sale, sections 8 and 11). Cancel after that.`);
+      }
       // claim the cancellation so a double click (or a payment landing now) can't run it twice
       const { data: claimed } = await db.from("invoices").update({ status: "cancelled" }).eq("id", b.invoiceId).eq("status", inv.status).select("id");
       if (!claimed?.length) return fail("This invoice changed while you were looking at it. Reload the page.");
-      const { data: fees } = await db.from("settings").select("value").eq("key", "fees").single();
-      const fee = inv.status === "deposit_paid" ? 0 : inv.total > (fees?.value?.cancel_above ?? 1000) ? (fees?.value?.cancel_fee ?? 250) : 0;
+      const { data: feeRow } = await db.from("settings").select("value").eq("key", "fees").single();
+      const f = { ...((feeRow?.value || {}) as Record<string, number>), ...((inv.lots?.fees || {}) as Record<string, number>) };
+      const fee = inv.status === "deposit_paid" ? 0 : Number(inv.total) > Number(f.cancel_above ?? 1000) ? Number(f.cancel_fee ?? 250) : 0;
       let feeNote = fee ? ` A ${money(fee)} cancellation fee applies.` : inv.status === "deposit_paid" ? " Your deposit has been kept." : "";
+      let charged = 0;
       const stripe = getStripe();
       if (fee && stripe) {
         const { data: buyer } = await db.from("profiles").select("stripe_customer_id, payment_method_id").eq("id", inv.buyer_id).single();
         try {
           if (buyer?.stripe_customer_id && buyer.payment_method_id) {
             await stripe.paymentIntents.create({ amount: cents(fee), currency: "aud", customer: buyer.stripe_customer_id, payment_method: buyer.payment_method_id, off_session: true, confirm: true, description: `${inv.ref} cancellation fee`, metadata: { invoice_id: inv.id, kind: "cancel_fee" } }, { idempotencyKey: `cancel-fee-${inv.id}` });
-            feeNote += " It has been charged to your card.";
+            feeNote += " It has been charged to your card."; charged = fee;
           }
         } catch { feeNote += " We'll contact you to collect it."; }
-      }
-      await db.from("invoices").update({ status: "cancelled", cancel_fee: fee || null }).eq("id", b.invoiceId);
-      await db.from("seller_payouts").update({ status: "cancelled", hold_reason: "Sale cancelled" }).eq("invoice_id", b.invoiceId);
+      } else if (fee && env.testMode) { feeNote += " It has been charged to your card."; charged = fee; }
+      await db.from("invoices").update({ status: "cancelled", cancel_fee: fee || null, cancel_reason: "buyer_default" }).eq("id", b.invoiceId);
+      await db.from("seller_payouts").update({ status: "cancelled", hold_reason: "Sale cancelled" }).eq("invoice_id", b.invoiceId).neq("status", "paid");
       await db.from("lots").update({ status: "passed" }).eq("id", inv.lot_id);
+      // Seller agreement, section 9: the seller gets half of a kept deposit or a charged cancellation fee.
+      const kept = inv.status === "deposit_paid" ? Number(inv.card_amount) : charged;
+      const half = Math.round(kept * 50) / 100;
+      if (half > 0) {
+        await db.from("seller_payouts").insert({ lot_id: inv.lot_id, invoice_id: inv.id, seller_id: inv.lots?.seller_id || null, kind: "forfeit", sale_price: kept,
+          other_deductions: kept - half, deductions_note: "Tyrebiter's half of the amount the buyer forfeited", net_amount: half, status: "ready" });
+      }
       await notify(inv.buyer_id, "account", `Sale cancelled: ${inv.ref}`, `We've cancelled this sale because payment wasn't received.${feeNote}`, `/account/invoices/${b.invoiceId}`);
-      await notifySeller(inv.lot_id, "The buyer didn't pay, so the sale is cancelled", "We'll call you about offering it to the next bidder or relisting at no extra cost.", "/sell/dashboard", `cancelled:${inv.id}`);
+      await notifySeller(inv.lot_id, "The buyer didn't pay, so the sale is cancelled",
+        `We'll call you about offering it to the next bidder or relisting at no extra cost.${half > 0 ? ` We'll also pay you ${money(half, true)}, half of what the buyer forfeited.` : ""}`, "/sell/dashboard", `cancelled:${inv.id}`);
       revalidateTag(`lot-${inv.lot_id}`);
       return done();
+    }
+    case "refund-cancel": {
+      // Cancel a sale that isn't the buyer's fault (an upheld claim, a title problem, damage before handover, our mistake,
+      // or events outside anyone's control) and refund everything the buyer paid (Terms of sale, sections 8, 9, 12 and 17).
+      const reason = String(b.reason || "").trim().slice(0, 300);
+      if (reason.length < 5) return fail("Say why the sale is being cancelled. The buyer and the seller see it.");
+      const { data: inv } = await db.from("invoices").select("*, lots(title)").eq("id", b.invoiceId).single();
+      if (!inv) return fail("Not found");
+      if (!["paid", "deposit_paid", "payment_failed", "pending_charge"].includes(inv.status)) return fail("This sale is already cancelled, or a card charge is running right now. Reload in a minute.");
+      const { data: claimed } = await db.from("invoices").update({ status: "cancelled" }).eq("id", b.invoiceId).eq("status", inv.status).select("id");
+      if (!claimed?.length) return fail("This invoice changed while you were looking at it. Reload the page.");
+      const cardPaid = ["paid", "deposit_paid"].includes(inv.status) && inv.paid_at ? Number(inv.card_amount) : 0;
+      const bankPaid = inv.status === "paid" && inv.mode === "deposit" ? Number(inv.balance_due) : 0;
+      const notes: string[] = [];
+      let cardDone = false;
+      const stripe = getStripe();
+      if (cardPaid > 0 && stripe && inv.stripe_payment_intent) {
+        try {
+          await stripe.refunds.create({ payment_intent: inv.stripe_payment_intent, amount: cents(cardPaid), metadata: { invoice_id: inv.id, reason } }, { idempotencyKey: `refund-${inv.id}` });
+          cardDone = true;
+        } catch { notes.push(`Card refund of ${money(cardPaid, true)} failed: refund it in Stripe.`); }
+      } else if (cardPaid > 0 && env.testMode) cardDone = true;
+      else if (cardPaid > 0) notes.push(`Refund ${money(cardPaid, true)} to the buyer's card in Stripe.`);
+      if (bankPaid > 0) notes.push(`Pay ${money(bankPaid, true)} back to the account the buyer paid the balance from.`);
+      await db.from("invoices").update({ cancel_reason: `not_buyer_fault: ${reason}`, refunded_amount: cardPaid + bankPaid || null,
+        refunded_at: cardPaid + bankPaid ? new Date().toISOString() : null, refund_note: notes.join(" ") || null }).eq("id", inv.id);
+      const { data: pay } = await db.from("seller_payouts").select("id, status").eq("invoice_id", inv.id).maybeSingle();
+      if (pay?.status === "paid") notes.push("The seller was already paid: recover it under the seller agreement (sections 11 and 13).");
+      else if (pay) await db.from("seller_payouts").update({ status: "cancelled", hold_reason: `Sale cancelled: ${reason}` }).eq("id", pay.id);
+      await db.from("collections").update({ status: "cancelled" }).eq("invoice_id", inv.id).in("status", ["requested", "confirmed"]);
+      const { data: tr } = await db.from("ownership_transfers").select("status").eq("invoice_id", inv.id).maybeSingle();
+      if (tr?.status === "complete") notes.push("Ownership was already transferred: arrange for the registration to go back to the seller.");
+      await db.from("lots").update({ status: "passed" }).eq("id", inv.lot_id);
+      const refundText = cardPaid + bankPaid === 0 ? "Nothing was charged, so there's nothing to refund."
+        : `We're refunding everything you paid${cardPaid ? `: ${money(cardPaid, true)} to your card${cardDone ? " (it usually shows within 5 to 10 business days)" : ""}` : ""}${bankPaid ? `${cardPaid ? ", and" : ":"} ${money(bankPaid, true)} to the account you paid the balance from` : ""}.`;
+      await notify(inv.buyer_id, "account", `Sale cancelled and refunded: ${inv.ref}`, `We've cancelled your purchase of the ${inv.lots?.title}. Reason: ${reason}. ${refundText} Call us if you have any questions.`, `/account/invoices/${inv.id}`, { dedupe: `refund-cancel:${inv.id}` });
+      await notifySeller(inv.lot_id, "The sale has been cancelled", `We've cancelled the sale of your ${inv.lots?.title} and refunded the buyer. Reason: ${reason}. Your consultant will call you about what happens next.`, "/sell/dashboard", `refund-cancel:${inv.id}`);
+      revalidateTag(`lot-${inv.lot_id}`);
+      return done({ note: notes.join(" ") || "Cancelled and refunded." });
     }
 
     // ---- Collections ----
@@ -351,6 +413,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
     case "settings": {
       if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business"].includes(b.key)) return fail("Unknown setting.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
+      if (b.key === "fees" && (Number(b.value?.late_interest_rate) < 0 || Number(b.value?.late_interest_rate) > 20)) return fail("Keep interest on overdue balances between 0 and 20% a year. A higher rate risks being an unfair term.");
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");
       return done();

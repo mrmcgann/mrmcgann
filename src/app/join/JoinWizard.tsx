@@ -202,7 +202,7 @@ export function JoinWizard() {
         {!errors.password && <span className="hint" style={{ marginTop: -8 }}>At least 10 characters.</span>}
         <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, color: "var(--ink2)" }}>
           <input type="checkbox" name="terms" style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0, accentColor: "#2F5BFF" }} />
-          <span>I&apos;m 18 or over and agree to the <Link className="blue" href="/terms" target="_blank" style={{ fontWeight: 700 }}>Terms of sale</Link>, including that vehicles are sold as is, where is, with no warranty.</span>
+          <span>I&apos;m 18 or over and agree to the <Link className="blue" href="/terms" target="_blank" style={{ fontWeight: 700 }}>Terms of sale</Link> and <Link className="blue" href="/website-terms" target="_blank" style={{ fontWeight: 700 }}>Website terms</Link>, including that vehicles are sold as is, where is. My rights under the Australian Consumer Law aren&apos;t affected.</span>
         </label>
         {errors.terms && <span className="errmsg">{errors.terms}</span>}
         <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} disabled={busy}>{busy ? "Creating…" : "Continue"}</button>
@@ -245,7 +245,7 @@ export function JoinWizard() {
         <div className="soft" style={{ gap: 10 }}>
           <b style={{ fontSize: 17 }}>How paying works</b>
           <div className="check" style={{ border: 0, padding: "4px 0" }}><span className="tick"><Tick /></span><span><b>Total under $5,000</b><br /><span className="muted" style={{ fontSize: 14 }}>Charged to your card in full straight away when the auction ends.</span></span></div>
-          <div className="check" style={{ border: 0, padding: "4px 0" }}><span className="tick"><Tick /></span><span><b>$5,000 or more</b><br /><span className="muted" style={{ fontSize: 14 }}>A non-refundable deposit ($500, or $1,000 over $20,000) is charged straight away. Pay the balance by bank transfer within 2 business days.</span></span></div>
+          <div className="check" style={{ border: 0, padding: "4px 0" }}><span className="tick"><Tick /></span><span><b>$5,000 or more</b><br /><span className="muted" style={{ fontSize: 14 }}>A deposit ($500, or $1,000 over $20,000) is charged straight away. You lose it only if you don’t pay. Pay the balance by bank transfer within 2 business days.</span></span></div>
         </div>
         {p?.payment_method_id && !clientSecret && (
           <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 18, border: "2px solid var(--mint)" }}>

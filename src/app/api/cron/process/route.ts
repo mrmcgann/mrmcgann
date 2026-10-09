@@ -36,6 +36,10 @@ export async function GET(req: Request) {
     s.statusNotices += n;
   }
 
+  // 3b. Damage and flaw edits on live listings: one correction once staff stop editing (Terms of sale, section 3)
+  const { data: flawFixes } = await db.rpc("announce_flaw_changes");
+  s.flawCorrections = Number(flawFixes || 0);
+
   // 4. One-hour reminders for watched vehicles
   const { data: rem } = await db.rpc("queue_ending_reminders", { p_limit: 50000 });
   s.reminders = Number(rem || 0);
@@ -58,6 +62,14 @@ export async function GET(req: Request) {
     await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account", p_title: `Balance due for the ${i.lots?.title}`,
       p_body: `Please pay the ${money(i.balance_due, true)} balance by ${dateLong(i.due_at)}, reference ${i.ref}. Details are on your invoice. We never change our bank details by email.`,
       p_link: `/account/invoices/${i.id}`, p_dedupe: `balance-due:${i.id}`, p_meta: {}, p_expires: null });
+  }
+  // The overdue reminder the Terms of Sale (section 11) promise before a sale can be cancelled.
+  const { data: late } = await db.from("invoices").select("id, ref, buyer_id, balance_due, lots(title)")
+    .eq("status", "deposit_paid").lt("due_at", new Date().toISOString()).limit(500);
+  for (const i of (late || []) as unknown as { id: string; ref: string; buyer_id: string; balance_due: number; lots: { title: string } }[]) {
+    await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account", p_title: `Your balance for the ${i.lots?.title} is overdue`,
+      p_body: `Please pay the ${money(i.balance_due, true)} balance within 1 business day, reference ${i.ref}. If it isn't paid, we may cancel the sale (you'd lose your deposit) and offer the vehicle to the next bidder. Call us if something's holding you up.`,
+      p_link: `/account/invoices/${i.id}`, p_dedupe: `balance-overdue:${i.id}`, p_meta: {}, p_expires: null });
   }
   const { data: collect } = await db.from("invoices").select("id, buyer_id, collect_by, lots(title)")
     .eq("status", "paid").is("collected_at", null).not("collect_by", "is", null).lte("collect_by", soon).limit(500);

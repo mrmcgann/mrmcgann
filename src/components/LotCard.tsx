@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Fees, Lot } from "@/lib/types";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
@@ -30,7 +30,7 @@ export function LotCard({ lot, watched, cover, fees }: { lot: Lot; watched?: boo
           <b>{money(lot.status === "sold" ? lot.sold_price : lot.current_bid)}</b>
           <span className="muted">{lot.bid_count} bid{lot.bid_count === 1 ? "" : "s"}</span>
         </span>
-        {fees && lot.status !== "sold" && <span className="muted" style={{ fontSize: 13 }} data-testid="card-allin">{money(priceBreakdown(Math.max(lot.current_bid || 0, lot.start_price || 0), fees).total, true)} all-in with fees</span>}
+        {fees && lot.status !== "sold" && <span className="muted" style={{ fontSize: 13 }} data-testid="card-allin">{money(priceBreakdown(Math.max(lot.current_bid || 0, lot.start_price || 0), lotFees(fees, lot)).total, true)} all-in with fees</span>}
       </Link>
     </article>
   );

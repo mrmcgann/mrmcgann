@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getFeesCached } from "@/lib/cache";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { money } from "@/lib/format";
 import { consumerRights } from "@/lib/listing";
 import type { Lot } from "@/lib/types";
@@ -17,9 +17,9 @@ export default async function SecondChance({ params }: { params: Promise<{ id: s
   if (!user) redirect(`/signin?next=/offers/${id}`);
   const { data: o } = await supabase.from("second_chance_offers").select("id, lot_id, amount, status, expires_at").eq("id", id).maybeSingle();
   if (!o) notFound();
-  const { data: lot } = await supabase.from("lots").select("id, title, suburb, state, seller_type, gst_status").eq("id", o.lot_id).maybeSingle();
+  const { data: lot } = await supabase.from("lots").select("id, title, suburb, state, seller_type, gst_status, fees").eq("id", o.lot_id).maybeSingle();
   const fees = await getFeesCached();
-  const b = priceBreakdown(Number(o.amount), fees);
+  const b = priceBreakdown(Number(o.amount), lotFees(fees, lot));
   const expired = o.status === "pending" && new Date(o.expires_at) <= new Date();
   const open = o.status === "pending" && !expired;
   return (

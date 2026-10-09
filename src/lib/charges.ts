@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripe, cents } from "@/lib/stripe";
 import { notify } from "@/lib/notify";
 import { env } from "@/lib/env";
-import { money } from "@/lib/format";
+import { money, dateLong } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 
 // Has Stripe already taken a payment for this invoice? (Used before any retry, so a
@@ -29,7 +29,7 @@ export async function markInvoicePaid(invoiceId: string, intentId: string | null
 }
 
 // Takes payment for a new invoice straight away, like Grays:
-// under $5,000 the full amount; otherwise the non-refundable deposit.
+// under $5,000 the full amount; otherwise the deposit.
 // Each invoice is claimed by exactly one charger (database lock), and Stripe's
 // idempotency key means a retry after a crash can never charge twice.
 async function chargeClaimed(inv: Invoice & { lots?: { title: string } }) {
@@ -83,14 +83,14 @@ async function chargeClaimed(inv: Invoice & { lots?: { title: string } }) {
       paid_at: new Date().toISOString(), stripe_payment_intent: intentId, failure_reason: null,
     }).eq("id", inv.id).eq("status", "charging");
     const body = inv.mode === "card"
-      ? `You've bought the ${title}. ${money(inv.card_amount, true)} was charged to your card and your tax invoice is attached. Next: book your collection time from your invoice. The seller will only hand over the vehicle to someone with your release code.`
-      : `You've bought the ${title}. A ${money(inv.card_amount, true)} non-refundable deposit was charged to your card and your invoice is attached. Pay the ${money(inv.balance_due, true)} balance by bank transfer within 2 business days, reference ${inv.ref}. We never change our bank details by email.`;
+      ? `You've bought the ${title}. ${money(inv.card_amount, true)} was charged to your card and your tax invoice is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle to someone with your release code.`
+      : `You've bought the ${title}. A ${money(inv.card_amount, true)} deposit was charged to your card (you lose it only if you don't pay) and your invoice is attached. Pay the ${money(inv.balance_due, true)} balance by bank transfer or PayID ${inv.due_at ? `by ${dateLong(inv.due_at)}` : "within 2 business days"}, reference ${inv.ref}, to the account on your invoice page. We never change our bank details by email.`;
     await notify(inv.buyer_id, "won", `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
     return "paid";
   }
   await db.from("invoices").update({ status: "payment_failed", failure_reason: reason, stripe_payment_intent: intentId }).eq("id", inv.id).eq("status", "charging");
   await notify(inv.buyer_id, "account", `Payment needed for the ${title}`,
-    `You won the ${title}, but we couldn't charge your card (${reason}). Pay within 1 business day using the link below, or the sale may be cancelled.`,
+    `You won the ${title}, but we couldn't charge your card (${reason}). Pay within 1 business day using the link below. If you don't, the sale may be cancelled and a cancellation fee may apply (Terms of sale, section 11).`,
     `/account/invoices/${inv.id}`, { dedupe: `payfail:${inv.id}:${inv.charge_attempts || 1}` });
   return "failed";
 }

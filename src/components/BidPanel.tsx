@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { Fees, Lot } from "@/lib/types";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, dateLong, dateTime, money } from "@/lib/format";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
@@ -32,7 +32,8 @@ export function BidPanel(props: {
   myMax: number | null; watched: boolean; invoiceId: string | null; lastOffer: { amount: number; status: string } | null;
   isSeller: boolean; history: Hist;
 }) {
-  const { lot, fees, userId, missing, cardLabel } = props;
+  const { lot, userId, missing, cardLabel } = props;
+  const fees = useMemo(() => lotFees(props.fees, lot), [props.fees, lot]);
   const router = useRouter();
   const [live, setLive] = useState<Live>(lot);
   const [skew, setSkew] = useState(0); // server clock minus this device's clock
@@ -123,7 +124,7 @@ export function BidPanel(props: {
   const bigJump = typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
   const payNote = preview.mode === "card"
     ? `Charged in full to ${cardLabel || "your card"} as soon as the auction ends.`
-    : `A ${money(preview.cardBase)} non-refundable deposit is charged to ${cardLabel || "your card"} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
+    : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel || "your card"} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
 
   function needsSetup() {
     if (!userId) { router.push(`/join?next=/lot/${lot.id}`); return true; }
@@ -246,7 +247,7 @@ export function BidPanel(props: {
               <div><span className="muted">Premium, GST and admin fee</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
               <div className="tot"><span>All-in</span><span>{money(bnPrev.total, true)}</span></div>
             </div>
-            <p style={{ fontSize: 14 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} non-refundable deposit is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</p>
+            <p style={{ fontSize: 14 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</p>
             <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14 }}>
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
               <span>I&apos;ve read the listing and accept the <Link className="blue" href="/terms" target="_blank">terms of sale</Link>.</span>

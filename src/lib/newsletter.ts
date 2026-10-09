@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
 import { DEFAULT_FEES, type Fees, type Lot } from "@/lib/types";
@@ -27,7 +27,7 @@ const ends = (s: string | null) => s ? new Date(s).toLocaleString("en-AU", { tim
 export function newsletterBody(fresh: Lot[], ending: Lot[], fees: Fees) {
   const line = (l: Lot) => {
     const price = Math.max(l.current_bid || 0, l.start_price || 0);
-    return `${l.title} · ${l.suburb ? `${l.suburb}, ` : ""}${l.state || ""} · ${l.bid_count ? "current bid" : "bids from"} ${money(price)} (${money(priceBreakdown(price, fees).total, true)} all-in) · ends ${ends(l.ends_at)}\n${env.siteUrl}/lot/${l.id}`;
+    return `${l.title} · ${l.suburb ? `${l.suburb}, ` : ""}${l.state || ""} · ${l.bid_count ? "current bid" : "bids from"} ${money(price)} (${money(priceBreakdown(price, lotFees(fees, l)).total, true)} all-in) · ends ${ends(l.ends_at)}\n${env.siteUrl}/lot/${l.id}`;
   };
   const parts: string[] = [];
   if (fresh.length) parts.push(`New this week\n\n${fresh.map(line).join("\n\n")}`);

@@ -93,6 +93,7 @@ export interface Lot {
   views?: number;
   seller_id?: string | null;
   consultant_id?: string | null;
+  fees?: Partial<Record<keyof Fees, number | string>> | null;
 }
 
 // What the seller declared when they signed the agency agreement (shown on the listing).
@@ -100,6 +101,7 @@ export interface Disclosures {
   accident?: string; flood?: string; hail?: string; write_off?: string; modifications?: string;
   odometer_concerns?: string; finance?: string; keys?: string; service_books?: boolean | string;
   known_faults?: string; warning_lights?: string; rego_expiry?: string; starts_and_drives?: string; business?: string;
+  previous_use?: string; recalls?: string;
 }
 
 export interface LotPhoto { id: string; lot_id: number; path: string; angle: string | null; sort: number; credit?: string | null; credit_url?: string | null }
@@ -172,6 +174,11 @@ export interface Invoice {
   paid_at: string | null;
   balance_paid_at: string | null;
   cancel_fee: number | null;
+  cancel_reason?: string | null;
+  failed_at?: string | null;
+  refunded_amount?: number | null;
+  refunded_at?: string | null;
+  refund_note?: string | null;
   collector_name: string | null;
   collector_mobile: string | null;
   collected_at: string | null;
@@ -197,15 +204,16 @@ export interface Fees {
   seller_fee_rate?: number;
   seller_fee_min?: number;
   withdrawal_fee?: number;
+  late_interest_rate?: number;
 }
 
 export const DEFAULT_FEES: Fees = {
   premium_rate: 0.1, admin_fee: 99, surcharge_rate: 0, card_limit: 5000,
   nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
-  storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250,
+  storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10,
 };
 
-export const TERMS_VERSION = "2026-10-01";
+export const TERMS_VERSION = "2026-10-10";
 
 export interface Sale {
   id: number;

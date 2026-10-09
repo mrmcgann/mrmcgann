@@ -26,7 +26,7 @@ select md5('u' || i)::uuid, 'u' || i || '@load.test',
   case when i <= {{VERIFIED}} then '4242' end,
   case when i <= {{VERIFIED}} then 'verified' when i % 7 = 0 then 'pending' else 'none' end,
   now() - (i % 1000) * interval '1 day',
-  '2026-10-01',
+  '2026-10-10',
   now() - (i % 1000) * interval '1 day'
 from generate_series(1, {{USERS}}) i;
 

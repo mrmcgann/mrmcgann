@@ -108,7 +108,7 @@ export default function InvoiceScreen() {
           <Button title="Pay now" busy={busy} onPress={payNow} />
         </Soft>
       ) : null}
-      {inv.status === "cancelled" ? <Notice kind="bad">{`This sale was cancelled${inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</Notice> : null}
+      {inv.status === "cancelled" ? <Notice kind="bad">{inv.cancel_reason?.startsWith("not_buyer_fault") ? `This sale was cancelled (${inv.cancel_reason.replace("not_buyer_fault: ", "")}).${inv.refunded_amount ? ` Everything you paid (${money(inv.refunded_amount, true)}) is being refunded to where it came from.` : ""}` : `This sale was cancelled${inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</Notice> : null}
 
       {fullyPaid && transfer ? <TransferStep invoiceId={inv.id} invoiceRef={inv.ref} t={transfer} title={inv.lots.title} consultantPhone={d.seller.phone} certificateUrl={d.certificateUrl} onDone={load} /> : null}
 

@@ -120,7 +120,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null };
     const { error: pe } = await db.from("lot_private").upsert(privBody);
     setBusy(false);
-    if (pe) { setMsg({ kind: "bad", text: pe.message }); return null; }
+    if (pe) { setMsg({ kind: "bad", text: pe.message.includes("reserve_locked:") ? `Not saved: ${pe.message.split("reserve_locked:")[1]}.` : pe.message }); return null; }
     setF({ ...f, ...extra });
     setBase(normalize({ ...f, ...extra }));
     setMsg({ kind: "ok", text: okText });
@@ -289,7 +289,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
       </div>
       {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
-      {hasBids && <div className="notice">This lot has bids. Prices and the reserve can still be changed, but take care: bidders rely on what&apos;s shown.</div>}
+      {hasBids && <div className="notice">This lot has bids. The reserve can be lowered or removed but not raised. Any change to a key fact, the description or the damage list is shown on the listing as a correction, every bidder and watcher is told, and bidding is kept open for at least 24 hours.</div>}
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Listing</h2>

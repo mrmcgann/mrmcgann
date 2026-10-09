@@ -33,7 +33,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Delivery quote request, report a concern
 - Sell page: type the rego plate (any state) and VIN, and our own free lookup fills in the vehicle (vehicles we've listed, VIN patterns learned from our listings, the VIN itself); the seller checks it and adds kilometres, condition and photos
 - Transfer of ownership between payment and collection: registered vehicles are transferred into the buyer's name (seller lodges their part, buyer uploads the confirmation, we check it); unregistered vehicles get a certificate of sale and the buyer says how they'll move it. The pickup address is only released after payment, the transfer and a confirmed collection time
-- Help centre, Terms of sale, Privacy policy
+- Help centre, Terms of sale, Website terms, Seller agency agreement, Privacy policy
 
 **For you (admin at /admin)**
 - Dashboard of everything that needs attention
@@ -236,6 +236,17 @@ When an invoice is paid in full, the buyer's invoice shows a **Transfer of owner
 - Collection can only be booked once the transfer is complete, and the collection window starts then. The pickup address is sent once the collection time is confirmed.
 - Proof files are kept in the private `transfer-docs` storage bucket.
 
+## Terms, payment and liability (version 10 October 2026)
+Written in our own words after comparing the payment terms and site terms of Grays/Slattery, Pickles and Manheim, keeping what protects buyers, sellers and Tyrebiter and leaving out terms the unfair contract terms laws catch (termination "for any reason", 1%-a-day late fees, one-sided changes, blanket exclusions). `src/content/legal.ts`: Terms of sale (20 sections), Seller agency agreement, Website terms (`/website-terms`), Help.
+- **Paying:** card under the card limit; otherwise a deposit (kept only if the buyer doesn't pay) and the balance by bank transfer or PayID. No cash or cheques, only into the account on the invoice page, payer must be the buyer (or approved). Interest on overdue balances at the rate in **Fees & settings** (default 10% a year, capped at 20), no other late fees.
+- **Not paying:** an overdue reminder (clock), then 1 business day. **Admin → Invoices → Cancel: buyer didn't pay** refuses earlier, keeps the deposit *or* charges the cancellation fee (never both), and gives the seller half as a `forfeit` payout.
+- **Cancel and refund** (Admin → Invoices) for anything that isn't the buyer's fault (upheld claim, title problem, damage before handover, our mistake): refunds the card in Stripe, lists any bank refund to make, cancels the seller payout and open collection bookings.
+- **Fees are locked per vehicle** when it goes live (`lots.fees`); a fee change applies only to vehicles listed afterwards. The seller fee comes from the copy saved when the seller signed. Each invoice records the terms version the buyer accepted.
+- **Storage** only starts once the registration transfer is complete and the collection window has passed.
+- **Late bids:** any bid in the closing minutes extends the auction, including a leader raising their maximum to meet the reserve. The reserve can be lowered but never raised once there are bids.
+- **Corrections** also cover the title, description, location, plate and the damage list (damage edits are announced once staff stop editing for 5 minutes).
+- Sellers also declare previous use (taxi, rideshare, hire, driving school, police) and unfixed safety recalls; both show on the listing.
+
 ## Sample photos
 The sample listings start without photos. Never copy photos from other listing sites: they belong to their sellers and photographers. To fill the samples with openly licensed photos of the same makes and models (Wikimedia Commons, with a credit on each), run on a computer with internet access:
 ```bash
@@ -253,7 +264,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] The newsletter switched on in **Admin → Newsletter** only once you have opted-in members
 - [ ] **Admin → Fees & settings → Selling checks** is ON
 - [ ] Public holidays for next year added to the `public_holidays` table (the business-day maths skips them)
-- [ ] Terms of sale, Seller agency agreement and Privacy policy reviewed by an Australian lawyer: consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds must sit in a trust account, unfair contract terms (deposit forfeiture, withdrawal and cancellation fees), storage and abandonment
+- [ ] Terms of sale, Seller agency agreement, Website terms and Privacy policy reviewed by an Australian lawyer (send them the `[LAWYER ...]` notes in `src/content/legal.ts`): consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds must sit in a trust account, unfair contract terms (deposit forfeiture, withdrawal and cancellation fees, overdue interest, the indemnities), storage and uncollected goods in each state, whether an accepted referred bid is a sale by auction
 - [ ] Accountant to confirm GST handling when a GST-registered seller sells through you as agent
 - [ ] ABN, licence number, phone, email and bank details in the environment variables and footer
 - [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)

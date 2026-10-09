@@ -89,7 +89,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
 
   s.text("Payment", 50, 12, { bold: true }); s.line(18);
   const paidCard = ["paid", "deposit_paid"].includes(inv.status);
-  s.row(inv.mode === "card" ? "Charged to your card" : "Non-refundable deposit charged to your card", `${aud(inv.card_amount)}${paidCard ? `  (${day(inv.paid_at)})` : "  (not yet paid)"}`);
+  s.row(inv.mode === "card" ? "Charged to your card" : "Deposit charged to your card", `${aud(inv.card_amount)}${paidCard ? `  (${day(inv.paid_at)})` : "  (not yet paid)"}`);
   if (inv.mode === "deposit") {
     const balancePaid = inv.status === "paid";
     s.row("Balance by bank transfer", `${aud(inv.balance_due)}${balancePaid ? `  (received ${day(inv.balance_paid_at)})` : `  (due ${day(inv.due_at)})`}`);
@@ -159,9 +159,12 @@ export async function statementPdf(payoutId: string): Promise<{ bytes: Uint8Arra
   s.text(`Seller: ${seller ? `${seller.first_name || ""} ${seller.last_name || ""}` : ""}`, 50, 10); s.line(14);
   s.text(`Sale invoice ${p.invoices?.ref || ""} · sold ${day(p.invoices?.created_at)} · collected ${day(p.invoices?.collected_at) || "not yet"}`, 50, 10); s.line(24);
   s.rule();
-  s.row("Sale price", aud(p.sale_price));
-  s.row("Less seller fee", `-${aud(p.seller_fee)}`);
-  s.row("Less GST on seller fee", `-${aud(p.fee_gst)}`);
+  const forfeit = p.kind === "forfeit";
+  s.row(forfeit ? "Deposit or cancellation fee the buyer forfeited" : "Sale price", aud(p.sale_price));
+  if (!forfeit) {
+    s.row("Less seller fee", `-${aud(p.seller_fee)}`);
+    s.row("Less GST on seller fee", `-${aud(p.fee_gst)}`);
+  }
   if (Number(p.lender_payout) > 0) s.row(`Less finance paid out to ${p.lender_name || "your lender"}${p.lender_ref ? ` (ref ${p.lender_ref})` : ""}`, `-${aud(p.lender_payout)}`);
   if (Number(p.other_deductions) > 0) s.row(`Less ${p.deductions_note || "other agreed costs"}`, `-${aud(p.other_deductions)}`);
   s.rule();

@@ -107,6 +107,7 @@ export default function LotScreen() {
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
+    ["Taxi, rideshare, hire or police use", d.previous_use], ["Unfixed safety recall", d.recalls],
     ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance], ["Known faults", d.known_faults || lot.known_faults],
   ];
@@ -115,7 +116,7 @@ export default function LotScreen() {
     ["Seller identity", "ID and proof of ownership verified", true],
     ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
     ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
-    ...(lot.odometer != null ? [["Odometer", "As indicated. Not independently verified", false] as [string, string, boolean]] : lot.hours != null ? [["Hours", "As indicated. Not independently verified", false] as [string, string, boolean]] : []),
+    ...(lot.odometer != null ? [["Odometer", "Reading photographed on the dash. True distance can't be verified", false] as [string, string, boolean]] : lot.hours != null ? [["Hours", "Reading photographed on the meter. True hours can't be verified", false] as [string, string, boolean]] : []),
     ["Service history", lot.service_history || "As declared by the seller", false],
     ["Roadworthy / safety certificate", lot.roadworthy_note || "Not supplied unless stated. See your state's rules", false],
   ];
@@ -159,7 +160,7 @@ export default function LotScreen() {
             {show(facts).map(([k, v]) => <View key={k} style={s.fact}><T v="small">{k}</T><T v="strong" selectable>{String(v)}</T></View>)}
           </View>
           {lot.runs ? <T v="small">{RUNS_HINT[lot.runs]}</T> : null}
-          <T v="small">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours are as indicated on the vehicle (photographed), not independently verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
+          <T v="small">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours readings are photographed on the vehicle; whether they show the true distance can’t be verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
         </View>
 
         <View style={s.pad}>

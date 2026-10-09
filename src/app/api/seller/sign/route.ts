@@ -36,6 +36,8 @@ export async function POST(req: Request) {
     flood: d.flood === "yes" ? `Yes: ${txt(d.flood_details)}` : yn(d.flood),
     hail: d.hail === "yes" ? `Yes: ${txt(d.hail_details)}` : yn(d.hail),
     modifications: d.modifications === "yes" ? `Yes: ${txt(d.modifications_details)}` : yn(d.modifications),
+    previous_use: d.previous_use === "yes" ? `Yes: ${txt(d.previous_use_details)}` : yn(d.previous_use),
+    recalls: d.recalls === "yes" ? `Yes: ${txt(d.recalls_details)}` : yn(d.recalls),
     warning_lights: d.warning_lights === "yes" ? `Yes: ${txt(d.warning_lights_details)}` : yn(d.warning_lights),
     odometer_concerns: d.odometer_concerns === "yes" ? `Yes: ${txt(d.odometer_details)}` : yn(d.odometer_concerns),
     starts_and_drives: d.runs === "no" ? `No: ${txt(d.runs_details)}` : yn(d.runs),
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     rego_expiry: txt(d.rego_expiry, 20),
   };
   if (d.finance === "yes" && !disclosures.finance_amount) return fail("Roughly how much finance is owing? We need it to pay your lender.");
-  if (["finance", "accident", "flood", "hail", "modifications", "warning_lights", "odometer_concerns", "starts_and_drives"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
+  if (["finance", "accident", "flood", "hail", "modifications", "previous_use", "recalls", "warning_lights", "odometer_concerns", "starts_and_drives"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
     return fail("Answer every yes/no question about the vehicle.");
   }
   const docs = (Array.isArray(b.docs) ? b.docs : []).filter((p: unknown) => typeof p === "string" && p.startsWith(`${user.id}/`)).slice(0, 10);

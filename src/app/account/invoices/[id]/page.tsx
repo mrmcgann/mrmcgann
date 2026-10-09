@@ -87,7 +87,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
         )}
         {inv.status === "payment_failed" && <InvoiceActions id={inv.id} mode="pay" amount={inv.card_amount} reason={inv.failure_reason} />}
-        {inv.status === "cancelled" && <div className="notice bad">This sale was cancelled{inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.</div>}
+        {inv.status === "cancelled" && <div className="notice bad">{inv.cancel_reason?.startsWith("not_buyer_fault") ? `This sale was cancelled (${inv.cancel_reason.replace("not_buyer_fault: ", "")}).${inv.refunded_amount ? ` Everything you paid (${money(inv.refunded_amount, true)}) is being refunded to where it came from.` : ""}` : `This sale was cancelled${inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</div>}
 
         {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}
 

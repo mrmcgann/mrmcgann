@@ -1,7 +1,7 @@
 import { getFeesCached, getHistoryCached, getLotCached, getPartnersCached, getSettingsCached, getSimilarCached } from "@/lib/cache";
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { listingEstimate } from "@/lib/finance";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { env } from "@/lib/env";
 import type { FinanceSettings } from "@/lib/types";
 
@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const withUrl = <T extends { cover_path?: string | null }>(l: T) => ({ ...l, cover_url: l.cover_path ? abs(photoUrl(l.cover_path)) : null });
   const { lot } = bundle;
   const price = lot.buy_now_price || Math.max(lot.current_bid || 0, lot.start_price || 0);
-  const allIn = price ? priceBreakdown(price, fees).total : 0;
+  const allIn = price ? priceBreakdown(price, lotFees(fees, bundle.lot)).total : 0;
   const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, (settings.finance || {}) as FinanceSettings) : null;
   const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
   return Response.json({

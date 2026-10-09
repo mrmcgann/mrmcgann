@@ -14,3 +14,12 @@ export function priceBreakdown(price: number, f: Fees) {
     cardAmount: cardBase + surcharge, balanceDue: subtotal - cardBase, total: subtotal + surcharge,
   };
 }
+
+/** The fees locked on a vehicle when it went live (lots.fees), over today's fees. A fee change never applies to a
+ *  vehicle already listed, so every price shown for it uses these. Mirrors public.lot_price_breakdown(). */
+export function lotFees(f: Fees, lot?: { fees?: Partial<Record<keyof Fees, number | string>> | null } | null): Fees {
+  if (!lot?.fees) return f;
+  const out = { ...f } as Record<string, number>;
+  for (const [k, v] of Object.entries(lot.fees)) if (k in out && v !== null && v !== "" && Number.isFinite(Number(v))) out[k] = Number(v);
+  return out as unknown as Fees;
+}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getFeesCached, getHomeCached } from "@/lib/cache";
 import { ForYou } from "@/components/ForYou";
-import { priceBreakdown } from "@/lib/fees";
+import { priceBreakdown, lotFees } from "@/lib/fees";
 import { LotCard } from "@/components/LotCard";
 import { JoinOrWatchlist } from "@/components/HeaderUser";
 import { CarArt } from "@/components/CarArt";
@@ -72,7 +72,7 @@ export default async function Home() {
               <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>{featured.short_title || featured.title}.</h2>
               <p style={{ fontSize: 20, fontWeight: 500 }}>{[featured.subtitle, featured.odometer != null ? km(featured.odometer) : null, `${featured.suburb}, ${featured.state}`].filter(Boolean).join(" · ")}</p>
               <div className="stat">
-                <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span><span style={{ fontSize: 14, fontWeight: 600 }}>{money(priceBreakdown(Math.max(featured.current_bid || 0, featured.start_price || 0), fees).total, true)} all-in</span></span>
+                <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span><span style={{ fontSize: 14, fontWeight: 600 }}>{money(priceBreakdown(Math.max(featured.current_bid || 0, featured.start_price || 0), lotFees(fees, featured)).total, true)} all-in</span></span>
                 <span><span className="k">Ends in</span><Countdown className="v" endsAt={featured.ends_at} /></span>
               </div>
               <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
