@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { AppraisalForm } from "./AppraisalForm";
+import { SellForm } from "./SellForm";
 import { CarArt } from "@/components/CarArt";
-import { HELP as RAW, fillLegal, legalValues } from "@/content/legal";
+import { HELP as RAW, SELLER_AGREEMENT, fillLegal, legalValues } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
+import { env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Sell your car or truck", description: "Sell your car, ute, truck, caravan, boat or machinery by online auction to verified buyers Australia-wide. Free appraisal; we photograph it at your place.", alternates: { canonical: "/sell" } };
+export const metadata: Metadata = { title: "Sell your car or truck", description: "Sell your car, ute, truck, caravan, boat or machinery by online auction to verified buyers Australia-wide. Fill in one short form, sign on your phone, and we photograph it at your place.", alternates: { canonical: "/sell" } };
 
-const STEPS = [["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", "tangerine"], ["2", "Inspection and photos", "We photograph the vehicle and prepare its condition report at your place.", "sun"], ["3", "7-day auction", "Listed to registered buyers nationwide. Follow every bid from your phone.", "lime"], ["4", "No viewings", "Buyers don't visit to look at it. Inspections are done by an independent mobile mechanic, booked through us or your consultant.", "sky"], ["5", "Settlement", "The buyer pays Tyrebiter and the registration is transferred, then they collect at a booked time. You're paid within 3 business days of collection.", "grape"]];
+const STEPS = [
+  ["1", "Fill in and sign", "What it is, how it's going, a few phone photos, reserve or no reserve, then sign with your finger. About 10 minutes.", "tangerine"],
+  ["2", "We call you", "Within 1 business day, with a price guide. Then you verify your ID in your browser: about 2 minutes.", "sun"],
+  ["3", "Photos at your place", "We photograph the vehicle and prepare its condition report where it's kept.", "lime"],
+  ["4", "7-day auction", "Listed to verified buyers nationwide. No viewings: buyers book an independent mobile inspection instead.", "sky"],
+  ["5", "Settlement", "The buyer pays Tyrebiter and the registration is transferred, then they collect at a booked time. You're paid within 3 business days of collection.", "grape"],
+];
 const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Professional, at your place"], ["Visitors to your home", "Every interested buyer", "None", "Only the buyer, to collect"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
 
 export default async function Sell() {
@@ -14,6 +21,7 @@ export default async function Sell() {
   const v = legalValues(settings);
   const HELP = fillLegal(RAW, settings);
   const sellFaq = HELP.find((h) => h[0] === "h-sell")?.[2] || [];
+  const clauses = fillLegal(SELLER_AGREEMENT, settings);
   return (
     <div className="wrap">
       <div className="center hero">
@@ -21,17 +29,8 @@ export default async function Sell() {
         <h1 className="d1" style={{ fontSize: "clamp(56px,10vw,124px)" }}>Sold properly.<br /><span className="serif" style={{ color: "var(--grape)" }}>From your driveway.</span></h1>
         <p className="lede">We photograph your vehicle and check it against the listing at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</p>
       </div>
-      <div className="sellhero" id="appraisal">
-        <div className="stage bg-berry">
-          <span style={{ fontSize: "clamp(28px,3.2vw,44px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.04, maxWidth: 520, position: "relative" }}>No viewings. No haggling. No payment scams.</span>
-          <CarArt type="ute" />
-          <div className="mini3">
-            <div><b>No viewings</b><span style={{ fontSize: 14, color: "var(--ink2)" }}>Independent mobile inspections only.</span></div>
-            <div><b>Buyers compete</b><span style={{ fontSize: 14, color: "var(--ink2)" }}>Your reserve protects you.</span></div>
-            <div><b>We pay you</b><span style={{ fontSize: 14, color: "var(--ink2)" }}>Buyer pays us first.</span></div>
-          </div>
-        </div>
-        <AppraisalForm />
+      <div className="sf-wrap" id="appraisal">
+        <SellForm clauses={clauses} phone={env.phone} />
       </div>
 
       <section id="how-sell">
@@ -70,7 +69,7 @@ export default async function Sell() {
       <section id="fleet">
         <div className="panel" style={{ background: "var(--ink)", color: "#FFFFFF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 760 }}><h2 className="d3" style={{ color: "#FFFFFF" }}>Trucks, fleets &amp; estates.</h2><p style={{ fontSize: 20, color: "#D2D2D7" }}>Selling several vehicles, a fleet or a deceased estate? One consultant, one agreement, anywhere in Australia.</p></div>
-          <a className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} href="#appraisal">Request an appraisal above</a>
+          <a className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} href="#appraisal">Start the form above</a>
         </div>
       </section>
 

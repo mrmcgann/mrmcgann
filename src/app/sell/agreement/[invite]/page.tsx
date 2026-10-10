@@ -7,6 +7,7 @@ import { SELLER_AGREEMENT, fillLegal } from "@/content/legal";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
 import { AgreementForm } from "./AgreementForm";
+import { agreementPrefill } from "@/lib/sellForm";
 
 export const metadata: Metadata = { title: "Your seller agreement", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -34,6 +35,10 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
     [profile?.id_status === "verified", "Verify your ID (licence or passport + selfie, in your browser)", `/join?step=5&seller=1&next=${encodeURIComponent(here)}`],
   ] : [];
   const ready = user && steps.every(([ok]) => ok);
+  // If they used the sell form, their answers are filled in here (they check them and sign again with their verified ID).
+  const { data: ap } = ready ? await supabaseAdmin().from("appraisals").select("ref, disclosures, details").eq("lot_id", v.lot_id).not("signed_at", "is", null)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
+  const prefill = ap?.disclosures && Object.keys(ap.disclosures).length ? agreementPrefill(ap.disclosures) : undefined;
 
   return (
     <Shell title={v.title}>
@@ -56,7 +61,11 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
           ))}
         </div>
       ) : (
-        <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses} />
+        <>
+          {prefill && <div className="notice ok" data-testid="agreement-prefilled">We&apos;ve filled in the answers from your sell form ({ap?.ref}). Check them, change anything that&apos;s different now, and sign.</div>}
+          <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses}
+            prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} />
+        </>
       )}
     </Shell>
   );

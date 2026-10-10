@@ -18,7 +18,7 @@ type Lookup = { found: boolean; id: string | null; complete?: boolean; sources?:
 const UNAVAILABLE = "We couldn't look it up just now. Enter the details below.";
 const STATE_OPTIONS = REGO_STATES.map((s) => [s, s] as [string, string]);
 
-// Where the details came from (the website's sourceLine in src/app/sell/AppraisalForm.tsx; keep them in step).
+// Where the details came from (the website's sourceLine in src/app/sell/SellForm.tsx; keep them in step).
 const SOURCE: Record<string, string> = { "our records": "our records", vin: "the VIN" };
 const sourceLine = (sources: string[]) => `From ${[...new Set(sources.map((x) => SOURCE[x] || x))].join(" and ")}`;
 const isRegoState = (s?: string | null) => !!s && (REGO_STATES as readonly string[]).includes(s);
@@ -33,7 +33,7 @@ function Suggest({ value, options, onPick, testID }: { value: string; options: s
 }
 
 /**
- * Sell your vehicle (the website's AppraisalForm): the plate (any state) and, if they have it handy,
+ * Sell your vehicle (the short version of the website's sell form): the plate (any state) and, if they have it handy,
  * the VIN. Our own free lookup fills in what it can; the seller checks it, adds what only they know
  * (kilometres, condition) and how to reach them. No account needed.
  */

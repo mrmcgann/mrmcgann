@@ -2,24 +2,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { SignaturePad } from "@/components/SignaturePad";
+import { QUESTIONS, needsDetails, type Signature } from "@/lib/sellForm";
 
 type Clause = [string, string, string[]];
-const YN: [string, string, string?][] = [
-  ["finance", "Is there any finance owing on the vehicle?"],
-  ["accident", "Has it been in an accident that needed repair?", "accident_details"],
-  ["flood", "Has it ever had flood or water damage?", "flood_details"],
-  ["hail", "Does it have hail damage?", "hail_details"],
-  ["modifications", "Has it been modified (lift, engine, suspension, towing, etc.)?", "modifications_details"],
-  ["previous_use", "Has it been used as a taxi, rideshare, hire car, driving-school or police vehicle?", "previous_use_details"],
-  ["recalls", "Is there a safety recall on it that hasn't been fixed?", "recalls_details"],
-  ["warning_lights", "Are any warning lights on the dash?", "warning_lights_details"],
-  ["runs", "Does it start and drive?", "runs_details"],
-  ["odometer_concerns", "Any reason to think the odometer isn't accurate (replaced cluster, tampering)?", "odometer_details"],
-];
+// The same questions as the sell form (src/lib/sellForm.ts), so a seller who used it sees their answers here.
+const YN = QUESTIONS;
 
-export function AgreementForm({ invite, userId, reserve, legalName, clauses }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[] }) {
+export function AgreementForm({ invite, userId, reserve, legalName, clauses, prefill, ownerType }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[]; prefill?: Record<string, string>; ownerType?: string }) {
   const router = useRouter();
-  const [d, setD] = useState<Record<string, string>>({ write_off: "none", keys: "2", service_books: "no" });
+  const [d, setD] = useState<Record<string, string>>({ write_off: "none", keys: "2", service_books: "no", ...(prefill || {}) });
+  const [sig, setSig] = useState<Signature | null>(null);
+  const [noDraw, setNoDraw] = useState(false);
   const [gst, setGst] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [err, setErr] = useState("");
@@ -29,6 +23,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    if (!sig && !noDraw) { setErr("Sign in the box (with your finger, a pen or the mouse)."); return; }
     setBusy(true); setErr("");
     const docs: string[] = [];
     const db = supabaseBrowser();
@@ -40,7 +35,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
     const res = await fetch("/api/seller/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       invite, reserve: f.get("reserve"), disclosures: d, gst, abn: f.get("abn"), ownerType: f.get("ownerType"), docs,
       bank: { name: f.get("bankName"), bsb: f.get("bsb"), account: f.get("account") },
-      signedName: f.get("signedName"), agree: f.get("agree") === "on", owner: f.get("owner") === "on",
+      signedName: f.get("signedName"), agree: f.get("agree") === "on", owner: f.get("owner") === "on", signature: noDraw ? null : sig, noDraw,
     }) });
     const data = await res.json();
     setBusy(false);
@@ -71,7 +66,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
                 <span className="hint">We pay your lender out of the sale price first, so the buyer gets clear title. You get the rest.</span>
               </div>
             )}
-            {det && (k === "runs" ? d[k] === "no" : d[k] === "yes") && <textarea className="input" placeholder={k === "runs" ? "What happens when you try? (e.g. flat battery, won't turn over)" : k === "previous_use" ? "How was it used, and for how long?" : k === "recalls" ? "Which recall, and is it booked in to be fixed?" : "Tell buyers what happened and what was fixed"} value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
+            {det && needsDetails(k, d[k] || "") && <textarea className="input" placeholder={k === "runs" ? "What happens when you try? (e.g. flat battery, won't turn over)" : k === "previous_use" ? "How was it used, and for how long?" : k === "recalls" ? "Which recall, and is it booked in to be fixed?" : "Tell buyers what happened and what was fixed"} value={d[det] || ""} onChange={(e) => set(det, e.target.value)} />}
           </div>
         ))}
         <label className="field"><span>Write-off status</span><select className="input" value={d.write_off} onChange={(e) => set("write_off", e.target.value)}><option value="none">Never written off</option><option value="repairable">Repairable write-off</option><option value="inspected">Inspected write-off (VIC)</option><option value="statutory">Statutory write-off</option></select></label>
@@ -85,7 +80,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
 
       <section className="formcard">
         <h2 className="d3" style={{ fontSize: 30 }}>3. Ownership.</h2>
-        <label className="field"><span>The vehicle is owned by</span><select className="input" name="ownerType"><option value="individual">Me</option><option value="joint">Me and someone else</option><option value="company">A company</option><option value="trust">A trust</option></select>
+        <label className="field"><span>The vehicle is owned by</span><select className="input" name="ownerType" defaultValue={ownerType || "individual"}><option value="individual">Me</option><option value="joint">Me and someone else</option><option value="company">A company</option><option value="trust">A trust</option></select>
           <span className="hint">If someone else co-owns it, we&apos;ll ask them to confirm by phone before it goes live.</span></label>
         <label className="field"><span>Photo of the registration papers (or other proof of ownership)</span><input type="file" accept="image/*,application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} required />
           <span className="hint">The name must match your verified ID (or the company you act for). Stored privately; only our team can see it.</span></label>
@@ -113,7 +108,11 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses }: {
         </div>
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" name="owner" style={{ width: 20, height: 20, flexShrink: 0 }} /><span>I own this vehicle, or I&apos;m authorised by every owner (or the company or trust) to sell it, and my answers above are true.</span></label>
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" name="agree" style={{ width: 20, height: 20, flexShrink: 0 }} /><span>I&apos;ve read and agree to the Seller Agency Agreement above, and appoint Tyrebiter to sell the vehicle for me on those terms.</span></label>
-        <label className="field"><span>Type your full legal name to sign</span><input className="input" name="signedName" required placeholder={legalName} autoComplete="off" /><span className="hint">This is your electronic signature. We record the date, time and device.</span></label>
+        {!noDraw ? (
+          <div className="sf-block"><span className="sf-label">Your signature</span><SignaturePad onChange={setSig} testId="agreement-signature" />
+            <span className="hint">Use your finger, a stylus or the mouse. <button type="button" className="linkbtn" style={{ fontSize: 14 }} onClick={() => { setNoDraw(true); setSig(null); }}>Can&apos;t sign in the box?</button></span></div>
+        ) : <div className="notice">You&apos;ll sign with your typed name below. <button type="button" className="linkbtn" onClick={() => setNoDraw(false)}>Draw my signature instead</button></div>}
+        <label className="field"><span>Type your full legal name</span><input className="input" name="signedName" required placeholder={legalName} autoComplete="off" /><span className="hint">With your signature, this is how you sign. We record the date, time and device.</span></label>
         {err && <div className="notice bad">{err}</div>}
         <button className="btn btn-blue" disabled={busy}>{busy ? "Signing…" : "Sign and send to Tyrebiter"}</button>
       </section>

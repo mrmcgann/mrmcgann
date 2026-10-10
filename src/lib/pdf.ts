@@ -174,3 +174,65 @@ export async function statementPdf(payoutId: string): Promise<{ bytes: Uint8Arra
   s.wrap(`Paid under your Seller Agency Agreement with ${env.legalName}. GST on our fee is a taxable supply by us; this statement is a tax invoice for that fee.`, 50, 495, 8);
   return { bytes: await doc.save(), filename: `Tyrebiter-settlement-${p.lot_id}.pdf` };
 }
+
+// The Seller Agency Agreement as the seller signed it on the sell form: what they told us, every clause, and their
+// drawn signature (or typed name), with the date and time. Emailed to the seller and kept privately for staff.
+export async function sellerAgreementPdf(o: {
+  ref: string; version: string; signedName: string; signedAt: string; signature: { w: number; h: number; strokes: number[][] } | null;
+  facts: [string, string][]; clauses: [string, string, string[]][];
+}): Promise<Uint8Array> {
+  const { doc, sheet } = await newSheet();
+  let s = sheet;
+  const fresh = () => {
+    const page = doc.addPage([595.28, 841.89]);
+    s = new Sheet(page, s.font, s.bold);
+    s.text(`Seller Agency Agreement · ${o.ref}`, 50, 9, { color: MUTED });
+    s.line(24);
+  };
+  const room = (h: number) => { if (s.y - h < 56) fresh(); };
+  const strip = (t: string) => t.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const para = (t: string, size = 9, color = MUTED, x = 50, width = 495) => {
+    const words = safe(strip(t)).split(/\s+/);
+    let cur = "";
+    for (const w of words) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (s.font.widthOfTextAtSize(next, size) > width) { room(size + 3); s.text(cur, x, size, { color }); s.line(size + 3); cur = w; } else cur = next;
+    }
+    if (cur) { room(size + 3); s.text(cur, x, size, { color }); s.line(size + 3); }
+  };
+  s.text("Seller Agency Agreement", 50, 22, { bold: true }); s.line(18);
+  s.text(`${o.version}  ·  Reference ${o.ref}`, 50, 10, { color: MUTED }); s.line(24);
+  s.text("What you told us", 50, 12, { bold: true }); s.line(16);
+  for (const [k, v] of o.facts) {
+    room(14);
+    s.text(k, 50, 9, { color: MUTED });
+    const val = safe(v);
+    const fits = s.font.widthOfTextAtSize(val, 9) <= 330;
+    if (fits) { s.text(val, 215, 9); s.line(13); } else { s.line(12); para(val, 9, INK, 215, 330); }
+  }
+  s.line(8);
+  for (const [, title, paras] of o.clauses) {
+    room(30);
+    s.line(4);
+    s.text(title, 50, 11, { bold: true }); s.line(15);
+    for (const p of paras) { para(p); s.line(3); }
+  }
+  room(150);
+  s.line(10); s.rule();
+  s.text("Signed", 50, 12, { bold: true }); s.line(16);
+  if (o.signature) {
+    const scale = Math.min(240 / o.signature.w, 80 / o.signature.h);
+    const top = s.y;
+    for (const st of o.signature.strokes) {
+      if (st.length < 4) continue;
+      let d = "";
+      for (let i = 0; i < st.length; i += 2) d += `${i ? " L" : "M"} ${(st[i] * scale).toFixed(1)} ${(st[i + 1] * scale).toFixed(1)}`;
+      s.page.drawSvgPath(d, { x: 50, y: top, borderColor: INK, borderWidth: 1.4 });
+    }
+    s.line(80 + 8);
+  }
+  s.text(`${o.signedName}`, 50, 11, { bold: true }); s.line(14);
+  s.text(`Signed electronically on ${new Date(o.signedAt).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", dateStyle: "long", timeStyle: "short" })} (Brisbane time).`, 50, 9, { color: MUTED }); s.line(12);
+  para("Before your vehicle goes live we verify your identity, and you confirm this agreement on your agreement page with your verified name. Keep this copy for your records.", 8);
+  return doc.save();
+}

@@ -5,8 +5,8 @@ import { json, fail, friendly } from "@/lib/api";
 import { allow, clientIp, userAgent } from "@/lib/ratelimit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
+import { cleanDisclosures, cleanSignature, signatureSvg } from "@/lib/sellForm";
 
-const yn = (v: unknown) => (v === "yes" ? "yes" : v === "no" ? "no" : "");
 const txt = (v: unknown, n = 500) => String(v ?? "").trim().slice(0, n);
 
 // The seller e-signs the Seller Agency Agreement with their disclosures and payout details.
@@ -27,28 +27,11 @@ export async function POST(req: Request) {
   const money = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n) : null; };
   const reserve = String(b.reserve ?? "").trim() ? money(b.reserve) : null;
   if (String(b.reserve ?? "").trim() && (reserve == null || reserve <= 0 || reserve > 5_000_000)) return fail("Check the reserve amount.");
-  const d = b.disclosures || {};
-  const disclosures = {
-    finance: yn(d.finance), finance_amount: d.finance === "yes" ? String(money(d.finance_amount) ?? "") : "",
-    lender_name: d.finance === "yes" ? txt(d.lender_name, 120) : "", lender_ref: d.finance === "yes" ? txt(d.lender_ref, 60) : "",
-    write_off: ["none", "repairable", "inspected", "statutory"].includes(d.write_off) ? d.write_off : "none",
-    accident: d.accident === "yes" ? `Yes: ${txt(d.accident_details)}` : yn(d.accident),
-    flood: d.flood === "yes" ? `Yes: ${txt(d.flood_details)}` : yn(d.flood),
-    hail: d.hail === "yes" ? `Yes: ${txt(d.hail_details)}` : yn(d.hail),
-    modifications: d.modifications === "yes" ? `Yes: ${txt(d.modifications_details)}` : yn(d.modifications),
-    previous_use: d.previous_use === "yes" ? `Yes: ${txt(d.previous_use_details)}` : yn(d.previous_use),
-    recalls: d.recalls === "yes" ? `Yes: ${txt(d.recalls_details)}` : yn(d.recalls),
-    warning_lights: d.warning_lights === "yes" ? `Yes: ${txt(d.warning_lights_details)}` : yn(d.warning_lights),
-    odometer_concerns: d.odometer_concerns === "yes" ? `Yes: ${txt(d.odometer_details)}` : yn(d.odometer_concerns),
-    starts_and_drives: d.runs === "no" ? `No: ${txt(d.runs_details)}` : yn(d.runs),
-    business: d.business === "yes" || b.ownerType === "company" || !!b.gst ? "yes" : "no",
-    known_faults: txt(d.known_faults, 1000), keys: String(Math.max(0, Math.min(9, Number(d.keys) || 0))), service_books: d.service_books === "yes",
-    rego_expiry: txt(d.rego_expiry, 20),
-  };
-  if (d.finance === "yes" && !disclosures.finance_amount) return fail("Roughly how much finance is owing? We need it to pay your lender.");
-  if (["finance", "accident", "flood", "hail", "modifications", "previous_use", "recalls", "warning_lights", "odometer_concerns", "starts_and_drives"].some((k) => !String((disclosures as Record<string, unknown>)[k]))) {
-    return fail("Answer every yes/no question about the vehicle.");
-  }
+  const { value: disclosures, error: discError } = cleanDisclosures(b.disclosures || {}, { business: b.ownerType === "company" || !!b.gst });
+  if (discError) return fail(discError);
+  // the drawn signature (or, for someone who can't draw one, the typed name alone)
+  const signature = cleanSignature(b.signature);
+  if (!signature && !b.noDraw) return fail("Sign in the box (with your finger, a pen or the mouse).");
   const docs = (Array.isArray(b.docs) ? b.docs : []).filter((p: unknown) => typeof p === "string" && p.startsWith(`${user.id}/`)).slice(0, 10);
   if (!docs.length) return fail("Upload a photo of the registration papers (or proof of ownership).");
   const bsb = String(b.bank?.bsb || "").replace(/[^0-9]/g, ""), acct = String(b.bank?.account || "").replace(/[^0-9]/g, "");
@@ -61,6 +44,11 @@ export async function POST(req: Request) {
     p_docs: docs, p_ip: await clientIp(), p_ua: await userAgent(),
   });
   if (error) return fail(friendly(error.message));
+  if (signature) {
+    const path = `${user.id}/${String(b.invite || "").replace(/[^0-9a-f]/g, "")}/signature-${Date.now()}.svg`;
+    const up = await admin.storage.from("seller-docs").upload(path, new TextEncoder().encode(signatureSvg(signature)), { contentType: "image/svg+xml", upsert: true });
+    if (!up.error) await admin.from("seller_agreements").update({ signature_path: path }).eq("id", agreementId as string);
+  }
   await admin.from("seller_bank").upsert({ seller_id: user.id, account_name: txt(b.bank.name, 120), bsb: `${bsb.slice(0, 3)}-${bsb.slice(3)}`, account_number: acct, confirmed_at: null, updated_at: new Date().toISOString() });
   await sendEmail({ to: env.supportEmail, subject: `Seller signed: ${b.invite}`, text: `Agreement ${agreementId}. Check ownership papers and confirm bank details by phone in admin: ${env.siteUrl}/admin/lots` }).catch(() => undefined);
   return json({ ok: true });

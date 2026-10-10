@@ -2,48 +2,44 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { getFeesCached } from "@/lib/cache";
 import type { Lot } from "@/lib/types";
-import { CarArt } from "@/components/CarArt";
-import { Countdown } from "@/components/Countdown";
-import { RemindSwitch, RemoveWatch, DeleteSearch, WatchNote } from "@/components/WatchRowControls";
-import { money, km } from "@/lib/format";
+import { DeleteSearch } from "@/components/WatchRowControls";
+import { WatchBoard, type WatchItem } from "@/components/watchlist/WatchBoard";
 import { photoUrl } from "@/lib/photos";
+import { specLine } from "@/lib/vehicles";
 
 export const metadata: Metadata = { title: "Watchlist" };
 export const dynamic = "force-dynamic";
 
-type Row = { lot_id: number; remind: boolean; note?: string | null; lots: Lot };
-const TABS = [["all", "All"], ["soon", "Ending today"], ["winning", "Winning"], ["outbid", "Outbid"], ["won", "Won"], ["lost", "Didn't win"]];
+type WatchRow = { lot_id: number; remind: boolean; note?: string | null; created_at: string; lots: Lot };
 
-export default async function Watchlist({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
-  const { f = "all" } = await searchParams;
+// Everything you're watching and everything you've bid on, with live prices (see WatchBoard).
+export default async function Watchlist({ searchParams }: { searchParams: Promise<{ f?: string; sort?: string }> }) {
+  const { f = "all", sort = "ending" } = await searchParams;
   const { supabase, user } = await getSession();
   if (!user) redirect("/signin?next=/watchlist");
-  const [{ data: rows }, { data: maxes }, { data: searches }] = await Promise.all([
-    supabase.from("watchlist").select("lot_id, remind, note, lots(*)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
-    supabase.from("max_bids").select("lot_id, max_amount, lots(*)").eq("bidder_id", user.id).order("updated_at", { ascending: false }).limit(300),
+  const [{ data: rows }, { data: maxes }, { data: searches }, fees] = await Promise.all([
+    supabase.from("watchlist").select("lot_id, remind, note, created_at, lots(*)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("max_bids").select("lot_id, max_amount, updated_at, lots(*)").eq("bidder_id", user.id).order("updated_at", { ascending: false }).limit(300),
     supabase.from("saved_searches").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+    getFeesCached(),
   ]);
-  const myMax = new Map((maxes || []).map((m: { lot_id: number; max_amount: number }) => [m.lot_id, m.max_amount]));
-  const all = ((rows || []) as unknown as Row[]).filter((r) => r.lots);
-  // Every vehicle you've bid on shows here, even if you've stopped watching it
-  const seen = new Set(all.map((r) => r.lot_id));
-  for (const m of (maxes || []) as unknown as { lot_id: number; lots: Lot }[]) if (m.lots && !seen.has(m.lot_id)) all.push({ lot_id: m.lot_id, remind: false, lots: m.lots });
-  const status = (l: Lot) => {
-    const mx = myMax.get(l.id);
-    if (l.status === "sold") return l.winner_id === user.id ? { k: "won", t: "Won", c: "var(--mint)" } : { k: mx != null ? "lost" : "ended", t: mx != null ? "Didn't win" : "Sold", c: "var(--panel2)" };
-    if (l.status === "referred") return l.leader_id === user.id ? { k: "referred", t: "Referred to seller", c: "var(--sun)" } : { k: "lost", t: "Referred", c: "var(--panel2)" };
-    if (l.status === "offers") return { k: "offers", t: "Make an offer open", c: "var(--sun)" };
-    if (l.status !== "live") return { k: "ended", t: "Ended", c: "var(--panel2)" };
-    if (mx == null) return { k: "watch", t: "Not bid yet", c: "#FFFFFF" };
-    return l.leader_id === user.id ? { k: "winning", t: `Winning · max ${money(mx)}`, c: "var(--mint)" } : { k: "outbid", t: `Outbid · max ${money(mx)}`, c: "var(--berry)" };
-  };
-  const soon = (l: Lot) => l.status === "live" && l.ends_at && new Date(l.ends_at).getTime() - Date.now() < 86400000;
-  const counts: Record<string, number> = { all: all.length, soon: all.filter((r) => soon(r.lots)).length };
-  ["winning", "outbid", "won", "lost"].forEach((k) => (counts[k] = all.filter((r) => status(r.lots).k === k).length));
-  const list = all.filter((r) => f === "all" || (f === "soon" ? soon(r.lots) : status(r.lots).k === f))
-    .sort((a, b) => new Date(a.lots.ends_at || 0).getTime() - new Date(b.lots.ends_at || 0).getTime());
-  const covers = new Map(list.map((r) => [r.lots.id, r.lots.cover_path || undefined]));
+  const myMax = new Map((maxes || []).map((m: { lot_id: number; max_amount: number }) => [m.lot_id, Number(m.max_amount)]));
+  const items = new Map<number, WatchItem>();
+  const toItem = (l: Lot, extra: Partial<WatchItem>): WatchItem => ({
+    id: l.id, title: l.title, status: l.status, ends_at: l.ends_at, current_bid: Number(l.current_bid || 0), bid_count: l.bid_count, start_price: Number(l.start_price || 0),
+    reserve_met: l.reserve_met, has_reserve: l.has_reserve, leader_id: l.leader_id, winner_id: l.winner_id, sold_price: l.sold_price, decision_by: l.decision_by,
+    buy_now_price: l.buy_now_price, seller_type: l.seller_type ?? null, fees: (l as Lot & { fees?: WatchItem["fees"] }).fees ?? null, backdrop: l.backdrop, vehicle_type: l.vehicle_type,
+    cover: l.cover_path ? photoUrl(l.cover_path) : null, place: [l.suburb, l.state].filter(Boolean).join(", "), spec: specLine(l) || [l.year, l.make, l.model].filter(Boolean).join(" "),
+    year: l.year, grade: l.visual_grade, is_seller: (l as Lot & { seller_id?: string | null }).seller_id === user.id,
+    my_max: myMax.get(l.id) ?? null, watched: false, remind: false, note: null, added_at: null, ...extra,
+  });
+  for (const r of (rows || []) as unknown as WatchRow[]) if (r.lots) items.set(r.lot_id, toItem(r.lots, { watched: true, remind: r.remind, note: r.note || null, added_at: r.created_at }));
+  // every vehicle you've bid on shows here too, even if you've stopped watching it
+  for (const m of (maxes || []) as unknown as { lot_id: number; updated_at: string; lots: Lot }[]) {
+    if (m.lots && !items.has(m.lot_id) && m.lots.status !== "draft") items.set(m.lot_id, toItem(m.lots, { added_at: m.updated_at }));
+  }
   const colours = ["sun", "sky", "lime", "berry", "mint", "lilac"];
 
   return (
@@ -51,7 +47,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
       <div className="acctgrid">
         <nav className="side-nav" aria-label="Account">
           <span className="h">Buying</span>
-          <Link href="/watchlist" className="on">Watchlist<span>{all.length}</span></Link>
+          <Link href="/watchlist" className="on">Watchlist<span>{items.size}</span></Link>
           <Link href="/watchlist?f=winning">My bids</Link>
           <Link href="/watchlist#searches">Saved searches</Link>
           <span className="h">Account</span>
@@ -60,37 +56,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
           <Link href="/account/notifications">Notifications</Link>
         </nav>
         <div style={{ display: "flex", flexDirection: "column", gap: 28, minWidth: 0 }}>
-          <h1 className="d2">Watchlist.</h1>
-          <div className="seg" style={{ alignSelf: "flex-start" }}>
-            {TABS.map(([k, l]) => <Link key={k} href={`/watchlist?f=${k}`} className={f === k ? "on" : ""} style={{ height: 42, padding: "0 18px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, background: f === k ? "#FFFFFF" : "transparent", boxShadow: f === k ? "0 1px 3px rgba(0,0,0,.12)" : "none" }}>{l} {counts[k]}</Link>)}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {list.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>{f === "all" ? "Your watchlist is empty." : "Nothing here right now."}</b><span className="muted">Tap the heart on any vehicle to keep an eye on it.</span><Link className="btn btn-blue" href="/auctions">Browse auctions</Link></div>}
-            {list.map(({ lots: l, remind, note }) => {
-              const s = status(l);
-              const cta = l.status === "live" ? (s.k === "outbid" ? "Bid again" : s.k === "winning" ? "Raise max" : "Place bid") : s.k === "won" ? "View invoice" : s.k === "offers" ? "Make an offer" : "View lot";
-              return (
-                <div className="wrow" key={l.id}>
-                  <Link href={`/lot/${l.id}`} className={`stage bg-${l.backdrop}`} aria-label={l.title}>{covers.get(l.id) ? <img className="lotimg" src={photoUrl(covers.get(l.id)!)} alt="" /> : <CarArt type={l.vehicle_type} />}</Link>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
-                    <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>LOT {l.id} · {l.suburb?.toUpperCase()} {l.state}</span>
-                    <Link href={`/lot/${l.id}`} style={{ fontSize: 23, fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1.1 }}>{l.title}</Link>
-                    <span className="muted">{km(l.odometer)} · {l.transmission} · Visual grade {l.visual_grade}</span>
-                    {seen.has(l.id) && <WatchNote lotId={l.id} initial={note || ""} />}
-                  </div>
-                  <div className="c-time"><div className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{l.status === "live" ? "Ends in" : "Status"}</div>{l.status === "live" ? <Countdown endsAt={l.ends_at} style={{ fontSize: 22, fontWeight: 800, color: soon(l) ? "var(--urgent)" : "var(--ink)" }} /> : <div style={{ fontSize: 18, fontWeight: 800 }}>Closed</div>}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}><b style={{ fontSize: 28, letterSpacing: "-0.03em" }}>{money(l.status === "sold" ? l.sold_price : l.current_bid)}</b><span className="tag" style={{ background: s.c }}>{s.t}</span></div>
-                  <div className="c-act" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "stretch" }}>
-                    <Link className={`btn ${s.k === "watch" || l.status !== "live" ? "btn-white" : "btn-blue"}`} href={s.k === "won" ? "/account#invoices" : `/lot/${l.id}`} style={{ height: 46, fontSize: 15 }}>{cta}</Link>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      {l.status === "live" ? <RemindSwitch lotId={l.id} initial={remind} /> : <span />}
-                      <RemoveWatch lotId={l.id} title={l.title} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <WatchBoard items={[...items.values()]} fees={fees} userId={user.id} initialTab={f} initialSort={sort} />
           <div id="searches" style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
               <h2 className="d3" style={{ fontSize: 44 }}>Saved searches.</h2>

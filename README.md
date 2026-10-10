@@ -25,13 +25,13 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Transport quotes from a carrier partner (listing and invoice), carrier tracking link on the collection, and warranty and roadside assistance providers (`/warranty`)
 - Weekly newsletter for members who opt in (one-click unsubscribe)
 - 5-step sign-up: account → details → SMS code → card on file → ID check
-- Automatic payment when you win: under $5,000 charged in full, otherwise a non-refundable deposit plus bank transfer
+- Automatic payment when you win: under $5,000 charged in full, otherwise a deposit (kept only if the buyer doesn't pay) plus bank transfer
 - Declined-card "Pay now" flow, invoices, nominate a collector
-- Watchlist with 1-hour reminders, saved searches with alerts, notification settings
+- Watchlist (`/watchlist`): the vehicle closing next up top with a big countdown, an outbid strip with "Bid again", tabs (all, ending today, winning, outbid, won, didn't win), sort, prices that update live, the all-in price beside every bid, bid straight from the list (same confirm step as the vehicle page), private notes, 1-hour reminders, compare up to three side by side, remove with Undo, and finished vehicles kept with their result; saved searches with alerts; notification settings
 - No in-person viewings: buyers order an independent mobile inspection, or call the vehicle's consultant
 - Finance and insurance comparison (`/finance`, `/insurance`), with a repayment estimate on every listing; enquiries go to partners only with the member's permission
 - Delivery quote request, report a concern
-- Sell page: type the rego plate (any state) and VIN, and our own free lookup fills in the vehicle (vehicles we've listed, VIN patterns learned from our listings, the VIN itself); the seller checks it and adds kilometres, condition and photos
+- Sell page (`/sell`): one form, about 10 minutes. Pick the type (car, ute, truck, trailer, bus, motorbike, caravan, boat, machinery), type the plate (any state) or VIN and our own free lookup fills in the vehicle; kilometres or hours, condition, the yes/no questions buyers see, guided photos laid out exactly like the listing (one big photo with four beside it, the front corner as the cover; up to 10, shrunk on the phone before they upload), no reserve or a reserve amount, contact details, then the Seller Agency Agreement to read to the end, tick and sign with a finger (or a typed name). We keep a PDF of what was signed, email the seller a copy, text them, and tell our team. A half-filled form survives a reload
 - Transfer of ownership between payment and collection: registered vehicles are transferred into the buyer's name (seller lodges their part, buyer uploads the confirmation, we check it); unregistered vehicles get a certificate of sale and the buyer says how they'll move it. The pickup address is only released after payment, the transfer and a confirmed collection time
 - Help centre, Terms of sale, Website terms, Seller agency agreement, Privacy policy
 
@@ -51,7 +51,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Transfers: check each buyer's transfer confirmation, chase the seller's part, complete it (the buyer can then book collection)
 - Partners and leads: lenders, brokers, insurers and inspection companies, their clicks and enquiries, and the fee each one paid (CSV export)
 - Consultants: the named contact shown on each listing
-- Appraisals: see photos, update status, turn into a draft listing
+- Appraisals: see photos, the signed sell form (reserve, condition, every answer that needs a look, the signature and the signed PDF), update status, turn into a draft listing (the answers, reserve and any finance owing go across)
 - Members: suspend, mark ID verified, make admin
 - Reports, and fees & auction rules
 
@@ -86,8 +86,12 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    10. `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup)
    11. `supabase/migrations/20261004000011_lookup_australia_only.sql` (keeps the lookup to Australian sources)
    12. `supabase/migrations/20261004000012_accuracy_fleet_partners.sql` (listing checks, public corrections, seller type, fleet sales, relisting, offers to the next bidder, transport and warranty partners, listing audits, newsletter)
-   13. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   14. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   13. `supabase/migrations/20261010000013_terms_engine.sql` (fees locked per vehicle, payment terms and cancellations as the Terms describe them)
+   14. `supabase/migrations/20261010000014_insights.sql` (traffic, the daily metrics and insights)
+   15. `supabase/migrations/20261011000015_health.sql` (site health, errors and fixes)
+   16. `supabase/migrations/20261011000016_sell_form.sql` (the signed sell form: reserve, answers, signature and PDF; photos only into the sellers' photo bucket)
+   17. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   18. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -155,7 +159,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 ## Test it after your first deploy (test mode)
 - [ ] Join with a real email address: the 6-digit email code arrives and works
 - [ ] Add details, then SMS code `123456`, test card, test ID
-- [ ] On the Sell page, type a plate you've listed (it fills in from our records), then a VIN you haven't (it fills in the maker and year); send the request and see it in Admin → Appraisals
+- [ ] On the Sell page, type a plate you've listed (it fills in from our records), then a VIN you haven't (it fills in the maker and year)
 - [ ] As admin, list a vehicle ending in 15 minutes with a reserve, registered (plate, state, expiry), and publish it; add a video in the editor and see it second in the gallery
 - [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
 - [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
@@ -166,8 +170,8 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 - [ ] On a listing, open "Compare car loans" and send an enquiry to a lender; record a fee against it in Admin → Leads
 - [ ] As the seller, add a video from the seller dashboard; approve it in Admin → Videos; it plays on the listing
 - [ ] Bid from two accounts: the bid history shows blurred names, the same blurred name for the same bidder
-- [ ] Request an appraisal on the Sell page with photos: it appears in Admin → Appraisals
-- [ ] Seller flow: in Admin, turn the appraisal into a draft listing, copy the seller link (or "Text + email it"), open it signed in as a third account, verify ID, answer the questions, upload a photo as the rego papers, add bank details, sign
+- [ ] On your phone, fill in the Sell page: photos from the camera roll (they sit in the big-plus-four layout), a reserve, scroll the agreement to the end, sign with your finger, send. You get a text and an email with the signed PDF; it appears in Admin → Appraisals with the signature
+- [ ] Seller flow: in Admin, turn the appraisal into a draft listing (the reserve and answers come across), copy the seller link (or "Text + email it"), open it signed in as a third account, verify ID, check the answers (already filled in from the sell form), upload a photo as the rego papers, add bank details, sign in the box
 - [ ] Try to publish before ticking "Papers match" and adding the VIN + PPSR date: it refuses and says why. Then publish
 - [ ] Sign in as the seller and try to bid on your own vehicle: refused
 - [ ] End it below the reserve: the seller gets a text, accepts in their dashboard, the buyer is charged and gets the tax invoice PDF by email
@@ -181,7 +185,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
 
 ## Automated tests
-`npm run test:db` runs 520 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) and site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read). GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
+`npm run test:db` runs 528 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) and the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it). GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -228,6 +232,14 @@ Sellers type their plate and state, and the VIN if they have it handy; the form 
 The full VIN never goes to the browser ("VIN ending 123456"); it's saved with the seller's request for your team. Lookups are limited to 20 an hour and 60 a day per person. In the vehicle editor, **Fill in empty fields from the VIN** uses the same lookup, and **Check the rego free** opens the state's own rego check for a person to look at (allowed for manual use).
 
 Optional, if you ever want plate-only lookups for Australian vehicles we haven't seen: a paid provider can be switched on with `REGO_LOOKUP_PROVIDER` (`carregistrationapi` or `autograb`) and `REGO_LOOKUP_KEY`. It's off unless you set them.
+
+## The sell form and electronic signature (`/sell`)
+One page, six parts, signed at the bottom (`src/app/sell/SellForm.tsx`; rules in `src/lib/sellForm.ts`, checked the same way in the browser and on the server).
+- **What's asked:** type of vehicle; registered (plate, state, rego expiry if known) or unregistered; VIN; year, make, model, variant, transmission, fuel, colour; kilometres (hours for machinery and boats; nothing for trailers); overall condition; the same yes/no questions as the Seller Agency Agreement (finance owing and roughly how much, starts and drives, accident, flood, hail, modifications, taxi/hire/police use, unfixed recalls, warning lights, odometer); write-off history, keys, service books, anything else a buyer should know; photos; **no reserve** or **a reserve** in whole dollars; name, mobile, email, suburb and postcode where it's kept, who owns it, business seller or not, and when they want to sell.
+- **Photos:** five guided shots (front corner as the cover, rear corner, side on, inside, the dash with the engine on; for machinery the hour meter, for trailers the plate or VIN) laid out like the listing gallery, plus extras up to 10. Each one is shrunk in the browser (long side 2048 px, JPEG) and uploaded as soon as it's picked, into the private `appraisal-photos` bucket (photos only, 12 MB each).
+- **Signing:** the agreement sits in a box that has to be scrolled to the end before "I've read and agree" can be ticked; they also confirm they own it (or are authorised), draw their signature with a finger, stylus or mouse (or choose to sign with their typed name), and type their full name. The signature is kept as numbers, checked on the server (a dot or a tick isn't a signature) and drawn back as our own SVG. We record the time, IP and device, keep `submissions/<id>/signature.svg` and `agreement.pdf` (every answer, the full agreement and the signature) in the private `seller-docs` bucket, email the seller the PDF, text them that we'll call within 1 business day, and email your team the lead.
+- **Then:** in **Admin → Appraisals** you see the signed form (reserve, condition, the answers that need a look, signature, PDF). **Create draft listing** carries the answers, the reserve (into the private reserve) and any finance owing (private) across. The seller still signs on their agreement page with a verified ID before anything goes live; that page is filled in from the sell form, and also takes a drawn signature.
+- Form requests are limited to 6 an hour per network. The appraisal table can only be written by the server (no direct inserts through the database API).
 
 ## Transfer of ownership (between payment and collection)
 When an invoice is paid in full, the buyer's invoice shows a **Transfer of ownership** step and the seller's dashboard shows theirs, with the steps and official links for the vehicle's state (`src/lib/transfer.ts`, checked October 2026; recheck each state's page before launch).

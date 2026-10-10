@@ -156,9 +156,10 @@ export const TERMS: [string, string, string[]][] = [
   'This version: 10 October 2026.']]
 ];
 
+export const SELLER_AGREEMENT_VERSION_LABEL = "Version 10 October 2026";
 export const SELLER_AGREEMENT: [string, string, string[]][] = [
  ['s-parties','1. This agreement',[
-  'This Seller Agency Agreement is between you (the “seller”) and {{LEGAL_NAME}} (ABN {{ABN}}) (“Tyrebiter”). It applies to the vehicle named in your listing link. You sign it electronically, and we record the date, time and device.',
+  'This Seller Agency Agreement is between you (the “seller”) and {{LEGAL_NAME}} (ABN {{ABN}}) (“Tyrebiter”). It applies to the vehicle described in your sell form or named in your listing link. You sign it electronically (by drawing your signature, or typing your full name if you can’t draw one), and we record the date, time and device. When you use the sell form, you confirm it again with your verified identity before the vehicle goes live.',
   'You appoint Tyrebiter as your exclusive agent to sell the vehicle by online auction from your location, and during any referral and offer period that follows.']],
  ['s-exclusive','2. Exclusive period',[
   'While the vehicle is listed, and for {{EXCLUSIVITY_DAYS}} days after the listing ends, you agree not to sell it, except through us, to anyone we’ve named to you in writing or who tells you they found it on Tyrebiter. If you do, you pay our seller fee on your sale price, plus the buyer’s premium and admin fee we would have earned on that price.']],
@@ -290,8 +291,10 @@ export const HELP: [string, string, [string, string][]][] = [
     ['Someone asked me to pay them directly.','Don’t. Only ever pay Tyrebiter, using the details on your invoice page. Report it to us on {{PHONE}}.'],
     ['I got an email saying your bank details changed.','That’s a scam. Our bank details never change by email. Call us before you pay anything.']]],
    ['h-sell','Selling',[
-    ['How does selling work?','Type your plate on the Sell page and we fill in the vehicle; add the kilometres and anything we should know. We visit to photograph the vehicle and write the condition report, you sign your seller agreement online (verify your ID, answer a few questions, add your bank details), and we run a 7-day auction. Buyers don’t visit to view: we arrange any mobile inspections with you, take payment, and you hand over the keys when the buyer gives you their release code.'],
+    ['How does selling work?','Fill in the form on the Sell page (about 10 minutes): type your plate and we fill in the vehicle, then add the kilometres, its condition, a few phone photos, reserve or no reserve, and sign the seller agreement with your finger. We call you within 1 business day. You then verify your ID and add your bank details online, we visit to photograph the vehicle and write the condition report, and we run a 7-day auction. Buyers don’t visit to view: we arrange any mobile inspections with you, take payment, and you hand over the keys when the buyer gives you their release code.'],
     ['What does it cost?','Seller fee: {{SELLER_FEE}}. No charge for photos, the condition report or the PPSR search.'],
+    ['Do I have to set a reserve?','No. With no reserve, your vehicle sells to the highest bidder when the auction ends, whatever the price, and no-reserve listings usually attract the most bidders. With a reserve, it only sells automatically at or above that price; it stays secret from bidders, and you can lower it but not raise it once bidding starts.'],
+    ['Is signing on my phone legally binding?','Yes. Australia’s electronic transactions laws let you sign an agreement like this electronically, by drawing your signature (or typing your name if you can’t draw one). We record the date, time and device, and email you a PDF of exactly what you signed. You confirm it again with your verified ID before the vehicle goes live.'],
     ['What if bidding doesn’t reach my reserve?','We send you the highest bid. Accept or decline it in your seller dashboard within {{REFERRAL_DAYS}} business days. If you decline, we open offers.'],
     ['When do I get paid?','Within {{PAYOUT_DAYS}} business days after the buyer collects and their {{CLAIM_DAYS}}-business-day claim window closes, less our fees. If there’s finance owing, we pay your lender first.'],
     ['Can I add a video?','Yes, one video per listing, up to 250 MB (a walkaround works best). Add it from your seller dashboard; our team checks it before it appears on the listing. A listing has up to 10 photos and videos in total.'],

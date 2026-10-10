@@ -4,13 +4,14 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { countdown, money } from "@/lib/format";
+import { lotFees, priceBreakdown } from "@/lib/fees";
 import { toQueryString, type SearchFilters } from "@/lib/search";
 import { CAT } from "@/lib/vehicles";
 import { api, errText } from "~/lib/api";
 import { photoUrl } from "~/lib/env";
 import { supabase } from "~/lib/supabase";
 import { useSession } from "~/lib/session";
-import type { AppLot } from "~/lib/types";
+import type { AppLot, Fees } from "~/lib/types";
 import { Button, Empty, Loading, Notice, Screen, Segmented, Soft, T, Tag, useNow } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
 import { shownPrice } from "~/ui/LotCard";
@@ -23,7 +24,7 @@ type Filter = "all" | "winning" | "outbid" | "won" | "ended";
 
 export default function Watchlist() {
   const insets = useSafeAreaInsets();
-  const { signedIn, me, toggleWatch } = useSession();
+  const { signedIn, me, toggleWatch, config } = useSession();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [maxes, setMaxes] = useState<Map<number, number>>(new Map());
   const [searches, setSearches] = useState<Saved[]>([]);
@@ -69,7 +70,7 @@ export default function Watchlist() {
     if (l.status === "offers") return { k: "ended", t: "Make an offer open", c: C.sun };
     if (l.status !== "live") return { k: "ended", t: "Ended", c: C.panel2 };
     if (mx == null) return { k: "watch", t: "Not bid yet", c: C.panel };
-    return l.leader_id === uid ? { k: "winning", t: `Winning · max ${money(mx)}`, c: C.mint } : { k: "outbid", t: `Outbid · max ${money(mx)}`, c: C.berry };
+    return l.leader_id === uid ? { k: "winning", t: "You're winning", c: C.mint } : { k: "outbid", t: "Outbid", c: C.berry };
   };
   const list = (rows || []).filter((r) => filter === "all" || status(r.lots).k === filter);
 
@@ -83,7 +84,7 @@ export default function Watchlist() {
           <Button title="Browse auctions" onPress={() => router.push("/search")} />
         </Empty>
       ) : list.map((r) => (
-        <WatchRow key={r.lot_id} row={r} st={status(r.lots)} onRemind={async (v) => {
+        <WatchRow key={r.lot_id} row={r} st={status(r.lots)} fees={config?.fees || null} myMax={maxes.get(r.lot_id) ?? null} onRemind={async (v) => {
           setRows((cur) => cur?.map((x) => (x.lot_id === r.lot_id ? { ...x, remind: v } : x)) || null);
           await api("/api/watch", { body: { lotId: r.lot_id, remind: v } }).catch(() => undefined);
         }} onRemove={async () => { await toggleWatch(r.lot_id); void load(); }} watchedRow={!maxes.has(r.lot_id)} />
@@ -109,8 +110,11 @@ export default function Watchlist() {
   );
 }
 
-function WatchRow({ row, st: status, onRemind, onRemove, watchedRow }: { row: Row; st: Status; onRemind: (v: boolean) => void; onRemove: () => void; watchedRow: boolean }) {
+function WatchRow({ row, st: status, fees, myMax, onRemind, onRemove, watchedRow }: { row: Row; st: Status; fees: Fees | null; myMax: number | null; onRemind: (v: boolean) => void; onRemove: () => void; watchedRow: boolean }) {
   const l = row.lots;
+  const price = shownPrice(l);
+  // Every price shows the all-in amount beside it (premium, GST and admin fee, as locked on this vehicle).
+  const allIn = fees && l.status !== "sold" ? priceBreakdown(Number(price) || 0, lotFees(fees, l)).total : null;
   const live = l.status === "live";
   const now = useNow(live);
   const left = new Date(l.ends_at || 0).getTime() - now;
@@ -123,7 +127,9 @@ function WatchRow({ row, st: status, onRemind, onRemove, watchedRow }: { row: Ro
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <T v="title" numberOfLines={2}>{l.title}</T>
-          <Text style={st.price}>{money(shownPrice(l))}</Text>
+          <Text style={st.price}>{l.status === "sold" ? `Sold for ${money(price)}` : money(price)}</Text>
+          {allIn != null ? <Text style={st.allin} testID={`wl-allin-${l.id}`}>{money(allIn, true)} all-in with fees</Text> : null}
+          <Text style={st.bids}>{l.bid_count === 1 ? "1 bid" : `${l.bid_count || 0} bids`}{myMax != null && l.status !== "sold" ? ` · your max ${money(myMax)}` : ""}</Text>
           <Tag label={status.t} color={status.c} />
         </View>
       </Pressable>
@@ -146,6 +152,8 @@ const st = StyleSheet.create({
   row: { borderRadius: 24, borderWidth: 1, borderColor: C.line, padding: 14, gap: 12 },
   thumb: { width: 112, height: 84, borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   price: { fontFamily: F.heavy, fontSize: 20, letterSpacing: -0.4, color: C.ink },
+  allin: { fontFamily: F.bold, fontSize: 13, color: C.ink },
+  bids: { fontFamily: F.medium, fontSize: 12, color: C.muted },
   when: { fontFamily: F.bold, fontSize: 14, color: C.ink2, fontVariant: ["tabular-nums"] },
   remind: { flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 10 },
   remove: { fontFamily: F.bold, fontSize: 14, color: C.muted },

@@ -9,7 +9,8 @@ import { bidIncrement, dateLong, dateTime, money } from "@/lib/format";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
-import { consumerRights, rightsLine } from "@/lib/listing";
+import { BidConfirm, payNoteFor } from "@/components/BidConfirm";
+import { consumerRights } from "@/lib/listing";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price">;
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
@@ -46,7 +47,6 @@ export function BidPanel(props: {
   const [busy, setBusy] = useState(false);
   const [gate, setGate] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const [sure, setSure] = useState(false);
   const [ack, setAck] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
@@ -121,10 +121,7 @@ export function BidPanel(props: {
   const leading = leaderIsMe;
   const typed = Number(String(amount).replace(/[^0-9]/g, "")) || 0;
   const preview = useMemo(() => priceBreakdown(typed || minNext, fees), [typed, minNext, fees]);
-  const bigJump = typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
-  const payNote = preview.mode === "card"
-    ? `Charged in full to ${cardLabel || "your card"} as soon as the auction ends.`
-    : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel || "your card"} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
+  const payNote = payNoteFor(preview, cardLabel);
 
   function needsSetup() {
     if (!userId) { router.push(`/join?next=/lot/${lot.id}`); return true; }
@@ -139,7 +136,6 @@ export function BidPanel(props: {
     if (needsSetup()) return;
     if (props.isSeller) { setMsg({ kind: "bad", text: "This is your vehicle, so you can't bid on it." }); return; }
     if (typed < minNext) { setMsg({ kind: "bad", text: `Enter ${money(minNext)} or more.` }); return; }
-    setSure(false);
     setConfirm(true);
   }
 
@@ -214,30 +210,7 @@ export function BidPanel(props: {
           <div className="hint">No card surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</div>
           <div style={{ fontSize: 14, lineHeight: 1.45, padding: "12px 14px", borderRadius: 14, background: "var(--panel)" }}>{payNote}</div>
         </div>
-        {confirm && (
-          <Modal title={`Confirm your maximum: ${money(typed)}`} onClose={() => setConfirm(false)}>
-            <p className="muted" style={{ fontSize: 16 }}>{lot.title}. We&apos;ll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. <b>Bids can&apos;t be withdrawn.</b></p>
-            <div className="allin" style={{ border: 0, padding: 0 }}>
-              <div><span className="muted">If you win at your full maximum</span><span>{money(preview.price)}</span></div>
-              <div><span className="muted">Premium, GST and admin fee</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
-              <div className="tot"><span>All-in, at most</span><span>{money(preview.total, true)}</span></div>
-            </div>
-            <p style={{ fontSize: 14, lineHeight: 1.5 }}>{payNote}</p>
-            {bigJump && (
-              <label className="notice bad" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
-                <span>That&apos;s {typed >= minNext * 2 ? `${Math.floor(typed / Math.max(1, minNext))}×` : "well above"} the next bid of {money(minNext)}. Tick to confirm {money(typed)} is right.</span>
-              </label>
-            )}
-            <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, padding: "14px 16px", borderRadius: 16, background: "var(--panel)" }}>
-              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0, accentColor: "#2F5BFF" }} />
-              <span>I understand this vehicle is sold <b>as is, where is</b>, at the seller&apos;s location, the condition report is a guide only, and if I win I authorise payment from my card straight away under the <Link className="blue" href="/terms" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
-            </label>
-            <p className="hint" style={{ margin: 0 }} data-testid="rights-auction">{rightsLine("auction", lot.seller_type)}. <Link className="blue" href="/terms#t-asis" target="_blank">What that means ›</Link></p>
-            <button className="btn btn-blue" onClick={placeBid} disabled={busy || !ack || (bigJump && !sure)}>{busy ? "Placing bid…" : `Place bid of up to ${money(typed)}`}</button>
-            <button className="btn btn-soft" onClick={() => setConfirm(false)}>Change amount</button>
-          </Modal>
-        )}
+        {confirm && <BidConfirm lot={lot} typed={typed} minNext={minNext} fees={fees} cardLabel={cardLabel} busy={busy} onPlace={placeBid} onClose={() => setConfirm(false)} />}
         {buyOpen && bn && bnPrev && (
           <Modal title={`Buy it now for ${money(bn)}?`} onClose={() => setBuyOpen(false)}>
             <p className="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is.</p>

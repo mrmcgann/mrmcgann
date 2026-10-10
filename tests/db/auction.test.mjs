@@ -46,7 +46,7 @@ r = await as('anon', `select * from bid_history(10432)`); ok('anon can read mask
 r = await as('anon', `select place_bid(10432, 1000)`); ok('anon cannot bid', r.error?.includes('not_signed_in'), r.error);
 r = await as('anon', `select close_due_lots()`); ok('anon cannot run the auction clock', !!r.error, JSON.stringify(r));
 r = await as('anon', `select create_invoice(10432,'${U.A}',1,'auction')`); ok('anon cannot create invoices', !!r.error);
-r = await as('anon', `insert into appraisals (rego,state,name,mobile) values ('ABC123','QLD','Sam','0400000000')`); ok('anon can request an appraisal', !r.error, r.error);
+r = await as('anon', `insert into appraisals (rego,state,name,mobile) values ('ABC123','QLD','Sam','0400000000')`); ok('appraisal requests only come through the website form (not straight into the database)', !!r.error, JSON.stringify(r));
 r = await as('anon', `select * from appraisals`); ok('anon cannot read appraisals', r.rows?.length === 0);
 r = await as('anon', `select * from profiles`); ok('anon cannot read profiles', r.rows?.length === 0);
 r = await as('anon', `update lots set current_bid = 1 where id=10432`); ok('anon cannot edit lots', r.count === 0 || r.error);
@@ -550,7 +550,19 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select * from rego_lookups`); ok("lookups: the public can't read lookups", r.rows?.length === 0 || !!r.error);
   r = await as('A', `select * from rego_lookups`); ok("lookups: members can't read lookups (full VINs)", r.rows?.length === 0 || !!r.error);
   r = await as('A', `select prune_rego_lookups()`); ok('lookups: only the server prunes them', !!r.error);
-  r = await as('anon', `insert into appraisals (state, name, mobile, registration) values ('QLD', 'Una', '0400000001', 'unregistered')`); ok('appraisal: unregistered vehicles need no plate', !r.error, r.error);
+  r = await as('service', `insert into appraisals (state, name, mobile, registration) values ('QLD', 'Una', '0400000001', 'unregistered')`); ok('appraisal: unregistered vehicles need no plate', !r.error, r.error);
+  // the signed sell form
+  r = await as('service', `insert into appraisals (state, rego, name, mobile, registration, reserve_type, reserve_amount, details, disclosures, signed_name, signed_at, agreement_version)
+    values ('QLD', 'SELL01', 'Sam Driver', '0400000002', 'registered', 'reserve', 32500, '{"condition":"good"}', '{"accident":"no"}', 'Sam Driver', now(), 'v') returning ref`);
+  ok('sell form: a signed form with a reserve is saved', !r.error && /^AP-/.test(r.rows?.[0]?.ref || ''), r.error || JSON.stringify(r.rows));
+  r = await as('service', `insert into appraisals (state, name, mobile, reserve_type) values ('QLD', 'X Y', '0400000003', 'reserve')`); ok('sell form: a reserve needs an amount', !!r.error);
+  r = await as('service', `insert into appraisals (state, name, mobile, reserve_type) values ('QLD', 'X Y', '0400000003', 'maybe')`); ok('sell form: reserve or no reserve only', !!r.error);
+  r = await as('service', `insert into appraisals (state, name, mobile, reserve_type, reserve_amount) values ('QLD', 'X Y', '0400000003', 'reserve', -5)`); ok('sell form: reserve must be positive', !!r.error);
+  r = await as('service', `insert into appraisals (state, name, mobile, reserve_type) values ('QLD', 'X Y', '0400000003', 'none')`); ok('sell form: no reserve needs no amount', !r.error, r.error);
+  r = await as('A', `select signed_ip from appraisals`); ok("sell form: members can't read signed forms", r.rows?.length === 0 || !!r.error);
+  r = await c.query(`select file_size_limit, allowed_mime_types from storage.buckets where id = 'appraisal-photos'`);
+  ok('sell form: photo bucket takes photos only, up to 12 MB', r.rows[0]?.file_size_limit === '12582912' && r.rows[0]?.allowed_mime_types?.includes('image/jpeg') && !r.rows[0].allowed_mime_types.includes('application/pdf'), JSON.stringify(r.rows));
+  r = await c.query(`select column_name from information_schema.columns where table_name = 'seller_agreements' and column_name = 'signature_path'`); ok('sell form: agreements keep the drawn signature', r.rows.length === 1);
   r = await as('anon', `select * from transfer_completed('00000000-0000-0000-0000-000000000000')`); ok('transfer: internal step not callable', !!r.error);
 }
 

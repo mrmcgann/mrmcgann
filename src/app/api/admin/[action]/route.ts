@@ -325,15 +325,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         const cat = catOf(v.category || ap.kind);
         const name = [v.year, v.make, v.model, v.variant].filter(Boolean).join(" ");
         const km = Number(String(ap.odometer || "").replace(/[^0-9]/g, "")) || null;
+        // From the signed sell form (if they used it): their answers, so staff and the seller don't start again.
+        const det = (ap.details || {}) as Record<string, string>;
+        const disc = (ap.disclosures || {}) as Record<string, unknown>;
+        const hasDisc = Object.keys(disc).length > 0;
+        const { finance_amount: _fa, lender_name: _ln, lender_ref: _lr, ...publicDisc } = disc; void _fa; void _ln; void _lr;
+        const cond = det.condition ? `Seller says condition: ${det.condition}.` : "";
+        const when = det.sell_when ? `Wants to sell: ${det.sell_when === "now" ? "as soon as possible" : det.sell_when === "month" ? "within a month" : "just exploring"}.` : "";
         const { data: lot } = await db.from("lots").insert({
           status: "draft", title: name || `Vehicle ${ap.rego || ""} (${ap.state})`.replace("  ", " "), short_title: [v.year, v.make, v.model].filter(Boolean).join(" ") || null,
           registration: ap.registration || (ap.rego ? "registered" : "unregistered"), rego_plate: ap.rego, rego_state: ap.rego ? ap.state : null, rego_expiry: v.regoExpiry || null,
           vin: ap.vin || v.vin || null, engine_no: v.engineNo || null, year: v.year || null, make: v.make || null, model: v.model || null, variant: v.variant || null,
-          body: v.body || null, colour: v.colour || null, fuel: v.fuel || null, transmission: v.transmission || null, drive: v.drive || null, engine: v.engine || null,
+          body: v.body || null, colour: v.colour || det.colour || null, fuel: v.fuel || det.fuel || null, transmission: v.transmission || det.transmission || null, drive: v.drive || null, engine: v.engine || null,
           ...(CAT[cat].usage === "hours" ? { hours: km } : CAT[cat].usage === "km" ? { odometer: km } : {}),
-          state: ap.state, postcode: ap.postcode, category: cat, kind: v.kind || null, vehicle_type: CAT[cat].silhouette,
+          state: ap.state, postcode: ap.postcode, suburb: det.suburb || null, category: cat, kind: v.kind || null, vehicle_type: CAT[cat].silhouette,
+          ...(hasDisc ? {
+            disclosures: publicDisc,
+            write_off_status: typeof disc.write_off === "string" && disc.write_off ? disc.write_off : "unknown",
+            keys: Number(disc.keys) >= 0 ? Number(disc.keys) : null, service_books: typeof disc.service_books === "boolean" ? disc.service_books : null,
+            ...(typeof disc.rego_expiry === "string" && /^\d{4}-\d{2}-\d{2}$/.test(disc.rego_expiry) && !v.regoExpiry ? { rego_expiry: disc.rego_expiry } : {}),
+          } : {}),
         }).select("id").single();
-        await db.from("lot_private").insert({ lot_id: lot!.id, seller_name: ap.name, seller_phone: ap.mobile, seller_email: ap.email, seller_notes: ap.description || null });
+        await db.from("lot_private").insert({
+          lot_id: lot!.id, seller_name: ap.name, seller_phone: ap.mobile, seller_email: ap.email,
+          seller_notes: [ap.description, cond, when, ap.signed_at ? `Signed the sell form ${ap.ref} (${ap.agreement_version}).` : ""].filter(Boolean).join("\n") || null,
+          // The reserve they chose on the form; they confirm it (or change it) when they sign with their verified ID.
+          reserve_price: ap.reserve_type === "reserve" && ap.reserve_amount ? Number(ap.reserve_amount) : null,
+          ...(disc.finance === "yes" ? { finance_owing: Number(disc.finance_amount) || null, lender_name: (disc.lender_name as string) || null, lender_ref: (disc.lender_ref as string) || null } : {}),
+        });
         await db.from("appraisals").update({ lot_id: lot!.id, status: "booked" }).eq("id", b.appraisalId);
         return json({ ok: true, lotId: lot!.id });
       }
