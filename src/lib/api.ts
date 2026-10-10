@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { money } from "@/lib/format";
+import { reportLater } from "@/lib/errors";
 
 export const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
 export const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
@@ -46,5 +47,11 @@ export function friendly(message: string | undefined) {
   if (m.includes("offer_not_found")) return "We couldn't find that offer.";
   if (m.includes("no_bids")) return "That member hasn't bid on this vehicle.";
   if (m.includes("reason_required")) return "Give a reason. It's sent to the bidder and kept on record.";
+  // Anything else wasn't expected (a database change not applied, a bug): record it for Admin → Site health.
+  // Not the engine's own answers (codes like "media_limit" or "reserve_locked:…"), and not bad input someone typed or
+  // sent (a word where a number goes): those are expected, not the site breaking.
+  if (m && !/^[a-z][a-z_]+(:|$)/.test(m.trim()) && !/invalid input syntax|invalid input value|out of range|value too long|violates check constraint|malformed|JSON object requested, multiple \(or no\) rows|Results contain 0 rows/i.test(m)) {
+    reportLater({ source: "server", name: "Unexpected database error", message: m });
+  }
   return "Something went wrong. Please try again.";
 }

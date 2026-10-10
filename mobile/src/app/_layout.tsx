@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Linking, Platform, View } from "react-native";
-import { Stack, router, usePathname } from "expo-router";
+import { Stack, router, usePathname, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
@@ -16,12 +16,26 @@ import { PayProvider } from "~/lib/pay";
 import { onAlertTapped, setBadge } from "~/lib/push";
 import { appPath } from "~/lib/links";
 import { APP_VERSION } from "~/lib/env";
-import { setTrackedMember, trackView } from "~/lib/track";
+import { reportAppError, setTrackedMember, trackView, watchAppErrors } from "~/lib/track";
 import { Button, T } from "~/ui/kit";
 import { LogoMark } from "~/ui/art";
 import { C, F } from "~/ui/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+watchAppErrors();
+
+// A screen that breaks shows this instead of a blank screen, and the error goes to Admin → Site health.
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => { reportAppError(error, "screen"); }, [error]);
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 18, backgroundColor: C.bg }}>
+      <LogoMark size={48} />
+      <T v="d3" style={{ textAlign: "center" }}>Something went wrong.</T>
+      <T v="muted" style={{ textAlign: "center" }}>We&apos;ve been told about it. Try again, and if it keeps happening, update the app or call us.</T>
+      <Button title="Try again" onPress={() => { void retry(); }} />
+    </View>
+  );
+}
 
 // Opening a lot or invoice straight from a link or alert still puts the tabs underneath, so Back works.
 export const unstable_settings = { initialRouteName: "(tabs)" };

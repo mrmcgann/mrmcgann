@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { env } from "@/lib/env";
 import { ViewerProvider } from "@/components/Viewer";
 import { Tracker } from "@/components/Tracker";
+import { ErrorReporter } from "@/components/ErrorReporter";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 const APP_STORE_ID = /id(\d{6,12})/.exec(process.env.NEXT_PUBLIC_APP_STORE_URL || "")?.[1];
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="page">{children}</main>
         <Footer />
         <Tracker />
+        <ErrorReporter />
         </ViewerProvider>
       </body>
     </html>

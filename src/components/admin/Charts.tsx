@@ -41,7 +41,16 @@ const short = (v: number, fmt: Fmt) => {
 };
 const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 
-export function TrendChart({ title, points, fmt, kind = "column", testId }: { title: string; points: { day: string; value: number }[]; fmt: Fmt; kind?: "column" | "line"; testId?: string }) {
+// Hourly keys are "YYYY-MM-DDTHH" (Brisbane time): "Sat 3 pm".
+const hourLabel = (k: string) => {
+  const h = Number(k.slice(11, 13));
+  const d = new Date(`${k.slice(0, 10)}T00:00:00`).toLocaleDateString("en-AU", { weekday: "short" });
+  return `${d} ${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
+};
+
+export function TrendChart({ title, points, fmt, kind = "column", testId, unit = "days", empty }: { title: string; points: { day: string; value: number }[]; fmt: Fmt; kind?: "column" | "line"; testId?: string;
+  unit?: "days" | "hours"; empty?: string }) {
+  const label = unit === "hours" ? hourLabel : dayLabel;
   const [ref, w] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const h = 190, padL = 46, padR = 12, padT = 12, padB = 26;
@@ -65,9 +74,9 @@ export function TrendChart({ title, points, fmt, kind = "column", testId }: { ti
   return (
     <figure className="viz" ref={ref} data-testid={testId}>
       <figcaption><b>{title}</b><span className="muted">{fmt === "money" || fmt === "count" ? `${fmtValue(total, fmt)} in total` : last ? `Latest ${fmtValue(last.value, fmt)}` : ""}</span></figcaption>
-      {n === 0 ? <div className="viz-empty muted">No data yet. Numbers fill in as the clock runs (every 15 minutes).</div> : (
+      {n === 0 ? <div className="viz-empty muted">{empty || "No data yet. Numbers fill in as the clock runs (every 15 minutes)."}</div> : (
         <div style={{ position: "relative" }}>
-          <svg width={w} height={h} role="img" aria-label={`${title}, ${n} days`} tabIndex={0}
+          <svg width={w} height={h} role="img" aria-label={`${title}, ${n} ${unit}`} tabIndex={0}
             onPointerMove={onMove} onPointerLeave={() => setHover(null)}
             onKeyDown={(e) => { if (e.key === "ArrowRight") setHover((v) => Math.min(n - 1, (v ?? -1) + 1)); if (e.key === "ArrowLeft") setHover((v) => Math.max(0, (v ?? n) - 1)); }}
             onBlur={() => setHover(null)}>
@@ -83,13 +92,13 @@ export function TrendChart({ title, points, fmt, kind = "column", testId }: { ti
                 {last && <circle cx={x(n - 1)} cy={y(last.value)} r="4" fill={SERIES} stroke="#FFFFFF" strokeWidth="2" />}
               </>
             )}
-            {[0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i && n > 0).map((i) => <text key={i} x={x(i)} y={h - 8} textAnchor={i === 0 && n > 1 ? "start" : i === n - 1 && n > 1 ? "end" : "middle"} fontSize="11" fill={MUTED}>{dayLabel(points[i].day)}</text>)}
+            {[0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i && n > 0).map((i) => <text key={i} x={x(i)} y={h - 8} textAnchor={i === 0 && n > 1 ? "start" : i === n - 1 && n > 1 ? "end" : "middle"} fontSize="11" fill={MUTED}>{label(points[i].day)}</text>)}
             {hover != null && <line x1={x(hover)} x2={x(hover)} y1={padT} y2={padT + ih} stroke={MUTED} strokeWidth="1" />}
             {hover != null && kind === "line" && <circle cx={x(hover)} cy={y(points[hover].value)} r="4" fill={SERIES} stroke="#FFFFFF" strokeWidth="2" />}
           </svg>
           {tip && hover != null && (
             <div className="viz-tip" style={{ left: Math.min(w - 150, Math.max(0, x(hover) - 70)), top: 4 }} role="status">
-              <b>{fmtValue(tip.value, fmt)}</b><span className="muted">{dayLabel(tip.day)}</span>
+              <b>{fmtValue(tip.value, fmt)}</b><span className="muted">{label(tip.day)}</span>
             </div>
           )}
         </div>

@@ -834,6 +834,123 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select * from lot_recent_views(array[10432]::bigint[], 7)`); ok('insights: recent views per vehicle', Number(r.rows?.[0]?.views) === 2, JSON.stringify(r.rows));
 }
 
+// ---------- site health: errors, checks, the clock's heartbeat, alerts and Claude Code fixes ----------
+{
+  // nobody but the server can touch any of it
+  for (const t of ['app_errors', 'app_error_hours', 'health_checks', 'health_events', 'health_marks', 'clock_runs', 'fix_requests']) {
+    r = await as('anon', `select * from ${t}`); ok(`health: anon can't read ${t}`, r.rows?.length === 0 || !!r.error, JSON.stringify(r));
+    r = await as('A', `select * from ${t}`); ok(`health: members can't read ${t}`, r.rows?.length === 0 || !!r.error);
+  }
+  for (const f of [`record_error('x','web','E','m',null,null,null,null,'{}',1)`, 'health_snapshot()', `save_health('[]')`, 'prune_health()', 'retry_failed_messages(24)', 'db_activity()', `queue_health_alert('t','b','/','d',true)`, 'error_hours(48, null)']) {
+    r = await as('anon', `select ${f}`); ok(`health: anon can't run ${f.split('(')[0]}`, !!r.error);
+    r = await as('ADM', `select ${f}`); ok(`health: even admins can't run ${f.split('(')[0]} directly (server only)`, !!r.error);
+  }
+  // errors are grouped and counted, with hourly buckets
+  r = await as('service', `select record_error('web:abc','web','TypeError','x is undefined','at a','/lot/1','/lot/:id','abc1234','{"browser":"Safari"}',1) j`);
+  const e1 = r.rows?.[0]?.j; ok('errors: first report is new', e1?.new === true && e1?.reopened === false, JSON.stringify(r));
+  r = await as('service', `select record_error('web:abc','web','TypeError','x is undefined','at a','/lot/2','/lot/:id','def5678','{}',4) j`);
+  ok('errors: same fingerprint counted', r.rows?.[0]?.j?.new === false && r.rows?.[0]?.j?.id === e1.id);
+  r = await c.query(`select count, release, first_release, path from app_errors where id = $1`, [e1.id]);
+  ok('errors: count, latest and first release', Number(r.rows[0].count) === 5 && r.rows[0].release === 'def5678' && r.rows[0].first_release === 'abc1234' && r.rows[0].path === '/lot/2', JSON.stringify(r.rows));
+  r = await c.query(`select sum(n)::int n from app_error_hours where error_id = $1`, [e1.id]); ok('errors: hourly buckets', r.rows[0].n === 5);
+  r = await as('service', `select error_hours(48, null) j`); ok('errors: hourly totals for the chart', Object.values(r.rows?.[0]?.j || {}).reduce((a, b) => a + b, 0) >= 5, JSON.stringify(r.rows));
+  // a fixed error that comes back reopens itself
+  await c.query(`update app_errors set status = 'fixed', status_at = now() where id = $1`, [e1.id]);
+  r = await as('service', `select record_error('web:abc','web','TypeError','x is undefined',null,null,'/lot/:id',null,'{}',1) j`);
+  ok('errors: fixed error that comes back reopens', r.rows?.[0]?.j?.reopened === true);
+  r = await c.query(`select status, regressed, stack from app_errors where id = $1`, [e1.id]); ok('errors: marked as came back, stack kept', r.rows[0].status === 'open' && r.rows[0].regressed === true && r.rows[0].stack === 'at a');
+  // ignored stays ignored
+  await c.query(`update app_errors set status = 'ignored' where id = $1`, [e1.id]);
+  await as('service', `select record_error('web:abc','web','TypeError','x is undefined',null,null,'/lot/:id',null,'{}',1)`);
+  r = await c.query(`select status from app_errors where id = $1`, [e1.id]); ok('errors: ignored errors stay ignored', r.rows[0].status === 'ignored');
+  r = await as('service', `select record_error('x','nowhere','E','m',null,null,null,null,'{}',1)`); ok('errors: unknown source refused', !!r.error);
+  // browser reports can't flood the table with new kinds of error
+  await c.query(`insert into app_errors (fingerprint, source, message, first_seen) select 'flood:' || g, 'web', 'f', now() from generate_series(1, 300) g`);
+  r = await as('service', `select record_error('web:one-too-many','web','E','another new one',null,null,null,null,'{}',1) j`);
+  r = await c.query(`select fingerprint, message from app_errors where id = $1`, [r.rows?.[0]?.j?.id]);
+  ok('errors: past 300 new kinds an hour, the rest are counted together', r.rows[0]?.fingerprint === 'overflow:web' && /Too many different errors/.test(r.rows[0]?.message), JSON.stringify(r.rows));
+  r = await as('service', `select record_error('server:new','server','E','server errors are always kept',null,null,null,null,'{}',1) j`);
+  r = await c.query(`select fingerprint from app_errors where id = $1`, [r.rows?.[0]?.j?.id]); ok('errors: server errors are never lumped together', r.rows[0]?.fingerprint === 'server:new');
+  await c.query(`delete from app_errors where fingerprint like 'flood:%'`);
+
+  // the snapshot the checks read
+  await c.query(`insert into clock_runs (job, started_at, ms, ok, failed) values ('process', now() - interval '90 seconds', 2100, true, '{}'), ('process', now() - interval '30 seconds', 1900, false, '{"charge winners"}'), ('process', now() - interval '20 minutes', null, true, '{}'), ('send', now() - interval '40 seconds', 900, true, '{}')`);
+  r = await as('service', `select health_snapshot() j`); const snap = r.rows?.[0]?.j;
+  ok('snapshot: runs', !!snap && !r.error, r.error);
+  ok('snapshot: latest clock run per job', snap?.clock?.process?.failed?.[0] === 'charge winners' && snap?.clock?.send?.ms === 900, JSON.stringify(snap?.clock));
+  ok('snapshot: unfinished runs counted', snap?.clock_unfinished === 1);
+  ok('snapshot: failed runs this hour', snap?.clock_failed_hour === 1);
+  ok('snapshot: every table has row-level security', Array.isArray(snap?.no_rls) && snap.no_rls.length === 0, JSON.stringify(snap?.no_rls));
+  ok('snapshot: no open views', Array.isArray(snap?.open_views) && snap.open_views.length === 0);
+  ok('snapshot: database size and connections', Number(snap?.db_bytes) > 0 && Number(snap?.db_max_connections) > 0);
+  ok('snapshot: error counts', Number(snap?.errors_recent) >= 1 && snap?.errors_by_source?.server >= 1, JSON.stringify([snap?.errors_recent, snap?.errors_by_source]));
+  ok('snapshot: settings', snap?.settings?.db_limit_gb === 8);
+  await c.query(`create table public.oops_no_rls (id int)`);
+  r = await as('service', `select health_snapshot() j`); ok('snapshot: a table without row-level security is spotted', r.rows?.[0]?.j?.no_rls?.includes('oops_no_rls'));
+  await c.query(`drop table public.oops_no_rls`);
+  await c.query(`create view public.oops_view as select id from lots`);
+  r = await as('service', `select health_snapshot() j`); ok('snapshot: a view anyone can read is spotted', r.rows?.[0]?.j?.open_views?.includes('oops_view'));
+  await c.query(`drop view public.oops_view`);
+  // overdue auctions and waiting charges
+  await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10995, 'live', 'Overdue ute', 1000, now() - interval '10 minutes')`);
+  r = await as('service', `select health_snapshot() j`); ok('snapshot: overdue auctions', Number(r.rows?.[0]?.j?.auctions_overdue) >= 1);
+  await c.query(`update lots set status = 'passed' where id = 10995`);
+
+  // saving checks logs changes and reports them for alerts
+  const ck = (status, title) => JSON.stringify([{ key: 'clock.running', area: 'Auction clock', status, title, detail: 'd', fix: 'f', action: 'run-clock', value: 1 }]);
+  r = await as('service', `select save_health($1) j`, [ck('ok', 'Running')]); ok('checks: a new OK check is not a change', Array.isArray(r.rows?.[0]?.j) && r.rows[0].j.length === 0, JSON.stringify(r));
+  r = await as('service', `select save_health($1) j`, [ck('ok', 'Running')]); ok('checks: no change, nothing reported', r.rows?.[0]?.j?.length === 0);
+  r = await as('service', `select save_health($1) j`, [ck('fail', 'Stopped')]); const ch = r.rows?.[0]?.j?.[0];
+  ok('checks: change reported', ch?.from === 'ok' && ch?.to === 'fail' && ch?.alerted === false, JSON.stringify(r.rows));
+  r = await c.query(`select status, since > now() - interval '5 seconds' fresh from health_checks where key = 'clock.running'`); ok('checks: saved with when it started', r.rows[0].status === 'fail' && r.rows[0].fresh);
+  r = await c.query(`select from_status, to_status from health_events where key = 'clock.running' order by id desc limit 1`); ok('checks: change logged', r.rows[0]?.from_status === 'ok' && r.rows[0]?.to_status === 'fail');
+  await c.query(`insert into health_checks (key, area, status, title) values ('old.check', 'Old', 'fail', 'Gone')`);
+  await as('service', `select save_health($1)`, [ck('fail', 'Stopped')]);
+  r = await c.query(`select count(*)::int n from health_checks where key = 'old.check'`); ok('checks: a check no longer produced is removed (never stuck as broken)', r.rows[0].n === 0);
+  // ignored errors don't count towards "errors recently"
+  r = await as('service', `select health_snapshot() j`); const before = Number(r.rows?.[0]?.j?.errors_recent);
+  await c.query(`update app_errors set status = 'ignored' where fingerprint = 'server:new'`);
+  r = await as('service', `select health_snapshot() j`); ok('snapshot: ignored errors not counted', Number(r.rows?.[0]?.j?.errors_recent) === before - 1, JSON.stringify([before, r.rows?.[0]?.j?.errors_recent]));
+  // alerts go to admins only, by email and app, and by SMS when urgent
+  r = await as('service', `select queue_health_alert('Tyrebiter problem: clock', 'body', '/admin/health', 'health:test:1', true) n`);
+  ok('alerts: queued for each admin', Number(r.rows?.[0]?.n) === 1, JSON.stringify(r));
+  r = await c.query(`select channel, priority, kind from outbox where dedupe_key like 'health:test:1:%' order by channel`);
+  ok('alerts: email to the admin, top priority', r.rows.some((x) => x.channel === 'email' && x.priority === 1 && x.kind === 'health'), JSON.stringify(r.rows));
+  r = await c.query(`select count(*)::int n from notifications where kind = 'health' and user_id = '${U.ADM}'`); ok('alerts: in the admin\'s notifications (and app)', r.rows[0].n === 1);
+  r = await c.query(`select count(*)::int n from notifications where kind = 'health' and user_id <> '${U.ADM}'`); ok('alerts: members never get them', r.rows[0].n === 0);
+  r = await as('service', `select queue_health_alert('again', 'body', '/admin/health', 'health:test:1', true) n`); ok('alerts: the same alert is never sent twice', Number(r.rows?.[0]?.n) === 0);
+  await c.query(`update profiles set mobile = '0433333333', mobile_verified = true where id = '${U.ADM}'`);
+  await as('service', `select queue_health_alert('urgent', 'b', '/', 'health:test:2', true)`);
+  await as('service', `select queue_health_alert('not urgent', 'b', '/', 'health:test:3', false)`);
+  r = await c.query(`select dedupe_key from outbox where channel = 'sms' and dedupe_key like 'health:test:%'`);
+  ok('alerts: SMS only for urgent ones', r.rows.length === 1 && r.rows[0].dedupe_key.startsWith('health:test:2'), JSON.stringify(r.rows));
+  await c.query(`update settings set value = value || '{"sms": false}' where key = 'health'`);
+  await as('service', `select queue_health_alert('urgent2', 'b', '/', 'health:test:4', true)`);
+  r = await c.query(`select count(*)::int n from outbox where channel = 'sms' and dedupe_key like 'health:test:4%'`); ok('alerts: SMS can be switched off', r.rows[0].n === 0);
+  await c.query(`update settings set value = value || '{"alerts": false}' where key = 'health'`);
+  r = await as('service', `select queue_health_alert('off', 'b', '/', 'health:test:5', true) n`); ok('alerts: can be switched off', Number(r.rows?.[0]?.n) === 0);
+  await c.query(`update settings set value = '{"alerts": true, "sms": true, "db_limit_gb": 8}' where key = 'health'`);
+  // retrying failed messages: only recent, still useful ones
+  await c.query(`insert into outbox (user_id, channel, to_addr, kind, title, status, attempts, last_error, created_at, dedupe_key) values
+    ('${U.A}', 'email', 'a@x.au', 'account', 'Recent', 'failed', 5, 'Resend 500', now() - interval '1 hour', 'retry-test-1'),
+    ('${U.A}', 'email', 'a@x.au', 'account', 'Old', 'failed', 5, 'Resend 500', now() - interval '3 days', 'retry-test-2')`);
+  await c.query(`insert into outbox (user_id, channel, to_addr, kind, title, status, attempts, expires_at, dedupe_key) values ('${U.A}', 'email', 'a@x.au', 'ending', 'Expired', 'failed', 5, now() - interval '1 minute', 'retry-test-3')`);
+  r = await as('service', `select retry_failed_messages(24) n`); ok('retry: only the recent failure', Number(r.rows?.[0]?.n) === 1, JSON.stringify(r));
+  r = await c.query(`select status, attempts from outbox where dedupe_key = 'retry-test-1'`); ok('retry: queued again with fresh attempts', r.rows[0].status === 'queued' && r.rows[0].attempts === 0);
+  // fix requests keep their error link; prune keeps errors with open fixes
+  r = await c.query(`insert into fix_requests (error_id, title, brief, status) values ($1, 'Fix: x', 'task', 'working') returning id`, [e1.id]);
+  await c.query(`update app_errors set status = 'fixed', last_seen = now() - interval '100 days' where id = $1`, [e1.id]);
+  await c.query(`insert into app_errors (fingerprint, source, message, status, last_seen) values ('old:fixed', 'web', 'old', 'fixed', now() - interval '100 days'), ('old:open', 'web', 'quiet', 'open', now() - interval '40 days')`);
+  await c.query(`insert into clock_runs (job, started_at, ms) values ('process', now() - interval '20 days', 1)`);
+  r = await as('service', `select prune_health() j`); const pr = r.rows?.[0]?.j;
+  ok('prune: runs', !!pr, r.error);
+  r = await c.query(`select fingerprint, status from app_errors where fingerprint in ('old:fixed', 'old:open', 'web:abc') order by fingerprint`);
+  ok('prune: old fixed errors deleted, quiet ones marked fixed, ones with open fixes kept',
+    JSON.stringify(r.rows) === JSON.stringify([{ fingerprint: 'old:open', status: 'fixed' }, { fingerprint: 'web:abc', status: 'fixed' }]), JSON.stringify(r.rows));
+  r = await c.query(`select count(*)::int n from clock_runs where started_at < now() - interval '14 days'`); ok('prune: old clock runs deleted', r.rows[0].n === 0);
+  r = await as('service', `select db_activity() j`); ok('db activity: readable by the server', Array.isArray(r.rows?.[0]?.j), r.error);
+}
+
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));
 await c.end();
