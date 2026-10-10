@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const RING = ["#FF7A2F", "#FFC93C", "#B8E62E", "#33C4F2", "#7A42E0", "#FF4F79"];
+export const RING = ["#FF7A2F", "#FFC93C", "#B8E62E", "#33C4F2", "#7A42E0", "#FF4F79"];
 
 export function LogoMark({ size = 26, ringOverride }: { size?: number; ringOverride?: string[] }) {
   const colours = ringOverride || RING;

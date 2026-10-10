@@ -9,6 +9,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { SearchFilterPanel } from "@/components/SearchFilters";
 import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { SORTS, describeParts, filtersFromParams, heading, toQueryString, type Facets, type FilterKey, type SearchFilters } from "@/lib/search";
+import { track } from "@/components/Tracker";
 
 type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null; fees?: Fees };
 
@@ -56,6 +57,14 @@ export function AuctionsClient() {
   }
   const facets = data?.facets || null;
   const total = facets?.total;
+  // What was searched and how many vehicles matched (zero results = demand we can't meet yet).
+  // Waits until the filters settle, so dragging a slider is one search, not twenty.
+  const described = describeParts({ ...f, q: undefined }).join(" "); // the filters only, never the typed words
+  useEffect(() => {
+    if (!described || total == null || page > 1) return;
+    const t = setTimeout(() => track("search", { q: described, n: total }), 1500);
+    return () => clearTimeout(t);
+  }, [described, total, page]);
   const filtersOn = chips.length > 0;
 
   return (

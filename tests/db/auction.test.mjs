@@ -748,6 +748,92 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select announce_flaw_changes(interval '0 seconds') n`); ok('flaws: announced only once', r.rows?.[0]?.n === 0);
 }
 
+// ---------- the information machine: traffic, the metric store, insights and SEO tables ----------
+{
+  await c.query(`insert into web_events (kind, path, page, lot_id, visitor, source, device, region, query, results) values
+    ('view', '/', 'home', null, 'v1', 'google', 'mobile', 'QLD', null, null),
+    ('view', '/lot/10432', 'lot', 10432, 'v1', 'google', 'mobile', 'QLD', null, null),
+    ('view', '/lot/10432', 'lot', 10432, 'v2', 'direct', 'desktop', 'NSW', null, null),
+    ('search', '/auctions', 'auctions', null, 'v2', 'direct', 'desktop', 'NSW', 'Toyota LandCruiser 79', 0),
+    ('search', '/auctions', 'auctions', null, 'v1', 'google', 'mobile', 'QLD', 'Toyota LandCruiser 79', 0),
+    ('search', '/auctions', 'auctions', null, 'v1', 'google', 'mobile', 'QLD', 'Utes in QLD', 14),
+    ('search', '/auctions', 'auctions', null, 'v1', 'google', 'mobile', 'QLD', 'my name is joe bloggs', 0),
+    ('view', '/', 'home', null, 'v9', 'spamtag', 'desktop', null, null, null)`);
+  await c.query(`insert into web_events (at, kind, path, page, visitor, source, device) values (now() - interval '100 days', 'view', '/', 'home', 'old', 'direct', 'desktop')`);
+  r = await as('service', `select compute_daily_metrics((now() at time zone 'Australia/Brisbane')::date) n`); ok('metrics: computed for today', r.rows?.[0]?.n > 20, r.error);
+  const m = async (metric, dim = '') => Number((await as('service', `select value from metric_values where day = (now() at time zone 'Australia/Brisbane')::date and metric = '${metric}' and dim = '${dim}'`)).rows?.[0]?.value ?? -1);
+  ok('metrics: page views', await m('views') === 4);
+  ok('metrics: visitors are distinct people', await m('visitors') === 3);
+  ok('metrics: rare unknown sources folded into "other"', await m('visitors', 'src:other') === 1 && await m('visitors', 'src:spamtag') === -1);
+  ok('metrics: visitors by source', await m('visitors', 'src:google') === 1 && await m('views', 'src:google') === 2);
+  ok('metrics: by device and state', await m('visitors', 'dev:mobile') === 1 && await m('visitors', 'region:NSW') === 1);
+  ok('metrics: vehicle page views', await m('lot_views') === 2);
+  ok('metrics: searches and searches with no results', await m('searches') === 4 && await m('searches_zero') === 3);
+  ok('metrics: what was searched by 2+ people (lower case)', await m('search_terms_zero', 'q:toyota landcruiser 79') === 2 && await m('search_terms', 'q:toyota landcruiser 79') === 2);
+  ok('metrics: a search only one person made is never kept', await m('search_terms', 'q:utes in qld') === -1 && await m('search_terms_zero', 'q:my name is joe bloggs') === -1);
+  r = await as('service', `select coalesce(sum(price), 0) g, count(*)::int n from invoices where status <> 'cancelled' and (created_at at time zone 'Australia/Brisbane')::date = (now() at time zone 'Australia/Brisbane')::date`);
+  ok('metrics: sales and vehicle sales match the invoices', await m('sales') === r.rows[0].n && await m('gmv') === Number(r.rows[0].g), JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from lots where status = 'live'`);
+  ok('metrics: live now (a stock level)', await m('live_lots') === r.rows[0].n);
+  r = await as('service', `select coalesce(sum(premium), 0) + coalesce(sum(round(admin_fee / 1.1, 2)), 0) v from invoices where status <> 'cancelled' and (created_at at time zone 'Australia/Brisbane')::date = (now() at time zone 'Australia/Brisbane')::date`);
+  ok('metrics: revenue includes premium and admin fees ex GST', await m('revenue') >= Number(r.rows[0].v), `${await m('revenue')} vs ${r.rows[0].v}`);
+  r = await as('service', `select total, latest from metrics_range((now() at time zone 'Australia/Brisbane')::date - 6, (now() at time zone 'Australia/Brisbane')::date, 'views') where dim = ''`);
+  ok('metrics: totals over a range', Number(r.rows?.[0]?.total) === 4, JSON.stringify(r));
+  r = await as('service', `select metrics_totals((now() at time zone 'Australia/Brisbane')::date - 6, (now() at time zone 'Australia/Brisbane')::date) t`);
+  ok('metrics: all totals as one value (no API row limit), search terms left out', Number(r.rows?.[0]?.t?.sum?.views) === 4 && Number(r.rows[0].t.sum['visitors|src:google']) === 1 && !Object.keys(r.rows[0].t.sum).some((k) => k.startsWith('search_terms')), JSON.stringify(r).slice(0, 300));
+  r = await as('service', `select search_terms_top((now() at time zone 'Australia/Brisbane')::date - 6, (now() at time zone 'Australia/Brisbane')::date, 'search_terms_zero', 5) t`);
+  ok('metrics: top searches that found nothing', JSON.stringify(r.rows?.[0]?.t) === JSON.stringify([['toyota landcruiser 79', 2]]), JSON.stringify(r.rows));
+  r = await as('service', `select metrics_series((now() at time zone 'Australia/Brisbane')::date - 6, (now() at time zone 'Australia/Brisbane')::date, array['views','visitors'], '') s`);
+  ok('metrics: daily series for charts', Object.values(r.rows?.[0]?.s?.views || {}).map(Number).includes(4), JSON.stringify(r.rows));
+  r = await as('service', `select refresh_metrics(2) n`); ok('metrics: refresh the last few days', r.rows?.[0]?.n > 20, r.error);
+  ok('metrics: recomputing replaces, never doubles', await m('views') === 4);
+  r = await as('service', `select compute_daily_metrics((now() at time zone 'Australia/Brisbane')::date, false) n`);
+  ok('metrics: recomputing without traffic keeps the traffic numbers', await m('views') === 4 && await m('visitors', 'src:google') === 1);
+  r = await as('service', `select count(*)::int n from profiles where created_at >= (now() at time zone 'Australia/Brisbane')::date and id_verified_at is not null`);
+  ok('metrics: of today\'s new members, how many verified', await m('signups_verified') === r.rows[0].n, JSON.stringify(r.rows));
+
+  for (const who of ['anon', 'A', 'ADM']) {
+    r = await as(who, `select count(*)::int n from web_events`); ok(`privacy: ${who} can't read raw traffic`, !!r.error || r.rows?.[0]?.n === 0);
+    r = await as(who, `select count(*)::int n from metric_values`); ok(`privacy: ${who} can't read the metric store directly`, !!r.error || r.rows?.[0]?.n === 0);
+  }
+  r = await as('A', `select compute_daily_metrics(current_date)`); ok("privacy: members can't run the metrics", !!r.error);
+  r = await as('A', `select * from reserve_gap(30)`); ok("privacy: reserves stay private (members can't ask)", !!r.error);
+  r = await as('A', `insert into web_events (kind, visitor) values ('view', 'x')`); ok("privacy: members can't write traffic rows", !!r.error);
+  r = await as('A', `select * from insights`); ok("privacy: members can't read insights", !!r.error || r.rows?.length === 0);
+  r = await as('A', `select * from seo_issues`); ok("privacy: members can't read SEO findings", !!r.error || r.rows?.length === 0);
+
+  r = await as('service', `select prune_web_events(90) n`); ok('traffic: rows older than 90 days deleted', r.rows?.[0]?.n === 1);
+  r = await as('service', `select count(*)::int n from web_events`); ok('traffic: recent rows kept', r.rows?.[0]?.n === 8);
+
+  await c.query(`update profiles set id_status = 'pending', id_verified_at = null where id = '${U.NEW}'`);
+  await c.query(`update profiles set id_status = 'verified' where id = '${U.NEW}'`);
+  r = await as('service', `select id_verified_at is not null v from profiles where id = '${U.NEW}'`); ok('funnel: the time an ID is verified is recorded', r.rows?.[0]?.v === true);
+  r = await as('NEW', `update profiles set id_verified_at = now() - interval '1 year' where id = '${U.NEW}' returning id_verified_at > now() - interval '1 day' fresh`); ok("funnel: members can't change it", r.rows?.[0]?.fresh === true || !!r.error, JSON.stringify(r));
+  r = await as('service', `select count(*)::int n from invoices where status = 'cancelled' and cancelled_at is null`); ok('payments: every cancelled sale has a cancelled time', r.rows?.[0]?.n === 0);
+  r = await as('service', `select push_wanted('{}'::jsonb, 'insights') a, push_wanted('{"insights":{"push":true}}'::jsonb, 'insights') b, push_wanted('{}'::jsonb, 'won') w`);
+  ok('briefings: email only unless push is turned on', r.rows?.[0]?.a === false && r.rows[0].b === true && r.rows[0].w === true);
+  r = await as('service', `select value from settings where key = 'insights'`); ok('briefings: weekly on by default', r.rows?.[0]?.value?.weekly === true && r.rows[0].value.daily === false);
+
+  await c.query(`insert into seo_search_daily (day, query, page, clicks, impressions, position) values
+    (current_date - 3, 'ute auction brisbane', '/for-sale/utes/qld', 2, 300, 7.2), (current_date - 2, 'ute auction brisbane', '/for-sale/utes/qld', 1, 200, 6.8),
+    (current_date - 2, 'tyrebiter', '/', 40, 60, 1.0)`);
+  r = await as('service', `select * from seo_opportunities(28, 10)`);
+  ok('seo: searches we could win (page 1-2, not the top)', r.rows?.length === 1 && r.rows[0].query === 'ute auction brisbane' && Number(r.rows[0].impressions) === 500 && Number(r.rows[0].position) === 7.0, JSON.stringify(r.rows));
+  r = await as('service', `select * from seo_top(28, 'query', 5)`); ok('seo: top searches by clicks', r.rows?.[0]?.key === 'tyrebiter', JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from seo_lot_audit(100)`); const liveN = (await as('service', `select count(*)::int n from lots where status = 'live'`)).rows[0].n;
+  ok('seo: the audit sees every live listing', r.rows?.[0]?.n === liveN, JSON.stringify(r));
+  r = await as('service', `select count(*)::int n from seo_changed_lots(now() - interval '1 hour', 100)`); ok('seo: recently changed listings for the search engine ping', r.rows?.[0]?.n > 0);
+  await c.query(`update lots set seo_changed_at = now() - interval '2 hours' where id = 10982`);
+  r = await as('B', `select place_bid(10982, 9000) r`);
+  r = await as('service', `select count(*)::int n from seo_changed_lots(now() - interval '1 hour', 100) where id = 10982`); ok("seo: a bid alone doesn't re-send the page to search engines", r.rows?.[0]?.n === 0, JSON.stringify(r));
+  await as('ADM', `update lots set title = 'Late reserve ute (dual cab, towbar)' where id = 10982`);
+  r = await as('service', `select count(*)::int n from seo_changed_lots(now() - interval '1 hour', 100) where id = 10982`); ok('seo: an edit does', r.rows?.[0]?.n === 1);
+  await c.query(`insert into lots (id, status, title, start_price, ends_at, bid_count, current_bid, has_reserve, category) values (10990, 'passed', 'Gap ute', 1000, now() - interval '1 day', 3, 40000, true, 'utes')`);
+  await c.query(`insert into lot_private (lot_id, reserve_price) values (10990, 50000)`);
+  r = await as('service', `select avg_gap from reserve_gap(30) where category = 'utes'`); ok('insights: reserve gap measured against the final bid (50k reserve, 40k bid = 25%)', Number(r.rows?.[0]?.avg_gap) === 0.25, JSON.stringify(r.rows));
+  r = await as('service', `select * from lot_recent_views(array[10432]::bigint[], 7)`); ok('insights: recent views per vehicle', Number(r.rows?.[0]?.views) === 2, JSON.stringify(r.rows));
+}
+
 console.log(`\n${pass} passed, ${failN} failed`);
 fails.forEach((f) => console.log('FAIL:', f));
 await c.end();

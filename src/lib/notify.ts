@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { drainOutbox } from "@/lib/outbox";
 
-export type NotifyKind = "outbid" | "ending" | "won" | "searches" | "marketing" | "account" | "seller";
+export type NotifyKind = "outbid" | "ending" | "won" | "searches" | "marketing" | "account" | "seller" | "insights";
 
 // Queues an alert (in-app + SMS/email per the member's settings) in the database,
 // then sends it straight after the response. If sending fails or the function

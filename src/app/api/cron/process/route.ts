@@ -103,7 +103,62 @@ export async function GET(req: Request) {
     if (nl.queued) s.newsletter = nl.queued;
   }
 
-  // 10. Use the rest of the minute to send messages (the sender job also runs every minute)
+  // 10. The information machine: metrics, insights, briefings and SEO (Brisbane time). Daily jobs run once
+  //     at or after their hour (a slow or missed minute just delays them), and record the day they ran.
+  const bris = new Date(new Date().toLocaleString("en-US", { timeZone: "Australia/Brisbane" }));
+  const [hh, mm] = [bris.getHours(), bris.getMinutes()];
+  const bday = bris.toLocaleDateString("en-CA");
+  const step = async (name: string, fn: () => Promise<unknown>) => {
+    try { const r = await fn(); s[name] = typeof r === "number" ? r : 1; return true; } catch { s[`${name}Failed`] = 1; return false; }
+  };
+  const { data: jobsRow } = await db.from("settings").select("value").eq("key", "jobs").maybeSingle();
+  const jobs = (jobsRow?.value || {}) as Record<string, string>;
+  const due = (name: string, hour: number, minute = 0) => jobs[name] !== bday && (hh > hour || (hh === hour && mm >= minute));
+  const done = async (name: string) => { jobs[name] = bday; await db.from("settings").upsert({ key: "jobs", value: jobs }); };
+
+  // today's numbers every 15 minutes
+  if (mm % 15 === 3 && left() > 150_000) await step("metrics", async () => Number((await db.rpc("compute_daily_metrics", { p_day: bday, p_traffic: true })).data || 0));
+  // after midnight: finish yesterday (with traffic), redo the business numbers for the last 35 days (late payments,
+  // cancellations), one day per call so no call runs long, and delete traffic rows older than 90 days
+  if (due("metrics_backfill", 0, 20) && left() > 150_000) {
+    const day = (k: number) => new Date(bris.getTime() - k * 86400000).toLocaleDateString("en-CA");
+    let ok = await step("metricsYesterday", async () => (await db.rpc("compute_daily_metrics", { p_day: day(1), p_traffic: true })).data);
+    for (let k = 2; k <= 35 && ok && left() > 120_000; k++) ok = (await db.rpc("compute_daily_metrics", { p_day: day(k), p_traffic: false })).error == null;
+    let pruned = 0;
+    for (let n = 50_000; n === 50_000 && left() > 100_000;) { n = Number((await db.rpc("prune_web_events", { p_days: 90 })).data || 0); pruned += n; }
+    s.eventsPruned = pruned;
+    if (ok) await done("metrics_backfill");
+  }
+  if (mm % 10 === 1 && left() > 120_000) {
+    const { pingIndexNow } = await import("@/lib/seoEngine");
+    await step("indexNow", async () => (await pingIndexNow()).sent);
+  }
+  if (due("seo_audit", 3, 10) && left() > 180_000) {
+    const { audit, syncSearchConsole } = await import("@/lib/seoEngine");
+    const a = await step("seoAudit", async () => (await audit({ deadlineMs: 90_000 })).issues);
+    await step("searchConsole", async () => (await syncSearchConsole()).rows);
+    if (a) await done("seo_audit");
+  }
+  if (due("insights", 6, 30) && left() > 120_000) {
+    const { runInsights } = await import("@/lib/insights");
+    if (await step("insights", async () => (await runInsights()).insights.length)) await done("insights");
+  }
+  if (left() > 120_000) {
+    const { data: ins } = await db.from("settings").select("value").eq("key", "insights").maybeSingle();
+    const cfg = (ins?.value || {}) as Record<string, unknown>;
+    const hour = Number(cfg.hour ?? 7);
+    for (const kind of ["weekly", "daily"] as const) {
+      const on = kind === "daily" ? !!cfg.daily : cfg.weekly !== false;
+      const dayOk = kind === "daily" || bris.getDay() === Number(cfg.weekday ?? 1);
+      if (!on || !dayOk || !due(`briefing_${kind}`, hour)) continue;
+      await done(`briefing_${kind}`); // marked first: an overlapping minute can't send it twice
+      const { sendBriefing } = await import("@/lib/insights");
+      const r = await sendBriefing(kind, { force: true }).catch(() => ({ queued: 0 }));
+      s[`${kind}Briefing`] = r.queued;
+    }
+  }
+
+  // 11. Use the rest of the minute to send messages (the sender job also runs every minute)
   const out = await drainOutbox({ max: 5000, deadlineMs: Math.max(0, Math.min(40_000, left() - 20_000)) });
   s.sent = out.sent;
   s.sendFailed = out.failed;

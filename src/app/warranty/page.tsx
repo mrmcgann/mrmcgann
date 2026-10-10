@@ -6,7 +6,7 @@ import { WarrantyList } from "./WarrantyList";
 
 export const metadata: Metadata = {
   title: "Warranty and roadside assistance",
-  description: "Extended mechanical warranty and roadside assistance for vehicles bought at auction, from independent providers. Compare what they cover, then ask for a quote.",
+  description: "Extended warranty and roadside assistance for vehicles bought at auction, from independent providers. Compare what they cover, then ask for a quote.",
 };
 
 export default async function WarrantyPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

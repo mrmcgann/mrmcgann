@@ -12,6 +12,7 @@ import { km, money } from "@/lib/format";
 import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
+import { lotCrumbs } from "@/lib/seo";
 import { priceBreakdown, lotFees } from "@/lib/fees";
 import { env } from "@/lib/env";
 import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified } from "@/lib/listing";
@@ -92,7 +93,8 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
       </div></div>
       <div className="wrap">
         {preview && <div className="notice bad" style={{ marginTop: 20 }}>Admin preview ({lot.status}). {lot.status === "draft" ? "Only admins can see this." : ""}</div>}
-        <div className="center" style={{ gap: 14, paddingTop: "clamp(40px,6vw,72px)" }}>
+        <div className="center" style={{ gap: 14, paddingTop: "clamp(32px,5vw,56px)" }}>
+          {!preview && <nav aria-label="Breadcrumb" className="crumbs" data-testid="crumbs">{lotCrumbs(lot).map(([name, href], i, all) => <span key={href}>{i === all.length - 1 ? <span>{name}</span> : <Link href={href}>{name}</Link>}{i < all.length - 1 && <span aria-hidden="true"> › </span>}</span>)}</nav>}
           <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id} · {lot.suburb}, {lot.state}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
           {sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
           <h1 className="d2" style={{ fontSize: "clamp(44px,7vw,96px)" }}>{lot.short_title || lot.title}.</h1>

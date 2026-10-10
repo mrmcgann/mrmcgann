@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SELLER_AGREEMENT, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Seller agency agreement" };
+export const metadata: Metadata = { title: "Seller agency agreement", description: "The agreement sellers sign before their vehicle goes live at Tyrebiter: fees, reserve, what you promise buyers, and how you get paid.", alternates: { canonical: "/seller-agreement" } };
 
 export default async function SellerAgreement() {
   const clauses = fillLegal(SELLER_AGREEMENT, await getSettingsCached());

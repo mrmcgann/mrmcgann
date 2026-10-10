@@ -5,6 +5,8 @@ import { CAT, STATE_NAMES, type CategoryKey } from "@/lib/vehicles";
 import { money } from "@/lib/format";
 import { searchHref } from "@/lib/search";
 import type { Lot } from "@/lib/types";
+import { breadcrumbJsonLd, itemListJsonLd, jsonLd } from "@/lib/seo";
+import { env } from "@/lib/env";
 
 // Landing pages for search engines: "Utes for sale in Queensland". Real listings and real recent
 // results only: no made-up counts, prices or claims. Pages with nothing on them aren't indexed.
@@ -27,6 +29,10 @@ export function ForSalePage({ cat, state, data }: { cat: CategoryKey; state: str
   const states = Object.entries(facets.states || {}).sort((a, b) => b[1] - a[1]);
   return (
     <div className="wrap" style={{ paddingBlock: "clamp(40px,6vw,72px)", display: "flex", flexDirection: "column", gap: 28 }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd([
+        breadcrumbJsonLd([["Home", "/"], [c.label, `/for-sale/${cat}`], ...(state ? [[where, `/for-sale/${cat}/${state.toLowerCase()}`] as [string, string]] : [])], env.siteUrl),
+        ...(live.length ? [itemListJsonLd(live, env.siteUrl)] : []),
+      ]) }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 820 }}>
         <span className="eyebrow" style={{ color: "var(--urgent)" }}>{state ? <><Link href={`/for-sale/${cat}`}>{c.label}</Link> · {where}</> : "Online auctions · Australia-wide"}</span>
         <h1 className="d2" data-testid="forsale-title">{forSaleTitle(cat, state)}.</h1>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getFeesCached, getHomeCached } from "@/lib/cache";
 import { ForYou } from "@/components/ForYou";
@@ -12,9 +13,13 @@ import { photoUrl } from "@/lib/photos";
 import { SearchBar } from "@/components/SearchBar";
 import { MotorsSearch } from "@/components/MotorsSearch";
 import { CATEGORIES } from "@/lib/vehicles";
+import { jsonLd, siteJsonLd } from "@/lib/seo";
+import { env } from "@/lib/env";
 
 // Served from the edge cache and refreshed every 15 seconds (personal bits load in the browser).
 export const revalidate = 15;
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   const [home, fees] = await Promise.all([getHomeCached(), getFeesCached()]);
@@ -25,6 +30,7 @@ export default async function Home() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(siteJsonLd(env.siteUrl, { legalName: env.legalName, phone: env.phone, email: env.supportEmail })) }} />
       <div className="wrap">
         <div className="center hero">
           <span className="eyebrow" style={{ color: "var(--urgent)", display: "flex", alignItems: "center", gap: 8 }}>

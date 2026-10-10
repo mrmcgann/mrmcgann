@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "How we check listings",
-  description: "Every vehicle is checked against the vehicle itself before it's listed: VIN, build date, odometer photo, transmission, fuel, features, warning lights, damage and photos.",
+  description: "Before a vehicle is listed we check it against the listing: VIN, build date, odometer photo, transmission, fuel, features, warning lights, damage and photos.",
 };
 
 // Our listing promise. Plain facts about what we check, what we don't, and what happens if we get it wrong.

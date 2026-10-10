@@ -12,6 +12,7 @@ import { sendEmail, mailHtml } from "@/lib/email";
 import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
+export const maxDuration = 120; // the SEO audit and insights refresh can take a minute
 const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
 // Business days the same way the database counts them (Brisbane time, weekends and public holidays skipped).
 async function addBusinessDays(from: Date, n: number) {
@@ -410,8 +411,44 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       if (!r.queued && r.reason) return fail(r.reason);
       return done({ queued: r.queued });
     }
+    // ---- Insights and SEO ----
+    case "insight": {
+      if (!["open", "done", "dismissed"].includes(b.status)) return fail("Choose done or dismissed.");
+      await db.from("insights").update({ status: b.status }).eq("id", Number(b.id));
+      return done();
+    }
+    case "insights-refresh": {
+      const { runInsights } = await import("@/lib/insights");
+      // one day per call (each is quick); traffic only for today and yesterday, which can still change
+      const days = Math.max(0, Math.min(35, Number(b.days) || 0)), t0 = Date.now();
+      for (let k = 0; k <= days && Date.now() - t0 < 60_000; k++) {
+        const d = new Date(Date.now() - k * 86400000).toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" });
+        await db.rpc("compute_daily_metrics", { p_day: d, p_traffic: k <= 1 });
+      }
+      const r = await runInsights();
+      return done({ insights: r.insights.length });
+    }
+    case "briefing-send": {
+      const { sendBriefing } = await import("@/lib/insights");
+      const r = await sendBriefing(b.kind === "daily" ? "daily" : "weekly", { force: true });
+      return done({ queued: r.queued });
+    }
+    case "seo-audit": {
+      const { audit } = await import("@/lib/seoEngine");
+      const r = await audit({ deadlineMs: 60_000 });
+      return done(r);
+    }
+    case "indexnow": {
+      const { pingIndexNow } = await import("@/lib/seoEngine");
+      const r = await pingIndexNow();
+      return done(r);
+    }
+    case "gsc-sync": {
+      const { syncSearchConsole } = await import("@/lib/seoEngine");
+      try { return done(await syncSearchConsole(28)); } catch (e) { return fail((e as Error).message); }
+    }
     case "settings": {
-      if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business"].includes(b.key)) return fail("Unknown setting.");
+      if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business", "insights", "seo"].includes(b.key)) return fail("Unknown setting.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
       if (b.key === "fees" && (Number(b.value?.late_interest_rate) < 0 || Number(b.value?.late_interest_rate) > 20)) return fail("Keep interest on overdue balances between 0 and 20% a year. A higher rate risks being an unfair term.");
       await db.from("settings").upsert({ key: b.key, value: b.value });

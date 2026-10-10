@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { SORTS, cleanFilters, describe, describeParts, heading, parseQuery, suggest, toQueryString, type Facets, type FilterKey, type SearchFilters, type Suggestion } from "@/lib/search";
+import { trackSearch } from "~/lib/track";
 import { api, errText, pub } from "~/lib/api";
 import { useSession } from "~/lib/session";
 import { askForPush } from "~/lib/push";
@@ -135,6 +136,13 @@ export default function Search() {
   const facets = res?.facets || null;
   const total = facets?.total ?? null;
   const chips = chipsFor(f);
+  // What was searched and how many matched, once the filters settle (zero results = unmet demand).
+  const described = describeParts({ ...f, q: undefined }).join(" "); // the filters only, never the typed words
+  useEffect(() => {
+    if (!described || total == null) return;
+    const t = setTimeout(() => trackSearch(described, total), 1500);
+    return () => clearTimeout(t);
+  }, [described, total]);
   const catTotal = facets?.cats ? Object.values(facets.cats).reduce((a, b) => a + b, 0) : null;
   const sortLabel = (v: string, l: string) => (f.view === "closed" && v === "ending" ? "Most recently closed" : l);
 

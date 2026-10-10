@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { env } from "@/lib/env";
 import { ContactForm } from "./ContactForm";
 
-export const metadata: Metadata = { title: "Contact us" };
+export const metadata: Metadata = { title: "Contact us", description: "Contact Tyrebiter about buying, selling, a purchase or a listing. Phone, email or send us a message.", alternates: { canonical: "/contact" } };
 
 export default function Contact() {
   return (

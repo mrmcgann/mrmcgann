@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Linking, Platform, View } from "react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
@@ -16,6 +16,7 @@ import { PayProvider } from "~/lib/pay";
 import { onAlertTapped, setBadge } from "~/lib/push";
 import { appPath } from "~/lib/links";
 import { APP_VERSION } from "~/lib/env";
+import { setTrackedMember, trackView } from "~/lib/track";
 import { Button, T } from "~/ui/kit";
 import { LogoMark } from "~/ui/art";
 import { C, F } from "~/ui/theme";
@@ -42,6 +43,10 @@ function Shell() {
   useEffect(() => { if (show) SplashScreen.hideAsync().catch(() => undefined); }, [show]);
   // Tapping an alert opens the matching screen.
   useEffect(() => onAlertTapped((link) => router.push(appPath(link) as never)), []);
+  // Screen views for the Insights dashboard.
+  const pathname = usePathname();
+  useEffect(() => { setTrackedMember(!!me?.profile); }, [me?.profile]);
+  useEffect(() => { if (pathname) trackView(pathname); }, [pathname]);
   // App icon badge = unread alerts.
   useEffect(() => { if (me?.profile) void setBadge(me.profile.unread || 0); }, [me?.profile]);
 

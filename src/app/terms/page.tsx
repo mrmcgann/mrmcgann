@@ -3,7 +3,7 @@ import Link from "next/link";
 import { TERMS as RAW, fillLegal, TERMS_VERSION_LABEL } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Terms of sale" };
+export const metadata: Metadata = { title: "Terms of sale", description: "The Terms of sale for buying at Tyrebiter in plain English: bidding, fees, payment, collection, claims and your consumer rights.", alternates: { canonical: "/terms" } };
 
 export default async function Terms() {
   const TERMS = fillLegal(RAW, await getSettingsCached());

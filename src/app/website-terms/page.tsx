@@ -3,7 +3,7 @@ import Link from "next/link";
 import { WEBSITE_TERMS, WEBSITE_TERMS_VERSION_LABEL, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Website terms" };
+export const metadata: Metadata = { title: "Website terms", description: "The rules for using the Tyrebiter website and app: your account, fair use, our content, and when an account can be suspended.", alternates: { canonical: "/website-terms" } };
 
 export default async function WebsiteTerms() {
   const clauses = fillLegal(WEBSITE_TERMS, await getSettingsCached());

@@ -181,7 +181,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
 
 ## Automated tests
-`npm run test:db` runs 311 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying and the VIN decoder.
+`npm run test:db` runs 311 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, and the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks).
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -247,6 +247,16 @@ Written in our own words after comparing the payment terms and site terms of Gra
 - **Corrections** also cover the title, description, location, plate and the damage list (damage edits are announced once staff stop editing for 5 minutes).
 - Sellers also declare previous use (taxi, rideshare, hire, driving school, police) and unfixed safety recalls; both show on the listing.
 
+## The information machine: Insights, SEO and the briefing email
+Runs in the background off the every-minute clock; nothing to switch on except the optional Google connection.
+- **Admin → Insights**: every business number in one place (sales, sell-through, bids per vehicle, revenue and take rate, visitors and where they came from, sign-ups and the funnel to a paid sale, time to pay, transfer and collect, claims, seller pipeline, searches and searches that found nothing, partner enquiries), compared with the period before, with charts and breakdowns by category, state, source, device and page. At the top, **what the numbers say**: findings with what to do (overdue balances, unanswered appraisals and questions, auctions ending with no bids, reserves above where bidding finished, the best and worst categories, demand you have no stock for, big moves week on week, SEO problems). Mark each Done or Dismiss.
+- **The briefing email** to every admin: weekly (Monday 7 am by default) and optionally every morning, set at the bottom of Admin → Insights. With `ANTHROPIC_API_KEY` set, the weekly one opens with a short summary written by Claude (`INSIGHTS_AI_MODEL`, default `claude-haiku-4-5-20251001`); only business totals and search filters (such as "Toyota HiLux under $30,000") are sent to Anthropic, never anyone's details.
+- **Admin → SEO**: what the nightly audit found (listings with too few photos, short descriptions, missing year/make/model; pages that are slow, broken, missing a title, description, canonical link or structured data), and once connected, what people search on Google to find you, the searches you're close to winning and titles that need rewriting.
+- **On the site**: every vehicle page has a search title and description from its facts (with the all-in price), structured data (schema.org Car/Vehicle with the offer), breadcrumbs, and its photo in the sitemap; landing pages for every make and model (`/makes`) with real listings, real recent results and the price range from your own sales; filtered searches point to one main page; pages with nothing on them aren't indexed. New, changed and sold listings are sent to Bing and other IndexNow engines within 10 minutes (`/indexnow-key.txt`; set `INDEXNOW_KEY` to choose the key).
+- **Traffic counting** is our own (`/api/t`): no cookies, no IP addresses kept, a visitor code that changes daily, robots and browsers asking not to be tracked are skipped, private links (unsubscribe, handover, seller agreement) never stored, searches recorded as filters only (never the words typed), raw rows deleted after 90 days. Tag links you share with `?utm_source=facebook&utm_campaign=utes` to see each campaign. New members are credited to where their first visit came from, and sales to the buyer's first source.
+- **Connect Google Search Console** (free): verify the domain at search.google.com/search-console, create a Google Cloud service account with the Search Console API turned on, add its email as a user on the property, then set `GOOGLE_SERVICE_ACCOUNT` (the JSON key, or base64 of it) and `GSC_SITE` (`sc-domain:tyrebiter.com.au`) in Vercel. Submit `https://tyrebiter.com.au/sitemap.xml` there and in Bing Webmaster Tools.
+- Clock schedule (Brisbane time): metrics every 15 minutes; last 35 days recomputed and old traffic pruned at 12:20 am; SEO audit and Google data at 3:10 am; insights at 6:30 am; briefings on the hour you set.
+
 ## Sample photos
 The sample listings start without photos. Never copy photos from other listing sites: they belong to their sellers and photographers. To fill the samples with openly licensed photos of the same makes and models (Wikimedia Commons, with a credit on each), run on a computer with internet access:
 ```bash
@@ -271,6 +281,8 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
 - [ ] Storage upload limit raised to 250 MB
 - [ ] The Sell page tried with a few real plates and VINs
+- [ ] Google Search Console and Bing Webmaster Tools set up, sitemap submitted, `GOOGLE_SERVICE_ACCOUNT` and `GSC_SITE` set (Admin → SEO shows the steps)
+- [ ] `ANTHROPIC_API_KEY` set if you want the weekly briefing summarised by Claude
 - [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)
 - [ ] A full test sale with a real card, then refunded in Stripe
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
