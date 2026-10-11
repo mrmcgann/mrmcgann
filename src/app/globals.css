@@ -970,3 +970,11 @@ a.dep-row:hover b:first-child{color:var(--blue)}
   .dep-row{flex-direction:column;gap:4px}
 }
 @media (prefers-reduced-motion:reduce){.dp-wait .dot{animation:none}.dep-meter i{transition:none}}
+/* two-step sign-in */
+.ts-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:ts}
+.ts-steps li{counter-increment:ts;display:flex;flex-direction:column;gap:4px;padding:14px 16px 14px 56px;border-radius:18px;background:var(--panel);position:relative;font-size:15px}
+.ts-steps li::before{content:counter(ts);position:absolute;left:16px;top:14px;width:26px;height:26px;border-radius:13px;background:var(--ink);color:var(--lime);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.ts-steps li > span{color:var(--ink2)}
+.ts-qr{display:block;margin:10px 0 4px;background:#FFFFFF;border-radius:12px;padding:8px;width:184px;height:184px;max-width:100%}
+.ts-key{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
+.ts-key code{font-size:14px;font-weight:700;letter-spacing:.06em;word-break:break-all}

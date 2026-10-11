@@ -19,7 +19,7 @@ const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Pric
 export default async function Sell() {
   const settings = await getSettingsCached();
   const v = legalValues(settings);
-  const HELP = fillLegal(RAW, settings);
+  const HELP = fillLegal(RAW, settings, { text: true });
   const sellFaq = HELP.find((h) => h[0] === "h-sell")?.[2] || [];
   const clauses = fillLegal(SELLER_AGREEMENT, settings);
   return (

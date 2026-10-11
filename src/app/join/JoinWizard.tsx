@@ -1,4 +1,5 @@
 "use client";
+import { BREACHED, isWeakPassword } from "@/lib/passwords";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +14,7 @@ import { DEFAULT_FEES, type Profile } from "@/lib/types";
 import { DepositPay } from "@/components/deposit/DepositPay";
 import type { Bank } from "@/components/deposit/PayBox";
 import { depositSteps, joinSteps } from "@/lib/deposits";
+import { safePath } from "@/lib/safePath";
 
 type Me = { user: { id: string; email: string } | null; profile: Profile | null; missing: number[];
   config: { stripe: boolean; testMode: boolean; sms: boolean; payId?: boolean; bank?: Bank; payMode?: "transfer" | "deposit" | "card" } };
@@ -38,7 +40,7 @@ const H = ({ t, sub }: { t: string; sub?: React.ReactNode }) => (
 export function JoinWizard() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "";
+  const next = params.get("next") ? safePath(params.get("next")) : "";
   const [me, setMe] = useState<Me | null>(null);
   const [step, setStep] = useState<number>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,6 +87,7 @@ export function JoinWizard() {
     const db = supabaseBrowser();
     const { data, error } = await db.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/auth/callback?next=/join` } });
     setBusy(false);
+    if (error && isWeakPassword(error)) { setErrors({ password: BREACHED }); return; }
     if (error) { setErrors({ email: error.message.includes("registered") ? "That email already has an account. Sign in instead." : error.message }); return; }
     if (!data.session) { setPendingEmail(email); setNotice(""); return; }
     await fetch("/api/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ terms: true }) });

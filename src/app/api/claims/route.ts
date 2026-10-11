@@ -5,6 +5,7 @@ import { json, fail } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
+import { allow } from "@/lib/ratelimit";
 
 const REASONS = ["identity", "transmission_fuel", "write_off_stolen", "finance", "odometer", "missing_feature", "undisclosed_damage", "other"];
 
@@ -15,6 +16,7 @@ export async function POST(req: Request) {
   const db = await supabaseServer();
   const user = await currentUser(db);
   if (!user) return fail("Sign in first.", 401);
+  if (!(await allow(`claims:${user.id}`, 10, 86400))) return fail("Too many claims today. Call us.", 429);
   const { data: inv } = await db.from("invoices").select("id, lot_id, status, collected_at, claim_until, ref").eq("id", b.invoiceId).eq("buyer_id", user.id).maybeSingle();
   if (!inv || inv.status === "cancelled") return fail("Invoice not found.", 404);
   if (inv.collected_at && inv.claim_until && new Date(inv.claim_until).getTime() < Date.now()) return fail("The claim window for this vehicle has closed. Call us if you need help.");

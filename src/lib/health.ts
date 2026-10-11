@@ -22,7 +22,7 @@ export function setupNow(): Setup {
     email: has.email,
     sms: has.twilioSms,
     smsVerify: has.twilioVerify,
-    cronSecret: Boolean(env.cronSecret),
+    cronSecret: Boolean(env.cronSecret && env.cronSecret.length >= 16), // shorter secrets are refused (src/lib/cron.ts)
     linkSecret: Boolean(process.env.LINK_SECRET),
   };
 }

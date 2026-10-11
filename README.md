@@ -94,8 +94,10 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    14. `supabase/migrations/20261010000014_insights.sql` (traffic, the daily metrics and insights)
    15. `supabase/migrations/20261011000015_health.sql` (site health, errors and fixes)
    16. `supabase/migrations/20261011000016_sell_form.sql` (the signed sell form: reserve, answers, signature and PDF; photos only into the sellers' photo bucket)
-   17. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   18. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   17. `supabase/migrations/20261012000017_bidding_deposits.sql` (pay by PayID or bank transfer, bans for non-payers, optional bidding deposits)
+   18. `supabase/migrations/20261012000018_security.sql` (two-step sign-in for admins, the admin log, new-admin alerts, internal settings and privileged functions closed to the public)
+   19. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   20. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -110,7 +112,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
 8. **Project Settings → JWT Keys**: make sure the project uses the new asymmetric signing keys (new projects do by default; older ones: "Migrate JWT secret", then rotate). This lets the site check who's signed in without calling Supabase on every page.
 9. **Realtime → Settings**: leave **Allow public access** on (live prices use public Broadcast channels named `lot:<id>`; they carry only what's already on the page).
 10. **Storage → Settings**: raise the upload file size limit to **250 MB** (needs the Pro plan; the free plan stops at 50 MB). Listing videos use it. Ask sellers for MP4 (H.264) from a phone in landscape; 1 to 3 minutes is plenty.
-11. **Authentication → Rate Limits**: raise "emails sent" (custom SMTP starts at 30 an hour), sign-ups/sign-ins and token refreshes to suit launch traffic. Tell Supabase support 2 weeks before a big launch.
+11. **Authentication → Multi-Factor**: make sure **TOTP (App Authenticator)** is enabled (it is by default). Admins need it: see "Security" below.
+12. **Authentication → Attack Protection**: turn on **Prevent use of leaked passwords** and set the minimum password length to **10**. Leave **CAPTCHA protection** off: the sign-in forms don't show a CAPTCHA, so turning it on would stop everyone signing in. Under **Sessions**, a JWT expiry of 1 hour (the default) is right.
+13. **Authentication → Rate Limits**: raise "emails sent" (custom SMTP starts at 30 an hour), sign-ups/sign-ins and token refreshes to suit launch traffic. Tell Supabase support 2 weeks before a big launch.
 
 #### Plan and size for 1,000,000 accounts / 10,000 people online
 - **Pro plan with the spend cap turned off.** With the cap on, Realtime stops at 500 live connections and 100,000 monthly active users. Off, it allows 10,000 connections (about US$10 per extra 1,000 at peak) and bills MAU above 100,000 at US$0.00325 each.
@@ -119,9 +123,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
 
 ### 2. Vercel (hosting)
 1. Import this GitHub repository at vercel.com/new.
-2. Add the environment variables from `.env.example` (Settings → Environment Variables). Make up a long random `CRON_SECRET`.
+2. Add the environment variables from `.env.example` (Settings → Environment Variables). Make up a long random `CRON_SECRET` (at least 32 characters: a password manager's generator is ideal, or `openssl rand -hex 32`).
 3. Deploy, then point `tyrebiter.com.au` at it under Settings → Domains.
-4. The auction clock and sender need a job every minute. Vercel **Pro** runs `vercel.json` automatically (the free plan only allows daily jobs). As a backup you can also run `supabase/cron.sql` in Supabase (put your site address and `CRON_SECRET` in it first); running both is safe.
+4. The auction clock and sender need a job every minute. Vercel **Pro** runs `vercel.json` automatically (the free plan only allows daily jobs). As a backup you can also run `supabase/cron.sql` in Supabase (put your site address and `CRON_SECRET` in it first); running both is safe. The secret travels in a header, never in the address, so it doesn't end up in logs.
 5. **Settings → Functions**: set the region to **Sydney (syd1)**, next to your Supabase database. Leave Fluid compute on.
 6. **Firewall → Rate limiting** (Pro includes 40 rules): add rules for `/api/verify/send` (e.g. 10 per IP per 10 minutes), `/api/bid` (e.g. 120 per IP per minute) and `/api/*` generally (e.g. 600 per IP per minute). The site also has its own limits on SMS codes, questions, reports and forms.
 7. Extra environment variables: `LINK_SECRET` (another long random string, for unsubscribe links), `NEXT_PUBLIC_ABN`, `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_DEALER_LICENCE`, the trust account bidders pay into (`NEXT_PUBLIC_BANK_NAME`, `NEXT_PUBLIC_BANK_BSB`, `NEXT_PUBLIC_BANK_ACCOUNT`) and `NEXT_PUBLIC_PAYID` for that account's PayID.
@@ -131,6 +135,7 @@ Sign up on the site, then in the Supabase SQL Editor run:
 ```sql
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
+The first time you open **Admin**, the site asks you to set up two-step sign-in: install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or 1Password), scan the code, and type the 6 digits it shows. After that it asks for a code each time you sign in. Every admin is told whenever someone is made an admin. Lost phone: in Supabase, **Authentication → Users →** the admin **→** delete their MFA factor, and they set it up again next time.
 
 ### 4. Stripe (ID checks)
 Stripe is only used for ID checks (no cards are taken). The ID check is what makes "ban the non-payers" work, so keep it on.
@@ -290,6 +295,26 @@ Watches the site's own machinery every minute and tells you when something break
 - **If your GitHub repository is public** (it is today), anyone can read its issues, so error messages and stack traces are left out of what's sent to Claude Code and the page warns you. Make the repository private (GitHub → the repository → Settings → General → Danger Zone → Change visibility) and protect `main` (Settings → Rules → Rulesets: require a pull request and the `test` check).
 - **Set it up** (about 15 minutes, the page shows the steps): install the Claude GitHub app on the repository (github.com/apps/claude); add the repository secret `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` on a Pro or Max plan); make a fine-grained GitHub token for this repository only (Contents, Issues and Pull requests: read and write; Checks, Commit statuses and Deployments: read); then set `GITHUB_TOKEN` and `GITHUB_REPO` in Vercel. The workflows are in `.github/workflows/` (`claude.yml` for Claude Code, `ci.yml` for the tests every change must pass).
 
+## Security
+Nothing online is unhackable, so the site is built in layers: if one is beaten, the next still holds, and you hear about it.
+- **The database is the last line.** Every table has row-level security (a test fails if one doesn't), private data (reserves, seller details, bidders' real names, bank details) is only readable by admins, and the rules for bids, money and bans run inside the database, so a fake request can't skip them. Privileged database functions are closed to the public except a short reviewed list (a test and Site health both check it).
+- **Admins need two-step sign-in.** An admin's password alone gets nothing: no Admin pages, no admin API and no admin rights in the database. Each admin sets up an authenticator app the first time they open Admin. Admin → Security shows who has admin access, who has set up two-step, and can switch it off (please don't).
+- **Admin log.** Everything admins do (in Admin and straight to the database from the vehicle editor) is written to a log that nobody can change or delete, with the network and device. Bank details, passwords and codes are never written to it. Every admin is told at once when someone is made an admin, and Site health warns about new admins and repeated refused admin requests.
+- **Browser protections on every page:** a Content Security Policy (only our site, Supabase and Stripe can load anything), no framing (stops click-jacking), HTTPS-only once live (HSTS), and signed-in pages never stored by shared caches.
+- **Requests from other sites are refused.** Another website can't make a signed-in member's browser bid, pay or change their details. Sign-in links only ever send people to pages on Tyrebiter.
+- **Limits** on SMS codes, ID checks, profile changes, claims, questions, reports and forms, on top of Vercel's firewall rules (step 2.6 above) and Supabase's own sign-in limits.
+- **Checked on every change:** the Tests workflow runs the security tests and `npm audit` (known holes in the packages the site runs on) and looks for passwords or keys accidentally committed. GitHub's CodeQL scans the code for security holes every week and on every change, and Dependabot opens a pull request when a package gets a security fix.
+- **Reporting:** `/.well-known/security.txt` and `/security-policy` tell security researchers how to report a hole privately (set `SECURITY_EMAIL`, otherwise it uses the support address).
+
+**Your security checklist** (things only you can do):
+- [ ] Make the GitHub repository **private** and protect `main` (see "Site health" above). While it's public, anyone can read the code and look for mistakes.
+- [ ] Turn on two-step sign-in for your own **GitHub, Vercel, Supabase, Stripe, Twilio, Resend, Google and email** accounts, with an authenticator app. Whoever gets into one of these gets into the site.
+- [ ] Supabase: leaked-password protection and minimum password length 10 (setup step 1.12), TOTP enabled (step 1.11).
+- [ ] A long random `CRON_SECRET` and `LINK_SECRET` (32+ characters each), different from each other. Never paste the `service_role` key anywhere but Vercel's environment variables.
+- [ ] Vercel: the firewall rate-limit rules (step 2.6), and **Deployment Protection** on preview deployments.
+- [ ] Set up two-step in Admin the first time you open it, and check **Admin → Security** now and then.
+- [ ] Before launch, consider a professional penetration test (an Australian firm, a few days' work), and repeat it after big changes.
+
 ## Sample photos
 The sample listings start without photos. Never copy photos from other listing sites: they belong to their sellers and photographers. To fill the samples with openly licensed photos of the same makes and models (Wikimedia Commons, with a credit on each), run on a computer with internet access:
 ```bash
@@ -317,6 +342,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] The Sell page tried with a few real plates and VINs
 - [ ] Google Search Console and Bing Webmaster Tools set up, sitemap submitted, `GOOGLE_SERVICE_ACCOUNT` and `GSC_SITE` set (Admin → SEO shows the steps)
 - [ ] `ANTHROPIC_API_KEY` set if you want the weekly briefing summarised by Claude and Ask Claude in Site health
+- [ ] Everything in "Your security checklist" under Security
 - [ ] Claude Code set up (Admin → Site health → Set up Claude), the GitHub repository made private with `main` protected (pull request and the `test` check required), a free outside monitor on `/api/health`, and `HEALTH_ALERT_EMAIL` set
 - [ ] Admin → Site health all green on the live site (test mode off, live Stripe key, every service connected, `LINK_SECRET` set)
 - [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)

@@ -2,12 +2,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safePath } from "@/lib/safePath";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { AuthSide } from "@/components/AuthSide";
 
 export function SignInForm() {
   const router = useRouter();
-  const next = useSearchParams().get("next") || "/watchlist";
+  const next = safePath(useSearchParams().get("next"), "/watchlist");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {

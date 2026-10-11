@@ -45,6 +45,12 @@ export type Snapshot = {
   jobs?: Record<string, string>;
   marks?: Record<string, { at: string; value: Record<string, unknown> }>;
   settings?: { db_limit_gb?: number };
+  admin_mfa?: boolean;
+  admins?: number;
+  admins_no_two_step?: number;
+  admins_added_day?: number;
+  admin_refused_hour?: number;
+  open_functions?: string[];
 };
 
 export type Setup = {
@@ -216,6 +222,25 @@ export function evaluate(s: Snapshot, setup: Setup, probe: Probe, clock: Clock, 
     ? { key: "security.views", area: AREA_SEC, status: "fail", title: `${plural(views.length, "database view")} readable by anyone: ${views.slice(0, 6).join(", ")}`,
         detail: "Views skip row-level security unless they're made with security_invoker.", fix: "Send it to Claude Code to make them security_invoker or move them out of the public schema." }
     : { key: "security.views", area: AREA_SEC, status: "ok", title: "No database views open to the public" });
+  const openFns = s.open_functions || [];
+  add(openFns.length
+    ? { key: "security.functions", area: AREA_SEC, status: "fail", title: `${plural(openFns.length, "privileged database function")} anyone can run: ${openFns.slice(0, 6).join(", ")}${openFns.length > 6 ? "…" : ""}`,
+        detail: "They run with full rights, so a signed-out visitor could call them through the public API.", fix: "Send it to Claude Code: it adds a migration that revokes them from anon (or adds a reviewed one to the public list)." }
+    : { key: "security.functions", area: AREA_SEC, status: "ok", title: "Privileged database functions are closed to the public" });
+  if (s.admin_mfa !== undefined) {
+    const without = s.admins_no_two_step || 0;
+    add(!s.admin_mfa
+      ? { key: "security.mfa", area: AREA_SEC, status: "warn", title: "Admins can sign in without two-step", detail: "A stolen or guessed admin password would be enough to get into Admin.", fix: "Turn it on in Admin → Security." }
+      : without
+        ? { key: "security.mfa", area: AREA_SEC, status: "ok", title: `Two-step sign-in is on (${plural(without, "admin")} still to set it up)`, detail: "They'll be asked the first time they open Admin; until then they have no admin rights.", value: without }
+        : { key: "security.mfa", area: AREA_SEC, status: "ok", title: "Two-step sign-in is on for every admin" });
+    const added = s.admins_added_day || 0, refused = s.admin_refused_hour || 0;
+    add(added
+      ? { key: "security.admins", area: AREA_SEC, status: "warn", title: `${plural(added, "new admin")} in the last day (${plural(s.admins || 0, "admin")} now)`, detail: "Every admin was told when it happened.", fix: "If you didn't expect it, remove them in Admin → Members and change your password. The log is in Admin → Security.", value: added }
+      : refused >= 20
+        ? { key: "security.admins", area: AREA_SEC, status: "warn", title: `${plural(refused, "refused admin request")} in the last hour`, detail: "Someone is trying admin actions without the rights or without two-step.", fix: "Look at Admin → Security (the log shows the network). If it's not a staff member, block the network in Vercel → Firewall.", value: refused }
+        : { key: "security.admins", area: AREA_SEC, status: "ok", title: `${plural(s.admins || 0, "admin")}, none added in the last day` });
+  }
 
   // ---- Errors
   const AREA_ERR = "Errors";
@@ -273,7 +298,7 @@ export function evaluate(s: Snapshot, setup: Setup, probe: Probe, clock: Clock, 
     if (!setup.email) missing.push("Resend (RESEND_API_KEY): no emails");
     if (!setup.smsVerify) missing.push("Twilio Verify (TWILIO_VERIFY_SERVICE_SID): members can't verify their mobile");
     if (!setup.sms) missing.push("Twilio SMS (TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID): no text alerts");
-    if (!setup.cronSecret) missing.push("CRON_SECRET: the clock can't run");
+    if (!setup.cronSecret) missing.push("CRON_SECRET (at least 32 random characters): the clock can't run");
     add(missing.length
       ? { key: "setup.keys", area: AREA_SET, status: "fail", title: `${plural(missing.length, "service")} not connected`, detail: missing.join(". ") + ".", fix: "Add the keys in Vercel → Settings → Environment Variables, then redeploy." }
       : { key: "setup.keys", area: AREA_SET, status: "ok", title: "Payments, email and SMS are all connected" });

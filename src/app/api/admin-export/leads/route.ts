@@ -1,3 +1,4 @@
+import { adminApi, audit } from "@/lib/admin";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -10,8 +11,9 @@ const cell = (v: unknown) => {
 
 // Leads as a spreadsheet (for invoicing partners).
 export async function GET(req: Request) {
-  const { profile } = await getSession();
-  if (profile?.role !== "admin") return new Response("Admins only", { status: 403 });
+  const { s: sess, error: denied } = await adminApi();
+  if (denied) return denied;
+  await audit(sess.user?.id, "export leads", null, Object.fromEntries(new URL(req.url).searchParams), "ok");
   const kind = new URL(req.url).searchParams.get("kind");
   let q = supabaseAdmin().from("partner_leads").select("ref, created_at, kind, status, name, email, phone, postcode, lot_id, details, price, revenue, sent_at, partners(name)").order("created_at", { ascending: false }).limit(10000);
   if (kind && ["finance", "insurance", "inspection"].includes(kind)) q = q.eq("kind", kind);

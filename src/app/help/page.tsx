@@ -9,7 +9,7 @@ import { HelpSearch } from "./HelpSearch";
 export const metadata: Metadata = { title: "Help centre", description: "How bidding, paying, transferring ownership and collecting work at Tyrebiter, with answers to common questions from buyers and sellers.", alternates: { canonical: "/help" } };
 
 export default async function Help() {
-  const HELP = fillLegal(RAW, await getSettingsCached());
+  const HELP = fillLegal(RAW, await getSettingsCached(), { text: true });
   return (
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>

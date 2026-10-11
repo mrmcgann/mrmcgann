@@ -1,13 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { crossSite } from "@/lib/csrf";
 
-const PROTECTED = ["/account", "/watchlist", "/admin", "/sell/dashboard"];
+const PROTECTED = ["/account", "/watchlist", "/admin", "/sell/dashboard", "/security"];
 
 // Keeps the Supabase session fresh and guards signed-in areas.
 // Visitors who aren't signed in pass straight through with no work at all,
 // and signed-in visitors are checked locally (no auth-server call per page).
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (path.startsWith("/api/")) {
+    if (crossSite({ method: request.method, headers: request.headers, cookieNames: request.cookies.getAll().map((c) => c.name), host: request.nextUrl.host })) return NextResponse.json({ error: "This request didn't come from the Tyrebiter site." }, { status: 403 });
+    return NextResponse.next();
+  }
   const needsAuth = PROTECTED.some((p) => path.startsWith(p));
   const hasSession = request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
 
@@ -42,6 +47,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Pages only. API routes check the session themselves; static files skip it.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|\\.well-known/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt|xml)$).*)"],
+  // Pages (session refresh and sign-in guard) and API routes (the cross-site check only). Static files skip it.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt|xml)$).*)"],
 };

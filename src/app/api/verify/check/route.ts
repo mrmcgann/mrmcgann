@@ -2,11 +2,14 @@ import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
 import { checkVerification } from "@/lib/sms";
+import { allow } from "@/lib/ratelimit";
 
 export async function POST(req: Request) {
-  const { code } = await req.json();
+  const { code } = await req.json().catch(() => ({}));
   const { user, profile } = await getSession();
   if (!user || !profile?.mobile) return fail("Sign in first.", 401);
+  // guessing codes: 10 tries an hour per member (Twilio also cancels a code after 5 wrong tries)
+  if (!(await allow(`verify-check:${user.id}`, 10, 3600))) return fail("Too many tries. Wait an hour, or call us.", 429);
   const clean = String(code || "").replace(/\D/g, "");
   if (clean.length !== 6) return fail("Enter all 6 digits.");
   const ok = await checkVerification(profile.mobile, clean);

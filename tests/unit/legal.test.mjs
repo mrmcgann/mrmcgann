@@ -79,5 +79,13 @@ ok('both: never "non-refundable" or "no warranty"', !/non-refundable|no warranty
 const ids = (doc) => fillLegal(doc, {}).map(([id]) => id);
 ok('modes: no deposit hides the deposit help section only', !ids(HELP).includes('h-deposit') && fillLegal(HELP, { fees: { pay_mode: 'deposit' } }).some(([id]) => id === 'h-deposit') && ids(TERMS).length === TERMS.length);
 
+
+// Values from settings can't add markup to the HTML copy, and plain-text copy keeps them as typed
+const evil = { fees: {}, business: { licences: { QLD: '<img src=x onerror=alert(1)> "A&B"' } } };
+const t1 = JSON.stringify(fillLegal(TERMS, evil));
+ok('security: settings values are escaped in the Terms', !t1.includes('<img') && t1.includes('&lt;img src=x onerror=alert(1)&gt; &quot;A&amp;B&quot;'));
+const p1 = JSON.stringify(fillLegal(PRIVACY, { fees: {} }, { text: true }));
+ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}/.test(p1) && JSON.parse(p1).length === PRIVACY.length);
+
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

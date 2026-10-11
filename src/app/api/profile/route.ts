@@ -3,12 +3,14 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { json, fail } from "@/lib/api";
 import { STATES } from "@/lib/grades";
 import { acceptCurrentTerms } from "@/lib/terms";
+import { allow } from "@/lib/ratelimit";
 
 export async function POST(req: Request) {
-  const b = await req.json();
+  const b = await req.json().catch(() => ({}));
   const db = await supabaseServer();
   const user = await currentUser(db);
   if (!user) return fail("Sign in first.", 401);
+  if (!(await allow(`profile:${user.id}`, 40, 3600))) return fail("Too many changes. Try again in an hour.", 429);
 
   if (b.terms) {
     await acceptCurrentTerms(user.id);

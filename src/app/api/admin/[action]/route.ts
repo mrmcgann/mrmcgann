@@ -3,6 +3,7 @@ import type { RegoVehicle } from "@/lib/rego";
 import { revalidateTag } from "next/cache";
 import { CAT } from "@/lib/vehicles";
 import { getSession } from "@/lib/auth";
+import { adminApi, audit } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail, friendly } from "@/lib/api";
 import { chargeInvoice, findSucceededPayment, markInvoicePaid, markBalanceReceived } from "@/lib/charges";
@@ -22,10 +23,24 @@ async function addBusinessDays(from: Date, n: number) {
 }
 const whenText = (d: Date) => d.toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
-  const { action } = await params;
-  const { supabase, profile } = await getSession();
-  if (profile?.role !== "admin") return fail("Admins only.", 403);
+// Every admin action goes through here: two-step checked first, and the action and its result written to the
+// append-only admin log (Admin → Security) afterwards.
+export async function POST(req: Request, ctx: { params: Promise<{ action: string }> }) {
+  const { action } = await ctx.params;
+  const { s, error } = await adminApi();
+  if (error) { await audit(s.user?.id, `refused: ${action}`, null, {}, String(error.status)); return error; }
+  const body = await req.clone().json().catch(() => ({}));
+  const res = await run(req, action, s);
+  const t = body as Record<string, unknown>;
+  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId"]
+    .map((k) => (t[k] !== undefined && t[k] !== null ? `${k}:${String(t[k]).slice(0, 80)}` : null)).find(Boolean) || null;
+  await audit(s.user?.id, action, target, body, res.ok ? "ok" : String(res.status));
+  return res;
+}
+
+async function run(req: Request, action: string, session: Awaited<ReturnType<typeof getSession>>) {
+  const { supabase } = session;
+  const profile = session.profile!; // adminApi() has checked there is one
   const b = await req.json().catch(() => ({}));
   const db = supabaseAdmin();
   const done = (extra: Record<string, unknown> = {}) => { kickOutbox(); return json({ ok: true, ...extra }); };
@@ -542,7 +557,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       try { return done(await syncSearchConsole(28)); } catch (e) { return fail((e as Error).message); }
     }
     case "settings": {
-      if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business", "insights", "seo"].includes(b.key)) return fail("Unknown setting.");
+      if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business", "insights", "seo", "security"].includes(b.key)) return fail("Unknown setting.");
+      if (b.key === "security" && (typeof b.value !== "object" || b.value === null || typeof b.value.admin_mfa !== "boolean" || Object.keys(b.value).length !== 1)) return fail("Choose whether admins need two-step sign-in.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
       if (b.key === "fees" && (Number(b.value?.late_interest_rate) < 0 || Number(b.value?.late_interest_rate) > 20)) return fail("Keep interest on overdue balances between 0 and 20% a year. A higher rate risks being an unfair term.");
       if (b.key === "fees" && b.value?.pay_mode !== undefined && !["transfer", "deposit"].includes(String(b.value.pay_mode))) return fail("Choose no deposit or bidding deposit.");

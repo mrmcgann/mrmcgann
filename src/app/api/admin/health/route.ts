@@ -1,3 +1,4 @@
+import { adminApi, audit } from "@/lib/admin";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
@@ -10,8 +11,11 @@ export const maxDuration = 120;
 
 // Admin → Site health: run the checks, the one-press fixes, error status, and everything to do with Claude Code.
 export async function POST(req: Request) {
-  const { user, profile } = await getSession();
-  if (!user || profile?.role !== "admin") return fail("Admins only.", 403);
+  const { s: sess, error: denied } = await adminApi();
+  if (denied) return denied;
+  const { user, profile } = sess;
+  if (!user || !profile) return fail("Admins only.", 403);
+  await audit(user.id, "site health", null, await req.clone().json().catch(() => ({})), "ok");
   const b = await req.json().catch(() => ({}));
   const db = supabaseAdmin();
   const id = Number(b.id) || 0;

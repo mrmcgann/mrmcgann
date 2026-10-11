@@ -1,4 +1,5 @@
 "use client";
+import { BREACHED, isWeakPassword } from "@/lib/passwords";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -12,7 +13,7 @@ export default function Reset() {
     const pw = String(new FormData(e.currentTarget).get("password") || "");
     if (pw.length < 10) { setErr("Use at least 10 characters."); return; }
     const { error } = await supabaseBrowser().auth.updateUser({ password: pw });
-    if (error) { setErr("That reset link has expired. Request a new one."); return; }
+    if (error) { setErr(isWeakPassword(error) ? BREACHED : "That reset link has expired. Request a new one."); return; }
     router.push("/account");
     router.refresh();
   }

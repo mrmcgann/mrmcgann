@@ -1,4 +1,5 @@
 "use client";
+import { BREACHED, isWeakPassword } from "@/lib/passwords";
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -17,7 +18,7 @@ export function AccountExtras({ company, abn, email }: { company: string; abn: s
     const pw = String(new FormData(e.currentTarget).get("pw") || "");
     if (pw.length < 10) { setMsg({ ok: false, text: "Use at least 10 characters." }); return; }
     const { error } = await supabaseBrowser().auth.updateUser({ password: pw });
-    setMsg(error ? { ok: false, text: error.message } : { ok: true, text: "Password changed." });
+    setMsg(error ? { ok: false, text: isWeakPassword(error) ? BREACHED : error.message } : { ok: true, text: "Password changed." });
   }
   async function changeEmail(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

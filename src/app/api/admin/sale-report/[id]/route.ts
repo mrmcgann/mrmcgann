@@ -1,11 +1,13 @@
+import { adminApi, audit } from "@/lib/admin";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { toCsv, csvResponse } from "@/lib/csv";
 
 // End-of-sale report for a fleet sale (staff): every vehicle, its result, the fees and the payout.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { profile } = await getSession();
-  if (profile?.role !== "admin") return new Response("Admins only", { status: 403 });
+  const { s: sess, error: denied } = await adminApi();
+  if (denied) return denied;
+  await audit(sess.user?.id, "download sale report", `sale:${(await params).id}`, {}, "ok");
   const { id } = await params;
   const db = supabaseAdmin();
   const { data: sale } = await db.from("sales").select("id, slug, title").eq("id", Number(id)).maybeSingle();

@@ -1,3 +1,4 @@
+import { adminApi, audit } from "@/lib/admin";
 import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -8,8 +9,10 @@ import { rowsToLots } from "@/lib/importLots";
 // Bulk upload (staff): a fleet's vehicle list becomes draft listings, optionally in one sale.
 // Rows with problems are skipped and reported. Nothing goes live from here.
 export async function POST(req: Request) {
-  const { profile } = await getSession();
-  if (profile?.role !== "admin") return fail("Admins only.", 403);
+  const { s: sess, error: denied } = await adminApi();
+  if (denied) return denied;
+  const { profile } = sess;
+  await audit(sess.user?.id, "bulk upload", null, {}, "ok");
   const b = await req.json().catch(() => ({}));
   const text = String(b.csv || "");
   if (!text.trim()) return fail("Paste or choose a CSV file first.");

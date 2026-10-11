@@ -27,7 +27,9 @@ await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
 async function as(who, sql, params = []) {
   const role = who === 'anon' ? 'anon' : who === 'service' ? 'service_role' : 'authenticated';
-  const claims = who === 'anon' ? { role: 'anon' } : who === 'service' ? { role: 'service_role' } : { sub: U[who], role: 'authenticated' };
+  // admins sign in with two-step (aal2); 'ADM_PW' is the same admin with only a password (aal1)
+  const claims = who === 'anon' ? { role: 'anon' } : who === 'service' ? { role: 'service_role' }
+    : who === 'ADM_PW' ? { sub: U.ADM, role: 'authenticated', aal: 'aal1' } : { sub: U[who], role: 'authenticated', aal: who === 'ADM' ? 'aal2' : 'aal1' };
   await c.query('begin');
   try {
     await c.query(`set local role ${role}`);
@@ -46,7 +48,7 @@ r = await as('anon', `select id from lots where id=10999`); ok('anon cannot see 
 r = await as('anon', `select * from lot_private`); ok('anon cannot read reserves/seller details', r.rows?.length === 0);
 r = await as('anon', `select * from bids`); ok('anon cannot read raw bids', r.rows?.length === 0 || r.error);
 r = await as('anon', `select * from bid_history(10432)`); ok('anon can read masked bid history', !r.error);
-r = await as('anon', `select place_bid(10432, 1000)`); ok('anon cannot bid', r.error?.includes('not_signed_in'), r.error);
+r = await as('anon', `select place_bid(10432, 1000)`); ok('anon cannot bid (the function is closed to signed-out visitors)', r.error?.includes('permission denied') || r.error?.includes('not_signed_in'), r.error);
 r = await as('anon', `select close_due_lots()`); ok('anon cannot run the auction clock', !!r.error, JSON.stringify(r));
 r = await as('anon', `select create_invoice(10432,'${U.A}',1,'auction')`); ok('anon cannot create invoices', !!r.error);
 r = await as('anon', `insert into appraisals (rego,state,name,mobile) values ('ABC123','QLD','Sam','0400000000')`); ok('appraisal requests only come through the website form (not straight into the database)', !!r.error, JSON.stringify(r));
@@ -931,7 +933,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('alerts: queued for each admin', Number(r.rows?.[0]?.n) === 1, JSON.stringify(r));
   r = await c.query(`select channel, priority, kind from outbox where dedupe_key like 'health:test:1:%' order by channel`);
   ok('alerts: email to the admin, top priority', r.rows.some((x) => x.channel === 'email' && x.priority === 1 && x.kind === 'health'), JSON.stringify(r.rows));
-  r = await c.query(`select count(*)::int n from notifications where kind = 'health' and user_id = '${U.ADM}'`); ok('alerts: in the admin\'s notifications (and app)', r.rows[0].n === 1);
+  r = await c.query(`select count(*)::int n from notifications where kind = 'health' and user_id = '${U.ADM}' and title not like 'New admin%'`); ok('alerts: in the admin\'s notifications (and app)', r.rows[0].n === 1);
   r = await c.query(`select count(*)::int n from notifications where kind = 'health' and user_id <> '${U.ADM}'`); ok('alerts: members never get them', r.rows[0].n === 0);
   r = await as('service', `select queue_health_alert('again', 'body', '/admin/health', 'health:test:1', true) n`); ok('alerts: the same alert is never sent twice', Number(r.rows?.[0]?.n) === 0);
   await c.query(`update profiles set mobile = '0433333333', mobile_verified = true where id = '${U.ADM}'`);
@@ -1116,6 +1118,72 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select unban_member('${U.E}')`); ok('ban: staff can lift it', !r.error, r.error);
   r = await as('service', `select suspended, (select count(*)::int from banned_identities where user_id = '${U.E}') n from profiles where id = '${U.E}'`);
   ok('ban: lifted means the codes are gone too', r.rows?.[0]?.suspended === false && r.rows[0].n === 0, JSON.stringify(r.rows));
+}
+
+// ---------- security: two-step for admins, the admin log, nothing sensitive open to the public ----------
+{
+  r = await as('ADM_PW', `select is_admin() a, admin_access() s`); ok('two-step: an admin with only a password has no admin rights', r.rows?.[0]?.a === false && r.rows[0].s === 'mfa', JSON.stringify(r.rows));
+  r = await as('ADM', `select is_admin() a, admin_access() s`); ok('two-step: with the authenticator code they do', r.rows?.[0]?.a === true && r.rows[0].s === 'ok');
+  r = await as('A', `select admin_access() s`); ok('two-step: members are simply not admins', r.rows?.[0]?.s === 'no');
+  r = await as('ADM_PW', `update settings set value = '{"admin_mfa": false}' where key = 'security' returning key`); ok("two-step: can't be switched off without it", (r.rows || []).length === 0);
+  r = await as('ADM_PW', `select id from lot_private limit 1`); ok('two-step: private vehicle data stays hidden without it', (r.rows || []).length === 0);
+  r = await as('ADM_PW', `select admin_security()`); ok('two-step: the security page needs it too', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM_PW', `select ban_member('${U.B}', 'x')`); ok('two-step: no banning without it', r.error?.includes('forbidden'), r.error);
+  await c.query(`insert into auth.mfa_factors (user_id, status) values ('${U.ADM}', 'verified')`);
+  r = await as('ADM', `select admin_security() j`); const sec = r.rows?.[0]?.j;
+  ok('security page: every admin and whether they use two-step', sec?.mfa_required === true && sec.admins.some((a) => a.id === U.ADM && a.two_step === true), JSON.stringify(sec));
+
+  // the admin log
+  r = await as('ADM', `update lots set title = title || ' (checked)' where id = 10599 returning id`);
+  r = await as('service', `select action, target, detail->'fields' f, actor from admin_audit where target = 'lots:10599' order by id desc limit 1`);
+  ok('admin log: an admin editing a vehicle is recorded, with the fields', r.rows?.[0]?.action === 'update lots' && r.rows[0].actor === U.ADM && JSON.stringify(r.rows[0].f).includes('title'), JSON.stringify(r.rows));
+  await as('service', `select audit_admin('${U.ADM}', 'ban', 'profile:x', '{"reason":"test"}', 'ok', '203.0.113.9', 'test')`);
+  r = await as('service', `select count(*)::int n from admin_audit where action = 'ban' and ip = '203.0.113.9'`); ok('admin log: the server records actions with the network', r.rows?.[0]?.n === 1);
+  r = await as('ADM', `delete from admin_audit returning id`); ok("admin log: admins can't delete it", !!r.error || (r.rows || []).length === 0);
+  r = await c.query(`update admin_audit set action = 'x' where id = (select min(id) from admin_audit)`).catch((e) => ({ error: e.message }));
+  ok('admin log: nobody can change it, not even the database owner', String(r.error || '').includes('append_only'), JSON.stringify(r).slice(0, 200));
+  r = await as('A', `select count(*)::int n from admin_audit`); ok("admin log: members can't read it", r.rows?.[0]?.n === 0);
+  r = await as('A', `select audit_admin('${U.A}', 'x', 'y', '{}', 'ok', '1', '1')`); ok("admin log: members can't write to it", !!r.error);
+
+  // a new admin is logged and every admin is told at once
+  await c.query(`update profiles set role = 'admin' where id = '${U.B}'`);
+  r = await as('service', `select (select count(*)::int from admin_audit where action = 'admin added' and target = 'profile:${U.B}') a,
+    (select count(*)::int from notifications where user_id = '${U.ADM}' and kind = 'health' and title like 'New admin%') n`);
+  ok('new admin: logged and every admin alerted', r.rows?.[0]?.a === 1 && r.rows[0].n >= 1, JSON.stringify(r.rows));
+  await c.query(`update profiles set role = 'buyer' where id = '${U.B}'`);
+
+  // the public can read the settings the site shows, not the internal ones
+  r = await as('anon', `select key from settings order by key`); const keys = (r.rows || []).map((x) => x.key);
+  ok('settings: public ones readable, internal ones not', keys.includes('fees') && keys.includes('terms') && !keys.includes('health') && !keys.includes('security') && !keys.includes('jobs'), keys.join(','));
+
+  // every table has row-level security, every privileged function pins its search path
+  r = await c.query(`select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity`);
+  ok('every table has row-level security', r.rows.length === 0, r.rows.map((x) => x.relname).join(','));
+  r = await c.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef
+    and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg like 'search_path=%')`);
+  ok('every privileged (security definer) function pins its search path', r.rows.length === 0, r.rows.map((x) => x.proname).join(','));
+  // functions anyone on the internet can call: a fixed list, reviewed. A new one fails this test until it's added here.
+  r = await c.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute') order by 1`);
+  const ANON_OK = new Set(['bid_history', 'deposit_for', 'is_admin', 'lot_facets', 'lot_videos_public', 'lot_watchers', 'pay_mode', 'price_estimate', 'sale_stats', 'search_lots']);
+  const extra = r.rows.map((x) => x.proname).filter((n) => !ANON_OK.has(n));
+  ok('functions open to the public are only the reviewed ones', extra.length === 0, 'review and add to ANON_OK if safe: ' + [...new Set(extra)].join(', '));
+  r = await c.query(`select public_function_allowlist() l`);
+  ok('the database allowlist matches the reviewed list', JSON.stringify([...r.rows[0].l].sort()) === JSON.stringify([...ANON_OK].sort()), JSON.stringify(r.rows[0].l));
+
+  // site health watches it
+  r = await as('service', `select health_snapshot() j`); const hs = r.rows?.[0]?.j;
+  ok('health: no privileged function open to the public', Array.isArray(hs?.open_functions) && hs.open_functions.length === 0, JSON.stringify(hs?.open_functions));
+  ok('health: two-step state and admins counted', hs?.admin_mfa === true && hs.admins >= 1 && typeof hs.admins_no_two_step === 'number' && hs.admins_added_day >= 1, JSON.stringify({ a: hs?.admin_mfa, n: hs?.admins, x: hs?.admins_no_two_step, d: hs?.admins_added_day }));
+  ok('health: the older measurements are still there', typeof hs?.db_bytes === 'number' && Array.isArray(hs?.no_rls) && 'clock' in hs, Object.keys(hs || {}).join(','));
+  await c.query(`create function public.oops_open() returns int language sql security definer set search_path = public as 'select 1'`);
+  await c.query(`grant execute on function public.oops_open() to anon`);
+  r = await as('service', `select health_snapshot() j`);
+  ok('health: a privileged function left open is spotted', r.rows?.[0]?.j?.open_functions?.includes('oops_open'), JSON.stringify(r.rows?.[0]?.j?.open_functions));
+  await c.query(`drop function public.oops_open()`);
+  for (const who of ['anon', 'A', 'ADM']) {
+    r = await as(who, `select health_snapshot_core()`); ok(`health: the inner snapshot isn't callable (${who})`, !!r.error, r.error);
+  }
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

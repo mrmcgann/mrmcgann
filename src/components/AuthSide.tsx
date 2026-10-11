@@ -6,7 +6,9 @@ export const JSTEPS: [number, string, string][] = [
   [5, "Verify ID", "Driver licence or passport, and a selfie"], [4, "Bidding deposit", "Refundable, by PayID or bank transfer"],
 ];
 
-export function AuthSide({ heading, step, done, steps }: { heading: React.ReactNode; step?: number; done?: number[]; steps?: number[] }) {
+const PERKS = ["Watchlist with ending-soon and outbid alerts", "Saved searches that ping you on a match", "Auto-bid up to your max, even while you sleep", "Track your own car's sale, bid by bid"];
+
+export function AuthSide({ heading, step, done, steps, perks = PERKS, note = "Joining is free. Registering, watching and bidding cost nothing. Fees only apply to a vehicle you win." }: { heading: React.ReactNode; step?: number; done?: number[]; steps?: number[]; perks?: string[]; note?: string }) {
   return (
     <div className="side stage">
       <h2 className="d2" style={{ color: "#FFFFFF", fontSize: "clamp(40px,4.6vw,64px)", position: "relative" }}>{heading}</h2>
@@ -25,10 +27,10 @@ export function AuthSide({ heading, step, done, steps }: { heading: React.ReactN
       ) : (
         <>
           <CarArt />
-          <div className="perks"><div>Watchlist with ending-soon and outbid alerts</div><div>Saved searches that ping you on a match</div><div>Auto-bid up to your max, even while you sleep</div><div>Track your own car&apos;s sale, bid by bid</div></div>
+          <div className="perks">{perks.map((p) => <div key={p}>{p}</div>)}</div>
         </>
       )}
-      <p style={{ position: "relative", fontSize: 14, opacity: 0.9 }}>Joining is free. Registering, watching and bidding cost nothing. Fees only apply to a vehicle you win.</p>
+      <p style={{ position: "relative", fontSize: 14, opacity: 0.9 }}>{note}</p>
     </div>
   );
 }

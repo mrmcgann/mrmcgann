@@ -3,11 +3,15 @@ do $$ begin create role anon nologin noinherit; exception when duplicate_object 
 do $$ begin create role authenticated nologin noinherit; exception when duplicate_object then null; end $$;
 do $$ begin create role service_role nologin noinherit bypassrls; exception when duplicate_object then null; end $$;
 create schema auth;
-create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
+create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb, last_sign_in_at timestamptz);
+-- two-step sign-in factors (Supabase Auth keeps these; status is an enum there)
+create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid not null, friendly_name text, factor_type text not null default 'totp', status text not null default 'unverified', secret text, created_at timestamptz default now(), updated_at timestamptz default now());
 create function auth.uid() returns uuid language sql stable as $$
-  select nullif(current_setting('request.jwt.claims', true)::json->>'sub', '')::uuid $$;
+  select nullif(nullif(current_setting('request.jwt.claims', true), '')::json->>'sub', '')::uuid $$;
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 create function auth.role() returns text language sql stable as $$
-  select nullif(current_setting('request.jwt.claims', true)::json->>'role', '') $$;
+  select nullif(nullif(current_setting('request.jwt.claims', true), '')::json->>'role', '') $$;
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on all functions in schema auth to anon, authenticated, service_role;
 create schema storage;

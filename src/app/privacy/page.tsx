@@ -5,7 +5,7 @@ import { getSettingsCached } from "@/lib/cache";
 export const metadata: Metadata = { title: "Privacy policy", description: "What personal information Tyrebiter collects, why, who we share it with, how long we keep it, and how to see, correct or delete it.", alternates: { canonical: "/privacy" } };
 
 export default async function Privacy() {
-  const PRIVACY = fillLegal(RAW, await getSettingsCached());
+  const PRIVACY = fillLegal(RAW, await getSettingsCached(), { text: true });
   return (
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>

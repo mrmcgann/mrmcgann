@@ -1,3 +1,4 @@
+import { adminApi, audit } from "@/lib/admin";
 import { getSession } from "@/lib/auth";
 import { fail } from "@/lib/api";
 import { ask } from "@/lib/claude";
@@ -8,8 +9,10 @@ export const maxDuration = 120;
 // "Ask Claude" in Admin → Site health. Answers as a stream of lines (one JSON event each) so the panel can show
 // what Claude is looking at while it works.
 export async function POST(req: Request) {
-  const { user, profile } = await getSession();
-  if (!user || profile?.role !== "admin") return fail("Admins only.", 403);
+  const { s: sess, error: denied } = await adminApi();
+  if (denied) return denied;
+  const { user, profile } = sess;
+  if (!user || !profile) return fail("Admins only.", 403);
   const b = await req.json().catch(() => ({}));
   const history = (Array.isArray(b.messages) ? b.messages : [])
     .filter((m: { role?: string; text?: unknown }) => (m.role === "user" || m.role === "assistant") && typeof m.text === "string" && m.text.trim())

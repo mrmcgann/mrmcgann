@@ -447,10 +447,14 @@ function forMode(doc: unknown, mode: string): unknown {
   return Array.isArray(doc) ? pickItems(doc, mode) : doc;
 }
 
-export function fillLegal<T>(content: T, settings: Settings): T {
+/** `text: true` for copy shown as plain text (Help, Privacy): values go in as they are, and React escapes them. */
+export function fillLegal<T>(content: T, settings: Settings, opts: { text?: boolean } = {}): T {
   const v = legalValues(settings);
   const mode = (settings.fees || {}).pay_mode === "deposit" ? "deposit" : "transfer";
   const picked = Array.isArray(content) ? forMode(content, mode)
     : Object.fromEntries(Object.entries(content as Record<string, unknown>).map(([k, x]) => [k, forMode(x, mode)]));
-  return JSON.parse(JSON.stringify(picked).replace(/\{\{(\w+)\}\}/g, (m, k) => (v[k] ?? m).replace(/"/g, '\\"')));
+  // The copy is shown as HTML, so values from settings and the environment are escaped first: a licence number or
+  // business name can never add markup or a script to the Terms.
+  const esc = (x: string) => (opts.text ? x.replace(/\\/g, "\\\\").replace(/"/g, '\\"') : x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"));
+  return JSON.parse(JSON.stringify(picked).replace(/\{\{(\w+)\}\}/g, (m, k) => (v[k] === undefined ? m : esc(v[k]))));
 }

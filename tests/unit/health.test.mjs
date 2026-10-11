@@ -132,6 +132,14 @@ ok('db limit from settings', get(run({ db_bytes: 6.5 * 1024 ** 3, settings: { db
 
 c = run({ no_rls: ['secret_stuff'] });
 ok('table without RLS: fail naming it', get(c, 'security.rls').status === 'fail' && /secret_stuff/.test(get(c, 'security.rls').title));
+ok('privileged functions: none open is ok', get(run(), 'security.functions').status === 'ok');
+ok('privileged functions: one open to the public fails, named', (() => { const x = get(run({ open_functions: ['ban_member'] }), 'security.functions'); return x.status === 'fail' && /ban_member/.test(x.title); })());
+ok('two-step: no check without the data', !run().some((x) => x.key === 'security.mfa'));
+ok('two-step: off is a warning', get(run({ admin_mfa: false, admins: 2, admins_no_two_step: 0 }), 'security.mfa').status === 'warn');
+ok('two-step: on, admins still to set up, ok with a count', /1 admin still to set it up/.test(get(run({ admin_mfa: true, admins: 2, admins_no_two_step: 1 }), 'security.mfa').title));
+ok('new admin: a warning for a day', get(run({ admin_mfa: true, admins: 3, admins_added_day: 1 }), 'security.admins').status === 'warn');
+ok('refused admin requests: many in an hour warn', get(run({ admin_mfa: true, admins: 1, admin_refused_hour: 40 }), 'security.admins').status === 'warn');
+ok('refused admin requests: a few are normal', get(run({ admin_mfa: true, admins: 1, admin_refused_hour: 3 }), 'security.admins').status === 'ok');
 ok('open view: fail', get(run({ open_views: ['v_all'] }), 'security.views').status === 'fail');
 
 c = run({ errors_recent: 300, errors_recent_hours: 1.2, errors_base_hourly: 4, errors_by_source: { server: 250, web: 50 } });

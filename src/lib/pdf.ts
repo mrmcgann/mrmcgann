@@ -192,7 +192,7 @@ export async function sellerAgreementPdf(o: {
     s.line(24);
   };
   const room = (h: number) => { if (s.y - h < 56) fresh(); };
-  const strip = (t: string) => t.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const strip = (t: string) => t.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"");
   const para = (t: string, size = 9, color = MUTED, x = 50, width = 495) => {
     const words = safe(strip(t)).split(/\s+/);
     let cur = "";

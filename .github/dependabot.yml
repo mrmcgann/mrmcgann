@@ -1,0 +1,23 @@
+# Security updates: GitHub opens a pull request when a package we use gets a fix. The Tests workflow runs on each
+# one; merge it when it's green.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: Australia/Brisbane }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: "/mobile"
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: Australia/Brisbane }
+    open-pull-requests-limit: 3
+    # the app's packages move together with the Expo SDK; only take security fixes here
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: monthly }

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { json, fail } from "@/lib/api";
 import { env } from "@/lib/env";
+import { allow } from "@/lib/ratelimit";
 
 // ID check via Stripe Identity: photo of licence or passport plus a selfie.
 export async function POST(req: Request) {
@@ -11,6 +12,8 @@ export async function POST(req: Request) {
   const { user, profile } = await getSession();
   if (!user || !profile) return fail("Sign in first.", 401);
   if (!profile.details_done) return fail("Add your details first.");
+  // each ID check costs money and a flood of them is a sign of someone testing stolen documents
+  if (!(await allow(`identity:${user.id}`, 6, 86400))) return fail("Too many ID checks today. Try again tomorrow, or call us.", 429);
   const admin = supabaseAdmin();
   const stripe = getStripe();
   if (!stripe) {
