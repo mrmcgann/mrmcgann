@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Fees, Grade, Lot, LotStatus } from "@/lib/types";
+import type { DepositSummary, Fees, Grade, Lot, LotStatus } from "@/lib/types";
 import type { VehicleType } from "@/lib/vehicles";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { priceBreakdown, lotFees } from "@/lib/fees";
+import { depositFor, priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, dateTime, money } from "@/lib/format";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { Modal } from "@/components/Modal";
 import { BidConfirm } from "@/components/BidConfirm";
+import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { RemindSwitch, WatchNote } from "@/components/WatchRowControls";
 import { useViewer } from "@/components/Viewer";
 
@@ -251,6 +252,7 @@ export function WatchBoard({ items, fees, userId, initialTab, initialSort }: { i
 
       {bidding && (
         <QuickBid i={list.find((x) => x.id === bidding.id) || bidding} fees={fees} cardLabel={v.profile?.card_brand ? `${v.profile.card_brand} ending ${v.profile.card_last4}` : null}
+          deposit={v.profile?.deposit ?? null} leading={(list.find((x) => x.id === bidding.id) || bidding).leader_id === userId}
           onClose={() => setBidding(null)} onPlaced={onBidPlaced} onTerms={() => { setBidding(null); router.push(`/lot/${bidding.id}`); }} />
       )}
 
@@ -361,8 +363,8 @@ function Finished({ i, status, onRemove }: { i: WatchItem; status: Status; onRem
   );
 }
 
-function QuickBid({ i, fees, cardLabel, onClose, onPlaced, onTerms }: {
-  i: WatchItem; fees: Fees; cardLabel: string | null; onClose: () => void;
+function QuickBid({ i, fees, cardLabel, deposit, leading, onClose, onPlaced, onTerms }: {
+  i: WatchItem; fees: Fees; cardLabel: string | null; deposit: DepositSummary | null; leading: boolean; onClose: () => void;
   onPlaced: (i: WatchItem, max: number, data: { status: string; current_bid: number; ends_at: string; extended?: boolean }) => void; onTerms: () => void;
 }) {
   const f = useMemo(() => lotFees(fees, i), [fees, i]);
@@ -372,6 +374,7 @@ function QuickBid({ i, fees, cardLabel, onClose, onPlaced, onTerms }: {
   const [stage, setStage] = useState<"amount" | "confirm">("amount");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [short, setShort] = useState<{ need: number; have: number } | null>(null);
   const typed = Number(String(amount).replace(/[^0-9]/g, "")) || 0;
   const floor = raising ? Math.max(min, (i.my_max as number) + 1) : min;
   async function place() {
@@ -380,6 +383,7 @@ function QuickBid({ i, fees, cardLabel, onClose, onPlaced, onTerms }: {
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (res.status === 409) { onTerms(); return; }
+    if (res.status === 402) { setShort({ need: data.need, have: data.have }); setStage("amount"); return; }
     if (!res.ok) { setErr(data.error || "That bid didn't go through."); setStage("amount"); return; }
     onPlaced(i, typed, data);
     onClose();
@@ -394,6 +398,8 @@ function QuickBid({ i, fees, cardLabel, onClose, onPlaced, onTerms }: {
           <span className="moneyin"><span className="muted">$</span><input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} aria-describedby="qbhelp" data-testid="wl-bid-amount" /></span>
           <span className="hint" id="qbhelp">Minimum {money(floor)}. We bid for you, one increment at a time, only as far as needed. If you win at {money(typed || min)} you pay {money(preview.total, true)} all-in.</span>
         </label>
+        {short ? <DepositShort need={short.need} have={short.have} amount={typed} lotId={i.id} />
+          : <DepositNeed fees={f} deposit={deposit} amount={typed} holdingHere={leading && i.my_max ? depositFor(i.my_max, f) : 0} lotId={i.id} signedIn />}
         {err && <div className="notice bad" role="status">{err}</div>}
         <button className="btn btn-blue" data-testid="wl-bid-review">Review bid</button>
         <button type="button" className="btn btn-soft" onClick={onClose}>Cancel</button>

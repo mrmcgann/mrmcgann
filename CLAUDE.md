@@ -1,12 +1,12 @@
 # Tyrebiter: notes for Claude Code
 
-Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage), Stripe, Twilio, Resend. Plain CSS design system in `src/app/globals.css` (bright white + "flavour" colour backdrops, Plus Jakarta Sans + Fraunces italic). Keep that look.
+Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage), Stripe (ID checks), PayID/bank transfer (optional Azupay), Twilio, Resend. Plain CSS design system in `src/app/globals.css` (bright white + "flavour" colour backdrops, Plus Jakarta Sans + Fraunces italic). Keep that look.
 
 ## Where things live
 - `supabase/migrations/` – schema, RLS, and the auction engine in SQL. **Money and bidding rules live in the database**: `place_bid`, `buy_now`, `make_offer`, `close_due_lots`, `admin_accept`, `admin_decline_referral`, `price_breakdown`, `create_invoice`. Change rules there, add a new migration file, never edit applied ones.
 - `src/lib/fees.ts` mirrors `price_breakdown()` for the live preview. Keep them in step.
 - Search: `src/lib/vehicles.ts` (the 10 categories, sub-types, makes and models), `src/lib/search.ts` (filter names, the plain-English parser, typeahead). The database side is `search_pred()` / `search_lots()` / `lot_facets()` and `queue_search_alerts()` in `20261003000006_search.sql`. A new filter needs all four: `FILTER_KEYS` + `cleanFilters`, `search_pred`, the alert sweep, and `SearchFilterPanel`. `search_pred` builds SQL from fixed text only; values are always read from `$1`.
-- `src/lib/charges.ts` – off-session Stripe charge when an invoice is created.
+- `src/lib/charges.ts` – when an invoice is created: bank invoices (`pay_method` 'bank') just move to `deposit_paid`/`paid` (`finishBankInvoice`); old card invoices are charged off-session.
 - `src/app/api/cron/process` – every-minute clock.
 - `src/content/legal.ts` – Terms, Help and Privacy copy (draft, needs legal review).
 - Admin UI: `src/app/admin`, vehicle editor `src/components/LotEditor.tsx` (writes directly with the browser Supabase client; RLS allows admins).
@@ -14,13 +14,13 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 ## Rules
 - Private data (reserve, leader's max, seller details) is in `lot_private`, admin-only. Never expose it in public queries.
 - Members can't change verification/payment/role fields on `profiles` (trigger `protect_profile`). Server routes use the service-role client for those.
-- Test mode: `NEXT_PUBLIC_TEST_MODE=true` fakes SMS (code 123456), card, ID and charges.
+- Test mode: `NEXT_PUBLIC_TEST_MODE=true` fakes SMS (code 123456), ID, charges and (with deposits on, via `/api/deposit/test`) a deposit arriving.
 
 ## Scale rules (tested at 1M accounts; keep them)
 - Public data is read through `src/lib/cache.ts` (unstable_cache + cookie-less client). Don't query public data per request with the session client.
 - Live prices: Realtime **Broadcast** on `lot:<id>` (trigger `broadcast_lot`) + `/api/lots/[id]/live` (edge-cached 1 s). Never `postgres_changes`, never `router.refresh()` per bid.
 - Alerts: queue with `queue_notice` / `queue_notice_many` / `queue_seller_notice` (SQL) or `notify()` (TS); the sender is `drainOutbox`. Never call Twilio/Resend inline in a loop.
-- Charging: `claim_invoice_charges` + Stripe idempotency keys (`src/lib/charges.ts`). Never charge an invoice that wasn't claimed.
+- Charging: `claim_invoice_charges` + Stripe idempotency keys (`src/lib/charges.ts`). Never charge an invoice that wasn't claimed. Bank invoices go through the same claim.
 - Row-level security uses `(select auth.uid())` / `(select public.is_admin())` so it's evaluated once per query. Index every new filter column.
 - `npm run test:db` must pass; for big changes re-run `tests/load` (see README).
 
@@ -50,10 +50,20 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Newsletter: `src/lib/newsletter.ts` (weekly, from the clock) → `queue_newsletter()` only to members with `notify.marketing.email`. Kind `marketing` always gets the unsubscribe link and header.
 - Licences: settings key `business.licences`, shown in `Footer` and the Terms (`{{LICENCES}}`).
 
+## How money is taken: no cards; no deposit by default; non-payers banned (migration `20261012000017_bidding_deposits.sql`)
+- Settings `fees.pay_mode`: 'transfer' (default, like Turners: `can_bid` needs only details + verified mobile + verified ID; invoices are `pay_method` 'bank' with `deposit_applied` 0 and the whole amount due by transfer) or 'deposit' (below). 'card' is the old way, kept for old invoices, not selectable. `payMode()`/`priceBreakdown` in `src/lib/fees.ts`; wording helpers `winPayLine`/`buyNowPayLine`/`ackPayLine`/`joinSteps` in `src/lib/deposits.ts` (web and app).
+- Bans: `ban_member(user, reason)` (suspends with `suspended_reason`, stores salted one-way hashes of name+DOB, mobile (last 9 digits) and email in `banned_identities`, removes their live bids via `admin_remove_bidder`, lapses offers); `unban_member`. Trigger `zz_profile_ban_check` suspends a new/changed account that matches once its ID or mobile is verified. `bid_gate()` raises `account_suspended` (friendly message) before `not_verified`. `cancel-invoice` bans automatically; Admin → Members has Ban / Unsuspend.
+- Deposit mode details: Rule `deposit_for(amount)` = least(greatest(min, ceil(amount × rate)), cap) from `fees.deposit_rate/min/cap` (global, never locked per vehicle: `lot_price_breakdown` and `lotFees` skip them). TS mirror `depositFor`/`bidLimit`/`priceBreakdown` in `src/lib/fees.ts`; words and helpers in `src/lib/deposits.ts` (shared with the app); keep all three in step.
+- Ledger `bidder_deposits` (the balance is the sum; kinds received/applied/returned/withdrawal/adjustment; members read their own, only the server writes). `deposit_committed` = deposit for each live lead at max(leader max, current bid), referred leads, open offers. `deposit_check` (in `place_bid`, `buy_now`, `make_offer`, `respond_second_chance`, after the lot lock, with an advisory lock per member) raises `deposit_short:<need>:<free>` → API 402 via `failBid`, shown by `DepositShort`. `can_bid` needs the minimum.
+- Win: `create_invoice` applies least(deposit for the price, balance) as an 'applied' row and sets `pay_method` 'bank', `deposit_applied`. Default: `cancel-invoice` keeps it (half to the seller as a `forfeit` payout). Not the buyer's fault: `return_invoice_deposit`.
+- Money in: `record_deposit` (admin page `/admin/deposits`, test route, or the Azupay webhook `/api/payments/azupay` with `provider_ref` so it counts once). The payer's name must match the member (`payerMatches`; admins can confirm a joint account). Money out: `request_deposit_withdrawal` (not while an invoice is unpaid; refunds go only to the account it came from), `deposit_withdrawal_paid` / `cancel_deposit_withdrawal`, corrections `adjust_deposit` (reason needed). `my_deposit()` for the member's page; `deposit_totals()` for admin.
+- Single-use PayIDs: `src/lib/payid.ts` (off unless `AZUPAY_*` are set), `payment_requests`. Our account details come from `NEXT_PUBLIC_BANK_*`/`NEXT_PUBLIC_PAYID`; `PayBox` (web) and `PayRows` (app) always show the scam warning.
+- UI: `/account/deposit` (`DepositHome`, the "paddle"), join step 4 (after ID, so steps run 1,2,3,5,4), `DepositPay` (limit chips → exact amount, reference, "I've sent it" polls `/api/deposit`), `DepositNeed` under bid boxes, the invoice balance box. App: `mobile/src/app/deposit.tsx`, `mobile/src/ui/Deposit.tsx`.
+
 ## Terms, payment and liability (keep them true to the engine)
-- Copy in `src/content/legal.ts` (TERMS 20 sections, SELLER_AGREEMENT, WEBSITE_TERMS, HELP); `tests/unit/legal.test.mjs` checks numbering, tokens and the key protections. If you change a rule in the engine, change the wording, and the reverse. New version: bump `TERMS_VERSION_LABEL` and settings `terms.buyer_version` (members re-accept before bidding).
+- Paragraphs, Help questions and Help sections starting `[[transfer]]` or `[[deposit]]` only show for that pay mode (`fillLegal` picks them). Copy in `src/content/legal.ts` (TERMS 20 sections, SELLER_AGREEMENT, WEBSITE_TERMS, HELP); `tests/unit/legal.test.mjs` checks numbering, tokens and the key protections. If you change a rule in the engine, change the wording, and the reverse. New version: bump `TERMS_VERSION_LABEL` and settings `terms.buyer_version` (members re-accept before bidding).
 - Migration `20261010000013_terms_engine.sql`: fees locked per vehicle (`lots.fees`, `lot_price_breakdown()`; TS `lotFees()` for every all-in price), seller fee from `seller_agreements.fees`, `collect_by` only set when the transfer completes, `invoices.failed_at/refunded_amount/refund_note/cancel_reason/terms_version`, `seller_payouts.kind` ('forfeit' = seller's half of a kept deposit/fee), trigger `bid_extends_auction`, trigger `reserve_locked`, corrections cover title/description/location/plate, flaws via `lot_flaw_changes` + `announce_flaw_changes()` (clock).
-- Admin actions: `cancel-invoice` (buyer default: waits 1 business day after the decline or the overdue reminder), `refund-cancel` (not the buyer's fault: refunds everything). Never write "non-refundable" for the deposit.
+- Admin actions: `cancel-invoice` (buyer default: waits 1 business day after the decline or the overdue reminder), `refund-cancel` (not the buyer's fault: refunds everything), `record-deposit`, `withdrawal-paid`, `withdrawal-cancel`, `adjust-deposit`. Never write "non-refundable" for the deposit. Deposit wording in the Terms (sections 6, 8, 11), Help and Privacy uses the `{{DEPOSIT_*}}` tokens from `legalValues`.
 
 ## The information machine (metrics, insights, SEO)
 - Traffic: `src/components/Tracker.tsx` (web) and `mobile/src/lib/track.ts` (app) → `POST /api/t` → `web_events` (server only; no cookies, no IPs, daily visitor hash, bots/DNT skipped, admin pages not tracked). Pure helpers in `src/lib/traffic.ts`. First-touch source per member: `member_attribution`.
@@ -93,4 +103,4 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Checks: `cd mobile && npm run typecheck && npm test`; `npx expo export -p ios -p android` must bundle. The web build (`npx expo export -p web`) is what the end-to-end tests drive.
 
 ## Tests
-`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser, finance maths, lookup tidying, VIN decoder, listing wording, bulk upload, CSV, the legal copy, the information machine, site health and the sell form (run it after changing `vehicles.ts`, `search.ts`, `finance.ts`, `rego.ts`, `vin.ts`, `listing.ts`, `importLots.ts`, `csv.ts`, `legal.ts`, `traffic.ts`, `metrics.ts`, `seo.ts`, `seoChecks.ts`, `errorTrack.ts`, `healthChecks.ts`, `claudeBrief.ts` or `sellForm.ts`). CI (`.github/workflows/ci.yml`) runs types, lint, unit and database tests on every pull request. `tests/load/search-bench.mjs` times search at scale.
+`npm run test:db` (needs a local Postgres; see README). Run it after any change to `supabase/migrations`. `npm run test:unit` checks the search parser, bidding deposits, finance maths, lookup tidying, VIN decoder, listing wording, bulk upload, CSV, the legal copy, the information machine, site health and the sell form (run it after changing `vehicles.ts`, `search.ts`, `finance.ts`, `rego.ts`, `vin.ts`, `listing.ts`, `importLots.ts`, `csv.ts`, `legal.ts`, `traffic.ts`, `metrics.ts`, `seo.ts`, `seoChecks.ts`, `errorTrack.ts`, `healthChecks.ts`, `claudeBrief.ts`, `sellForm.ts`, `fees.ts` or `deposits.ts`). CI (`.github/workflows/ci.yml`) runs types, lint, unit and database tests on every pull request. `tests/load/search-bench.mjs` times search at scale.

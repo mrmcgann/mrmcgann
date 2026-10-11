@@ -47,7 +47,7 @@ export const KPIS: Kpi[] = [
   { key: "bidders", label: "Bidders", group: "Buyers", fmt: "count", good: "up", hint: "Members who bid (counted each day).", calc: (g) => g("bidders") },
   { key: "first_time_bidders", label: "First-time bidders", group: "Buyers", fmt: "count", good: "up", hint: "Members who bid for the first time.", calc: (g) => g("first_time_bidders") },
   { key: "members_total", label: "Members", group: "Buyers", fmt: "count", good: "up", hint: "All accounts.", calc: (_g, l) => l("members_total") },
-  { key: "members_verified", label: "Members ready to bid", group: "Buyers", fmt: "count", good: "up", hint: "Mobile, card and ID verified.", calc: (_g, l) => l("members_verified") },
+  { key: "members_verified", label: "Members ready to bid", group: "Buyers", fmt: "count", good: "up", hint: "Mobile and ID verified (and a bidding deposit paid, when deposits are on).", calc: (_g, l) => l("members_verified") },
   // After the sale
   { key: "avg_pay_hours", label: "Time to pay in full", group: "After the sale", fmt: "hours", good: "down", hint: "From the sale to the money clearing.", calc: (g) => div(g("pay_hours_sum"), g("paid_in_full")) },
   { key: "default_rate", label: "Buyers who didn't pay", group: "After the sale", fmt: "pct", good: "down", hint: "Sales cancelled because the buyer didn't pay, per sale.", calc: (g) => div(g("defaults"), g("sales")) },

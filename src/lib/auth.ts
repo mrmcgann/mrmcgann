@@ -32,7 +32,9 @@ export function missingSteps(p: Profile | null): number[] {
   const m: number[] = [];
   if (!p.details_done) m.push(2);
   if (!p.mobile_verified) m.push(3);
-  if (!p.payment_method_id) m.push(4);
+  // ID before the deposit: we check who you are before we take your money (and the ID check is instant; a transfer isn't).
   if (p.id_status !== "verified") m.push(5);
+  // step 4: the bidding deposit has arrived (or, the old way, a card is on file)
+  if (!(p.payment_ok ?? !!p.payment_method_id)) m.push(4);
   return m;
 }

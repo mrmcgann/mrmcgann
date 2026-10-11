@@ -31,7 +31,7 @@ export function SellerBids({ bids, startOpen }: { bids: SellerBid[]; startOpen: 
               <T v="small" style={{ width: 118, textAlign: "right" }}>{dateTime(b.created_at)}</T>
             </View>
           ))}
-          <T v="small" style={{ marginTop: 8 }}>Bidder names are hidden. Every bidder has verified their mobile, card and ID.</T>
+          <T v="small" style={{ marginTop: 8 }}>Bidder names are hidden. Every bidder has verified their mobile and their ID.</T>
         </View>
       ) : null}
     </View>

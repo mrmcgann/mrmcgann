@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { dateLong, maskMobile, money } from "@/lib/format";
+import { limitLine } from "@/lib/deposits";
 import { APP_VERSION, SITE } from "~/lib/env";
 import { supabase } from "~/lib/supabase";
 import { STEP_NAMES, useSession } from "~/lib/session";
@@ -44,7 +45,7 @@ export default function Account() {
       <Screen contentStyle={{ paddingTop: insets.top + 20 }} testID="account">
         <LogoMark size={40} />
         <T v="d2">Your next car is <Text style={{ fontFamily: F.serif, color: C.blue }}>already here.</Text></T>
-        <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Join free to bid, watch vehicles and get outbid alerts. Verify once (mobile, card and ID) and you're ready for every auction.</T>
+        <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Join free to bid, watch vehicles and get outbid alerts. Verify your mobile and ID once and you're ready for every auction. No deposit, no card.</T>
         <Button testID="account-join" title="Join free" onPress={() => router.push("/join")} />
         <Button kind="soft" title="Sign in" onPress={() => router.push("/signin")} />
         {help}
@@ -58,8 +59,10 @@ export default function Account() {
   const steps: [number, string, boolean, string][] = [
     [2, STEP_NAMES[2], !!p?.details_done, p?.details_done ? `${p.first_name} ${p.last_name}, ${p.suburb} ${p.state}` : "Legal name, date of birth and address"],
     [3, STEP_NAMES[3], !!p?.mobile_verified, p?.mobile_verified ? maskMobile(p.mobile) : "We text you a code"],
-    [4, STEP_NAMES[4], !!p?.payment_method_id, p?.payment_method_id ? `${p.card_brand} ending ${p.card_last4}` : "Charged only if you win"],
     [5, STEP_NAMES[5], p?.id_status === "verified", p?.id_status === "verified" ? "Verified" : p?.id_status === "pending" ? "Checking now" : "Licence or passport, and a selfie"],
+    ...(p?.pay_mode === "transfer" || !p?.pay_mode ? [] : p?.pay_mode === "card"
+      ? [[4, "Add a payment card", !!p?.payment_method_id, p?.payment_method_id ? `${p.card_brand} ending ${p.card_last4}` : "Charged only if you win"] as [number, string, boolean, string]]
+      : [[4, STEP_NAMES[4], !!p?.payment_ok, `${limitLine(p?.deposit).replace(/\.$/, "")}. Refundable.`] as [number, string, boolean, string]]),
   ];
   return (
     <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await Promise.all([load(), refresh()]); setRefreshing(false); }} contentStyle={{ paddingTop: insets.top + 20 }} testID="account">
@@ -67,18 +70,20 @@ export default function Account() {
       <T v="muted">{me?.user?.email}</T>
 
       <Soft bg={missing.length ? C.panel : C.mint}>
-        <T v="h">{missing.length ? "Finish verifying to bid." : "You're ready to bid."}</T>
-        {steps.map(([n, label, ok, detail]) => (
-          <Pressable key={n} accessibilityRole="button" onPress={() => router.push(`/join?step=${n}&next=/account`)} style={s.step}>
-            <View style={[s.tick, { backgroundColor: ok ? (missing.length ? C.mint : "#FFFFFF") : C.panel2 }]}>{ok ? <Icon name="check" size={14} strokeWidth={3.2} /> : <Text style={{ fontFamily: F.heavy, fontSize: 13 }}>{n - 1}</Text>}</View>
+        <T v="h">{p?.suspended ? "Your account can't bid." : missing.length ? "Finish verifying to bid." : "You're ready to bid."}</T>
+        {p?.suspended ? <T v="body">{`${p.suspended_reason ? `${p.suspended_reason}. ` : ""}Call us if you think that's a mistake.`}</T> : null}
+        {steps.map(([n, label, ok, detail], i) => (
+          <Pressable key={n} accessibilityRole="button" onPress={() => router.push(n === 4 && p?.pay_mode !== "card" ? "/deposit" : `/join?step=${n}&next=/account`)} style={s.step} testID={`acct-step-${n}`}>
+            <View style={[s.tick, { backgroundColor: ok ? (missing.length ? C.mint : "#FFFFFF") : C.panel2 }]}>{ok ? <Icon name="check" size={14} strokeWidth={3.2} /> : <Text style={{ fontFamily: F.heavy, fontSize: 13 }}>{i + 1}</Text>}</View>
             <View style={{ flex: 1 }}><T v="strong">{label}</T><T v="small">{detail}</T></View>
-            <Text style={{ fontFamily: F.bold, color: C.blue }}>{ok ? "Update" : "Finish"}</Text>
+            <Text style={{ fontFamily: F.bold, color: C.blue }}>{n === 4 && p?.pay_mode !== "card" ? (ok ? "Manage" : "Add") : ok ? "Update" : "Finish"}</Text>
           </Pressable>
         ))}
       </Soft>
 
       <View>
         <Row testID="row-notifications" title="Notifications" sub="Everything we've sent you" badge={p?.unread || 0} onPress={() => router.push("/notifications")} />
+        {p?.pay_mode === "deposit" || (p?.deposit?.balance ?? 0) > 0 ? <Row testID="row-deposit" title="Bidding deposit" sub={`${limitLine(p?.deposit)} Top up or withdraw.`} onPress={() => router.push("/deposit")} /> : null}
         <Row title="Alerts" sub="Outbid, ending soon, saved searches: push, SMS or email" onPress={() => router.push("/alerts")} />
         <Row title="Account settings" sub="Business details, password, email" onPress={() => router.push("/settings")} />
         {p?.is_seller ? <Row title="My vehicles for sale" onPress={() => router.push("/sell")} /> : null}

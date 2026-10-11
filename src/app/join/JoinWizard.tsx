@@ -9,9 +9,13 @@ import { AuthSide } from "@/components/AuthSide";
 import { Tick } from "@/components/CarArt";
 import { maskMobile } from "@/lib/format";
 import { STATES } from "@/lib/grades";
-import type { Profile } from "@/lib/types";
+import { DEFAULT_FEES, type Profile } from "@/lib/types";
+import { DepositPay } from "@/components/deposit/DepositPay";
+import type { Bank } from "@/components/deposit/PayBox";
+import { depositSteps, joinSteps } from "@/lib/deposits";
 
-type Me = { user: { id: string; email: string } | null; profile: Profile | null; missing: number[]; config: { stripe: boolean; testMode: boolean; sms: boolean } };
+type Me = { user: { id: string; email: string } | null; profile: Profile | null; missing: number[];
+  config: { stripe: boolean; testMode: boolean; sms: boolean; payId?: boolean; bank?: Bank; payMode?: "transfer" | "deposit" | "card" } };
 let stripePromise: Promise<Stripe | null> | null = null;
 const getStripeJs = () => (stripePromise ??= loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""));
 
@@ -43,12 +47,13 @@ export function JoinWizard() {
 
   const load = useCallback(async (preferred?: number) => {
     const r: Me = await (await fetch("/api/me", { cache: "no-store" })).json();
-    // Sellers don't need a card on file
+    // Sellers don't need a bidding deposit
     if (params.get("seller")) r.missing = (r.missing || []).filter((n: number) => n !== 4);
     setMe(r);
     const asked = preferred || Number(params.get("step")) || 0;
+    const steps = joinSteps(r.profile?.pay_mode ?? r.config.payMode);
     if (!r.user) setStep(1);
-    else if (asked && asked > 1 && asked <= 5) setStep(asked);
+    else if (asked && asked > 1 && steps.includes(asked)) setStep(asked);
     else if (r.missing.length) setStep(r.missing[0]);
     else setStep(99);
     return r;
@@ -180,7 +185,7 @@ export function JoinWizard() {
   }
 
   const p = me?.profile;
-  const done = [me?.user ? 1 : 0, p?.details_done ? 2 : 0, p?.mobile_verified ? 3 : 0, p?.payment_method_id ? 4 : 0, p?.id_status === "verified" ? 5 : 0].filter(Boolean);
+  const done = [me?.user ? 1 : 0, p?.details_done ? 2 : 0, p?.mobile_verified ? 3 : 0, (p?.payment_ok ?? p?.payment_method_id) ? 4 : 0, p?.id_status === "verified" ? 5 : 0].filter(Boolean);
   let form: React.ReactNode = null;
 
   if (!me || step === 0) form = <p className="muted">Loading…</p>;
@@ -238,7 +243,23 @@ export function JoinWizard() {
         <button type="button" className="linkbtn" style={{ alignSelf: "center" }} onClick={() => sendCode()}>{sent ? "Resend code" : "Send code"}</button>
       </form>
     );
-  } else if (step === 4) {
+  } else if (step === 4 && p?.pay_mode === "deposit") {
+    const dep = p?.deposit;
+    const fees = { ...DEFAULT_FEES, deposit_rate: dep?.rate ?? DEFAULT_FEES.deposit_rate, deposit_min: dep?.min ?? DEFAULT_FEES.deposit_min, deposit_cap: dep?.cap ?? DEFAULT_FEES.deposit_cap };
+    form = (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "min(560px,100%)" }} data-testid="join-deposit">
+        <H t="Add your bidding deposit." sub="Refundable, paid by PayID or bank transfer. We never take your card, so there's nothing to charge back and nothing to steal." />
+        <ol className="dep-steps compact">
+          {depositSteps(fees).map(([t, x], i) => <li key={t}><span className="n">{i + 1}</span><b>{t}</b><span>{x}</span></li>)}
+        </ol>
+        {dep && me.config.bank ? (
+          <DepositPay fees={fees} summary={dep} bank={me.config.bank} payIdOn={!!me.config.payId} testMode={me.config.testMode} compact
+            back={next ? { href: next, label: "Back to where you were" } : { href: "/auctions", label: "Start bidding" }} onArrived={() => { void load(-1); }} />
+        ) : <p className="muted">Loading…</p>}
+        <button type="button" className="linkbtn" style={{ alignSelf: "center", color: "var(--muted)" }} onClick={finish}>Finish for now. We&apos;ll text you when it arrives</button>
+      </div>
+    );
+  } else if (step === 4 && p?.pay_mode === "card") {
     form = (
       <div style={{ display: "flex", flexDirection: "column", gap: 15, width: "min(500px,100%)" }}>
         <H t="Add a payment card." sub="Required to bid. No charge today. If you win, payment is taken automatically as soon as the auction ends." />
@@ -285,7 +306,7 @@ export function JoinWizard() {
   } else {
     form = (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <H t="You're ready to bid." sub="Mobile, card and ID are all verified." />
+        <H t="You're ready to bid." sub={p?.pay_mode === "card" ? "Mobile, card and ID are all verified." : p?.pay_mode !== "deposit" ? "Mobile and ID verified. Bid on anything you like: if you win, pay by PayID or bank transfer within 2 business days." : `Mobile and ID verified, and your deposit is in. ${p?.deposit?.unlimited ? "You can bid any amount." : p?.deposit?.limit ? `You can bid up to $${Number(p.deposit.limit).toLocaleString("en-AU")}.` : ""}`} />
         <button className="btn btn-blue" onClick={finish}>Continue</button>
       </div>
     );
@@ -294,7 +315,7 @@ export function JoinWizard() {
   return (
     <div className="wrap">
       <div className="join">
-        <AuthSide heading={<>Your next car is <span className="serif" style={{ color: "var(--sun)" }}>already here.</span></>} step={step >= 1 && step <= 5 ? step : 5} done={done} />
+        <AuthSide heading={<>Your next car is <span className="serif" style={{ color: "var(--sun)" }}>already here.</span></>} step={step >= 1 && step <= 5 ? step : 5} done={done} steps={joinSteps(p?.pay_mode ?? me?.config.payMode)} />
         <div className="formwrap">{form}</div>
       </div>
     </div>

@@ -2,8 +2,12 @@ import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { json, fail } from "@/lib/api";
+import { getFeesCached } from "@/lib/cache";
+import { payMode } from "@/lib/fees";
 
 export async function POST(req: Request) {
+  // No cards: bidders pay a refundable bidding deposit by PayID or bank transfer (Account → Bidding deposit).
+  if (payMode(await getFeesCached()) === "deposit") return fail("We don't take cards. Bidding uses a refundable deposit paid by PayID or bank transfer.", 410);
   const { setupIntentId } = await req.json();
   const { user } = await getSession();
   const stripe = getStripe();

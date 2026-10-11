@@ -36,9 +36,9 @@ export function LotInteractive({ lot, fees, history, phone }: { lot: Lot; fees: 
   const cardLabel = v.profile?.card_brand ? `${v.profile.card_brand} ending ${v.profile.card_last4}` : null;
   return (
     <>
-      <BidPanel key={`${userId || "anon"}-${loaded ? "me" : "wait"}`} lot={lot} fees={fees} userId={userId} missing={missing} cardLabel={cardLabel}
+      <BidPanel key={`${userId || "anon"}-${loaded ? "me" : "wait"}`} lot={lot} fees={fees} userId={userId} missing={missing} cardLabel={cardLabel} deposit={v.profile?.deposit ?? null}
         termsCurrent={v.profile?.terms_current !== false} myMax={me?.my_max ?? null} watched={me?.watched ?? v.watched.has(lot.id)}
-        invoiceId={me?.invoice_id ?? null} lastOffer={me?.last_offer ?? null} isSeller={!!me?.is_seller} history={history} />
+        invoiceId={me?.invoice_id ?? null} lastOffer={me?.last_offer ?? null} isSeller={!!me?.is_seller} history={history} suspended={!!v.profile?.suspended} />
       <div className="soft" style={{ gap: 6 }}>
         <b style={{ fontSize: 17 }}>Buying safely.</b>
         <span className="muted" style={{ fontSize: 14 }}>Pay Tyrebiter only, never the seller. Our bank details never change by email or SMS. If anything looks wrong, call {phone}.</span>

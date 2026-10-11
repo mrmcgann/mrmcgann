@@ -10,6 +10,8 @@ import type { Invoice } from "@/lib/types";
 import { InvoiceActions } from "./InvoiceActions";
 import { BookCollection, ClaimBox } from "./Collection";
 import { TransferStep, type TransferRow } from "./Transfer";
+import { PayBox } from "@/components/deposit/PayBox";
+import { payIdEnabled } from "@/lib/payid";
 
 export const dynamic = "force-dynamic";
 
@@ -73,12 +75,23 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <div className="tot"><span>Total</span><span>{money(Number(inv.total) + Number(inv.storage_fee || 0), true)}</span></div>
             <div><span className="muted">Includes GST of</span><span>{money(gstTotal, true)}</span></div>
           </div>
-          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No card surcharge.</span>
+          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No surcharge.</span>
         </div>
 
         {["pending_charge", "charging"].includes(inv.status) && <div className="notice">We&apos;re taking payment now. This page updates within a minute.</div>}
-        {inv.status === "paid" && <div className="notice ok">{inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card.` : "Deposit and balance received."} Paid in full.</div>}
-        {inv.status === "deposit_paid" && (
+        {inv.status === "paid" && <div className="notice ok">{inv.pay_method === "bank" ? (Number(inv.balance_due) > 0 ? `${money(inv.deposit_applied || 0, true)} from your bidding deposit and ${money(inv.balance_due, true)} by transfer received.` : `Paid from your bidding deposit (${money(inv.deposit_applied || 0, true)}).`) : inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card.` : "Deposit and balance received."} Paid in full.</div>}
+        {inv.status === "deposit_paid" && inv.pay_method === "bank" && (
+          <div className="soft" style={{ background: "var(--sun)", gap: 14 }} data-testid="invoice-pay">
+            <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <b style={{ fontSize: 22, letterSpacing: "-0.02em" }}>Pay {money(inv.balance_due, true)} by {dateLong(inv.due_at)}.</b>
+              <span>{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has already gone towards it. Pay the rest` : "Pay it"} by PayID or bank transfer, from an account in your name (or from your lender, if you&apos;re using finance), with your invoice number as the reference. We release the vehicle once it has cleared.</span>
+            </span>
+            <PayBox amount={Number(inv.balance_due)} reference={inv.ref} bank={{ name: env.bankName, bsb: env.bankBsb, account: env.bankAccount, payId: env.payId || null }}
+              payIdOn={payIdEnabled()} request={{ url: `/api/invoices/${inv.id}/payid`, label: `Get a PayID for ${money(inv.balance_due, true)}` }}
+              note={<span className="hint">Paying late? Interest applies from the due date, and if it isn&apos;t paid the sale is cancelled{Number(inv.deposit_applied) > 0 ? ", the deposit kept" : ""} and your account closed (Terms of sale, sections 8 and 11). Call us on {env.phone} if anything&apos;s holding you up.</span>} />
+          </div>
+        )}
+        {inv.status === "deposit_paid" && inv.pay_method !== "bank" && (
           <div className="soft" style={{ background: "var(--sun)" }}>
             <b>Deposit of {money(inv.card_amount, true)} paid. Balance due: {money(inv.balance_due, true)}.</b>
             <span>Pay by bank transfer by <b>{dateLong(inv.due_at)}</b>.</span>
@@ -87,7 +100,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
         )}
         {inv.status === "payment_failed" && <InvoiceActions id={inv.id} mode="pay" amount={inv.card_amount} reason={inv.failure_reason} />}
-        {inv.status === "cancelled" && <div className="notice bad">{inv.cancel_reason?.startsWith("not_buyer_fault") ? `This sale was cancelled (${inv.cancel_reason.replace("not_buyer_fault: ", "")}).${inv.refunded_amount ? ` Everything you paid (${money(inv.refunded_amount, true)}) is being refunded to where it came from.` : ""}` : `This sale was cancelled${inv.cancel_fee ? ` with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</div>}
+        {inv.status === "cancelled" && <div className="notice bad">{inv.cancel_reason?.startsWith("not_buyer_fault") ? `This sale was cancelled (${inv.cancel_reason.replace("not_buyer_fault: ", "")}).${inv.refunded_amount ? ` Everything you paid (${money(inv.refunded_amount, true)}) is being refunded to where it came from.` : ""}` : `This sale was cancelled because it wasn't paid for${inv.cancel_fee ? `, with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</div>}
 
         {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}
 

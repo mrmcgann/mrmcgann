@@ -96,7 +96,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                     <div key={k}><span><BlurName mask={b.bidder_mask} />{b.is_auto ? <span className="muted" style={{ fontSize: 13 }}> · auto</span> : null}</span><b>{money(b.amount)}</b><span className="muted" style={{ textAlign: "right", fontSize: 14 }}>{dateTime(b.created_at)}</span></div>
                   ))}
                 </div>
-                <span className="hint">Bidder names are hidden. Every bidder has verified their mobile, card and ID.</span>
+                <span className="hint">Bidder names are hidden. Every bidder has verified their mobile and their ID.</span>
               </details>
             )}
             {forfeitsFor(l.id).map((fp) => <span key={fp.id} className="notice">A buyer didn&apos;t pay. You get half of what they forfeited: <b>{money(fp.net_amount, true)}</b>, {fp.status === "paid" ? `paid ${dateLong(fp.paid_at)}` : "being paid now"}. <a className="blue" href={`/api/payouts/${fp.id}/pdf`} style={{ fontWeight: 700 }}>Statement</a></span>)}

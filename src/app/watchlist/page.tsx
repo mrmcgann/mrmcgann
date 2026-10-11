@@ -50,6 +50,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
           <Link href="/watchlist" className="on">Watchlist<span>{items.size}</span></Link>
           <Link href="/watchlist?f=winning">My bids</Link>
           <Link href="/watchlist#searches">Saved searches</Link>
+          {fees.pay_mode === "deposit" && <Link href="/account/deposit">Bidding deposit</Link>}
           <span className="h">Account</span>
           <Link href="/account">Account &amp; verification</Link>
           <Link href="/account#invoices">Invoices</Link>

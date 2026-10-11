@@ -1,20 +1,24 @@
 // Legal and help copy, in plain English. DRAFT: have an Australian lawyer review before launch
 // (licensing in each state, ACL wording, unfair contract terms, state registration rules).
 // {{TOKENS}} are filled from Admin → Fees & settings by fillLegal(), so the pages always match the fees charged.
+// How bidders pay can be switched in Admin: a paragraph (or Help question, or Help section title) that starts with
+// [[transfer]] only shows with no deposit (the default, like Turners); [[deposit]] only with a bidding deposit.
 
-export const TERMS_VERSION_LABEL = "Version 10 October 2026";
+export const TERMS_VERSION_LABEL = "Version 11 October 2026";
 
 export const TERMS: [string, string, string[]][] = [
  ['t-summary','The short version',[
   'Tyrebiter runs each auction as the seller’s agent. The contract of sale is between you and the seller; we run the sale and collect the money.',
   'Vehicles stay at the seller’s location. In-person viewings aren’t available; you can order an independent mobile inspection before you bid, or ask the vehicle’s consultant to organise one. You own the vehicle once you’ve paid in full. The registration is then transferred into your name, and you collect from the seller’s location.',
   'Vehicles are sold <b>as is, where is</b>. Condition reports and grades are a guide only. But the facts in a listing (make, model, year, VIN, odometer reading, transmission, fuel, listed features, write-off status, finance, visible damage) must be right: we check them against the vehicle and the PPSR before it’s listed, and if they’re materially wrong you can claim (section 12). Your rights under the Australian Consumer Law aren’t affected (section 4).',
-  'Registering and bidding are free. To bid you need a verified mobile, a card on file and a verified ID.',
-  'Bids are binding and can’t be withdrawn. If you win, payment is taken straight away: under {{CARD_LIMIT}} in full from your card; {{CARD_LIMIT}} or more, a deposit by card (you lose it only if you don’t pay) and the balance by bank transfer or PayID within {{PAY_DAYS}} business days.',
-  'Fees: buyer’s premium of {{PREMIUM}} plus GST and an admin fee of {{ADMIN_FEE}}. No card surcharge.',
+  '[[deposit]]Registering and bidding are free. To bid you need a verified mobile, a verified ID and a refundable <b>bidding deposit</b>, paid by PayID or bank transfer from an account in your name. The deposit is {{DEPOSIT_RATE}} of the most you want to bid, at least {{DEPOSIT_MIN}}.{{DEPOSIT_ANY}} One deposit covers every vehicle you’re winning, and you can withdraw whatever isn’t holding a bid at any time.',
+  '[[transfer]]Registering and bidding are free. To bid you need a verified mobile and a verified ID (a driver licence or passport and a selfie). There’s no deposit and no card, so you can bid while your finance is being arranged.',
+  '[[deposit]]Bids are binding and can’t be withdrawn. If you win, the deposit for the price goes towards it straight away, and you pay the balance by PayID or bank transfer within {{PAY_DAYS}} business days. You lose that deposit only if you don’t pay.',
+  '[[transfer]]Bids are binding and can’t be withdrawn. If you win, pay the full amount by PayID or bank transfer within {{PAY_DAYS}} business days (your lender can pay it if you’re using finance). If you don’t pay, the sale is cancelled and your account is closed for good.',
+  'Fees: buyer’s premium of {{PREMIUM}} plus GST and an admin fee of {{ADMIN_FEE}}. We don’t take cards, so there’s never a surcharge.',
   'You get clear title: any finance owing is paid out of the sale before the seller is paid. Risk stays with the seller until you collect (or until your collection window ends, if you don’t collect in time).',
   'There is no cooling-off period for auction purchases.',
-  'We take payment by card and bank transfer only, never cash or cheques, and only into the account shown on your invoice page. Overdue balances may attract interest at {{LATE_INTEREST}} a year; there are no other late fees.',
+  'We take payment by PayID and bank transfer only, never cards, cash or cheques, and only into the account shown in your account or on your invoice page. Overdue balances may attract interest at {{LATE_INTEREST}} a year; there are no other late fees.',
   'You collect from the seller’s place at a booked time, with whatever the vehicle needs to be moved safely (section 16).']],
  ['t-agent','1. Who you are dealing with',[
   '{{LEGAL_NAME}} (ABN {{ABN}}) (“Tyrebiter”, “we”) runs online auctions for vehicles owned by private sellers and businesses. We act as the seller’s agent under a written agency agreement. We don’t own the vehicles we list.',
@@ -48,37 +52,40 @@ export const TERMS: [string, string, string[]][] = [
   'Ordering an inspection doesn’t extend the auction. Allow time for it before bidding closes. For anything else about a vehicle, contact the consultant shown on the listing.']],
  ['t-bidding','6. Registering and bidding',[
   'You must be 18 or over and give your legal name, date of birth, residential address and an Australian mobile. Business buyers can add their company name and ABN for their tax invoice.',
-  'Before your first bid you verify your mobile with an SMS code, add a card, and verify your identity with a driver licence or passport and a selfie, through Stripe Identity. Your name and date of birth must match your ID.',
-  'One account per person. Don’t bid for someone else unless we’ve approved it in writing. Don’t use more than one account, collude with other bidders, or bid to inflate a price.',
+  '[[deposit]]Before your first bid you verify your mobile with an SMS code, verify your identity with a driver licence or passport and a selfie, through Stripe Identity, and pay a bidding deposit (section 8). Your name and date of birth must match your ID.',
+  '[[transfer]]Before your first bid you verify your mobile with an SMS code and your identity with a driver licence or passport and a selfie, through Stripe Identity. Your name and date of birth must match your ID. That’s all: there’s no deposit and no card.',
+  'One account per person. Don’t bid for someone else unless we’ve approved it in writing. Don’t use more than one account, collude with other bidders, or bid to inflate a price. If we close an account because a vehicle wasn’t paid for, the same person can’t open another one (section 11).',
   'Every bid is a binding offer to buy at that amount plus the buyer’s premium and fees. Bids can’t be withdrawn. We ask you to confirm each bid and show the all-in cost before it’s placed.',
   'If you set a maximum, we bid for you one increment at a time, only as far as needed to keep you in front, up to your maximum. Nobody else sees your maximum. If two bidders set the same maximum, the one who set it first wins.',
   'Going, going, gone: any bid in the last {{EXTEND}} minutes extends the auction to {{EXTEND}} minutes after that bid. It closes once {{EXTEND}} minutes pass with no new bid.',
   'Our alerts (outbid, ending soon) are sent as fast as we can, but delivery isn’t guaranteed. Keep an eye on auctions you care about.',
   'Reserve: if the auction ends below the seller’s reserve, the highest bid is referred to the seller, who has {{REFERRAL_DAYS}} business days to accept. Your bid stays binding until they decide. If they accept, it’s a win. If they decline or don’t answer in time, offers open.',
   'Make an Offer: during the offer period ({{OFFER_DAYS}} business days) you can offer an amount. It stays binding until the seller declines it, you replace it with a higher offer, or the period ends. If the seller accepts, it’s a win.',
-  'Buy Now: where shown, you can buy at the Buy Now price until bidding reaches it. The auction ends immediately and payment is taken as for a win. The buyer’s premium and admin fee apply to Buy Now purchases.',
+  '[[deposit]]Buy Now: where shown, you can buy at the Buy Now price until bidding reaches it, if your deposit covers it. The auction ends immediately and it’s paid for as for a win. The buyer’s premium and admin fee apply to Buy Now purchases.',
+  '[[transfer]]Buy Now: where shown, you can buy at the Buy Now price until bidding reaches it. The auction ends immediately and it’s paid for as for a win. The buyer’s premium and admin fee apply to Buy Now purchases.',
   'Sellers, their associates and anyone using the seller’s mobile can’t bid on the seller’s vehicle. We monitor bidding and may cancel bids, void sales and close accounts for shill bidding or collusion.',
   'If there’s a technical fault or an obvious error in a listing, we may extend, pause, cancel or reopen an auction, and we’ll tell affected bidders. If we cancel someone’s bids (for example they bid before a material correction and asked us to, or for shill bidding), the price is worked out again from the remaining bids, as if those bids were never made.',
   'Fleet and business sales: some vehicles are grouped in a sale. Each vehicle is still its own auction and closes at its own time, usually a few minutes apart; a late bid extends only that vehicle.']],
  ['t-fees','7. Buyer’s premium and fees',[
   'There’s no fee to register, watch or bid. Fees apply only to a vehicle you buy.',
   'Buyer’s premium: {{PREMIUM}} of the price, plus GST on the premium. Admin fee: {{ADMIN_FEE}} per vehicle (includes GST).',
-  'No card surcharge applies. (Surcharges on Visa, Mastercard and eftpos are banned in Australia from 1 October 2026.)',
+  'There’s no surcharge or payment fee: we take PayID and bank transfer only, and we don’t take cards.',
   'GST on the vehicle: private sellers don’t charge GST, so the price has none. If the seller is GST-registered and selling a business asset, the listing says the price includes GST. Your tax invoice shows the GST.',
   'Storage of {{STORAGE}} per day applies if you don’t collect on time (section 9).',
   'The all-in amount is shown before you confirm any bid, offer or Buy Now.']],
  ['t-payment','8. Payment',[
-  'Keep a valid card on your account to bid. By bidding, you authorise us to charge it without asking again when you win.',
-  'Total under {{CARD_LIMIT}}: the full amount is charged to your card as soon as the sale is made.',
-  'Total of {{CARD_LIMIT}} or more: a deposit of {{NRD_LOW}} (or {{NRD_HIGH}} if the total is {{NRD_SPLIT}} or more) is charged to your card straight away and counts towards the price. Pay the balance by bank transfer (or PayID if shown) within {{PAY_DAYS}} business days, quoting your invoice number.',
-  'The deposit isn’t refunded if the sale is cancelled because you didn’t pay (section 11). It is refunded in full if the sale is cancelled for any other reason, for example an upheld claim, a title problem, damage before handover or our mistake.',
-  'If a card charge is declined, we’ll text you a secure link. Pay within 1 business day or we may cancel the sale under section 11.',
-  'How to pay: by card through Tyrebiter, or by bank transfer or PayID to the account shown on your invoice page. We don’t accept cash or cheques. Your balance is on time if you send it by the due date and it clears in the normal course. We release the vehicle once the money has cleared into our account.',
-  'Pay from an account in your own name or your business’s name. If someone else is paying for you, tell us first: we may ask for proof and hold the release until we’re satisfied. It protects you and the seller from fraud.',
-  'Pay Tyrebiter only, never the seller. Money paid to the seller or to any account other than the one on your invoice page isn’t a payment to us, unless the wrong details came from us. We will never change our bank details by email, SMS or phone. If anyone asks you to, don’t pay: call us on {{PHONE}}.',
+  '[[deposit]]Bidding deposit: before you bid, you pay a deposit by PayID or bank transfer, quoting your bidder reference (shown in your account), or to the single-use PayID we show you. It stays yours: it’s a security for the bids you make, not a fee. We hold it in [TRUST ACCOUNT, LAWYER TO CONFIRM] until it’s applied to a vehicle you buy or returned to you, and we don’t pay interest on it.',
+  '[[deposit]]How much: the deposit for a vehicle is {{DEPOSIT_RATE}} of the amount you commit to (at least {{DEPOSIT_MIN}}{{DEPOSIT_CAP_PART}}): your maximum bid while you’re the highest bidder, your bid while it’s referred to the seller, your offer while it’s open, or the Buy Now price.{{DEPOSIT_ANY}} Your deposit must cover all of these at once. If it doesn’t, the bid, offer or Buy Now isn’t accepted, and we show you how much more you need. When you’re outbid, or an offer is declined or expires, that part of your deposit is free again straight away.',
+  '[[deposit]]If you win: the deposit for the price (or the whole invoice, if that’s less) is applied to your invoice straight away and counts towards what you pay. Pay the balance by PayID or bank transfer within {{PAY_DAYS}} business days, quoting your invoice number. If the deposit covers the whole invoice, there’s nothing more to pay.',
+  '[[deposit]]The deposit applied to a vehicle is kept only if the sale is cancelled because you didn’t pay (section 11). If the sale is cancelled for any other reason, for example an upheld claim, a title problem, damage before handover or our mistake, it’s returned to your deposit in full, and you can withdraw it.',
+  '[[deposit]]Withdrawing: you can ask for any part of your deposit that isn’t holding a bid, referred bid or offer back at any time from your account, unless you have a vehicle that isn’t paid for yet. We send it to the account it came from, usually the same or next business day. Once your deposit is below the minimum, you can’t bid until you add to it.',
+  '[[transfer]]If you win: there’s nothing to pay before you bid, and no deposit. We email your tax invoice when you win. Pay the full amount by PayID or bank transfer within {{PAY_DAYS}} business days, quoting your invoice number.',
+  '[[transfer]]Buying with finance: get pre-approved before you bid, because bids are binding. Your lender can pay us directly: tell us who they are when you win, and their payment counts as yours. If your lender needs a little longer, ask us before the due date.',
+  'How to pay: by PayID or bank transfer to the account shown in your account and on your invoice page, or to the single-use PayID we show you for that payment. We don’t accept cards, cash or cheques. A payment is on time if you send it by the due date and it clears in the normal course. We release the vehicle, and the seller’s address for collection, only once the money has cleared into our account.',
+  'Pay from an account in your own name, or your business’s name if you’re buying for it (a joint account you’re named on is fine), or have your lender pay us. Money from anyone else’s account isn’t a payment by you: we return it to the account it came from. It protects you and the seller from fraud.',
+  'Pay Tyrebiter only, never the seller. Money paid to the seller or to any account other than the one shown in your account or on your invoice page isn’t a payment to us, unless the wrong details came from us. We will never change our bank details by email, SMS or phone. If anyone asks you to, don’t pay: call us on {{PHONE}}.',
   'Interest: if your balance is overdue, we may charge interest on the overdue amount at {{LATE_INTEREST}} a year, worked out daily from the due date until it’s paid. We don’t charge any other late-payment fee.',
-  'Card disputes: if you ask your bank to reverse a card payment you authorised for a vehicle you won, the sale is treated as unpaid under section 11. This doesn’t affect a dispute about a charge you didn’t authorise.',
-  'Refunds go back to the card or account you paid from. If you owe us something under these terms (for example storage), we may take it out of a refund before we pay it, and we’ll show you how it was worked out.',
+  'Refunds go back to the account you paid from. If you owe us something under these terms (for example storage), we may take it out of a refund (or your deposit, if you have one) before we pay it, and we’ll show you how it was worked out.',
   'You receive a tax invoice by email when you win, and a receipt when you’ve paid in full.']],
  ['t-title','9. Title, risk and collection',[
   'Title: we search the PPSR before listing. Any registered finance is paid out of the sale price before the seller is paid, so you receive the vehicle free of registered security interests once you’ve paid in full. If a title problem appears that we can’t fix, we’ll cancel the sale and refund everything you paid.',
@@ -103,9 +110,11 @@ export const TERMS: [string, string, string[]][] = [
   'Written-off vehicles: if a vehicle is on a written-off vehicle register, the listing says so. Statutory write-offs can never be re-registered. Check whether a repairable write-off can be registered in your state before you bid.']],
  ['t-default','11. If a buyer doesn’t pay or collect',[
   'If you don’t pay on time, we’ll remind you by SMS and email. If you still haven’t paid 1 business day after that reminder, we may cancel the sale, offer the vehicle to the next highest bidder or relist it, and suspend your account.',
-  'Offer to the next bidder: if a winning buyer doesn’t pay, we may offer the vehicle to the next highest bidder at their highest bid. It’s an offer, not an obligation: it’s only binding if they accept it before it expires (usually 24 hours), and then payment is taken as for a win. Each offer shows the all-in price.',
-  'If we cancel because you didn’t pay, a cancellation fee of {{CANCEL_FEE}} applies where the invoice total is over {{CANCEL_ABOVE}}. Our payment reminder tells you about it, and we may charge it to the card on your account. Where you paid a deposit, we keep the deposit instead: one or the other, never both. These amounts are our genuine estimate of the costs of a failed sale (relisting, the seller’s lost time, payment costs).',
-  'If the vehicle then sells for less, you may also have to pay the difference and the reasonable costs of selling it again, less the deposit or cancellation fee we kept. We’ll give you a statement showing how it’s worked out, and we won’t claim more than our and the seller’s actual loss.',
+  'Closing your account: if we cancel a sale because you didn’t pay, we close your account for bidding. Your bids and offers on other vehicles are cancelled, and you can’t open a new account: we keep a one-way code made from your name and date of birth, mobile and email (it can’t be turned back into your details) to check new accounts against. If you think we’ve made a mistake, contact us (section 15) and we’ll review it.',
+  'Offer to the next bidder: if a winning buyer doesn’t pay, we may offer the vehicle to the next highest bidder at their highest bid. It’s an offer, not an obligation: it’s only binding if they accept it before it expires (usually 24 hours), and then it’s paid for as for a win (their deposit must cover it). Each offer shows the all-in price.',
+  '[[deposit]]If we cancel because you didn’t pay, we keep the deposit that was applied to that vehicle (it’s shown on your invoice), and half of it goes to the seller. There’s no separate cancellation fee: it’s the deposit or nothing, never both. The rest of your deposit stays yours. Our payment reminder tells you this before we cancel. The deposit is our and the seller’s genuine estimate of the costs of a failed sale (relisting, the seller’s lost time, the vehicle being off the market). [LAWYER TO CONFIRM]',
+  '[[deposit]]If the vehicle then sells for less, you may also have to pay the difference and the reasonable costs of selling it again, less the deposit we kept. We’ll give you a statement showing how it’s worked out, and we won’t claim more than our and the seller’s actual loss.',
+  '[[transfer]]There’s no cancellation fee. If the vehicle then sells for less, you may have to pay the difference and the reasonable costs of selling it again. We’ll give you a statement showing how it’s worked out, and we won’t claim more than our and the seller’s actual loss.',
   'Anything you owe under these terms is a debt. If it stays unpaid, we may refer it to a debt collector or take legal action, and recover our reasonable costs of doing so, within what the law allows.',
   'Not collecting on time: storage and abandonment are covered in section 9.']],
  ['t-claims','12. If the vehicle isn’t as described (claims)',[
@@ -230,7 +239,9 @@ export const SELLER_AGREEMENT: [string, string, string[]][] = [
 export const HELP: [string, string, [string, string][]][] = [
    ['h-start','Getting started',[
     ['Is it free to join?','Yes. Registering, watching and bidding are free. You only pay fees on a vehicle you buy.'],
-    ['What do I need to register?','An email, your legal name, date of birth, home address and an Australian mobile. Before you bid you verify your mobile with an SMS code, add a card, and verify your ID with a driver licence or passport and a selfie.'],
+    ['[[deposit]]What do I need to register?','An email, your legal name, date of birth, home address and an Australian mobile. Before you bid you verify your mobile with an SMS code, verify your ID with a driver licence or passport and a selfie, and pay a refundable bidding deposit by PayID or bank transfer.'],
+    ['[[transfer]]What do I need to register?','An email, your legal name, date of birth, home address and an Australian mobile. Before you bid you verify your mobile with an SMS code and your ID with a driver licence or passport and a selfie. No deposit and no card.'],
+    ['[[transfer]]Do I need a deposit or a card to bid?','No. Verify your mobile and your ID once and you can bid on anything. If you win, pay by PayID or bank transfer within {{PAY_DAYS}} business days. Buying with finance? Get pre-approved first; your lender can pay us directly.'],
     ['Do I need an app to verify my ID?','No. It all happens in your browser. On a phone, your camera opens for a photo of your licence or passport and a selfie. On a computer, scan the QR code and finish on your phone.'],
     ['Why do you check my ID?','So every bidder (and every seller) is a real, identifiable person. It stops fake bids and protects sellers who let buyers onto their property.'],
     ['I forgot my password.','Tap Sign in, then “Forgot password?”. We’ll email you a reset link.']]],
@@ -249,16 +260,24 @@ export const HELP: [string, string, [string, string][]][] = [
     ['What if the listing is corrected after I bid?','We tell you straight away, show the change on the listing, and make sure there are at least 24 hours of bidding left. If it changes your mind, call the consultant on the listing before bidding closes and we’ll cancel your bids.'],
     ['What are fleet sales?','A group of vehicles from one seller (a fleet, a council, a company) on one page. Each vehicle is its own auction and closes a few minutes after the one before, so you can follow each one.'],
     ['The winner didn’t pay. Can I still buy it?','Maybe. If the winning buyer doesn’t pay, we can offer the vehicle to the next highest bidder at their highest bid. We text and email you the offer, with the all-in price. There’s no obligation, and it’s only binding if you accept before it expires.']]],
+   ['h-deposit','[[deposit]]Bidding deposit',[
+    ['What is the bidding deposit?','Money you pay us before you bid, by PayID or bank transfer, so every bidder is serious. It isn’t a fee: it stays yours, it covers every vehicle you’re winning at once, and you can withdraw whatever isn’t holding a bid whenever you like. If you win, the deposit for the price goes towards the vehicle.'],
+    ['How much do I need?','{{DEPOSIT_RATE}} of the most you want to bid, at least {{DEPOSIT_MIN}}.{{DEPOSIT_ANY}} For example, a {{DEPOSIT_EG_PAID}} deposit lets you bid up to {{DEPOSIT_EG_LIMIT}}. If you’re winning two vehicles, your deposit needs to cover both. You can top up any time from Account, then Bidding deposit.'],
+    ['How do I pay it?','By PayID or bank transfer from an account in your name, quoting your bidder reference (it starts with BID and is shown on your deposit page). PayID usually arrives within a minute; a normal bank transfer can take until the next business day. We text you when it arrives, with your new limit.'],
+    ['How do I get my deposit back?','From Account, then Bidding deposit, choose Withdraw. Anything that isn’t holding a bid, a referred bid or an offer goes back to the account it came from, usually the same or next business day. If you have a vehicle to pay for, pay for it first.'],
+    ['When would I lose my deposit?','Only if you win a vehicle and don’t pay for it. Then we keep the deposit that went towards that vehicle (half goes to the seller for their trouble), and your account may be suspended. The rest of your deposit stays yours. If a sale is cancelled for any other reason, you get it all back.']]],
    ['h-pay','Paying',[
-    ['When is payment taken?','Straight away when you win. Under {{CARD_LIMIT}}, we charge your card in full. At {{CARD_LIMIT}} or more, we charge a deposit ({{NRD_LOW}}, or {{NRD_HIGH}} from {{NRD_SPLIT}}), which you lose only if you don’t pay, and you pay the balance by bank transfer within {{PAY_DAYS}} business days.'],
-    ['What fees are added?','Buyer’s premium of {{PREMIUM}} plus GST, and an admin fee of {{ADMIN_FEE}}. No card surcharge. Every price on the site shows the all-in total beside it, and you see the all-in total again before you confirm a bid, offer or Buy Now.'],
+    ['Why don’t you take cards?','A bank transfer can’t be reversed months later the way a card payment can, so sellers know a sale is final, and nobody pays a surcharge. And there are no card details for anyone to steal.'],
+    ['[[deposit]]How do I pay for a vehicle I win?','The deposit for the price goes towards it straight away. Pay the balance by PayID or bank transfer within {{PAY_DAYS}} business days, quoting your invoice number. The amount, our account details and (where shown) a single-use PayID are on your invoice page. If your deposit covers the whole invoice, there’s nothing more to pay.'],
+    ['[[transfer]]How do I pay for a vehicle I win?','By PayID or bank transfer within {{PAY_DAYS}} business days, quoting your invoice number. The amount, our account details and (where shown) a single-use PayID are on your invoice page. Using finance? Your lender can pay us directly.'],
+    ['What fees are added?','Buyer’s premium of {{PREMIUM}} plus GST, and an admin fee of {{ADMIN_FEE}}. No surcharge or payment fees. Every price on the site shows the all-in total beside it, and you see the all-in total again before you confirm a bid, offer or Buy Now.'],
     ['Do I get a tax invoice?','Yes. It’s emailed to you as a PDF when you win, and you can download it from your invoice page any time. Add your company name and ABN in your account if you’re buying for a business.'],
-    ['What if my card is declined?','We text you a secure link to pay. You have 1 business day, then the sale may be cancelled.'],
-    ['What if I don’t pay?','We can cancel the sale. A {{CANCEL_FEE}} cancellation fee applies to sales over {{CANCEL_ABOVE}}, or you lose your deposit, and your account may be suspended.'],
+    ['[[deposit]]What if I don’t pay?','We remind you first. If you still don’t pay, we cancel the sale, keep the deposit that went towards that vehicle, and close your account for bidding. You can’t open a new one.'],
+    ['[[transfer]]What if I don’t pay?','We remind you first. If you still don’t pay, we cancel the sale and close your account for bidding, and you can’t open a new one. There’s no cancellation fee.'],
     ['Do I pay the seller?','Never. You only ever pay Tyrebiter. We never change our bank details by email, SMS or phone. If anyone asks you to pay differently, call us on {{PHONE}} first.'],
-    ['Can I pay cash or by cheque?','No. Pay by card through Tyrebiter, or by bank transfer or PayID to the account on your invoice page. Allow up to a business day for a transfer to clear.'],
-    ['Can someone else pay for me?','Tell us first. We may ask for proof and hold the release until we’re satisfied, to protect you and the seller from fraud.'],
-    ['What if I pay late?','We remind you by SMS and email. Overdue balances may attract interest at {{LATE_INTEREST}} a year; there are no other late fees. If you still don’t pay, the sale can be cancelled (you lose your deposit) and your account suspended.']]],
+    ['Can I pay by card, cash or cheque?','No. Only PayID or bank transfer, to the account shown in your account or on your invoice page. Allow up to a business day for a normal transfer to clear; PayID is usually instant.'],
+    ['Can someone else pay for me?','Only your lender, if you’re using finance. Otherwise payments must come from an account in your name, or your business’s if you’re buying for it (a joint account you’re named on is fine). We send other payments back to where they came from. It protects you and the seller from fraud.'],
+    ['What if I pay late?','We remind you by SMS and email. Overdue balances may attract interest at {{LATE_INTEREST}} a year; there are no other late fees. If you still don’t pay, the sale can be cancelled and your account closed.']]],
    ['h-grade','Visual grades',[
     ['What is the visual grade?','A quick guide to how a vehicle looks, from our walkaround at the seller’s location. We grade paint and body, interior and tyres, plus an overall grade. We don’t grade mechanical condition, because a walkaround can’t test it.'],
     ['What does each grade mean?','GRADES'],
@@ -287,7 +306,7 @@ export const HELP: [string, string, [string, string][]][] = [
     ['Can I get a warranty or roadside assistance?','Yes, from the providers on our Warranty page. Compare what each covers, then ask for a quote. Tyrebiter doesn’t sell or recommend warranties, and may receive a commission. Read the PDS or terms before you buy.'],
     ['What happens to my details if I ask a partner to call?','We send the partner named on the form only the details you agree to share, and they contact you about that product. We record your consent. Ask us anytime and we’ll tell the partner to stop.']]],
    ['h-scams','Staying safe',[
-    ['How do I know a message is really from Tyrebiter?','Our emails come from @tyrebiter.com.au and our texts from “Tyrebiter”. Links go to tyrebiter.com.au. We’ll never ask for your password or card number by email or SMS.'],
+    ['How do I know a message is really from Tyrebiter?','Our emails come from @tyrebiter.com.au and our texts from “Tyrebiter”. Links go to tyrebiter.com.au. We’ll never ask for your password, sign-in code or bank login, by email, SMS or phone.'],
     ['Someone asked me to pay them directly.','Don’t. Only ever pay Tyrebiter, using the details on your invoice page. Report it to us on {{PHONE}}.'],
     ['I got an email saying your bank details changed.','That’s a scam. Our bank details never change by email. Call us before you pay anything.']]],
    ['h-sell','Selling',[
@@ -300,7 +319,7 @@ export const HELP: [string, string, [string, string][]][] = [
     ['Can I add a video?','Yes, one video per listing, up to 250 MB (a walkaround works best). Add it from your seller dashboard; our team checks it before it appears on the listing. A listing has up to 10 photos and videos in total.'],
     ['How do you fill in my vehicle’s details?','From vehicles we’ve listed before, and from the VIN: who made it, where and when, and what other vehicles we’ve listed with a similar VIN are. We don’t buy or copy rego records. Check what we fill in and correct anything that’s wrong.'],
     ['What do I do when it sells?','When the buyer has paid in full, lodge your part of the registration transfer. Your seller dashboard shows the steps for your state, and your consultant gives you the buyer’s details. Once ownership is transferred, we confirm the collection time with you.'],
-    ['Can I see who’s bidding?','You can see every bid and its time in your seller dashboard. Bidders’ names are hidden to protect their privacy, and every bidder has verified their mobile, card and ID.'],
+    ['Can I see who’s bidding?','You can see every bid and its time in your seller dashboard. Bidders’ names are hidden to protect their privacy, and every bidder has verified their mobile and ID.'],
     ['Can I get a report of my vehicles?','Yes. Download it from your seller dashboard (a spreadsheet of every vehicle, its result and your payout). Fleets and businesses selling several vehicles can ask us to group them in one sale page.'],
     ['What if my vehicle doesn’t sell?','We’ll talk to you about relisting it (no extra seller fee), or about offering it to the next highest bidder if the buyer didn’t pay. Anyone who bid on or watched it last time hears when it’s back.'],
     ['Can I bid on my own vehicle?','No, and nor can anyone bidding for you. It breaks our agreement, and shill bidding can breach consumer law.']]],
@@ -308,11 +327,12 @@ export const HELP: [string, string, [string, string][]][] = [
 
 export const PRIVACY: [string, string][] = [
    ['Who we are','{{LEGAL_NAME}} (ABN {{ABN}}). We handle personal information under the Privacy Act 1988 and the Australian Privacy Principles.'],
-   ['What we collect','Buyers: name, date of birth, address, email, mobile, company and ABN if given, the result of your ID check, card tokens from our payment provider, bids, offers, purchases, questions and how you use the site. Sellers: the same identity details, plus vehicle ownership papers, answers about the vehicle, finance and lender details, and bank details for your payout.'],
+   ['What we collect','Buyers: name, date of birth, address, email, mobile, company and ABN if given, the result of your ID check, the name, BSB and account number your deposit and payments come from (so we can match them and send refunds back), bids, offers, purchases, questions and how you use the site. Sellers: the same identity details, plus vehicle ownership papers, answers about the vehicle, finance and lender details, and bank details for your payout.'],
    ['How you use the site','To run and improve Tyrebiter we count the pages and app screens viewed, searches (the filters used, such as make, model, price and state, and how many vehicles matched; never the words you type), the type of device, the website or campaign link that brought you, and your approximate state (from your internet connection’s location). We count visits with an anonymous code that changes every day, so we can’t follow a person from one day to the next. We don’t use advertising cookies or sell this information. Browsers that send Do Not Track or Global Privacy Control aren’t counted. Detailed records are deleted after 90 days; only daily totals are kept. When you join, we note where your first visit came from (for example Google or a newsletter link).'],
    ['Why we collect it','To run auctions, verify identity, check ownership and PPSR status, take and make payments, arrange mobile inspections and collection, prevent fraud and shill bidding, send the alerts you choose, and meet our legal obligations (including record keeping).'],
-   ['Who we share it with','Sellers get the buyer’s (and collector’s) name for collection and transfer papers. The buyer, and the inspector for a mobile inspection, get the seller’s address. If you ask a finance, insurance, inspection, transport or warranty partner to contact you, we share the details you agree to with that partner (they’re named on the form), and they may pay us a fee. We also share with our identity-verification provider (Stripe Identity), payment provider (Stripe), SMS and email providers (Twilio, Resend), hosting providers (Vercel, Supabase), your lender for a payout, transport providers you book, and authorities where the law requires. Some providers store data outside Australia.'],
-   ['Card, bank and ID details','Card numbers are held by Stripe, never by Tyrebiter. ID documents are checked by Stripe Identity; we keep the result, not a copy of your document. Seller bank details and ownership papers are stored securely and seen only by our team.'],
+   ['Who we share it with','Sellers get the buyer’s (and collector’s) name for collection and transfer papers. The buyer, and the inspector for a mobile inspection, get the seller’s address. If you ask a finance, insurance, inspection, transport or warranty partner to contact you, we share the details you agree to with that partner (they’re named on the form), and they may pay us a fee. We also share with our identity-verification provider (Stripe Identity), banking and payments providers (our bank, and our PayID provider when you use a single-use PayID), SMS and email providers (Twilio, Resend), hosting providers (Vercel, Supabase), your lender for a payout, transport providers you book, and authorities where the law requires. Some providers store data outside Australia.'],
+   ['Bank and ID details','We don’t take cards. The bank details your payments come from, and seller bank details and ownership papers, are stored securely, seen only by our team, and used only to match payments, send refunds and pay sellers. ID documents are checked by Stripe Identity; we keep the result, not a copy of your document. If you saved a card with us before we stopped taking cards, it’s held by Stripe, never by Tyrebiter.'],
+   ['If an account is closed for not paying','We keep a one-way code (a scrambled fingerprint that can’t be turned back into your details) made from the name and date of birth, mobile number and email on the account, so the same person can’t open a new account to bid. We delete it if the decision is reversed.'],
    ['How long we keep it','For as long as your account is open, and afterwards for as long as the law requires for sale and tax records (generally 7 years).'],
    ['Access, correction and deletion','See and update your details in your account, or ask us for a copy of what we hold. You can delete your account yourself, in the app or on the website (Account, then Delete my account), once nothing is in progress (live bids, a purchase not yet paid for and collected, or a vehicle for sale). We then delete your personal details and keep only the sale and tax records the law requires.'],
    ['Our apps','If you allow notifications, we store your phone’s push token, its platform and the app version, so we can send the alerts you choose (you can turn each kind off in the app). The app uses your camera, photos or videos only when you choose to add them to a claim, an appraisal or your listing. We don’t use advertising identifiers, track you across other apps or websites, or collect your location.'],
@@ -332,7 +352,7 @@ export const WEBSITE_TERMS: [string, string, string[]][] = [
   'Nothing in these terms excludes, restricts or changes any right you have under the Australian Consumer Law that can’t lawfully be excluded.']],
  ['w-account','2. Your account',[
   'You must be 18 or over to create an account. One account per person: you can add your business details to it, but don’t open a second account or let someone else use yours.',
-  'Give us true, current details and keep them up to date. We verify mobiles, cards and IDs before you bid or sell, and we may ask for more if something doesn’t match.',
+  'Give us true, current details and keep them up to date. We verify mobiles and IDs before you bid or sell, check that payments come from you, and we may ask for more if something doesn’t match.',
   'Keep your password and sign-in codes private. Tell us straight away on {{PHONE}} if you think someone else has used your account. You’re responsible for what happens on your account until you tell us, unless it happened because of a failure in our security.']],
  ['w-use','3. Using the website and app fairly',[
   'Don’t: copy or scrape listings, photos or prices with software, bots or scripts (personal use, like sharing a listing link, is fine); bid with automated tools or for anyone else without telling us; interfere with an auction, the website or other people’s accounts; give false information or pretend to be someone else; or upload anything unlawful, offensive or that isn’t yours to share.',
@@ -348,9 +368,9 @@ export const WEBSITE_TERMS: [string, string, string[]][] = [
   'We work to keep Tyrebiter running, but we can’t promise it will always be available or free of errors. We may pause it for maintenance, preferably outside busy times. If an outage affects the end of an auction, the Terms of sale (section 17) explain what we do.',
   'Alerts by SMS, email and app notification are sent as quickly as we can, but they can be delayed or not arrive. Don’t rely on them alone for auctions that matter to you.']],
  ['w-suspend','7. Suspending or closing an account',[
-  'You can close your account at any time, in your account settings or the app, once nothing is in progress (a live bid, an unpaid or uncollected purchase, or a vehicle for sale).',
+  'You can close your account at any time, in your account settings or the app, once nothing is in progress (a live bid, an unpaid or uncollected purchase, a vehicle for sale, or money of yours we still have to return).',
   'We may suspend or close your account, or limit what you can do (for example stop you bidding), only if: you seriously or repeatedly break these terms or the Terms of sale; you don’t pay for a vehicle you won; we reasonably suspect fraud, identity misuse or shill bidding; it’s reasonably needed to protect other members, sellers or the security of Tyrebiter; or the law requires it.',
-  'We’ll tell you why, unless the law or a police request stops us, and you can ask us to review the decision through our complaints process. Closing an account doesn’t cancel a sale already made, or anything you or we already owe.']],
+  'If we close your account because you didn’t pay for a vehicle you won, you can’t open another one. We’ll tell you why, unless the law or a police request stops us, and you can ask us to review the decision through our complaints process. Closing an account doesn’t cancel a sale already made, or anything you or we already owe.']],
  ['w-liability','8. Liability',[
   'We’re responsible for loss caused by our own negligence, fraud or breach of these terms. We aren’t responsible for indirect loss that wasn’t reasonably foreseeable, for loss caused by your own device, connection or security, or for events outside our reasonable control.',
   'You’ll pay us back for loss we reasonably suffer because you broke section 3, except to the extent we caused it.',
@@ -372,7 +392,8 @@ const aud = (n: unknown) => `$${Number(n || 0).toLocaleString("en-AU", { maximum
 
 export function legalValues(s: Settings): Record<string, string> {
   const f = { premium_rate: 0.1, admin_fee: 99, card_limit: 5000, nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
-    storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10, ...(s.fees || {}) } as Record<string, number>;
+    storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10,
+    deposit_rate: 0.1, deposit_min: 500, deposit_cap: 5000, ...(s.fees || {}) } as Record<string, number>;
   const a = { extend_minutes: 10, referral_days: 2, offer_days: 2, payment_days: 2, collection_days: 5, claim_days: 2, abandon_days: 10, payout_days: 3, exclusivity_days: 30, ...(s.auction || {}) } as Record<string, number>;
   const rate = Number(f.seller_fee_rate) || 0, min = Number(f.seller_fee_min) || 0;
   const sellerFee = rate === 0 && min === 0 ? "none. Selling with Tyrebiter is free for sellers; buyers pay our fees"
@@ -388,6 +409,21 @@ export function legalValues(s: Settings): Record<string, string> {
     PHONE: process.env.NEXT_PUBLIC_SUPPORT_PHONE || "[1300 XXX XXX]", EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "help@tyrebiter.com.au",
     LICENCES: licenceText(s),
     LATE_INTEREST: Number(f.late_interest_rate) > 0 ? `${Math.round(Number(f.late_interest_rate) * 100) / 100}%` : "0%",
+    ...depositValues(f),
+  };
+}
+
+// The bidding deposit, in words (the same rule as deposit_for() in the database and depositFor() in fees.ts).
+function depositValues(f: Record<string, number>) {
+  const rate = Number(f.deposit_rate) || 0.1, min = Number(f.deposit_min) || 0, cap = Number(f.deposit_cap) || 0;
+  const need = (limit: number) => { const d = Math.max(min, Math.ceil(limit * rate)); return cap > 0 ? Math.min(d, cap) : d; };
+  const eg = [20000, 10000, 5000].find((l) => !(cap > 0 && need(l) >= cap)) ?? 5000;
+  return {
+    DEPOSIT_RATE: `${Math.round(rate * 1000) / 10}%`,
+    DEPOSIT_MIN: aud(min),
+    DEPOSIT_CAP_PART: cap > 0 ? ` and at most ${aud(cap)}` : "",
+    DEPOSIT_ANY: cap > 0 ? ` A deposit of ${aud(cap)} lets you bid any amount.` : "",
+    DEPOSIT_EG_PAID: aud(need(eg)), DEPOSIT_EG_LIMIT: aud(eg),
   };
 }
 
@@ -396,7 +432,25 @@ function licenceText(s: Settings) {
   return lic.length ? lic.map(([st, v]) => `${st}: ${v}`).join("; ") : "[LICENCE DETAILS BY STATE]";
 }
 
+/** Paragraphs, Help questions and Help sections marked [[transfer]] or [[deposit]] show only for that way of paying.
+ *  Documents are lists of records: [id, title, paragraphs or questions] or [title, text]; questions are [q, a]. */
+const MODE_TAG = /^\[\[(transfer|deposit)\]\]/;
+const tagOf = (v: unknown) => (typeof v === "string" ? MODE_TAG.exec(v)?.[1] ?? null : null);
+const strip = (v: unknown): unknown => (typeof v === "string" ? v.replace(MODE_TAG, "") : v);
+// a record (section, question, privacy item) is dropped when its id, title or question is marked for the other mode
+const recordFits = (r: unknown[], mode: string) => [r[0], r[1]].every((x) => !tagOf(x) || tagOf(x) === mode);
+function pickItems(items: unknown[], mode: string): unknown[] {
+  return items.filter((v) => (Array.isArray(v) ? recordFits(v, mode) : !tagOf(v) || tagOf(v) === mode))
+    .map((v) => (Array.isArray(v) ? v.map((x) => (Array.isArray(x) ? pickItems(x, mode) : strip(x))) : strip(v)));
+}
+function forMode(doc: unknown, mode: string): unknown {
+  return Array.isArray(doc) ? pickItems(doc, mode) : doc;
+}
+
 export function fillLegal<T>(content: T, settings: Settings): T {
   const v = legalValues(settings);
-  return JSON.parse(JSON.stringify(content).replace(/\{\{(\w+)\}\}/g, (m, k) => (v[k] ?? m).replace(/"/g, '\\"')));
+  const mode = (settings.fees || {}).pay_mode === "deposit" ? "deposit" : "transfer";
+  const picked = Array.isArray(content) ? forMode(content, mode)
+    : Object.fromEntries(Object.entries(content as Record<string, unknown>).map(([k, x]) => [k, forMode(x, mode)]));
+  return JSON.parse(JSON.stringify(picked).replace(/\{\{(\w+)\}\}/g, (m, k) => (v[k] ?? m).replace(/"/g, '\\"')));
 }

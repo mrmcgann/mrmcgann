@@ -12,7 +12,7 @@ export interface Me {
   profile: Profile | null;
   missing: number[];
   watched: number[];
-  config: { stripe: boolean; testMode: boolean; sms: boolean };
+  config: { stripe: boolean; testMode: boolean; sms: boolean; payId?: boolean; bank?: { name: string; bsb: string; account: string; payId: string | null } };
 }
 
 export interface AppConfig {

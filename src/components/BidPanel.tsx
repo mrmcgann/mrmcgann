@@ -3,19 +3,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { Fees, Lot } from "@/lib/types";
-import { priceBreakdown, lotFees } from "@/lib/fees";
+import type { DepositSummary, Fees, Lot } from "@/lib/types";
+import { payMode, depositFor, priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, dateLong, dateTime, money } from "@/lib/format";
 import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 import { BidConfirm, payNoteFor } from "@/components/BidConfirm";
+import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
+import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price">;
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
-const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Payment card", 5: "Verify ID" };
+const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Bidding deposit (refundable)", 5: "Verify your ID" };
 const pick = (x: Partial<Live>): Partial<Live> => {
   const o: Partial<Live> = {};
   for (const k of ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price"] as const) {
@@ -29,9 +31,9 @@ const pick = (x: Partial<Live>): Partial<Live> => {
 // viewer). If Realtime isn't connected, it polls an edge-cached endpoint instead,
 // faster in the final two minutes. Nothing here reloads the page on each bid.
 export function BidPanel(props: {
-  lot: Lot; fees: Fees; userId: string | null; missing: number[]; cardLabel: string | null; termsCurrent: boolean;
+  lot: Lot; fees: Fees; userId: string | null; missing: number[]; cardLabel: string | null; termsCurrent: boolean; deposit?: DepositSummary | null;
   myMax: number | null; watched: boolean; invoiceId: string | null; lastOffer: { amount: number; status: string } | null;
-  isSeller: boolean; history: Hist;
+  isSeller: boolean; history: Hist; suspended?: boolean;
 }) {
   const { lot, userId, missing, cardLabel } = props;
   const fees = useMemo(() => lotFees(props.fees, lot), [props.fees, lot]);
@@ -44,6 +46,7 @@ export function BidPanel(props: {
   const minNext = live.bid_count === 0 ? Math.max(lot.start_price, live.current_bid) : live.current_bid + bidIncrement(live.current_bid);
   const [amount, setAmount] = useState(String(minNext));
   const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [short, setShort] = useState<{ need: number; have: number; amount: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [gate, setGate] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -125,6 +128,7 @@ export function BidPanel(props: {
 
   function needsSetup() {
     if (!userId) { router.push(`/join?next=/lot/${lot.id}`); return true; }
+    if (props.suspended) { setMsg({ kind: "bad", text: "Your account can't bid at the moment. Call us if you think that's a mistake." }); return true; }
     if (missing.length) { setGate(true); return true; }
     if (!props.termsCurrent) { setTermsOpen(true); return true; }
     return false;
@@ -132,7 +136,7 @@ export function BidPanel(props: {
 
   function review(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
+    setMsg(null); setShort(null);
     if (needsSetup()) return;
     if (props.isSeller) { setMsg({ kind: "bad", text: "This is your vehicle, so you can't bid on it." }); return; }
     if (typed < minNext) { setMsg({ kind: "bad", text: `Enter ${money(minNext)} or more.` }); return; }
@@ -146,6 +150,7 @@ export function BidPanel(props: {
     setBusy(false);
     setConfirm(false);
     if (res.status === 409) { setTermsOpen(true); return; }
+    if (res.status === 402) { setShort({ need: data.need, have: data.have, amount: typed }); return; }
     if (!res.ok) { setMsg({ kind: "bad", text: data.error }); void sync(); return; }
     setMyMax(typed);
     apply({ current_bid: data.current_bid, ends_at: data.ends_at, bid_count: live.bid_count + 1 });
@@ -170,6 +175,7 @@ export function BidPanel(props: {
     setBusy(false);
     setBuyOpen(false);
     if (res.status === 409) { setTermsOpen(true); return; }
+    if (res.status === 402) { setShort({ need: data.need, have: data.have, amount: live.buy_now_price || 0 }); return; }
     if (!res.ok) { setMsg({ kind: "bad", text: data.error }); return; }
     router.push(`/account/invoices/${data.invoiceId}`);
   }
@@ -196,6 +202,8 @@ export function BidPanel(props: {
             <span className="moneyin"><span className="muted">$</span><input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} aria-describedby="bidhelp" /></span>
             <span className="hint" id="bidhelp">Minimum {money(minNext)}. We bid for you, one increment at a time, up to your max. Bids in the last 10 minutes add 10 minutes.</span>
           </label>
+          {!short && <DepositNeed fees={fees} deposit={props.deposit ?? null} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} signedIn={!!userId && !missing.length} />}
+          {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />}
           {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
           <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} disabled={busy}>{leading ? "Raise my max" : "Review bid"}</button>
         </form>
@@ -207,7 +215,7 @@ export function BidPanel(props: {
           <div><span className="muted">Admin fee</span><span>{money(preview.adminFee, true)}</span></div>
           {preview.surcharge > 0 && <div><span className="muted">Card surcharge</span><span>{money(preview.surcharge, true)}</span></div>}
           <div className="tot"><span>All-in</span><span>{money(preview.total, true)}</span></div>
-          <div className="hint">No card surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</div>
+          <div className="hint">No surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</div>
           <div style={{ fontSize: 14, lineHeight: 1.45, padding: "12px 14px", borderRadius: 14, background: "var(--panel)" }}>{payNote}</div>
         </div>
         {confirm && <BidConfirm lot={lot} typed={typed} minNext={minNext} fees={fees} cardLabel={cardLabel} busy={busy} onPlace={placeBid} onClose={() => setConfirm(false)} />}
@@ -220,7 +228,8 @@ export function BidPanel(props: {
               <div><span className="muted">Premium, GST and admin fee</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
               <div className="tot"><span>All-in</span><span>{money(bnPrev.total, true)}</span></div>
             </div>
-            <p style={{ fontSize: 14 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</p>
+            <p style={{ fontSize: 14 }}>{buyNowPayLine(bnPrev)
+              ?? (bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`)}</p>
             <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14 }}>
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
               <span>I&apos;ve read the listing and accept the <Link className="blue" href="/terms" target="_blank">terms of sale</Link>.</span>
@@ -273,7 +282,7 @@ export function BidPanel(props: {
         <WatchButton lotId={lot.id} initial={props.watched} title={lot.title} variant="button" />
         {gate && (
           <Modal title="Finish verifying to bid." onClose={() => setGate(false)}>
-            <p className="muted" style={{ fontSize: 17 }}>Every buyer verifies their mobile, adds a card and verifies their ID once. It keeps every auction genuine.</p>
+            <p className="muted" style={{ fontSize: 17 }}>{payMode(fees) === "deposit" ? "Every buyer verifies their mobile and ID once and adds a refundable bidding deposit (by PayID or bank transfer, never a card). It keeps every auction genuine." : "Every buyer verifies their mobile and ID once. It's free, there's no deposit, and it keeps every auction genuine."}</p>
             <ul style={{ margin: 0, paddingLeft: 20, fontWeight: 600 }}>{missing.map((n) => <li key={n}>{STEP_NAMES[n]}</li>)}</ul>
             <Link className="btn btn-blue" href={`/join?step=${missing[0]}&next=/lot/${lot.id}`}>Continue</Link>
             <button className="btn btn-soft" onClick={() => setGate(false)}>Not now</button>
@@ -281,7 +290,7 @@ export function BidPanel(props: {
         )}
         {termsOpen && (
           <Modal title="We've updated our terms." onClose={() => setTermsOpen(false)}>
-            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main changes cover collection, claims and the removal of card surcharges.</p>
+            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change is how you pay: PayID or bank transfer only, and an account is closed if a vehicle it wins isn&apos;t paid for.</p>
             <button className="btn btn-blue" onClick={acceptTerms} disabled={busy}>{busy ? "Saving…" : "I accept the terms"}</button>
             <button className="btn btn-soft" onClick={() => setTermsOpen(false)}>Not now</button>
           </Modal>
@@ -310,17 +319,19 @@ function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup, fees, s
   const router = useRouter();
   const [amount, setAmount] = useState(String((lastOffer?.amount || current) + bidIncrement(lastOffer?.amount || current)));
   const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [short, setShort] = useState<{ need: number; have: number; amount: number } | null>(null);
   const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (onNeedSetup()) return;
     const n = Number(amount.replace(/[^0-9]/g, ""));
-    if (!confirm(`Offer ${money(n)} (${money(priceBreakdown(n, fees).total, true)} all-in with the buyer's premium and fees)? If the seller accepts, it's binding and payment is taken the same way as a win.`)) return;
-    setBusy(true);
+    if (!confirm(`Offer ${money(n)} (${money(priceBreakdown(n, fees).total, true)} all-in with the buyer's premium and fees)? If the seller accepts, it's binding and you pay the same way as for a win.`)) return;
+    setBusy(true); setShort(null);
     const res = await fetch("/api/offer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId, amount: n }) });
     const data = await res.json();
     setBusy(false);
-    setMsg(res.ok ? { kind: "ok", text: "Offer sent to the seller. If they accept, payment is taken the same way as a win." } : { kind: "bad", text: data.error });
+    if (res.status === 402) { setShort({ need: data.need, have: data.have, amount: n }); return; }
+    setMsg(res.ok ? { kind: "ok", text: "Offer sent to the seller. If they accept, you pay the same way as for a win." } : { kind: "bad", text: data.error });
     if (res.ok) router.refresh();
   }
   return (
@@ -332,6 +343,7 @@ function OfferForm({ lotId, current, decisionBy, lastOffer, onNeedSetup, fees, s
         <span className="moneyin" style={{ background: "#FFFFFF" }}><span className="muted">$</span><input inputMode="numeric" aria-label="Offer amount" value={amount} onChange={(e) => setAmount(e.target.value)} /></span>
         {Number(amount.replace(/[^0-9]/g, "")) > 0 && <span className="hint">All-in if accepted: <b>{money(priceBreakdown(Number(amount.replace(/[^0-9]/g, "")), fees).total, true)}</b>, with the buyer&apos;s premium, GST and admin fee.</span>}
         <span className="hint">{consumerRights("outright", sellerType)}</span>
+        {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={lotId} />}
         {msg && <div className={`notice ${msg.kind}`}>{msg.text}</div>}
         <button className="btn btn-blue" disabled={busy}>{busy ? "Sending…" : "Make offer"}</button>
       </form>

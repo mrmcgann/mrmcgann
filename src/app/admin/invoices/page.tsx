@@ -33,7 +33,7 @@ export default async function Invoices({ searchParams }: { searchParams: Promise
                   {inv.status === "deposit_paid" && <AdminAction action="balance-received" payload={{ invoiceId: inv.id }} label="Balance received" confirmText="Confirm the transfer has cleared?" tone="blue" />}
                   {inv.status === "paid" && !inv.collected_at && <AdminAction action="collected" payload={{ invoiceId: inv.id }} label="Mark collected" confirmText="Only if the seller confirmed handover by phone. Starts the claim window." tone="soft" />}
                   <a className="btn btn-soft" style={{ height: 38, fontSize: 13, padding: "0 14px" }} href={`/api/invoices/${inv.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
-                  {["payment_failed", "deposit_paid"].includes(inv.status) && <AdminAction action="cancel-invoice" payload={{ invoiceId: inv.id }} label="Cancel: buyer didn't pay" confirmText="Cancel for non-payment? The deposit is kept, or the cancellation fee charged (never both)." tone="bad" />}
+                  {["payment_failed", "deposit_paid"].includes(inv.status) && <AdminAction action="cancel-invoice" payload={{ invoiceId: inv.id }} label="Cancel: buyer didn't pay" confirmText="Cancel for non-payment? The buyer is banned (they can't bid again, even with a new account), and any deposit applied to it is kept." tone="bad" />}
                   {["paid", "deposit_paid", "payment_failed", "pending_charge"].includes(inv.status) && <AdminAction action="refund-cancel" payload={{ invoiceId: inv.id }} label="Cancel and refund" input={{ name: "reason", placeholder: "Why (buyer and seller see it)" }} confirmText="Not the buyer's fault: refund everything they paid." tone="bad" />}
                 </span></td>
               </tr>

@@ -6,9 +6,12 @@ import { priceBreakdown } from "@/lib/fees";
 import { money } from "@/lib/format";
 import { Modal } from "@/components/Modal";
 import { rightsLine } from "@/lib/listing";
+import { ackPayLine, winPayLine } from "@/lib/deposits";
 
-/** How the winner pays, in one sentence (card in full, or a deposit then a bank transfer). */
+/** How the winner pays, in one sentence (by PayID or bank transfer; or, the old way, by card). */
 export function payNoteFor(preview: ReturnType<typeof priceBreakdown>, cardLabel: string | null) {
+  const line = winPayLine(preview);
+  if (line) return line;
   return preview.mode === "card"
     ? `Charged in full to ${cardLabel || "your card"} as soon as the auction ends.`
     : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel || "your card"} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
@@ -44,7 +47,7 @@ export function BidConfirm({ lot, typed, minNext, fees, cardLabel, busy, onPlace
       )}
       <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, padding: "14px 16px", borderRadius: 16, background: "var(--panel)" }}>
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0, accentColor: "#2F5BFF" }} />
-        <span>I understand this vehicle is sold <b>as is, where is</b>, at the seller&apos;s location, the condition report is a guide only, and if I win I authorise payment from my card straight away under the <Link className="blue" href="/terms" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
+        <span>I understand this vehicle is sold <b>as is, where is</b>, at the seller&apos;s location, the condition report is a guide only, and {ackPayLine(preview.payMode)}, under the <Link className="blue" href="/terms" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
       </label>
       <p className="hint" style={{ margin: 0 }} data-testid="rights-auction">{rightsLine("auction", lot.seller_type)}. <Link className="blue" href="/terms#t-asis" target="_blank">What that means ›</Link></p>
       <button className="btn btn-blue" onClick={onPlace} disabled={busy || !ack || (bigJump && !sure)}>{busy ? "Placing bid…" : `Place bid of up to ${money(typed)}`}</button>

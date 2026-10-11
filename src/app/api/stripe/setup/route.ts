@@ -2,10 +2,14 @@ import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { json, fail } from "@/lib/api";
+import { getFeesCached } from "@/lib/cache";
+import { payMode } from "@/lib/fees";
 import { env } from "@/lib/env";
 
 // Starts saving a card for automatic charging when the member wins.
 export async function POST() {
+  // No cards: bidders pay a refundable bidding deposit by PayID or bank transfer (Account → Bidding deposit).
+  if (payMode(await getFeesCached()) === "deposit") return fail("We don't take cards. Bidding uses a refundable deposit paid by PayID or bank transfer.", 410);
   const { user, profile } = await getSession();
   if (!user || !profile) return fail("Sign in first.", 401);
   const stripe = getStripe();

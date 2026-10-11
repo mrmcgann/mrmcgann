@@ -2,7 +2,7 @@
 
 Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia.
 
-Built with **Next.js** (the website), **Supabase** (database, logins, live bid updates, photo storage), **Stripe** (saved cards, automatic charging, ID checks), **Twilio** (SMS codes and alerts) and **Resend** (email). Hosted on **Vercel**.
+Built with **Next.js** (the website), **Supabase** (database, logins, live bid updates, photo storage), **Stripe** (ID checks), **PayID and bank transfer** into your trust account for every dollar (optionally Azupay for single-use PayIDs), **Twilio** (SMS codes and alerts) and **Resend** (email). Hosted on **Vercel**.
 
 ---
 
@@ -15,7 +15,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Auto-bidding with private maximums, bid increments, ties go to the earlier maximum
 - Going, going, gone: bids in the last 10 minutes add 10 minutes
 - Reserve met / not met, referral to the seller, Make an Offer, Buy Now
-- All-in price beside every price (listing cards, the current bid, Buy Now, offers, the newsletter) and a preview as you type (premium, GST, admin fee; no card surcharge)
+- All-in price beside every price (listing cards, the current bid, Buy Now, offers, the newsletter) and a preview as you type (premium, GST, admin fee; no surcharge)
 - Listings checked against the vehicle before they go live (VIN plate, build date, odometer photo, transmission, fuel, features, warning lights, starts and drives, damage photos), shown as "Checked against the vehicle"; private or business seller on every listing; "Starts and drives" filter; EV battery health; plain consumer-rights wording for auction and Buy Now sales (`/listing-promise`, `src/lib/listing.ts`)
 - Corrections in public: any later change to a key fact is shown under "Changes to this listing", sent to bidders and watchers, and bidding gets at least 24 more hours
 - Fleet sales (`/sales`): one seller's vehicles on one page, closing a few minutes apart
@@ -24,9 +24,11 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Recently viewed and "For you" (your saved search) on the home page, private notes on watched vehicles, help centre search, and on the Sell page what similar vehicles sold for here (only with 3 or more sales)
 - Transport quotes from a carrier partner (listing and invoice), carrier tracking link on the collection, and warranty and roadside assistance providers (`/warranty`)
 - Weekly newsletter for members who opt in (one-click unsubscribe)
-- 5-step sign-up: account → details → SMS code → card on file → ID check
-- Automatic payment when you win: under $5,000 charged in full, otherwise a deposit (kept only if the buyer doesn't pay) plus bank transfer
-- Declined-card "Pay now" flow, invoices, nominate a collector
+- Sign-up: account → details → SMS code → ID check (licence or passport and a selfie). That's all it takes to bid: no deposit and no card
+- **No cards, so no chargebacks.** The default works like Turners: anyone with a verified mobile and ID can bid (so buyers waiting on finance can bid too), and the winner pays the full amount by PayID or bank transfer within 2 business days (their lender can pay us directly). Nothing is released until it has cleared
+- **A buyer who doesn't pay is banned.** Cancelling for non-payment closes their account for bidding, takes their bids off other live auctions, and keeps a one-way code of their name and date of birth, mobile and email, so the same person is suspended as soon as a new account passes the ID check
+- Optional bidding deposit (switch in **Fees & settings**, like Copart and Manheim): a refundable deposit by PayID or bank transfer before bidding, 10% of the most they want to bid, at least $500, $5,000 means no limit. One deposit covers every vehicle they're winning; the deposit for the price goes onto the invoice; not paying loses it (half to the seller). Its page (`/account/deposit`, app too) shows the "paddle" with their limit, what's holding it, topping up and withdrawing
+- Invoices, nominate a collector
 - Watchlist (`/watchlist`): the vehicle closing next up top with a big countdown, an outbid strip with "Bid again", tabs (all, ending today, winning, outbid, won, didn't win), sort, prices that update live, the all-in price beside every bid, bid straight from the list (same confirm step as the vehicle page), private notes, 1-hour reminders, compare up to three side by side, remove with Undo, and finished vehicles kept with their result; saved searches with alerts; notification settings
 - No in-person viewings: buyers order an independent mobile inspection, or call the vehicle's consultant
 - Finance and insurance comparison (`/finance`, `/insurance`), with a repayment estimate on every listing; enquiries go to partners only with the member's permission
@@ -39,7 +41,9 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Dashboard of everything that needs attention
 - List a vehicle: details, story, condition report, photos, flaws, reserve, Buy Now, timing, private seller details
 - Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
-- Invoices: retry cards, mark balances received, mark collected, cancel with fee
+- Members: **Ban** (with a reason they see) or suspend; lifting it also forgets the identity codes
+- Deposits (`/admin/deposits`, shown when deposits are on): record a transfer that arrived (it checks the payer's name matches the member), send refunds to the account they came from, correct a balance; totals of what you hold
+- Invoices: mark balances received, mark collected, cancel for non-payment (bans the buyer, keeps any deposit) or cancel and refund
 - Videos: add the listing's video yourself in the vehicle editor (it goes live straight away), or approve or reject the seller's
 - Rego & VIN check: type a plate and state or a VIN; shows what we know, with one-click links to the state's free rego check and the PPSR
 - Listing checks in the vehicle editor (all needed to publish; who checked is recorded), seller type, EV battery health, and the sale a vehicle belongs to
@@ -65,7 +69,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 
 ## Test mode
 
-With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SMS code is always `123456`, the card step adds a test card, the ID step passes, and card charges are marked paid. A yellow bar at the top says so. **Turn it off before launch.**
+With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SMS code is always `123456`, the ID step passes, and the deposit step has a "pretend it arrived" button. A yellow bar at the top says so. **Turn it off before launch.**
 
 ---
 
@@ -120,7 +124,7 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
 4. The auction clock and sender need a job every minute. Vercel **Pro** runs `vercel.json` automatically (the free plan only allows daily jobs). As a backup you can also run `supabase/cron.sql` in Supabase (put your site address and `CRON_SECRET` in it first); running both is safe.
 5. **Settings → Functions**: set the region to **Sydney (syd1)**, next to your Supabase database. Leave Fluid compute on.
 6. **Firewall → Rate limiting** (Pro includes 40 rules): add rules for `/api/verify/send` (e.g. 10 per IP per 10 minutes), `/api/bid` (e.g. 120 per IP per minute) and `/api/*` generally (e.g. 600 per IP per minute). The site also has its own limits on SMS codes, questions, reports and forms.
-7. Extra environment variables: `LINK_SECRET` (another long random string, for unsubscribe links), `NEXT_PUBLIC_ABN`, `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_DEALER_LICENCE`, and `NEXT_PUBLIC_PAYID` if you take PayID.
+7. Extra environment variables: `LINK_SECRET` (another long random string, for unsubscribe links), `NEXT_PUBLIC_ABN`, `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_DEALER_LICENCE`, the trust account bidders pay into (`NEXT_PUBLIC_BANK_NAME`, `NEXT_PUBLIC_BANK_BSB`, `NEXT_PUBLIC_BANK_ACCOUNT`) and `NEXT_PUBLIC_PAYID` for that account's PayID.
 
 ### 3. Make yourself an admin
 Sign up on the site, then in the Supabase SQL Editor run:
@@ -128,7 +132,8 @@ Sign up on the site, then in the Supabase SQL Editor run:
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
 
-### 4. Stripe (cards and ID checks)
+### 4. Stripe (ID checks)
+Stripe is only used for ID checks (no cards are taken). The ID check is what makes "ban the non-payers" work, so keep it on.
 1. Create an account at stripe.com and complete business verification.
 2. Copy the secret and publishable keys into Vercel.
 3. Turn on **Stripe Identity** (Dashboard → Identity) and check it's available for your Australian account.
@@ -144,8 +149,11 @@ update public.profiles set role = 'admin' where email = 'you@example.com';
 ### 6. Resend (email)
 Create an account at resend.com, verify `tyrebiter.com.au` (add the SPF, DKIM and DMARC records it gives you, so emails don't land in spam), and add the API key. Resend allows 10 requests a second with up to 100 emails each; the site sends in batches. For around 1 million emails a month you'll need the Scale plan.
 
-### 7. Stripe limits
-Stripe allows about 25 new payments a second. The site charges 10 at a time and retries safely (each charge has an idempotency key, so a retry can never charge twice). Before a very large sale, ask Stripe support to raise your limit (they want about 6 weeks' notice).
+### 7. Taking money: the trust account and PayID
+1. Open a trust account (or the account your lawyer says auction money must sit in) with your bank, with a PayID (an email or ABN PayID such as `pay@tyrebiter.com.au`). Put its details in the `NEXT_PUBLIC_BANK_*` and `NEXT_PUBLIC_PAYID` variables. They show on every deposit and invoice page with copy buttons and a scam warning.
+2. Until you add a PayID provider, when a buyer's payment shows on the statement (their invoice number is the reference), press **Admin → Invoices → Balance received**. With bidding deposits switched on, deposits are recorded in **Admin → Deposits** the same way (their BID… reference, the amount, and the payer's name, BSB and account, which is where refunds go; it asks you to check if the name doesn't match the member).
+3. Optional, so deposits record themselves: an **Azupay** account (Australian, PayTo/PayID payments). Set `AZUPAY_CLIENT_ID`, `AZUPAY_SECRET_KEY` and `AZUPAY_API_URL` (their UAT address first). Bidders then get a "Get a PayID for $X" button: a single-use PayID for that exact amount that shows "Tyrebiter" before they pay, and the payment is recorded the moment Azupay tells `/api/payments/azupay`. Check the field names in `src/lib/payid.ts` against your Azupay onboarding pack before switching it on.
+4. Refunds: **Admin → Deposits → Refunds to send** lists each withdrawal with the full BSB and account it came from. Pay it from your bank, then press **Mark sent** (the member is told).
 
 ---
 
@@ -153,19 +161,20 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 1. **Email**: a 6-digit code (or link) confirms the email address.
 2. **Details**: legal name, date of birth (18+), address and Australian mobile.
 3. **Mobile**: a 6-digit SMS code via Twilio Verify.
-4. **Card**: saved securely with Stripe (handles 3-D Secure). Nothing is charged until they win.
-5. **ID**: Stripe Identity, in the browser, no app needed. On a phone it opens the camera for a photo of their licence or passport and a selfie. On a computer it shows a QR code to finish on their phone, and the computer moves on by itself. The name and date of birth on the document must match their details.
+4. **ID**: Stripe Identity, in the browser, no app needed. On a phone it opens the camera for a photo of their licence or passport and a selfie. On a computer it shows a QR code to finish on their phone, and the computer moves on by itself. The name and date of birth on the document must match their details.
+That's all it takes to bid. (With bidding deposits switched on there's a fifth step: they choose how much they want to be able to bid and pay that deposit by PayID or bank transfer.)
 
 ## Test it after your first deploy (test mode)
 - [ ] Join with a real email address: the 6-digit email code arrives and works
-- [ ] Add details, then SMS code `123456`, test card, test ID
+- [ ] Add details, then SMS code `123456`, then test ID: you can bid straight away
 - [ ] On the Sell page, type a plate you've listed (it fills in from our records), then a VIN you haven't (it fills in the maker and year)
 - [ ] As admin, list a vehicle ending in 15 minutes with a reserve, registered (plate, state, expiry), and publish it; add a video in the editor and see it second in the gallery
 - [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
 - [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
-- [ ] Let it end: the winner's invoice appears, marked paid (test mode), and the win email arrives
+- [ ] Let it end: the winner's invoice shows the full amount with the bank details and reference; mark it received in Admin → Invoices
+- [ ] Win another one and don't pay: wind its due date back, **Cancel: buyer didn't pay**. The buyer is banned, and a new account with the same name and date of birth is suspended as soon as its ID check passes
 - [ ] Repeat with a bid below the reserve: it shows "Referred to the seller"; decline it in Admin → Referrals & offers, make an offer, accept it
-- [ ] Buy Now on a vehicle over $5,000: $500 deposit, balance shown with bank details
+- [ ] Buy Now on a vehicle: the invoice shows the full amount with the bank details
 - [ ] As a fully verified member, order a mobile inspection on a listing: you get a reference, emails go to the partner, the buyer and your team, and it shows in Admin → Leads
 - [ ] On a listing, open "Compare car loans" and send an enquiry to a lender; record a fee against it in Admin → Leads
 - [ ] As the seller, add a video from the seller dashboard; approve it in Admin → Videos; it plays on the listing
@@ -174,7 +183,7 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 - [ ] Seller flow: in Admin, turn the appraisal into a draft listing (the reserve and answers come across), copy the seller link (or "Text + email it"), open it signed in as a third account, verify ID, check the answers (already filled in from the sell form), upload a photo as the rego papers, add bank details, sign in the box
 - [ ] Try to publish before ticking "Papers match" and adding the VIN + PPSR date: it refuses and says why. Then publish
 - [ ] Sign in as the seller and try to bid on your own vehicle: refused
-- [ ] End it below the reserve: the seller gets a text, accepts in their dashboard, the buyer is charged and gets the tax invoice PDF by email
+- [ ] End it below the reserve: the seller gets a text, accepts in their dashboard, the buyer gets the tax invoice PDF by email with the bank details
 - [ ] After payment, the buyer's invoice shows the transfer step: upload a photo as the transfer confirmation, complete it in Admin → Transfers; the seller marks their part done from their dashboard
 - [ ] Buyer books a collection; confirm it in Admin → Collections; the buyer sees the address and release code, the seller gets the handover link; enter the code on the handover page
 - [ ] Lodge a claim from the invoice: the payout goes on hold; reject it: the payout goes back
@@ -182,10 +191,10 @@ Stripe allows about 25 new payments a second. The site charges 10 at a time and 
 - [ ] Ask a question on a lot; answer and publish it in Admin → Questions
 - [ ] Click "Manage alerts" in an email: settings open without signing in; unsubscribe works
 
-Then add the Stripe keys (test keys first: card `4242 4242 4242 4242`, and `4000 0000 0000 9995` to test a declined charge) and Twilio, and repeat.
+Then add the Stripe keys (test keys first) for ID checks, Twilio, and your bank details, and repeat with a real $500 transfer.
 
 ## Automated tests
-`npm run test:db` runs 528 checks of the auction engine, payment maths, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) and the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it). GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
+`npm run test:db` runs 602 checks of the auction engine, payment maths, bidding deposits, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it) and bidding deposits (the 10%/$500/$5,000 rule, limits, matching a payer's name). GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -213,7 +222,7 @@ In 2024 the Federal Court ordered Grays to pay $10 million for misdescribing at 
 - **Checked before it's live.** A listing can't be published until staff tick each check against the vehicle itself (`LISTING_CHECKS` in `src/lib/listing.ts`, `listing_check_keys()` in the database), record whether it starts and drives, and record the written-off result. A statutory write-off can never be listed as registered. Buyers see what was checked (green) apart from what the seller declared (yellow).
 - **Corrections in public.** Changing a key fact on a live listing logs it in `lot_corrections` (shown on the listing), tells bidders and watchers, and makes sure 24 hours of bidding remain. Staff can remove a bidder's bids if they ask out after a material correction.
 - **Plain consumer rights.** No "no warranty" wording anywhere. Each listing says private or business seller, and the rights for an auction sale and for Buy Now/offers (`consumerRights()`), with `[LAWYER TO CONFIRM]` in the Terms.
-- **All-in prices** beside every price; no card surcharge (banned from 1 October 2026).
+- **All-in prices** beside every price; no surcharge (we don't take cards).
 - **Monthly listing audits** in Admin, as a record of the compliance program.
 - **Licence numbers** in the footer and Terms from Admin → Fees & settings (NSW requires the dealer licence number in every advertisement).
 - **Spam Act:** marketing only to members who opt in, with our details and one-click unsubscribe in every email.
@@ -248,11 +257,12 @@ When an invoice is paid in full, the buyer's invoice shows a **Transfer of owner
 - Collection can only be booked once the transfer is complete, and the collection window starts then. The pickup address is sent once the collection time is confirmed.
 - Proof files are kept in the private `transfer-docs` storage bucket.
 
-## Terms, payment and liability (version 10 October 2026)
+## Terms, payment and liability (version 11 October 2026)
 Written in our own words after comparing the payment terms and site terms of Grays/Slattery, Pickles and Manheim, keeping what protects buyers, sellers and Tyrebiter and leaving out terms the unfair contract terms laws catch (termination "for any reason", 1%-a-day late fees, one-sided changes, blanket exclusions). `src/content/legal.ts`: Terms of sale (20 sections), Seller agency agreement, Website terms (`/website-terms`), Help.
-- **Paying:** card under the card limit; otherwise a deposit (kept only if the buyer doesn't pay) and the balance by bank transfer or PayID. No cash or cheques, only into the account on the invoice page, payer must be the buyer (or approved). Interest on overdue balances at the rate in **Fees & settings** (default 10% a year, capped at 20), no other late fees.
-- **Not paying:** an overdue reminder (clock), then 1 business day. **Admin → Invoices → Cancel: buyer didn't pay** refuses earlier, keeps the deposit *or* charges the cancellation fee (never both), and gives the seller half as a `forfeit` payout.
-- **Cancel and refund** (Admin → Invoices) for anything that isn't the buyer's fault (upheld claim, title problem, damage before handover, our mistake): refunds the card in Stripe, lists any bank refund to make, cancels the seller payout and open collection bookings.
+- **Paying (sections 6, 8 and 11):** by default (like Turners) nothing before bidding but a verified ID; the winner pays the full amount by PayID or bank transfer within 2 business days (their lender may pay). With bidding deposits switched on, a refundable deposit first and the deposit for the price goes onto the invoice. The Terms, Help and Privacy show the wording for whichever is on (`[[transfer]]`/`[[deposit]]` in `src/content/legal.ts`); after switching, save a new terms version. No cards, cash or cheques; payments only from an account in the buyer's name (others are sent back); refunds only to the account money came from; nothing released until funds clear. Interest on overdue balances at the rate in **Fees & settings** (default 10% a year, capped at 20), no other late fees. Never "non-refundable": the deposit is kept only if the buyer doesn't pay.
+- **Why deposits, not cards:** a card payment can be disputed for months (chargebacks), and a merchant-initiated charge has no fraud liability shift. A PayID or bank transfer can't be charged back: once it has cleared, the buyer can't reverse it through a dispute (a bank can only try to recall a payment for fraud or a mistake, which is why it must come from the buyer's own account). And nobody pays a surcharge. Copart and Manheim take bidding deposits the same way.
+- **Not paying:** an overdue reminder (clock), then 1 business day. **Admin → Invoices → Cancel: buyer didn't pay** refuses earlier, bans the buyer (no new account for the same person), and with deposits keeps the deposit applied to that vehicle (half to the seller). No cancellation fee. The Terms keep the right to recover an actual shortfall if the vehicle resells for less.
+- **Cancel and refund** (Admin → Invoices) for anything that isn't the buyer's fault (upheld claim, title problem, damage before handover, our mistake): the deposit goes straight back into the buyer's deposit, it lists any balance to pay back, and cancels the seller payout and open collection bookings. (Old card invoices are refunded in Stripe.)
 - **Fees are locked per vehicle** when it goes live (`lots.fees`); a fee change applies only to vehicles listed afterwards. The seller fee comes from the copy saved when the seller signed. Each invoice records the terms version the buyer accepted.
 - **Storage** only starts once the registration transfer is complete and the collection window has passed.
 - **Late bids:** any bid in the closing minutes extends the auction, including a leader raising their maximum to meet the reserve. The reserve can be lowered but never raised once there are bids.
@@ -297,9 +307,10 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] The newsletter switched on in **Admin → Newsletter** only once you have opted-in members
 - [ ] **Admin → Fees & settings → Selling checks** is ON
 - [ ] Public holidays for next year added to the `public_holidays` table (the business-day maths skips them)
-- [ ] Terms of sale, Seller agency agreement, Website terms and Privacy policy reviewed by an Australian lawyer (send them the `[LAWYER ...]` notes in `src/content/legal.ts`): consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds must sit in a trust account, unfair contract terms (deposit forfeiture, withdrawal and cancellation fees, overdue interest, the indemnities), storage and uncollected goods in each state, whether an accepted referred bid is a sale by auction
+- [ ] Terms of sale, Seller agency agreement, Website terms and Privacy policy reviewed by an Australian lawyer (send them the `[LAWYER ...]` notes in `src/content/legal.ts`): consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds and bidding deposits must sit in a trust account (Terms section 8 has a placeholder), unfair contract terms (keeping a 10% deposit on non-payment, withdrawal and cancellation fees, overdue interest, the indemnities), storage and uncollected goods in each state, whether an accepted referred bid is a sale by auction
 - [ ] Accountant to confirm GST handling when a GST-registered seller sells through you as agent
-- [ ] ABN, licence number, phone, email and bank details in the environment variables and footer
+- [ ] ABN, licence number, phone, email and the trust account details in the environment variables and footer
+- [ ] A real payment by PayID from your own account for a test invoice, marked received (or recorded by Azupay)
 - [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
 - [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
 - [ ] Storage upload limit raised to 250 MB
@@ -309,7 +320,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] Claude Code set up (Admin → Site health → Set up Claude), the GitHub repository made private with `main` protected (pull request and the `test` check required), a free outside monitor on `/api/health`, and `HEALTH_ALERT_EMAIL` set
 - [ ] Admin → Site health all green on the live site (test mode off, live Stripe key, every service connected, `LINK_SECRET` set)
 - [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)
-- [ ] A full test sale with a real card, then refunded in Stripe
+- [ ] A full test sale paid by PayID: win, payment received, then cancel and refund
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
 
 ## Running it on your computer

@@ -7,6 +7,7 @@ import { money } from "@/lib/format";
 import { consumerRights } from "@/lib/listing";
 import type { Lot } from "@/lib/types";
 import { OfferAnswer } from "./OfferAnswer";
+import { winPayLine } from "@/lib/deposits";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,8 @@ export default async function SecondChance({ params }: { params: Promise<{ id: s
         <div><span className="muted">Buyer&apos;s premium, GST and admin fee</span><span>{money(b.subtotal - b.price, true)}</span></div>
         <div className="tot"><span>All-in</span><span data-testid="offer-total">{money(b.total, true)}</span></div>
       </div>
-      {open && <p className="muted" style={{ margin: 0 }}>Open until {new Date(o.expires_at).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })} (Brisbane time). If you accept, it&apos;s binding and payment is taken the same way as a win.</p>}
-      {open && <OfferAnswer id={o.id} />}
+      {open && <p className="muted" style={{ margin: 0 }}>Open until {new Date(o.expires_at).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })} (Brisbane time). If you accept, it&apos;s binding and it&apos;s paid for the same way as a win: {winPayLine(b)?.replace(/^If you win, /, "") ?? "payment is taken straight away."}</p>}
+      {open && <OfferAnswer id={o.id} mode={b.payMode} />}
       {!open && <div className="notice">{o.status === "accepted" ? "You accepted this offer. Your invoice and next steps are in your account." : o.status === "declined" ? "You declined this offer." : "This offer has expired."} <Link className="blue" href="/account">Your account ›</Link></div>}
       <p className="hint" style={{ margin: 0 }}>{consumerRights("outright", (lot as Pick<Lot, "seller_type"> | null)?.seller_type)}</p>
     </div>

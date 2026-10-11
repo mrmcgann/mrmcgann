@@ -17,6 +17,7 @@ export function appPath(link: string | null | undefined): string {
   if (/^\/sell(\/dashboard)?\/?$/.test(p)) return "/sell";
   if (/^\/watchlist\/?$/.test(p)) return "/watchlist";
   if (/^\/(account\/)?notifications\/?$/.test(p)) return "/notifications";
+  if (/^\/account\/deposit\/?$/.test(p)) return `/deposit${q}`;
   if (/^\/account\/?$/.test(p)) return "/account";
   if (/^\/(auctions|search)\/?$/.test(p)) return `/search${q}`;
   if (/^\/join\/?$/.test(p)) return "/join";

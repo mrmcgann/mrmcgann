@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   if (!p.mobile_verified || !p.mobile) return fail("Verify your mobile first, so the partner can reach you.", 403);
   if (kind === "inspection") {
     const { data: canBid } = await admin.rpc("can_bid", { p_user: user.id });
-    if (!canBid) return fail("Finish verifying your account (mobile, card and ID) before ordering an inspection.", 403);
+    if (!canBid) return fail("Finish setting up your account (your mobile and ID) before ordering an inspection.", 403);
   }
   const name = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
   if (name.length < 2) return fail("Add your name in your account first.");

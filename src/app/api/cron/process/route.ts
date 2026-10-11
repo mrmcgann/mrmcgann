@@ -80,7 +80,7 @@ export async function GET(req: Request) {
       .eq("status", "deposit_paid").lte("due_at", soon).limit(500);
     for (const i of (balances || []) as unknown as { id: string; ref: string; buyer_id: string; balance_due: number; due_at: string; lots: { title: string } }[]) {
       await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account", p_title: `Balance due for the ${i.lots?.title}`,
-        p_body: `Please pay the ${money(i.balance_due, true)} balance by ${dateLong(i.due_at)}, reference ${i.ref}. Details are on your invoice. We never change our bank details by email.`,
+        p_body: `Please pay the ${money(i.balance_due, true)} balance by PayID or bank transfer by ${dateLong(i.due_at)}, reference ${i.ref}, from an account in your name. Details are on your invoice. We never change our bank details by email.`,
         p_link: `/account/invoices/${i.id}`, p_dedupe: `balance-due:${i.id}`, p_meta: {}, p_expires: null });
     }
     // The overdue reminder the Terms of Sale (section 11) promise before a sale can be cancelled.
@@ -88,7 +88,7 @@ export async function GET(req: Request) {
       .eq("status", "deposit_paid").lt("due_at", new Date().toISOString()).limit(500);
     for (const i of (late || []) as unknown as { id: string; ref: string; buyer_id: string; balance_due: number; lots: { title: string } }[]) {
       await db.rpc("queue_notice", { p_user: i.buyer_id, p_kind: "account", p_title: `Your balance for the ${i.lots?.title} is overdue`,
-        p_body: `Please pay the ${money(i.balance_due, true)} balance within 1 business day, reference ${i.ref}. If it isn't paid, we may cancel the sale (you'd lose your deposit) and offer the vehicle to the next bidder. Call us if something's holding you up.`,
+        p_body: `Please pay the ${money(i.balance_due, true)} balance within 1 business day, reference ${i.ref}. If it isn't paid, we may cancel the sale (you'd lose the deposit that went towards it) and offer the vehicle to the next bidder. Call us if something's holding you up.`,
         p_link: `/account/invoices/${i.id}`, p_dedupe: `balance-overdue:${i.id}`, p_meta: {}, p_expires: null });
     }
     const { data: collect } = await db.from("invoices").select("id, buyer_id, collect_by, lots(title)")

@@ -12,6 +12,7 @@ import { useSession } from "~/lib/session";
 import type { InvoiceDetail } from "~/lib/types";
 import { Button, Empty, Field, LineItem, LinkText, Loading, Notice, Screen, Segmented, Select, Sheet, Soft, T } from "~/ui/kit";
 import { InsureBox } from "~/ui/Partners";
+import { PayRows } from "~/ui/Deposit";
 import { TransferStep } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
 
@@ -81,14 +82,21 @@ export default function InvoiceScreen() {
           <LineItem k="Total" v={money(d.total, true)} bold />
           <LineItem k="Includes GST of" v={money(d.gstTotal, true)} />
         </View>
-        <T v="small">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No card surcharge.</T>
+        <T v="small">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No surcharge.</T>
         <LinkText title="Download the PDF ›" onPress={() => downloadAndShare(d.pdfUrl, `${inv.ref}.pdf`).catch((e) => setMsg({ ok: false, text: errText(e) }))} />
       </View>
 
       {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
       {["pending_charge", "charging"].includes(inv.status) ? <Notice>We're taking payment now. This updates within a minute.</Notice> : null}
-      {inv.status === "paid" ? <Notice kind="ok">{inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card. Paid in full.` : "Deposit and balance received. Paid in full."}</Notice> : null}
-      {inv.status === "deposit_paid" && d.bank ? (
+      {inv.status === "paid" ? <Notice kind="ok">{inv.pay_method === "bank" ? `${Number(inv.balance_due) > 0 ? `${money(inv.deposit_applied || 0, true)} from your bidding deposit and ${money(inv.balance_due, true)} by transfer received.` : `Paid from your bidding deposit (${money(inv.deposit_applied || 0, true)}).`} Paid in full.` : inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card. Paid in full.` : "Deposit and balance received. Paid in full."}</Notice> : null}
+      {inv.status === "deposit_paid" && d.bank && inv.pay_method === "bank" ? (
+        <Soft bg={C.sun} testID="balance-due">
+          <T v="strong">{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has gone towards it. Balance due: ${money(inv.balance_due, true)}.` : `Pay ${money(inv.balance_due, true)} by ${dateLong(inv.due_at)}.`}</T>
+          <T v="body">{`Pay by PayID or bank transfer${Number(inv.deposit_applied) > 0 ? ` by ${dateLong(inv.due_at)}` : ""}, from an account in your name (or your lender can pay us if you're using finance). Use your invoice number as the reference.`}</T>
+          <PayRows amount={Number(inv.balance_due)} reference={d.bank.reference} bank={d.bank} payIdOn={!!me?.config.payId} requestUrl={`/api/invoices/${inv.id}/payid`} requestLabel={`Get a PayID for ${money(inv.balance_due, true)}`}
+            note="Once it clears, we confirm it here and by text. Then we take you through the transfer of ownership and collection." />
+        </Soft>
+      ) : inv.status === "deposit_paid" && d.bank ? (
         <Soft bg={C.sun}>
           <T v="strong">Deposit of {money(inv.card_amount, true)} paid. Balance due: {money(inv.balance_due, true)}.</T>
           <T v="body">Pay by bank transfer by {dateLong(inv.due_at)}.</T>

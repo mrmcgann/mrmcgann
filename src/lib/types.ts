@@ -141,11 +141,16 @@ export interface Profile {
   id_status: "none" | "pending" | "verified" | "failed";
   role: "buyer" | "admin";
   suspended: boolean;
+  suspended_reason?: string | null;
   notify: Record<string, { sms: boolean; email: boolean }>;
   terms_version?: string | null;
   company_name?: string | null;
   abn?: string | null;
+  deposit_ref?: string | null;
   // from me()
+  pay_mode?: "transfer" | "deposit" | "card";
+  payment_ok?: boolean;
+  deposit?: DepositSummary | null;
   watch_count?: number;
   unread?: number;
   is_seller?: boolean;
@@ -188,6 +193,9 @@ export interface Invoice {
   claim_until?: string | null;
   storage_fee?: number;
   charge_attempts?: number;
+  /** "bank": paid from the bidding deposit and by PayID or bank transfer (no card). */
+  pay_method?: "card" | "bank";
+  deposit_applied?: number;
 }
 
 export interface Fees {
@@ -205,15 +213,51 @@ export interface Fees {
   seller_fee_min?: number;
   withdrawal_fee?: number;
   late_interest_rate?: number;
+  /** "deposit": bidders pay a refundable bidding deposit by PayID or bank transfer, and the price the same way (no cards).
+   *  "card": the old way (card on file, charged when they win). */
+  pay_mode?: "transfer" | "deposit" | "card";
+  /** The deposit needed to bid an amount: deposit_rate of it, at least deposit_min, at most deposit_cap (0 = no cap). */
+  deposit_rate?: number;
+  deposit_min?: number;
+  deposit_cap?: number;
 }
 
 export const DEFAULT_FEES: Fees = {
   premium_rate: 0.1, admin_fee: 99, surcharge_rate: 0, card_limit: 5000,
   nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
   storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10,
+  pay_mode: "transfer", deposit_rate: 0.1, deposit_min: 500, deposit_cap: 5000,
 };
 
-export const TERMS_VERSION = "2026-10-10";
+/** A bidder's deposit right now (public.deposit_summary). limit is null when there's no limit. */
+export interface DepositSummary {
+  balance: number;
+  committed: number;
+  available: number;
+  pending_withdrawal: number;
+  limit: number | null;
+  unlimited: boolean;
+  ref: string;
+  rate: number;
+  min: number;
+  cap: number;
+}
+
+/** One movement in a bidder's deposit (my_deposit() history). */
+export interface DepositEntry {
+  id: string; kind: "received" | "applied" | "returned" | "withdrawal" | "adjustment"; amount: number; status: "pending" | "done" | "cancelled";
+  created_at: string; done_at: string | null; method: string | null; note: string | null; invoice_ref: string | null; invoice_id: string | null;
+  invoice_status: string | null; cancel_reason: string | null; vehicle: string | null;
+}
+/** The bidder's own deposit page (my_deposit()): the summary plus what's holding it, history and where a refund goes. */
+export type MyDeposit = DepositSummary & {
+  history: DepositEntry[]; holding: { lot_id: number; title: string; status: string; amount: number; why: string }[]; unpaid: boolean;
+  refund_to: { name: string | null; bsb: string | null; ending: string | null } | null;
+};
+/** Our account details for PayID and bank transfers. */
+export type PayBank = { name: string; bsb: string; account: string; payId: string | null };
+
+export const TERMS_VERSION = "2026-10-11";
 
 export interface Sale {
   id: number;

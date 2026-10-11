@@ -94,6 +94,7 @@ function Shell() {
         <Stack.Screen name="settings" options={{ title: "Account settings" }} />
         <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
         <Stack.Screen name="join" options={{ title: "Join Tyrebiter" }} />
+        <Stack.Screen name="deposit" options={{ title: "Bidding deposit" }} />
         <Stack.Screen name="signin" options={{ title: "Sign in" }} />
         <Stack.Screen name="forgot" options={{ title: "Reset password" }} />
         <Stack.Screen name="appraisal" options={{ title: "Sell your vehicle" }} />

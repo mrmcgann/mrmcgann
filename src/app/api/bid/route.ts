@@ -1,6 +1,6 @@
 import { currentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
-import { json, fail, friendly } from "@/lib/api";
+import { json, fail, failBid } from "@/lib/api";
 import { kickOutbox } from "@/lib/notify";
 
 // One database call per bid: the engine checks, bids, extends the clock, queues the
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   const amount = Math.round(Number(max));
   if (!Number.isFinite(amount) || amount <= 0) return fail("Enter a whole-dollar amount.");
   const { data, error } = await db.rpc("place_bid", { p_lot: Number(lotId), p_max: amount });
-  if (error) return fail(friendly(error.message), error.message.includes("terms_outdated") ? 409 : 400);
+  if (error) return failBid(error.message);
   const r = data as { outbid_user: string | null };
   if (r.outbid_user && r.outbid_user !== user.id) kickOutbox();
   return json(data);

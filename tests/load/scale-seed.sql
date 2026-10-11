@@ -26,9 +26,13 @@ select md5('u' || i)::uuid, 'u' || i || '@load.test',
   case when i <= {{VERIFIED}} then '4242' end,
   case when i <= {{VERIFIED}} then 'verified' when i % 7 = 0 then 'pending' else 'none' end,
   now() - (i % 1000) * interval '1 day',
-  '2026-10-10',
+  '2026-10-11',
   now() - (i % 1000) * interval '1 day'
 from generate_series(1, {{USERS}}) i;
+
+-- Verified bidders have a bidding deposit (enough for several vehicles at once).
+insert into public.bidder_deposits (user_id, kind, amount, method, reference, payer_name, done_at, created_at)
+select md5('u' || i)::uuid, 'received', 50000, 'bank', 'load', 'Load test', now(), now() from generate_series(1, {{VERIFIED}}) i;
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000a0a0', 'admin@load.test');
 update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-00000000a0a0';

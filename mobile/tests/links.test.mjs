@@ -12,6 +12,7 @@ eq("seller dashboard", appPath("/sell/dashboard"), "/sell");
 eq("watchlist", appPath("/watchlist"), "/watchlist");
 eq("notifications", appPath("/account/notifications"), "/notifications");
 eq("account", appPath("/account"), "/account");
+eq("bidding deposit", appPath("https://tyrebiter.com.au/account/deposit?bid=12000&lot=10500"), "/deposit?bid=12000&lot=10500");
 eq("search keeps the filters", appPath("/auctions?cat=utes&make=Toyota"), "/search?cat=utes&make=Toyota");
 eq("join", appPath("/join"), "/join");
 eq("unknown goes home", appPath("/terms#t-claims"), "/");

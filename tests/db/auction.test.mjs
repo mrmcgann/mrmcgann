@@ -12,13 +12,16 @@ await c.connect();
 await c.query(fs.readFileSync(ROOT + '/tests/db/supabase_base.sql', 'utf8'));
 for (const f of fs.readdirSync(M + 'migrations').sort()) { await c.query(fs.readFileSync(M + 'migrations/' + f, 'utf8')); }
 await c.query(fs.readFileSync(M + 'seed.sql', 'utf8'));
+// The checks below were written for card payments; the bidding-deposit checks at the end switch to deposits (the default).
+await c.query(`update settings set value = value || '{"pay_mode": "card"}' where key = 'fees'`);
 
 let pass = 0, failN = 0; const fails = [];
 const ok = (name, cond, extra='') => { if (cond) pass++; else { failN++; fails.push(name + ' ' + extra); } };
-const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-2222-222222222222', ADM: '33333333-3333-3333-3333-333333333333', NEW: '44444444-4444-4444-4444-444444444444' };
+const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-2222-222222222222', ADM: '33333333-3333-3333-3333-333333333333', NEW: '44444444-4444-4444-4444-444444444444',
+  C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-10' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-11' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -148,7 +151,7 @@ r = await as('ADM', `insert into lot_private (lot_id, reserve_price) values (${r
 r = await as('service', `select has_reserve, reserve_met from lots where title='New car'`); ok('reserve syncs to public flags', r.rows?.[0]?.has_reserve === true && r.rows[0].reserve_met === false);
 r = await as('A', `insert into lots (status,title) values ('live','Fake')`); ok('member cannot create lots', !!r.error);
 r = await as('ADM', `update profiles set suspended=true where id='${U.NEW}'`); ok('admin can suspend', !r.error, r.error);
-r = await as('NEW', `select place_bid(10599, 6000)`); ok('suspended member cannot bid', r.error?.includes('not_verified'));
+r = await as('NEW', `select place_bid(10599, 6000)`); ok('suspended member cannot bid (and is told why)', r.error?.includes('account_suspended'), r.error);
 r = await as('A', `insert into reports (lot_id,user_id,type) values (10599,'${U.A}','Suspicious bidding')`); ok('member can report', !r.error, r.error);
 r = await as('A', `select * from reports`); ok('member cannot read reports', r.rows?.length === 0);
 r = await as('A', `insert into quote_requests (lot_id,postcode,email) values (10599,'4000','a@x.au')`); ok('quotes inserted only via server', !!r.error || r.count === 0);
@@ -169,14 +172,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-10-10' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-10-11' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-10', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-11', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -721,7 +724,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-10', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-11', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
   await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
@@ -961,6 +964,158 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     JSON.stringify(r.rows) === JSON.stringify([{ fingerprint: 'old:open', status: 'fixed' }, { fingerprint: 'web:abc', status: 'fixed' }]), JSON.stringify(r.rows));
   r = await c.query(`select count(*)::int n from clock_runs where started_at < now() - interval '14 days'`); ok('prune: old clock runs deleted', r.rows[0].n === 0);
   r = await as('service', `select db_activity() j`); ok('db activity: readable by the server', Array.isArray(r.rows?.[0]?.j), r.error);
+}
+
+// ---------- the safest way to take money: a refundable bidding deposit by PayID or bank transfer, no cards ----------
+{
+  await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
+  await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id = '${U.D}'`);
+  await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
+    (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
+    (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
+    (20003, 'live', 'Deposit truck', 1000, now() + interval '3 days', 30000),
+    (20004, 'live', 'Deposit van', 1000, now() + interval '3 days', null)`);
+  r = await as('service', `select deposit_for(1000) a, deposit_for(5000) b, deposit_for(5001) c, deposit_for(12000) d, deposit_for(80000) e`);
+  ok('deposit: 10% of the amount, at least $500, at most $5,000', JSON.stringify(r.rows?.[0]) === JSON.stringify({ a: '500', b: '500', c: '501', d: '1200', e: '5000' }), JSON.stringify(r.rows));
+  r = await as('C', `select me() j`); const meC = r.rows?.[0]?.j;
+  ok('deposit: a new bidder has a payment reference and no deposit yet', /^BID[A-Z2-9]{6}$/.test(meC?.deposit_ref || '') && meC?.payment_ok === false && Number(meC?.deposit?.balance) === 0 && meC?.pay_mode === 'deposit', JSON.stringify(meC));
+  r = await as('C', `select place_bid(20001, 2000)`); ok("deposit: can't bid without one", r.error?.includes('not_verified'), r.error);
+  r = await as('C', `update profiles set deposit_ref = 'BIDAAAAAA' where id = '${U.C}'`); ok("deposit: members can't change their payment reference", r.error?.includes('protected_field'), r.error);
+  r = await as('C', `select record_deposit('${U.C}', 5000, 'bank', 'x', 'Cal Cole')`); ok("deposit: members can't record their own deposit", r.error?.includes('forbidden'), r.error);
+  r = await as('C', `insert into bidder_deposits (user_id, kind, amount) values ('${U.C}', 'received', 5000)`); ok("deposit: members can't write to the ledger", !!r.error);
+  r = await as('ADM', `select record_deposit('${U.C}', 500, 'bank', '${meC?.deposit_ref}', 'CAL COLE', '062-000', '1234 5678') id`); const DEP1 = r.rows?.[0]?.id;
+  ok('deposit: our team records a transfer that arrived', !!DEP1, r.error);
+  r = await as('service', `select payer_bsb, payer_account from bidder_deposits where id = '${DEP1}'`); ok('deposit: the account it came from is kept (digits only)', r.rows?.[0]?.payer_bsb === '062000' && r.rows[0].payer_account === '12345678', JSON.stringify(r.rows));
+  r = await as('service', `select body from notifications where user_id = '${U.C}' and title = 'Your bidding deposit has arrived'`); ok('deposit: the bidder is told their new limit', r.rows?.[0]?.body?.includes('up to $5,000'), JSON.stringify(r.rows));
+  r = await as('C', `select me() j`); ok('deposit: now ready to bid, up to $5,000', r.rows?.[0]?.j?.payment_ok === true && Number(r.rows[0].j.deposit.limit) === 5000, JSON.stringify(r.rows?.[0]?.j?.deposit));
+  r = await as('C', `select place_bid(20001, 5000) r`); ok('deposit: bids up to the limit', r.rows?.[0]?.r?.status === 'leading', r.error);
+  r = await as('C', `select place_bid(20002, 1500) r`); ok('deposit: the deposit covers one vehicle at a time', r.error?.includes('deposit_short:500:0'), r.error);
+  r = await as('C', `select place_bid(20001, 6000) r`); ok('deposit: raising your own maximum needs a deposit for the new maximum', r.error?.includes('deposit_short:600:500'), r.error);
+  await as('ADM', `select record_deposit('${U.C}', 1000, 'payid', 'payid', 'Cal Cole')`);
+  r = await as('C', `select place_bid(20002, 6000) r`); ok('deposit: a top-up raises the limit', r.rows?.[0]?.r?.status === 'leading', r.error);
+  r = await as('service', `select deposit_summary('${U.C}') j`); let sC = r.rows?.[0]?.j;
+  ok('deposit: what is held and what is free', Number(sC.balance) === 1500 && Number(sC.committed) === 1100 && Number(sC.available) === 400 && Number(sC.limit) === 0, JSON.stringify(sC));
+  await as('ADM', `select record_deposit('${U.D}', 5000, 'bank', 'ref', 'Dee Dunn', '062000', '87654321')`);
+  r = await as('D', `select place_bid(20001, 9000) r`); ok('deposit: someone else outbids', r.rows?.[0]?.r?.status === 'leading', r.error);
+  r = await as('service', `select deposit_summary('${U.C}') j`); sC = r.rows?.[0]?.j;
+  ok('deposit: being outbid frees the deposit straight away', Number(sC.committed) === 600 && Number(sC.available) === 900, JSON.stringify(sC));
+  r = await as('D', `select place_bid(20004, 250000) r`); ok('deposit: the cap is per vehicle; other vehicles you lead still hold theirs', r.error?.includes('deposit_short:5000:4100'), r.error);
+  await as('ADM', `select record_deposit('${U.D}', 1000, 'bank', 'ref', 'Dee Dunn', '062000', '87654321')`);
+  r = await as('service', `select deposit_summary('${U.D}')->>'unlimited' u`); const unl = r.rows?.[0]?.u;
+  r = await as('D', `select place_bid(20004, 250000) r`); ok('deposit: at the cap there is no limit', r.rows?.[0]?.r?.status === 'leading' && unl === 'true', r.error);
+  r = await as('C', `select my_deposit() j`); const myC = r.rows?.[0]?.j;
+  ok('deposit: the bidder sees their history and what is holding their deposit', myC?.history?.length === 2 && myC?.holding?.length === 1 && myC.holding[0].lot_id === 20002 && Number(myC.holding[0].amount) === 600, JSON.stringify(myC?.holding));
+  r = await as('D', `select * from bidder_deposits where user_id = '${U.C}'`); ok("deposit: bidders can't see each other's deposits", r.rows?.length === 0, JSON.stringify(r));
+
+  // withdrawals
+  r = await as('C', `select request_deposit_withdrawal(1000)`); ok("withdraw: can't take back what's holding a bid", r.error?.includes('withdraw_too_much:900'), r.error);
+  r = await as('C', `select request_deposit_withdrawal(400) id`); const WD = r.rows?.[0]?.id; ok('withdraw: what is free comes back', !!WD, r.error);
+  r = await as('service', `select status, amount, payer_bsb from bidder_deposits where id = '${WD}'`); ok('withdraw: waits for our team, back to the account it came from', r.rows?.[0]?.status === 'pending' && Number(r.rows[0].amount) === -400 && r.rows[0].payer_bsb === '062000', JSON.stringify(r.rows));
+  r = await as('C', `select deposit_withdrawal_paid('${WD}', 'x')`); ok("withdraw: members can't mark their own refund as paid", r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select deposit_withdrawal_paid('${WD}', 'NPP 123')`); ok('withdraw: our team marks it sent', !r.error, r.error);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.C}' and title = 'Your deposit refund is on its way'`); ok('withdraw: the bidder is told', r.rows?.[0]?.n === 1);
+  r = await as('C', `select request_deposit_withdrawal(100) id`); const WD2 = r.rows?.[0]?.id;
+  r = await as('C', `select cancel_deposit_withdrawal('${WD2}')`); ok('withdraw: a refund not yet sent can be cancelled', !r.error, r.error);
+  r = await as('service', `select deposit_balance('${U.C}') b`); ok('withdraw: balance after one refund sent and one cancelled', Number(r.rows?.[0]?.b) === 1100, JSON.stringify(r.rows));
+
+  // winning: the deposit for the price moves onto the invoice, the rest is paid by transfer; no card is ever charged
+  await c.query(`update lots set ends_at = now() - interval '1 second' where id = 20002`);
+  await as('service', `select close_due_lots()`);
+  r = await as('service', `select pay_method, status, price, deposit_applied, card_amount, surcharge, balance_due, total, subtotal from invoices where lot_id = 20002`); const inv2 = r.rows?.[0];
+  ok('win: invoice paid by transfer with the deposit applied', inv2?.pay_method === 'bank' && Number(inv2.price) === 1000 && Number(inv2.deposit_applied) === 500 && Number(inv2.card_amount) === 500
+    && Number(inv2.surcharge) === 0 && Number(inv2.balance_due) === Number(inv2.subtotal) - 500 && Number(inv2.total) === Number(inv2.subtotal), JSON.stringify(inv2));
+  r = await as('service', `select deposit_balance('${U.C}') b, (select count(*)::int from bidder_deposits where user_id = '${U.C}' and kind = 'applied') n`);
+  ok('win: the deposit for the price leaves the balance once', Number(r.rows?.[0]?.b) === 600 && r.rows[0].n === 1, JSON.stringify(r.rows));
+  r = await as('C', `select request_deposit_withdrawal(100)`); ok("withdraw: not while there's a vehicle to pay for", r.error?.includes('withdraw_unpaid'), r.error);
+  r = await as('service', `select (price_breakdown(300)->>'card_amount')::numeric d, (price_breakdown(300)->>'balance_due')::numeric b, price_breakdown(20000)->>'mode' m, (price_breakdown(20000)->>'surcharge')::numeric s`);
+  ok('win: a cheap vehicle is paid entirely from the deposit; never a surcharge', Number(r.rows?.[0]?.b) === 0 && Number(r.rows[0].d) === 432 && r.rows[0].m === 'deposit' && Number(r.rows[0].s) === 0, JSON.stringify(r.rows));
+
+  // Buy Now and offers need the deposit too
+  r = await as('C', `select buy_now(20003)`); ok('buy now: needs the deposit for the Buy Now price', r.error?.includes('deposit_short:3000:600'), r.error);
+  await as('ADM', `select record_deposit('${U.D}', 3000, 'bank', 'ref', 'Dee Dunn', '062000', '87654321')`);
+  r = await as('D', `select buy_now(20003) id`); const BN = r.rows?.[0]?.id; ok('buy now: works with enough deposit', !!BN, r.error);
+  r = await as('service', `select deposit_applied, pay_method from invoices where id = '${BN}'`); ok('buy now: 10% of the price applied', Number(r.rows?.[0]?.deposit_applied) === 3000 && r.rows[0].pay_method === 'bank', JSON.stringify(r.rows));
+  r = await as('ADM', `select return_invoice_deposit('${BN}') a`); ok('refund: a cancelled sale gives the deposit back', Number(r.rows?.[0]?.a) === 3000, r.error);
+  await as('ADM', `select return_invoice_deposit('${BN}')`);
+  r = await as('service', `select count(*)::int n from bidder_deposits where invoice_id = '${BN}' and kind = 'returned'`); ok('refund: only once', r.rows?.[0]?.n === 1);
+  await c.query(`insert into lots (id, status, title, start_price, ends_at, decision_by) values (20005, 'offers', 'Offer car', 1000, now() - interval '1 hour', now() + interval '2 days')`);
+  r = await as('C', `select make_offer(20005, 7000)`); ok('offers: an offer needs a deposit for its amount', r.error?.includes('deposit_short:700:600'), r.error);
+  r = await as('C', `select make_offer(20005, 6000) id`); ok('offers: within the deposit', !!r.rows?.[0]?.id, r.error);
+  r = await as('service', `select deposit_summary('${U.C}') j`); ok('offers: an open offer holds its deposit', Number(r.rows?.[0]?.j?.committed) === 600, JSON.stringify(r.rows?.[0]?.j));
+
+  // our team's corrections, deleting an account
+  r = await as('ADM', `select adjust_deposit('${U.C}', 50, 'no')`); ok('adjust: needs a reason', r.error?.includes('note_needed'), r.error);
+  r = await as('ADM', `select adjust_deposit('${U.C}', 50, 'Bank fee refunded') id`); ok('adjust: recorded with a reason', !!r.rows?.[0]?.id, r.error);
+  r = await as('service', `select account_deletion_blockers('${U.C}') b`); ok('delete account: not while holding a deposit', r.rows?.[0]?.b?.some((x) => x.includes('bidding deposit')), JSON.stringify(r.rows));
+  r = await as('service', `select record_deposit('${U.D}', 100, 'payid', 'p', 'Dee Dunn', null, null, null, 'azupay', 'PR-1') a, record_deposit('${U.D}', 100, 'payid', 'p', 'Dee Dunn', null, null, null, 'azupay', 'PR-1') b`);
+  ok('payments provider: the same payment is only counted once', r.rows?.[0]?.a === r.rows?.[0]?.b, JSON.stringify(r.rows));
+  r = await as('A', `select can_bid('${U.A}') x`); ok('deposit: a card on file alone is no longer enough to bid', r.rows?.[0]?.x === false, JSON.stringify(r));
+  r = await as('C', `select my_deposit() j`); const rt = r.rows?.[0]?.j?.refund_to;
+  ok('withdraw: the bidder sees where a refund goes, never the full account number', rt?.bsb === '062000' && rt?.ending === '5678' && !JSON.stringify(r.rows).includes('12345678'), JSON.stringify(rt));
+  r = await as('C', `select deposit_totals()`); ok("admin totals: members can't read them", !!r.error);
+  r = await as('service', `select deposit_totals() t, (select sum(amount) from bidder_deposits where status <> 'cancelled') s`); const tot = r.rows?.[0]?.t;
+  ok('admin totals: what we hold matches the ledger', Number(tot?.held) === Number(r.rows?.[0]?.s) && tot.bidders >= 2 && Number(tot.applied_unpaid) > 0, JSON.stringify(r.rows));
+  await as('service', `select compute_daily_metrics(current_date, false)`);
+  r = await as('service', `select (select value from metric_values where day = current_date and metric = 'members_verified' and dim = '') m,
+    (select count(*) from profiles p where id_status = 'verified' and mobile_verified and deposit_balance(p.id) >= 500) n,
+    (select count(*) from profiles p where id_status = 'verified' and mobile_verified and payment_method_id is not null and deposit_balance(p.id) < 500) cards`);
+  ok('insights: "ready to bid" counts deposits, not cards', Number(r.rows?.[0]?.m) === Number(r.rows?.[0]?.n) && Number(r.rows[0].n) >= 2 && Number(r.rows[0].cards) >= 1, JSON.stringify(r.rows));
+}
+
+// ---------- the default, like Turners: no deposit, a verified ID, pay by transfer after a win; a buyer who doesn't pay is banned ----------
+{
+  Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
+  await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
+  await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id='${U.F}'`);
+  await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
+    (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
+    (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
+    (20013, 'live', 'Transfer car', 1000, now() + interval '3 days', null)`);
+  r = await as('E', `select me() j`); const meE = r.rows?.[0]?.j;
+  ok('transfer: a verified mobile and ID is all it takes to bid (no deposit, no card)', meE?.pay_mode === 'transfer' && meE?.payment_ok === true && meE?.deposit === null && !meE?.payment_method_id, JSON.stringify(meE && { p: meE.pay_mode, ok: meE.payment_ok, d: meE.deposit }));
+  r = await as('E', `select place_bid(20011, 250000) r`); ok('transfer: bid any amount, no deposit needed', r.rows?.[0]?.r?.status === 'leading', r.error);
+  r = await as('F', `select place_bid(20013, 3000) r`); ok('transfer: another bidder', r.rows?.[0]?.r?.status === 'leading', r.error);
+  r = await as('H', `select place_bid(20013, 5000) r`); ok('transfer: still no bidding without a verified ID', r.error?.includes('not_verified'), r.error);
+  r = await as('E', `select buy_now(20012) id`); const TI = r.rows?.[0]?.id; ok('transfer: Buy Now without a deposit', !!TI, r.error);
+  r = await as('service', `select pay_method, deposit_applied, card_amount, surcharge, balance_due, total, subtotal, due_at > now() due from invoices where id = '${TI}'`); const ti = r.rows?.[0];
+  ok('transfer: the whole amount is paid by transfer, nothing from a deposit, never a surcharge', ti?.pay_method === 'bank' && Number(ti.deposit_applied) === 0 && Number(ti.card_amount) === 0
+    && Number(ti.surcharge) === 0 && Number(ti.balance_due) === Number(ti.subtotal) && Number(ti.total) === Number(ti.subtotal) && ti.due === true, JSON.stringify(ti));
+  r = await as('service', `select count(*)::int n from bidder_deposits where user_id = '${U.E}'`); ok('transfer: nothing touches the deposit ledger', r.rows?.[0]?.n === 0);
+
+  // Not paying: banned
+  r = await as('E', `select ban_member('${U.E}', 'x')`); ok("ban: members can't ban anyone", r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select ban_member('${U.E}', '')`); ok('ban: needs a reason', r.error?.includes('reason_required'), r.error);
+  r = await as('ADM', `select ban_member('${U.E}', 'Didn''t pay for TB-100099') n`); ok('ban: their bids come off live auctions', r.rows?.[0]?.n === 1, r.error);
+  r = await as('service', `select suspended, suspended_reason, (select leader_id from lots where id = 20011) leader, (select current_bid from lots where id = 20011) cb from profiles where id = '${U.E}'`);
+  ok('ban: suspended with the reason; the auction is as if they never bid', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason === "Didn't pay for TB-100099" && r.rows[0].leader === null, JSON.stringify(r.rows));
+  r = await as('E', `select place_bid(20013, 9000) r`); ok('ban: a banned member is told their account is suspended', r.error?.includes('account_suspended'), r.error);
+  r = await as('E', `select buy_now(20013)`); ok('ban: no Buy Now either', r.error?.includes('account_suspended'), r.error);
+  r = await as('service', `select count(*)::int n, bool_and(hash ~ '^[0-9a-f]{64}$') coded from banned_identities where user_id = '${U.E}'`);
+  ok('ban: name and date of birth, mobile and email kept only as one-way codes', r.rows?.[0]?.n === 3 && r.rows[0].coded === true, JSON.stringify(r.rows));
+  r = await as('E', `select * from banned_identities`); ok("ban: members can't read the ban list", (r.rows || []).length === 0);
+  r = await as('E', `update profiles set suspended = false where id = '${U.E}'`); ok("ban: members can't lift their own suspension", r.error?.includes('protected_field'), r.error);
+
+  // ... and can't come back with a new account
+  await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-11' where id='${U.G}'`);
+  r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
+  await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
+  r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
+  ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
+  r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-11' where id='${U.H}'`);
+  r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
+  await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
+  r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
+  r = await as('F', `select place_bid(20013, 4000) r`); ok('ban: everyone else carries on', r.rows?.[0]?.r?.status === 'leading', r.error);
+
+  r = await as('ADM', `select unban_member('${U.E}')`); ok('ban: staff can lift it', !r.error, r.error);
+  r = await as('service', `select suspended, (select count(*)::int from banned_identities where user_id = '${U.E}') n from profiles where id = '${U.E}'`);
+  ok('ban: lifted means the codes are gone too', r.rows?.[0]?.suspended === false && r.rows[0].n === 0, JSON.stringify(r.rows));
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

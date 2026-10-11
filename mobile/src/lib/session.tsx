@@ -98,4 +98,4 @@ export function useSession() {
   return v;
 }
 
-export const STEP_NAMES: Record<number, string> = { 1: "Create your account", 2: "Your details", 3: "Verify your mobile", 4: "Add a payment card", 5: "Verify your ID" };
+export const STEP_NAMES: Record<number, string> = { 1: "Create your account", 2: "Your details", 3: "Verify your mobile", 4: "Bidding deposit", 5: "Verify your ID" };

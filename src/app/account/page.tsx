@@ -5,7 +5,9 @@ import { getSession, missingSteps } from "@/lib/auth";
 import { Tick } from "@/components/CarArt";
 import { NotifySettings } from "@/components/NotifySettings";
 import { AccountExtras } from "./AccountExtras";
+import { AccountNav } from "./AccountNav";
 import { maskMobile, money, dateLong } from "@/lib/format";
+import { limitLine } from "@/lib/deposits";
 
 export const metadata: Metadata = { title: "Your account" };
 export const dynamic = "force-dynamic";
@@ -35,25 +37,30 @@ export default async function Account() {
   return (
     <div className="wrap">
       <div className="acctgrid">
-        <nav className="side-nav" aria-label="Account">
-          <span className="h">Buying</span><Link href="/watchlist">Watchlist</Link><Link href="/watchlist?f=winning">My bids</Link>
-          <span className="h">Account</span><Link href="/account" className="on">Account &amp; verification</Link><Link href="/account#invoices">Invoices</Link><Link href="/account/notifications">Notifications{profile.unread ? <span>{profile.unread}</span> : null}</Link><Link href="/terms">Terms of sale</Link>
-          {profile.is_seller && <><span className="h">Selling</span><Link href="/sell/dashboard">My vehicles for sale</Link></>}
-          {profile.role === "admin" && <><span className="h">Tyrebiter</span><Link href="/admin">Admin</Link></>}
-        </nav>
+        <AccountNav current="account" profile={profile} />
         <div style={{ display: "flex", flexDirection: "column", gap: 40, maxWidth: 860 }}>
           <h1 className="d2">Hi{profile.first_name ? `, ${profile.first_name}` : ""}.</h1>
           <div className="soft" style={{ padding: 28, background: miss.length ? "var(--sun)" : "var(--mint)" }}>
             <b style={{ fontSize: 22, letterSpacing: "-0.02em" }}>{miss.length ? `Finish ${miss.length} more step${miss.length === 1 ? "" : "s"} to start bidding.` : "You're ready to bid."}</b>
-            <span>{miss.length ? "You can browse and build a watchlist now. Bidding needs your details, a verified mobile, a payment card and a verified ID." : "Your details, mobile, card and ID are all verified."}</span>
-            {profile.suspended && <span className="notice bad">Your account is suspended. Contact us to sort it out.</span>}
+            <span>{miss.length
+              ? `You can browse and build a watchlist now. Bidding needs your details, a verified mobile and a verified ID${profile.pay_mode === "card" ? " and a payment card" : profile.pay_mode === "deposit" ? " and a refundable bidding deposit" : ""}.`
+              : profile.pay_mode === "card" ? "Your details, mobile, card and ID are all verified."
+              : profile.pay_mode === "deposit" ? `Your details, mobile and ID are verified. ${limitLine(profile.deposit)}`
+              : "Your details, mobile and ID are verified. If you win, pay by PayID or bank transfer within 2 business days."}</span>
+            {profile.suspended && <span className="notice bad" data-testid="acct-suspended">Your account can&apos;t bid{profile.suspended_reason ? ` (${profile.suspended_reason})` : ""}. Call us if you think that&apos;s a mistake.</span>}
           </div>
           <div>
             <h2 className="d3" style={{ fontSize: 36, marginBottom: 8 }}>Verification.</h2>
             {row(1, "Account", true, user.email || "")}
             {row(2, "Your details", profile.details_done, profile.details_done ? `${profile.first_name} ${profile.last_name} · ${profile.suburb} ${profile.state} ${profile.postcode}` : "Legal name, date of birth and address")}
             {row(3, "Mobile", profile.mobile_verified, profile.mobile_verified ? `${maskMobile(profile.mobile)} verified` : "Verify with a 6-digit SMS code")}
-            {row(4, "Payment card", !!profile.payment_method_id, profile.payment_method_id ? `${profile.card_brand} ending ${profile.card_last4}. Charged automatically if you win` : "Needed before you bid")}
+            {profile.pay_mode === "transfer" ? null : profile.pay_mode === "card"
+              ? row(4, "Payment card", !!profile.payment_method_id, profile.payment_method_id ? `${profile.card_brand} ending ${profile.card_last4}. Charged automatically if you win` : "Needed before you bid")
+              : <div className="check" style={{ padding: "18px 0" }} key={4}>
+                  <span className="tick" style={{ background: profile.payment_ok ? "var(--mint)" : "var(--panel2)" }}>{profile.payment_ok ? <Tick /> : <b style={{ fontSize: 13 }}>4</b>}</span>
+                  <span style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}><b>Bidding deposit</b><span className="muted" style={{ fontSize: 14 }} data-testid="acct-deposit">{profile.deposit && profile.deposit.balance > 0 ? `${money(profile.deposit.balance)} · ${limitLine(profile.deposit)}` : "Refundable. Paid by PayID or bank transfer, never a card"}</span></span>
+                  <Link className={`btn ${profile.payment_ok ? "btn-soft" : "btn-blue"}`} href="/account/deposit" style={{ height: 42, fontSize: 14, padding: "0 18px" }}>{profile.payment_ok ? "Manage" : "Add"}</Link>
+                </div>}
             {row(5, "ID", profile.id_status === "verified", profile.id_status === "verified" ? "Verified" : profile.id_status === "pending" ? "Being checked" : profile.id_status === "failed" ? "Couldn't be verified. Try again" : "Driver licence or passport, checked once")}
           </div>
 

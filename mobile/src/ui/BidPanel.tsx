@@ -3,7 +3,7 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
-import { priceBreakdown, lotFees } from "@/lib/fees";
+import { depositFor, priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, countdown, dateLong, dateTime, money } from "@/lib/format";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -15,6 +15,8 @@ import { useLive } from "./useLive";
 import { AutoTag, BlurName } from "./BlurName";
 import { C, F } from "./theme";
 import { consumerRights, rightsLine } from "@/lib/listing";
+import { DepositHint, DepositShortBox, shortFrom } from "./Deposit";
+import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
@@ -44,6 +46,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   const [ack, setAck] = useState(false);
   const [sure, setSure] = useState(false);
   const [history, setHistory] = useState(initialHistory);
+  const [short, setShort] = useState<{ need: number; have: number; amount: number } | null>(null);
 
   // Bid history refresh when the count changes; full reload when the auction changes state.
   const lastCount = useRef(L.bid_count);
@@ -60,20 +63,21 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   const typed = digits(amount);
   const preview = useMemo(() => priceBreakdown(typed || minNext, fees), [typed, minNext, fees]);
   const bigJump = typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
-  const payNote = preview.mode === "card"
+  const payNote = winPayLine(preview) ?? (preview.mode === "card"
     ? `Charged in full to ${cardLabel} as soon as the auction ends.`
-    : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`;
+    : `A ${money(preview.cardBase)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} as soon as the auction ends. Pay the ${money(preview.balanceDue, true)} balance by bank transfer within 2 business days.`);
   const bn = L.buy_now_price && Number(L.current_bid) < Number(L.buy_now_price) ? Number(L.buy_now_price) : null;
   const bnPrev = bn ? priceBreakdown(bn, fees) : null;
 
   function needsSetup() {
     if (!signedIn) { router.push(`/join?next=${encodeURIComponent(`/lot/${lot.id}`)}`); return true; }
+    if (me?.profile?.suspended) { setMsg({ kind: "bad", text: "Your account can't bid at the moment. Call us if you think that's a mistake." }); return true; }
     if (missing.length) { setSheet("gate"); return true; }
     if (!termsCurrent) { setSheet("terms"); return true; }
     return false;
   }
   function review() {
-    setMsg(null);
+    setMsg(null); setShort(null);
     if (needsSetup()) return;
     if (mine?.is_seller) { setMsg({ kind: "bad", text: "This is your vehicle, so you can't bid on it." }); return; }
     if (typed < minNext) { setMsg({ kind: "bad", text: `Enter ${money(minNext)} or more.` }); return; }
@@ -95,7 +99,9 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
       void askForPush(); // outbid alerts matter most once you've bid
     } catch (e) {
       setSheet(e instanceof ApiError && e.status === 409 ? "terms" : null);
-      if (!(e instanceof ApiError && e.status === 409)) setMsg({ kind: "bad", text: errText(e) });
+      const sh = shortFrom(e, typed);
+      if (sh) setShort(sh);
+      else if (!(e instanceof ApiError && e.status === 409)) setMsg({ kind: "bad", text: errText(e) });
     }
     setBusy(false);
     void sync();
@@ -114,7 +120,8 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
       router.push(`/invoice/${d.invoiceId}`);
     } catch (e) {
       setSheet(e instanceof ApiError && e.status === 409 ? "terms" : null);
-      setMsg({ kind: "bad", text: errText(e) });
+      const sh = shortFrom(e, bn || 0);
+      if (sh) setShort(sh); else setMsg({ kind: "bad", text: errText(e) });
     }
     setBusy(false);
   }
@@ -133,6 +140,8 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           </View>
         ) : null}
         <MoneyField testID="bid-amount" label="Your maximum bid" value={amount} onChange={setAmount} hint={`Minimum ${money(minNext)}. We bid for you, one increment at a time, up to your max. Bids in the last 10 minutes add 10 minutes.`} />
+        {short ? <DepositShortBox need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />
+          : signedIn && !missing.length ? <DepositHint fees={fees} deposit={me?.profile?.deposit} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} /> : null}
         {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
         <Button testID="review-bid" title={leading ? "Raise my max" : "Review bid"} onPress={review} busy={busy} />
         <View style={s.allin}>
@@ -144,7 +153,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           {preview.surcharge > 0 ? <LineItem k="Card surcharge" v={money(preview.surcharge, true)} /> : null}
           <View style={s.rule} />
           <LineItem k="All-in" v={money(preview.total, true)} bold />
-          <T v="small">No card surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</T>
+          <T v="small">No surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</T>
           <Soft style={{ padding: 12 }}><T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{payNote}</T></Soft>
         </View>
       </View>
@@ -225,7 +234,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{payNote}</T>
         {bigJump ? <Notice kind="bad"><Check checked={sure} onChange={setSure}>{`That's ${typed >= minNext * 2 ? `${Math.floor(typed / Math.max(1, minNext))}×` : "well above"} the next bid of ${money(minNext)}. Tick to confirm ${money(typed)} is right.`}</Check></Notice> : null}
         <Soft style={{ padding: 14 }}>
-          <Check testID="ack" checked={ack} onChange={setAck}>I understand this vehicle is sold as is, where is, at the seller's location, the condition report is a guide only, and if I win I authorise payment from my card straight away under the terms of sale.</Check>
+          <Check testID="ack" checked={ack} onChange={setAck}>{`I understand this vehicle is sold as is, where is, at the seller's location, the condition report is a guide only, and ${ackPayLine(preview.payMode)}, under the terms of sale.`}</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the terms of sale ›</Text>
         </Soft>
         <T v="small" testID="rights-auction">{rightsLine("auction", lot.seller_type)}. <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)}>What that means ›</Text></T>
@@ -239,14 +248,14 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           <LineItem k="Buy Now price" v={money(bn)} />
           <LineItem k="Premium, GST and admin fee" v={money(bnPrev.subtotal - (bn || 0), true)} />
           <LineItem k="All-in" v={money(bnPrev.total, true)} bold />
-          <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`}</T>
+          <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{buyNowPayLine(bnPrev) ?? (bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`)}</T>
         </View> : null}
         <Check checked={ack} onChange={setAck}>I've read the listing and accept the terms of sale.</Check>
       </Sheet>
 
       <Sheet visible={sheet === "gate"} onClose={() => setSheet(null)} title="Finish verifying to bid."
         footer={<><Button title="Continue" onPress={() => { setSheet(null); router.push(`/join?step=${missing[0]}&next=${encodeURIComponent(`/lot/${lot.id}`)}`); }} /><Button kind="soft" title="Not now" onPress={() => setSheet(null)} /></>}>
-        <T v="muted">Every buyer verifies their mobile, adds a card and verifies their ID once. It keeps every auction genuine.</T>
+        <T v="muted">{fees.pay_mode === "deposit" ? "Every buyer verifies their mobile and ID once, and pays a refundable bidding deposit by PayID or bank transfer. It keeps every auction genuine." : "Every buyer verifies their mobile and ID once. It's free, there's no deposit, and it keeps every auction genuine."}</T>
         {missing.map((n) => <T key={n} v="strong">• {STEP_NAMES[n]}</T>)}
       </Sheet>
 
@@ -266,13 +275,14 @@ function OfferBox({ lotId, current, decisionBy, lastOffer, needsSetup, onSent, f
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [short, setShort] = useState<{ need: number; have: number; amount: number } | null>(null);
   async function send() {
-    setBusy(true);
+    setBusy(true); setShort(null); setMsg(null);
     try {
       await api("/api/offer", { body: { lotId, amount: digits(amount) } });
-      setMsg({ kind: "ok", text: "Offer sent to the seller. If they accept, payment is taken the same way as a win." });
+      setMsg({ kind: "ok", text: "Offer sent to the seller. If they accept, it's paid for the same way as a win." });
       onSent();
-    } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
+    } catch (e) { const sh = shortFrom(e, digits(amount)); if (sh) setShort(sh); else setMsg({ kind: "bad", text: errText(e) }); }
     setBusy(false); setConfirm(false);
   }
   return (
@@ -281,12 +291,13 @@ function OfferBox({ lotId, current, decisionBy, lastOffer, needsSetup, onSent, f
       <T v="muted">The auction closed below the seller's reserve. Offer an amount before {dateLong(decisionBy)}. Offers are binding if accepted, and you can raise yours while the offer period is open.</T>
       {lastOffer ? <T v="strong">Your last offer: {money(lastOffer.amount)} ({lastOffer.status === "pending" ? "with the seller" : lastOffer.status})</T> : null}
       <MoneyField label="Your offer" value={amount} onChange={setAmount} />
+      {short ? <DepositShortBox need={short.need} have={short.have} amount={short.amount} lotId={lotId} /> : null}
       {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
       <Button title="Make offer" busy={busy} onPress={() => { if (!needsSetup()) setConfirm(true); }} />
       <Sheet visible={confirm} onClose={() => setConfirm(false)} title={`Offer ${money(digits(amount))}?`}
         footer={<><Button title="Send offer" busy={busy} onPress={send} /><Button kind="soft" title="Cancel" onPress={() => setConfirm(false)} /></>}>
         <LineItem k="All-in if accepted" v={money(priceBreakdown(digits(amount), fees).total, true)} bold />
-        <T v="muted">With the buyer's premium, GST and admin fee. If the seller accepts, it's binding and payment is taken the same way as a win.</T>
+        <T v="muted">With the buyer's premium, GST and admin fee. If the seller accepts, it's binding and it's paid for the same way as a win.</T>
         <T v="small">{consumerRights("outright", sellerType)}</T>
       </Sheet>
     </Soft>

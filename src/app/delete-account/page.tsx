@@ -19,10 +19,10 @@ export default function DeleteAccount() {
         <li>Type DELETE to confirm. You&apos;re signed out on every device.</li>
       </ol>
       <div className="notice">
-        <b>Something still in progress?</b> We can&apos;t delete an account while it has a bid on a live vehicle, a purchase that isn&apos;t yet paid for and collected, or a vehicle for sale. Finish those first, or contact us and we&apos;ll help.
+        <b>Something still in progress?</b> We can&apos;t delete an account while it has a bid on a live vehicle, a purchase that isn&apos;t yet paid for and collected, a vehicle for sale, or a bidding deposit we haven&apos;t returned. Withdraw your deposit first (it goes back to the account it came from), or contact us and we&apos;ll help.
       </div>
       <h2 className="d3" style={{ fontSize: 30, margin: "8px 0 0" }}>What we delete and what we keep.</h2>
-      <p style={{ margin: 0 }}>We delete your name, contact details, address, saved card, watchlist, saved searches, alerts and app notification settings. We keep the records of any purchase or sale (tax invoices and payments) for as long as Australian tax law requires, then delete them.</p>
+      <p style={{ margin: 0 }}>We delete your name, contact details, address, any saved card, watchlist, saved searches, alerts and app notification settings. We keep the records of any purchase, sale or deposit (tax invoices and payments, including the account they came from) for as long as Australian tax law requires, then delete them.</p>
       <p style={{ margin: 0 }}>Can&apos;t sign in? Email <a href={`mailto:${env.supportEmail}?subject=Delete my account`}>{env.supportEmail}</a> from the address on your account, or call {env.phone}, and we&apos;ll delete it for you. See our <Link href="/privacy">privacy policy</Link> for more.</p>
     </div>
   );

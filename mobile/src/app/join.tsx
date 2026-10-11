@@ -6,24 +6,25 @@ import { STATES } from "@/lib/grades";
 import { maskMobile } from "@/lib/format";
 import { api, ApiError, errText } from "~/lib/api";
 import { SITE } from "~/lib/env";
-import { usePayments } from "~/lib/pay";
 import { supabase } from "~/lib/supabase";
 import { STEP_NAMES, useSession } from "~/lib/session";
 import type { Me } from "~/lib/types";
 import { Button, Check, Field, LinkText, Loading, Notice, Screen, Segmented, Select, Soft, T } from "~/ui/kit";
 import { Icon } from "~/ui/art";
+import { DepositPay } from "~/ui/Deposit";
+import { depositSteps, joinSteps } from "@/lib/deposits";
+import { DEFAULT_FEES } from "@/lib/types";
 import { C, F } from "~/ui/theme";
 
 const toIso = (d: string) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d.trim()); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : ""; };
 const fromIso = (d: string | null | undefined) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : ""; };
 const dobMask = (t: string) => { const d = t.replace(/\D/g, "").slice(0, 8); return d.length > 4 ? `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}` : d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d; };
 
-/** Join and verify: account, details, mobile, card, ID (the website's JoinWizard). */
+/** Join and verify: account, details, mobile, ID, bidding deposit (the website's JoinWizard). */
 export default function Join() {
   const params = useLocalSearchParams<{ step?: string; next?: string; seller?: string }>();
   const next = params.next || "";
-  const { refresh } = useSession();
-  const { saveCard } = usePayments();
+  const { refresh, config } = useSession();
   const [me, setMe] = useState<Me | null>(null);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,11 +37,11 @@ export default function Join() {
     setMe(r);
     const asked = preferred ?? (Number(params.step) || 0);
     if (!r.user) setStep(1);
-    else if (asked > 1 && asked <= 5) setStep(asked);
+    else if (asked > 1 && joinSteps(r.profile?.pay_mode ?? config?.fees.pay_mode).includes(asked)) setStep(asked);
     else if (r.missing.length) setStep(r.missing[0]);
     else setStep(99);
     return r;
-  }, [refresh, params.step, params.seller]);
+  }, [refresh, params.step, params.seller, config]);
   useEffect(() => { void load(); }, [load]);
 
   // Back to where they started (the lot they wanted to bid on, the account page…).
@@ -125,22 +126,6 @@ export default function Join() {
     setBusy(false);
   }
 
-  // Step 4: card (Stripe's payment sheet)
-  async function startCard() {
-    setBusy(true); setErrors({});
-    try {
-      const r = await api<{ test?: boolean; clientSecret?: string }>("/api/stripe/setup", { method: "POST" });
-      if (r.test) { await advance(); setBusy(false); return; }
-      const res = await saveCard(r.clientSecret!);
-      if ("error" in res) setErrors({ card: res.error });
-      else if ("ok" in res) {
-        await api("/api/stripe/card-saved", { body: { setupIntentId: r.clientSecret!.split("_secret_")[0] } });
-        await advance();
-      }
-    } catch (e) { setErrors({ card: errText(e) }); }
-    setBusy(false);
-  }
-
   // Step 5: ID (Stripe Identity in the in-app browser)
   const [idState, setIdState] = useState<string | null>(null);
   async function checkId() {
@@ -158,10 +143,12 @@ export default function Join() {
     setBusy(false);
   }
 
-  const done = [me?.user ? 1 : 0, p?.details_done ? 2 : 0, p?.mobile_verified ? 3 : 0, p?.payment_method_id ? 4 : 0, p?.id_status === "verified" ? 5 : 0].filter(Boolean);
+  const done = [me?.user ? 1 : 0, p?.details_done ? 2 : 0, p?.mobile_verified ? 3 : 0, (p?.payment_ok ?? !!p?.payment_method_id) ? 4 : 0, p?.id_status === "verified" ? 5 : 0].filter(Boolean);
+  const order = joinSteps(p?.pay_mode ?? config?.fees.pay_mode);
+  const pos = order.indexOf(step) + 1;
   const progress = (
-    <View style={{ flexDirection: "row", gap: 6 }} accessibilityLabel={`Step ${Math.min(step, 5)} of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => <View key={n} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: done.includes(n) ? C.mint : n === step ? C.blue : C.panel2 }} />)}
+    <View style={{ flexDirection: "row", gap: 6 }} accessibilityLabel={`Step ${pos || order.length} of ${order.length}`}>
+      {order.map((n) => <View key={n} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: done.includes(n) ? C.mint : n === step ? C.blue : C.panel2 }} />)}
     </View>
   );
 
@@ -229,21 +216,26 @@ export default function Join() {
         <LinkText title={sent ? "Resend code" : "Send code"} style={{ alignSelf: "center" }} onPress={() => sendCode()} />
       </>
     );
-  } else if (step === 4) {
+  } else if (step === 4 && p?.pay_mode === "deposit") {
+    const fees = config?.fees || DEFAULT_FEES;
+    const dep = p?.deposit;
     body = (
       <>
-        <T v="d3">Add a payment card.</T>
-        <T v="muted">Required to bid. No charge today. If you win, payment is taken automatically as soon as the auction ends.</T>
+        <T v="d3">Add your bidding deposit.</T>
+        <T v="muted">Refundable, paid by PayID or bank transfer. We never take your card, so there's nothing to charge back and nothing to steal.</T>
         <Soft>
-          <T v="strong">How paying works</T>
-          <T v="body"><Text style={{ fontFamily: F.bold }}>Total under $5,000: </Text>charged to your card in full straight away when the auction ends.</T>
-          <T v="body"><Text style={{ fontFamily: F.bold }}>$5,000 or more: </Text>a deposit ($500, or $1,000 over $20,000) is charged straight away. You lose it only if you don’t pay. Pay the balance by bank transfer within 2 business days.</T>
+          {depositSteps(fees).map(([t, x], i) => (
+            <View key={t} style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", marginTop: 1 }}><Text style={{ fontFamily: F.heavy, fontSize: 12, color: C.lime }}>{i + 1}</Text></View>
+              <T v="body" style={{ flex: 1, fontSize: 14, lineHeight: 20 }}><Text style={{ fontFamily: F.bold }}>{t}. </Text>{x}</T>
+            </View>
+          ))}
         </Soft>
-        {p?.payment_method_id ? <Notice kind="ok">{`${p.card_brand} ending ${p.card_last4} is on file.`}</Notice> : null}
-        {errors.card ? <Notice kind="bad">{errors.card}</Notice> : null}
-        <Button testID="add-card" title={p?.payment_method_id ? "Replace card" : me.config.stripe ? "Add a card" : "Add a test card (test mode)"} busy={busy} onPress={startCard} />
-        {p?.payment_method_id ? <Button kind="soft" title="Keep this card" onPress={() => advance()} /> : null}
-        <T v="small">Cards are handled by Stripe. Tyrebiter never sees or stores your card number.</T>
+        {dep && me.config.bank ? (
+          <DepositPay fees={fees} summary={dep} bank={me.config.bank} payIdOn={!!me.config.payId} testMode={me.config.testMode}
+            onArrived={() => { void load(-1); }} backLabel="Continue" onBack={() => advance()} />
+        ) : <Notice kind="bad">We couldn't load your deposit details. Pull down to try again, or add it later from Account.</Notice>}
+        {p?.payment_ok ? <Button kind="soft" title="Continue" onPress={() => advance()} /> : null}
       </>
     );
   } else if (step === 5) {
@@ -270,7 +262,7 @@ export default function Join() {
       <>
         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.mint, alignItems: "center", justifyContent: "center" }}><Icon name="check" size={30} strokeWidth={3} /></View>
         <T v="d3">You're ready to bid.</T>
-        <T v="muted">Mobile, card and ID are all verified.</T>
+        <T v="muted">{p?.pay_mode === "deposit" ? "Mobile and ID verified, and your bidding deposit has arrived." : "Mobile and ID verified. Bid on anything you like: if you win, pay by PayID or bank transfer within 2 business days."}</T>
         <Button testID="join-done" title="Continue" onPress={finish} />
       </>
     );
@@ -278,7 +270,7 @@ export default function Join() {
   return (
     <Screen keyboard testID={`join-step-${step}`}>
       {step <= 5 ? progress : null}
-      {step > 1 && step <= 5 ? <T v="eyebrow">Step {step} of 5 · {STEP_NAMES[step]}</T> : null}
+      {step > 1 && step <= 5 ? <T v="eyebrow">Step {pos} of {order.length} · {STEP_NAMES[step]}</T> : null}
       {body}
       {step > 1 && step <= 5 ? <Pressable onPress={finish} accessibilityRole="button"><Text style={{ fontFamily: F.semibold, color: C.muted, textAlign: "center" }}>I'll finish this later</Text></Pressable> : null}
     </Screen>

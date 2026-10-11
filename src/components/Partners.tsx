@@ -45,7 +45,7 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
         <p style={{ fontSize: 17, lineHeight: 1.5, margin: 0 }}>
           {need === "signin" ? `Sign in or join first. We only pass on details you've verified, and only with your permission.`
             : need === "mobile" ? `Add your details and verify your mobile first, so ${partner.name} can reach you.`
-            : "Finish verifying your account (mobile, card and ID) before ordering an inspection. It's the same check as bidding."}
+            : "Finish setting up your account (your mobile and ID) before ordering an inspection. It's the same check as bidding."}
         </p>
         {need === "signin" ? (<>
           <a className="btn btn-blue" href={`/signin?next=${encodeURIComponent(here)}`}>Sign in</a>

@@ -89,16 +89,18 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
 
   s.text("Payment", 50, 12, { bold: true }); s.line(18);
   const paidCard = ["paid", "deposit_paid"].includes(inv.status);
-  s.row(inv.mode === "card" ? "Charged to your card" : "Deposit charged to your card", `${aud(inv.card_amount)}${paidCard ? `  (${day(inv.paid_at)})` : "  (not yet paid)"}`);
-  if (inv.mode === "deposit") {
+  const bank = inv.pay_method === "bank";
+  const fromDeposit = Number(inv.deposit_applied ?? 0);
+  if (!bank || fromDeposit > 0) s.row(bank ? "From your bidding deposit" : inv.mode === "card" ? "Charged to your card" : "Deposit charged to your card", `${aud(bank ? fromDeposit : inv.card_amount)}${paidCard ? `  (${day(inv.paid_at)})` : "  (not yet paid)"}`);
+  if (inv.mode === "deposit" && Number(inv.balance_due) > 0) {
     const balancePaid = inv.status === "paid";
-    s.row("Balance by bank transfer", `${aud(inv.balance_due)}${balancePaid ? `  (received ${day(inv.balance_paid_at)})` : `  (due ${day(inv.due_at)})`}`);
+    s.row(bank ? (fromDeposit > 0 ? "Balance by PayID or bank transfer" : "By PayID or bank transfer") : "Balance by bank transfer", `${aud(inv.balance_due)}${balancePaid ? `  (received ${day(inv.balance_paid_at)})` : `  (due ${day(inv.due_at)})`}`);
     if (!balancePaid) {
       s.line(4);
       s.wrap(`Pay to ${env.bankName}, BSB ${env.bankBsb}, account ${env.bankAccount}${env.payId ? `, or PayID ${env.payId}` : ""}. Reference ${inv.ref}. We never change these details by email or SMS. Call ${env.phone} to confirm before you pay.`, 50, 495);
     }
   }
-  s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? "Deposit paid, balance due" : inv.status.replace("_", " "), { bold: true });
+  s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? (bank ? (fromDeposit > 0 ? "Deposit applied, balance due" : "Payment due") : "Deposit paid, balance due") : inv.status.replace("_", " "), { bold: true });
   s.line(10); s.rule();
   s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is paid to the seller. The buyer's premium and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and a separate tax invoice for the vehicle can be issued on the seller's behalf on request.`, 50, 495, 8);
 

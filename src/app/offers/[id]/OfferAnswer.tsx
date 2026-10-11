@@ -2,8 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ackPayLine } from "@/lib/deposits";
+import type { PayMode } from "@/lib/fees";
 
-export function OfferAnswer({ id }: { id: string }) {
+export function OfferAnswer({ id, mode }: { id: string; mode: PayMode }) {
   const router = useRouter();
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -22,7 +24,7 @@ export function OfferAnswer({ id }: { id: string }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 15, lineHeight: 1.5 }}>
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
-        <span>I want to buy it at this price, as is, where is, and I authorise payment from my card straight away under the <Link className="blue" href="/terms" target="_blank">terms of sale</Link>.</span>
+        <span>I want to buy it at this price, as is, where is, and {ackPayLine(mode)}, under the <Link className="blue" href="/terms" target="_blank">terms of sale</Link>.</span>
       </label>
       {err && <div className="notice bad" role="alert">{err}</div>}
       <button className="btn btn-blue" disabled={busy} onClick={() => answer(true)} data-testid="offer-accept">{busy ? "…" : "Accept and buy"}</button>

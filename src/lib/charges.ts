@@ -34,6 +34,7 @@ export async function markInvoicePaid(invoiceId: string, intentId: string | null
 // idempotency key means a retry after a crash can never charge twice.
 async function chargeClaimed(inv: Invoice & { lots?: { title: string } }) {
   const db = supabaseAdmin();
+  if (inv.pay_method === "bank") return finishBankInvoice(inv);
   const { data: buyer } = await db.from("profiles").select("stripe_customer_id, payment_method_id").eq("id", inv.buyer_id).single();
   const title = inv.lots?.title || `Lot ${inv.lot_id}`;
   const stripe = getStripe();
@@ -115,4 +116,33 @@ export async function processCharges(deadlineMs = 40_000) {
     n += batch.length;
   }
   return n;
+}
+
+// Paid by bidding deposit and PayID or bank transfer (no card): the deposit for the price is already on the invoice.
+// Nothing is charged; we confirm the win and say exactly how to pay the rest.
+async function finishBankInvoice(inv: Invoice & { lots?: { title: string } }) {
+  const db = supabaseAdmin();
+  const title = inv.lots?.title || `Lot ${inv.lot_id}`;
+  const now = new Date().toISOString();
+  const full = Number(inv.balance_due) <= 0;
+  const { data } = await db.from("invoices").update({ status: full ? "paid" : "deposit_paid", paid_at: now, failure_reason: null, ...(full ? { balance_paid_at: now } : {}) })
+    .eq("id", inv.id).eq("status", "charging").select("id");
+  if (!data?.length) return "skipped";
+  const dep = Number(inv.deposit_applied || 0);
+  const body = full
+    ? `You've bought the ${title}. It's paid in full from your bidding deposit, and your tax invoice is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle to someone with your release code.`
+    : `You've bought the ${title}. ${dep > 0 ? `${money(dep, true)} of your bidding deposit has gone towards it. ` : ""}Pay the ${money(inv.balance_due, true)}${dep > 0 ? " balance" : ""} by PayID or bank transfer ${inv.due_at ? `by ${dateLong(inv.due_at)}` : "within 2 business days"}, reference ${inv.ref}, to the account on your invoice page, from an account in your name (or your lender can pay us). We release the vehicle once it has cleared. If it isn't paid, the sale is cancelled and your account closed. We never change our bank details by email or text.`;
+  await notify(inv.buyer_id, "won", `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
+  return "paid";
+}
+
+/** The balance has arrived (our team saw it, or the payments provider told us): paid in full, receipt sent. */
+export async function markBalanceReceived(invoiceId: string): Promise<boolean> {
+  const db = supabaseAdmin();
+  const now = new Date().toISOString();
+  const { data: inv } = await db.from("invoices").update({ status: "paid", balance_paid_at: now }).eq("id", invoiceId).eq("status", "deposit_paid").select("buyer_id, lot_id, ref").maybeSingle();
+  if (!inv) return false;
+  await db.from("invoices").update({ receipt_sent_at: now }).eq("id", invoiceId);
+  await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle with your release code.", `/account/invoices/${invoiceId}`, { dedupe: `receipt:${invoiceId}`, invoiceId });
+  return true;
 }

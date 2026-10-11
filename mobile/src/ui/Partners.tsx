@@ -81,7 +81,7 @@ export function InspectionSheet({ visible, onClose, partner, lotId, vehicle, kin
           : <Button testID="lead-verify" title="Continue" onPress={() => go(`/join?step=${missing[0]}&next=${encodeURIComponent(path)}`)} />}>
         <T v="body" style={{ fontSize: 17, lineHeight: 25 }}>{!signedIn
           ? (transport ? "Sign in or join first. We only pass on details you've verified, and only with your permission." : "Sign in or join first. Inspections are for verified members, because the inspector goes to the seller's address.")
-          : (transport ? `Verify your mobile first, so ${partner.name} can reach you.` : "Finish verifying your account (mobile, card and ID) before ordering an inspection. It's the same check as bidding.")}</T>
+          : (transport ? `Verify your mobile first, so ${partner.name} can reach you.` : "Finish setting up your account (your mobile and ID) before ordering an inspection. It's the same check as bidding.")}</T>
       </Sheet>
     );
   }

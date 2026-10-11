@@ -5,7 +5,8 @@ import { CAT } from "@/lib/vehicles";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail, friendly } from "@/lib/api";
-import { chargeInvoice, findSucceededPayment, markInvoicePaid } from "@/lib/charges";
+import { chargeInvoice, findSucceededPayment, markInvoicePaid, markBalanceReceived } from "@/lib/charges";
+import { payerMatches, cleanRef } from "@/lib/deposits";
 import { notify, notifySeller, kickOutbox } from "@/lib/notify";
 import { sendSms } from "@/lib/sms";
 import { sendEmail, mailHtml } from "@/lib/email";
@@ -70,10 +71,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       return done();
     }
     case "balance-received": {
-      const { data: inv } = await db.from("invoices").update({ status: "paid", balance_paid_at: new Date().toISOString() }).eq("id", b.invoiceId).eq("status", "deposit_paid").select("buyer_id, lot_id, ref").single();
-      if (!inv) return fail("That invoice isn't waiting on a balance.");
-      await db.from("invoices").update({ receipt_sent_at: new Date().toISOString() }).eq("id", b.invoiceId);
-      await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle with your release code.", `/account/invoices/${b.invoiceId}`, { dedupe: `receipt:${b.invoiceId}`, invoiceId: b.invoiceId });
+      if (!(await markBalanceReceived(String(b.invoiceId)))) return fail("That invoice isn't waiting on a balance.");
       return done();
     }
     case "cancel-invoice": {
@@ -93,7 +91,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       const { data: feeRow } = await db.from("settings").select("value").eq("key", "fees").single();
       const f = { ...((feeRow?.value || {}) as Record<string, number>), ...((inv.lots?.fees || {}) as Record<string, number>) };
       const fee = inv.status === "deposit_paid" ? 0 : Number(inv.total) > Number(f.cancel_above ?? 1000) ? Number(f.cancel_fee ?? 250) : 0;
-      let feeNote = fee ? ` A ${money(fee)} cancellation fee applies.` : inv.status === "deposit_paid" ? " Your deposit has been kept." : "";
+      let feeNote = fee ? ` A ${money(fee)} cancellation fee applies.` : inv.status === "deposit_paid" ? (inv.pay_method === "bank" ? ` The ${money(Number(inv.card_amount), true)} of your bidding deposit that went towards it has been kept (Terms of sale, section 11).` : " Your deposit has been kept.") : "";
       let charged = 0;
       const stripe = getStripe();
       if (fee && stripe) {
@@ -115,7 +113,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         await db.from("seller_payouts").insert({ lot_id: inv.lot_id, invoice_id: inv.id, seller_id: inv.lots?.seller_id || null, kind: "forfeit", sale_price: kept,
           other_deductions: kept - half, deductions_note: "Tyrebiter's half of the amount the buyer forfeited", net_amount: half, status: "ready" });
       }
-      await notify(inv.buyer_id, "account", `Sale cancelled: ${inv.ref}`, `We've cancelled this sale because payment wasn't received.${feeNote}`, `/account/invoices/${b.invoiceId}`);
+      // A buyer who doesn't pay can't bid again (Terms of sale, section 11): banned, and their live bids come off.
+      await db.rpc("ban_member", { p_user: inv.buyer_id, p_reason: `Didn't pay for ${inv.ref}` });
+      await notify(inv.buyer_id, "account", `Sale cancelled: ${inv.ref}`, `We've cancelled this sale because payment wasn't received.${feeNote} Your account has been closed for bidding, as our Terms of sale (section 11) say. Call us if you think this is a mistake.`, `/account/invoices/${b.invoiceId}`);
       await notifySeller(inv.lot_id, "The buyer didn't pay, so the sale is cancelled",
         `We'll call you about offering it to the next bidder or relisting at no extra cost.${half > 0 ? ` We'll also pay you ${money(half, true)}, half of what the buyer forfeited.` : ""}`, "/sell/dashboard", `cancelled:${inv.id}`);
       revalidateTag(`lot-${inv.lot_id}`);
@@ -131,8 +131,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       if (!["paid", "deposit_paid", "payment_failed", "pending_charge"].includes(inv.status)) return fail("This sale is already cancelled, or a card charge is running right now. Reload in a minute.");
       const { data: claimed } = await db.from("invoices").update({ status: "cancelled" }).eq("id", b.invoiceId).eq("status", inv.status).select("id");
       if (!claimed?.length) return fail("This invoice changed while you were looking at it. Reload the page.");
-      const cardPaid = ["paid", "deposit_paid"].includes(inv.status) && inv.paid_at ? Number(inv.card_amount) : 0;
+      const bank = inv.pay_method === "bank";
+      const cardPaid = !bank && ["paid", "deposit_paid"].includes(inv.status) && inv.paid_at ? Number(inv.card_amount) : 0;
       const bankPaid = inv.status === "paid" && inv.mode === "deposit" ? Number(inv.balance_due) : 0;
+      // Paid by bidding deposit: the deposit that went onto the invoice goes back into their deposit straight away.
+      let depositBack = 0;
+      if (bank && Number(inv.deposit_applied) > 0) {
+        const { data: back, error: backErr } = await db.rpc("return_invoice_deposit", { p_invoice: inv.id });
+        if (backErr) return fail(friendly(backErr.message));
+        depositBack = Number(back || 0);
+      }
       const notes: string[] = [];
       let cardDone = false;
       const stripe = getStripe();
@@ -144,8 +152,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       } else if (cardPaid > 0 && env.testMode) cardDone = true;
       else if (cardPaid > 0) notes.push(`Refund ${money(cardPaid, true)} to the buyer's card in Stripe.`);
       if (bankPaid > 0) notes.push(`Pay ${money(bankPaid, true)} back to the account the buyer paid the balance from.`);
-      await db.from("invoices").update({ cancel_reason: `not_buyer_fault: ${reason}`, refunded_amount: cardPaid + bankPaid || null,
-        refunded_at: cardPaid + bankPaid ? new Date().toISOString() : null, refund_note: notes.join(" ") || null }).eq("id", inv.id);
+      if (depositBack > 0) notes.push(`${money(depositBack, true)} went back into the buyer's bidding deposit.`);
+      await db.from("invoices").update({ cancel_reason: `not_buyer_fault: ${reason}`, refunded_amount: cardPaid + bankPaid + depositBack || null,
+        refunded_at: cardPaid + bankPaid + depositBack ? new Date().toISOString() : null, refund_note: notes.join(" ") || null }).eq("id", inv.id);
       const { data: pay } = await db.from("seller_payouts").select("id, status").eq("invoice_id", inv.id).maybeSingle();
       if (pay?.status === "paid") notes.push("The seller was already paid: recover it under the seller agreement (sections 11 and 13).");
       else if (pay) await db.from("seller_payouts").update({ status: "cancelled", hold_reason: `Sale cancelled: ${reason}` }).eq("id", pay.id);
@@ -153,12 +162,66 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       const { data: tr } = await db.from("ownership_transfers").select("status").eq("invoice_id", inv.id).maybeSingle();
       if (tr?.status === "complete") notes.push("Ownership was already transferred: arrange for the registration to go back to the seller.");
       await db.from("lots").update({ status: "passed" }).eq("id", inv.lot_id);
-      const refundText = cardPaid + bankPaid === 0 ? "Nothing was charged, so there's nothing to refund."
-        : `We're refunding everything you paid${cardPaid ? `: ${money(cardPaid, true)} to your card${cardDone ? " (it usually shows within 5 to 10 business days)" : ""}` : ""}${bankPaid ? `${cardPaid ? ", and" : ":"} ${money(bankPaid, true)} to the account you paid the balance from` : ""}.`;
+      const parts = [
+        cardPaid ? `${money(cardPaid, true)} to your card${cardDone ? " (it usually shows within 5 to 10 business days)" : ""}` : "",
+        depositBack ? `${money(depositBack, true)} back into your bidding deposit (withdraw it any time from Account → Bidding deposit)` : "",
+        bankPaid ? `${money(bankPaid, true)} to the account you paid the balance from` : "",
+      ].filter(Boolean);
+      const refundText = parts.length === 0 ? "Nothing was paid, so there's nothing to refund."
+        : `We're refunding everything you paid: ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]}.`;
       await notify(inv.buyer_id, "account", `Sale cancelled and refunded: ${inv.ref}`, `We've cancelled your purchase of the ${inv.lots?.title}. Reason: ${reason}. ${refundText} Call us if you have any questions.`, `/account/invoices/${inv.id}`, { dedupe: `refund-cancel:${inv.id}` });
       await notifySeller(inv.lot_id, "The sale has been cancelled", `We've cancelled the sale of your ${inv.lots?.title} and refunded the buyer. Reason: ${reason}. Your consultant will call you about what happens next.`, "/sell/dashboard", `refund-cancel:${inv.id}`);
       revalidateTag(`lot-${inv.lot_id}`);
       return done({ note: notes.join(" ") || "Cancelled and refunded." });
+    }
+
+    // ---- Bidding deposits (paid by PayID or bank transfer into the trust account) ----
+    case "record-deposit": {
+      const amount = Math.round(Number(String(b.amount ?? "").replace(/[^0-9.]/g, "")) * 100) / 100;
+      if (!(amount > 0)) return fail("Enter the amount that arrived.");
+      const who = String(b.member || "").trim();
+      if (!who) return fail("Enter the member's payment reference (BID…) or email.");
+      const ref = cleanRef(who);
+      const q = db.from("profiles").select("id, first_name, last_name, deposit_ref, email");
+      const { data: m } = await (who.includes("@") ? q.ilike("email", who) : q.eq("deposit_ref", ref)).maybeSingle();
+      if (!m) return fail("No member has that reference or email. Check the reference on the bank statement.");
+      const payer = String(b.payerName || "").trim();
+      if (!payer) return fail("Enter the name on the account it came from (on the bank statement).");
+      if (!payerMatches(payer, m.first_name, m.last_name) && b.confirmName !== true) {
+        return json({ ok: false, needsConfirm: true, error: `The payer "${payer}" doesn't look like ${m.first_name} ${m.last_name}. Payments must come from an account in the member's name. Tick the box if you've confirmed it's theirs (for example a joint account), or send it back.` }, 409);
+      }
+      const { data: id, error } = await db.rpc("record_deposit", { p_user: m.id, p_amount: amount, p_method: b.method === "payid" ? "payid" : "bank",
+        p_reference: String(b.reference || m.deposit_ref || ""), p_payer_name: payer, p_payer_bsb: String(b.payerBsb || ""), p_payer_account: String(b.payerAccount || ""),
+        p_note: String(b.note || "") || null, p_provider: null, p_provider_ref: null });
+      if (error) return fail(friendly(error.message));
+      return done({ id, note: `Recorded ${money(amount, true)} for ${m.first_name} ${m.last_name}. They've been told.` });
+    }
+    case "withdrawal-paid": {
+      const { error } = await db.rpc("deposit_withdrawal_paid", { p_id: String(b.id), p_reference: String(b.reference || "") });
+      if (error) return fail(friendly(error.message));
+      return done();
+    }
+    case "withdrawal-cancel": {
+      const { data: w } = await db.from("bidder_deposits").select("user_id, amount").eq("id", b.id).eq("status", "pending").maybeSingle();
+      const { error } = await db.rpc("cancel_deposit_withdrawal", { p_id: String(b.id) });
+      if (error) return fail(friendly(error.message));
+      if (w) await notify(w.user_id, "account", "Your deposit refund needs a word", `We couldn't send your ${money(-Number(w.amount), true)} refund to the account your deposit came from, so it's back in your bidding deposit. We'll call you to sort it out.`, "/account/deposit");
+      return done();
+    }
+    case "adjust-deposit": {
+      const amount = Math.round(Number(String(b.amount ?? "").replace(/[^0-9.-]/g, "")) * 100) / 100;
+      if (!amount) return fail("Enter the correction, for example -500 or 250.");
+      let userId = String(b.userId || "");
+      if (!userId) {
+        const who = String(b.member || "").trim();
+        const q = db.from("profiles").select("id");
+        const { data: m } = who ? await (who.includes("@") ? q.ilike("email", who) : q.eq("deposit_ref", cleanRef(who))).maybeSingle() : { data: null };
+        if (!m) return fail("No member has that reference or email.");
+        userId = m.id;
+      }
+      const { error } = await db.rpc("adjust_deposit", { p_user: userId, p_amount: amount, p_note: String(b.note || "") });
+      if (error) return fail(friendly(error.message));
+      return done();
     }
 
     // ---- Collections ----
@@ -306,12 +369,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
     }
 
     // ---- Members ----
+    case "ban": {
+      const reason = String(b.reason || "").trim();
+      if (reason.length < 3) return fail("Say why (they see it).");
+      const { data: removed, error } = await db.rpc("ban_member", { p_user: String(b.userId), p_reason: reason.slice(0, 300) });
+      if (error) return fail(friendly(error.message));
+      await notify(String(b.userId), "account", "Your account has been closed for bidding", `Reason: ${reason}. Call us if you think this is a mistake.`, "/account");
+      return done({ note: removed ? `Banned. Their bids came off ${removed} live auction${removed === 1 ? "" : "s"}.` : "Banned." });
+    }
     case "member": {
       const patch: Record<string, unknown> = {};
-      if (typeof b.suspended === "boolean") patch.suspended = b.suspended;
+      if (b.suspended === false) {
+        // lifting a suspension also lifts a ban (and forgets the identity codes kept for it)
+        const { error } = await db.rpc("unban_member", { p_user: String(b.userId) });
+        if (error) return fail(friendly(error.message));
+      } else if (b.suspended === true) { patch.suspended = true; patch.suspended_at = new Date().toISOString(); patch.suspended_reason = "Suspended by our team"; }
       if (b.role === "admin" || b.role === "buyer") patch.role = b.role;
       if (b.idStatus) patch.id_status = b.idStatus;
-      await db.from("profiles").update(patch).eq("id", b.userId);
+      if (Object.keys(patch).length) await db.from("profiles").update(patch).eq("id", b.userId);
       return done();
     }
     case "report":
@@ -470,6 +545,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       if (!["fees", "auction", "selling", "terms", "finance", "newsletter", "business", "insights", "seo"].includes(b.key)) return fail("Unknown setting.");
       if (b.key === "fees" && Number(b.value?.surcharge_rate) > 0) return fail("Card surcharges on Visa, Mastercard and eftpos are banned from 1 October 2026. Keep it at 0.");
       if (b.key === "fees" && (Number(b.value?.late_interest_rate) < 0 || Number(b.value?.late_interest_rate) > 20)) return fail("Keep interest on overdue balances between 0 and 20% a year. A higher rate risks being an unfair term.");
+      if (b.key === "fees" && b.value?.pay_mode !== undefined && !["transfer", "deposit"].includes(String(b.value.pay_mode))) return fail("Choose no deposit or bidding deposit.");
+      if (b.key === "fees" && b.value?.deposit_rate !== undefined && !(Number(b.value.deposit_rate) >= 0.02 && Number(b.value.deposit_rate) <= 0.5)) return fail("Keep the bidding deposit between 0.02 (2%) and 0.5 (50%) of the bid limit.");
+      if (b.key === "fees" && b.value?.deposit_min !== undefined && !(Number(b.value.deposit_min) >= 50)) return fail("The minimum bidding deposit must be at least $50.");
+      if (b.key === "fees" && b.value?.deposit_cap !== undefined && Number(b.value.deposit_cap) !== 0 && !(Number(b.value.deposit_cap) >= Number(b.value.deposit_min ?? 0))) return fail("The no-limit deposit must be 0 (no cap) or at least the minimum deposit.");
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");
       return done();
