@@ -1,9 +1,9 @@
 // Wording shared by the website, the app and the server for partner referrals (finance, insurance,
-// mobile inspections, transport, warranties). The exact consent text is saved with each lead.
+// mechanical inspections, transport, warranties). The exact consent text is saved with each lead.
 import type { Partner, PartnerKind } from "./types";
 
 export const KIND_NOUN: Record<PartnerKind, string> = {
-  finance: "car finance", insurance: "an insurance quote", inspection: "a mobile inspection of this vehicle",
+  finance: "car finance", insurance: "an insurance quote", inspection: "a mechanical inspection of this vehicle",
   transport: "a transport quote for this vehicle", warranty: "a warranty or roadside assistance quote",
 };
 

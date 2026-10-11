@@ -9,12 +9,14 @@ type Clause = [string, string, string[]];
 // The same questions as the sell form (src/lib/sellForm.ts), so a seller who used it sees their answers here.
 const YN = QUESTIONS;
 
-export function AgreementForm({ invite, userId, reserve, legalName, clauses, prefill, ownerType }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[]; prefill?: Record<string, string>; ownerType?: string }) {
+export function AgreementForm({ invite, userId, reserve, legalName, clauses, prefill, ownerType, inspectionFee = 0 }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[]; prefill?: Record<string, string>; ownerType?: string; inspectionFee?: number }) {
   const router = useRouter();
   const [d, setD] = useState<Record<string, string>>({ write_off: "none", keys: "2", service_books: "no", ...(prefill || {}) });
   const [sig, setSig] = useState<Signature | null>(null);
   const [noDraw, setNoDraw] = useState(false);
   const [gst, setGst] = useState(false);
+  const [viewing, setViewing] = useState<"" | "yes" | "no">("");
+  const [preInspect, setPreInspect] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,6 +25,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    if (!viewing) { setErr("Tell us whether buyers can view it in person, by appointment (section 2)."); return; }
     if (!sig && !noDraw) { setErr("Sign in the box (with your finger, a pen or the mouse)."); return; }
     setBusy(true); setErr("");
     const docs: string[] = [];
@@ -33,7 +36,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       if (!error) docs.push(path);
     }
     const res = await fetch("/api/seller/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      invite, reserve: f.get("reserve"), disclosures: d, gst, abn: f.get("abn"), ownerType: f.get("ownerType"), docs,
+      invite, reserve: f.get("reserve"), disclosures: d, gst, abn: f.get("abn"), ownerType: f.get("ownerType"), docs, inPersonViewing: viewing === "yes", preInspection: preInspect,
       bank: { name: f.get("bankName"), bsb: f.get("bsb"), account: f.get("account") },
       signedName: f.get("signedName"), agree: f.get("agree") === "on", owner: f.get("owner") === "on", signature: noDraw ? null : sig, noDraw,
     }) });
@@ -51,8 +54,18 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
           <span className="hint">Kept secret from bidders. If bidding ends below it, you decide whether to accept. Leave blank for no reserve (it sells to the highest bidder).</span></label>
       </section>
 
+      <section className="formcard" data-testid="agreement-viewing">
+        <h2 className="d3" style={{ fontSize: 30 }}>2. Letting buyers see it.</h2>
+        <p className="muted" style={{ margin: 0 }}>Every listing includes a free video walkaround: we (or you, if you&apos;d like) video-call an interested buyer and show them the vehicle. Buyers who can see it bid with more confidence.</p>
+        <b style={{ fontSize: 16 }}>Can verified buyers also view it in person, strictly by appointment?</b>
+        <div className="pill-row">{([["yes", "Yes, by appointment"], ["no", "No, video only"]] as const).map(([v, l]) => <button type="button" key={v} className={`pill ${viewing === v ? "pill-dark" : "pill-soft"}`} aria-pressed={viewing === v} onClick={() => setViewing(v)} data-testid={`viewing-${v}`}>{l}</button>)}</div>
+        <span className="hint">We book every viewing with you first, and only send the buyer your address once it&apos;s booked. Buyers are ID-verified and show photo ID. Viewing only: no test drives, and the keys stay with you or our consultant.</span>
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 6 }}><input type="checkbox" checked={preInspect} onChange={(e) => setPreInspect(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid="pre-inspection" />
+          <span><b>Have a mechanic inspect it before it goes live{inspectionFee > 0 ? ` (${"$" + inspectionFee.toLocaleString("en-AU")} including GST)` : ""}.</b><br /><span className="hint">Your listing gets an &quot;Inspected&quot; badge and the mechanic&apos;s report, which gives buyers the confidence to bid higher. The fee comes out of the sale proceeds when it sells; if it doesn&apos;t sell, there&apos;s nothing to pay.</span></span></label>
+      </section>
+
       <section className="formcard">
-        <h2 className="d3" style={{ fontSize: 30 }}>2. About the vehicle.</h2>
+        <h2 className="d3" style={{ fontSize: 30 }}>3. About the vehicle.</h2>
         <p className="muted" style={{ margin: 0 }}>Answer honestly. Your answers are shown to buyers, and you&apos;re legally responsible for them. Being upfront sells cars: buyers bid more when there are no surprises.</p>
         {YN.map(([k, q, det]) => (
           <div key={k} style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 10, borderBottom: "1px solid var(--line)" }}>
@@ -79,7 +92,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       </section>
 
       <section className="formcard">
-        <h2 className="d3" style={{ fontSize: 30 }}>3. Ownership.</h2>
+        <h2 className="d3" style={{ fontSize: 30 }}>4. Ownership.</h2>
         <label className="field"><span>The vehicle is owned by</span><select className="input" name="ownerType" defaultValue={ownerType || "individual"}><option value="individual">Me</option><option value="joint">Me and someone else</option><option value="company">A company</option><option value="trust">A trust</option></select>
           <span className="hint">If someone else co-owns it, we&apos;ll ask them to confirm by phone before it goes live.</span></label>
         <label className="field"><span>Photo of the registration papers (or other proof of ownership)</span><input type="file" accept="image/*,application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} required />
@@ -90,7 +103,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       </section>
 
       <section className="formcard">
-        <h2 className="d3" style={{ fontSize: 30 }}>4. Where we pay you.</h2>
+        <h2 className="d3" style={{ fontSize: 30 }}>5. Where we pay you.</h2>
         <div className="row2">
           <label className="field"><span>Account name</span><input className="input" name="bankName" required defaultValue={legalName} /></label>
           <label className="field"><span>BSB</span><input className="input" name="bsb" inputMode="numeric" required placeholder="000-000" /></label>
@@ -100,7 +113,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       </section>
 
       <section className="formcard">
-        <h2 className="d3" style={{ fontSize: 30 }}>5. Read and sign.</h2>
+        <h2 className="d3" style={{ fontSize: 30 }}>6. Read and sign.</h2>
         <div style={{ maxHeight: 420, overflowY: "auto", border: "1px solid var(--line)", borderRadius: 18, padding: "18px 20px", background: "#FFFFFF" }}>
           {clauses.map(([id, title, paras]) => (
             <div key={id} style={{ marginBottom: 16 }}><b>{title}</b>{paras.map((p, i) => <p key={i} style={{ fontSize: 14, lineHeight: 1.6, margin: "6px 0" }} dangerouslySetInnerHTML={{ __html: p }} />)}</div>

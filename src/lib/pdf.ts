@@ -67,7 +67,8 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.text(`Invoice ${inv.ref}`, 50, 11, { bold: true }); s.text(`Issued ${day(inv.created_at)}`, 0, 10, { right: 545 }); s.line(24);
 
   s.text("Billed to", 50, 9, { color: MUTED }); s.text("Vehicle", 300, 9, { color: MUTED }); s.line(14);
-  const left = [buyer?.company_name, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), buyer?.abn ? `ABN ${buyer.abn}` : null, buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean);
+  const biz = (inv.buyer_business as { name?: string | null; abn?: string | null } | null) || { name: buyer?.company_name, abn: buyer?.abn };
+  const left = [biz.name, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), biz.abn ? `ABN ${biz.abn}` : null, buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean);
   const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Located at ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via}`].filter(Boolean);
   for (let i = 0; i < Math.max(left.length, right.length); i++) { if (left[i]) s.text(left[i], 50, 10); if (right[i]) s.text(right[i], 300, 10); s.line(14); }
   s.line(14); s.rule();

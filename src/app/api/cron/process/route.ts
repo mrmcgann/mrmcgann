@@ -71,6 +71,7 @@ export async function GET(req: Request) {
   }
 
   // 6. Seller payouts that are now ready (collected, claim window closed, no claim)
+  await guard("viewings", async () => { s.viewings = Number((await call("viewing_sweep")) || 0); });
   await guard("seller payouts", async () => { s.payoutsReady = Number((await call("release_payouts")) || 0); });
 
   // 7. Reminders: balance due tomorrow; collection due tomorrow; storage started

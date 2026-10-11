@@ -44,12 +44,23 @@ export async function POST(req: Request) {
     p_docs: docs, p_ip: await clientIp(), p_ua: await userAgent(),
   });
   if (error) return fail(friendly(error.message));
+  // viewings in person (by appointment) and the optional inspection before listing (its fee is locked into the agreement)
+  const { data: ag } = await admin.from("seller_agreements").select("lot_id, fees").eq("id", agreementId as string).maybeSingle();
+  if (ag?.lot_id) {
+    const { data: sell } = await admin.from("settings").select("value").eq("key", "selling").maybeSingle();
+    const fee = b.preInspection === true ? Math.max(0, Number((sell?.value as { pre_inspection_fee?: number } | null)?.pre_inspection_fee || 0)) : 0;
+    await Promise.all([
+      admin.from("seller_agreements").update({ fees: { ...((ag.fees as Record<string, unknown>) || {}), pre_inspection_fee: fee } }).eq("id", agreementId as string),
+      admin.from("lots").update({ in_person_viewing: b.inPersonViewing === true }).eq("id", ag.lot_id),
+      admin.from("lot_private").upsert({ lot_id: ag.lot_id, pre_inspection_requested: b.preInspection === true }),
+    ]);
+  }
   if (signature) {
     const path = `${user.id}/${String(b.invite || "").replace(/[^0-9a-f]/g, "")}/signature-${Date.now()}.svg`;
     const up = await admin.storage.from("seller-docs").upload(path, new TextEncoder().encode(signatureSvg(signature)), { contentType: "image/svg+xml", upsert: true });
     if (!up.error) await admin.from("seller_agreements").update({ signature_path: path }).eq("id", agreementId as string);
   }
   await admin.from("seller_bank").upsert({ seller_id: user.id, account_name: txt(b.bank.name, 120), bsb: `${bsb.slice(0, 3)}-${bsb.slice(3)}`, account_number: acct, confirmed_at: null, updated_at: new Date().toISOString() });
-  await sendEmail({ to: env.supportEmail, subject: `Seller signed: ${b.invite}`, text: `Agreement ${agreementId}. Check ownership papers and confirm bank details by phone in admin: ${env.siteUrl}/admin/lots` }).catch(() => undefined);
+  await sendEmail({ to: env.supportEmail, subject: `Seller signed: ${b.invite}`, text: `Agreement ${agreementId}. Check ownership papers and confirm bank details by phone in admin: ${env.siteUrl}/admin/lots${b.preInspection === true ? "\n\nThe seller wants an inspection before listing: book the mechanic." : ""}${b.inPersonViewing === true ? "\nIn-person viewings by appointment: yes." : ""}` }).catch(() => undefined);
   return json({ ok: true });
 }

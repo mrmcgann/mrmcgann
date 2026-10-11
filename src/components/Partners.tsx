@@ -8,7 +8,7 @@ import type { Partner, PartnerKind } from "@/lib/types";
 
 // "Have them contact me": a signed-in member with a verified mobile agrees, in so many words, to
 // us passing their verified details to one named partner. Sent through /api/leads. Used for
-// finance, insurance and mobile inspections (inspections also need a fully verified account).
+// finance, insurance and mechanical inspections (inspections also need a fully verified account).
 export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle, onClose }: {
   partner: Partner; kind: PartnerKind; lotId?: number; details?: Record<string, string | number>; needPostcode?: boolean; vehicle?: string; onClose: () => void;
 }) {
@@ -38,7 +38,7 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
     setRef(data.ref);
   }
 
-  const title = kind === "inspection" ? "Order a mobile inspection." : kind === "finance" ? `Talk to ${partner.name}.` : kind === "transport" ? `Get a transport quote from ${partner.name}.` : `Get a quote from ${partner.name}.`;
+  const title = kind === "inspection" ? "Order a mechanical inspection." : kind === "finance" ? `Talk to ${partner.name}.` : kind === "transport" ? `Get a transport quote from ${partner.name}.` : `Get a quote from ${partner.name}.`;
   if (need) {
     return (
       <Modal title={title} onClose={onClose}>
@@ -90,20 +90,20 @@ export function LeadForm({ partner, kind, lotId, details, needPostcode, vehicle,
   );
 }
 
-// Listing page: buyers don't view in person. They order an independent mobile inspection here,
-// or call the vehicle's consultant to organise one.
-export function MobileInspection({ lotId, partner, vehicle, consultantPhone, consultantName, open }: { lotId: number; partner: Partner | null; vehicle: string; consultantPhone: string | null; consultantName?: string | null; open: boolean }) {
+// Listing page: our mechanical inspection service. A mechanic from our inspection partner inspects the vehicle where
+// it is and sends the buyer a written report; or the vehicle's consultant organises one.
+export function MechanicalInspection({ lotId, partner, vehicle, consultantPhone, consultantName, open }: { lotId: number; partner: Partner | null; vehicle: string; consultantPhone: string | null; consultantName?: string | null; open: boolean }) {
   const [form, setForm] = useState(false);
   const who = consultantName ? consultantName.split(" ")[0] : "your consultant";
   return (
-    <div className="soft" style={{ gap: 8 }}>
-      <b style={{ fontSize: 17 }}>Mobile inspection.</b>
-      <span className="muted" style={{ fontSize: 15 }}>
-        In-person viewings aren&apos;t available. {partner ? <>An independent mechanic from {partner.name} can inspect the vehicle where it is and send you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b></> : null}.</> : <>An independent mechanic can inspect it where it is and send you a written report.</>}
+    <div className="vw-opt" data-testid="mechanical-inspection">
+      <b style={{ fontSize: 17 }}>Mechanical inspection.</b>
+      <span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>
+        {partner ? <>We send a qualified mechanic from {partner.name} to the vehicle. They check it over (engine, gearbox, brakes, suspension, body and a road test where it&apos;s registered) and email you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b></> : null}.</> : <>A qualified mechanic inspects it where it is and sends you a written report with photos.</>}
       </span>
-      {partner && open && <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)}>Order a mobile inspection</button>}
+      {partner && open && <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)}>Order a mechanical inspection</button>}
       {partner?.turnaround && open && <span className="hint">{partner.turnaround}. Allow time before bidding closes.</span>}
-      {consultantPhone && <span style={{ fontSize: 15 }}>Or call {who} on <a className="blue" href={`tel:${consultantPhone.replace(/[^\d+]/g, "")}`} style={{ fontWeight: 700 }}>{consultantPhone}</a> to organise an inspection.</span>}
+      {consultantPhone && <span style={{ fontSize: 15 }}>Or call {who} on <a className="blue" href={`tel:${consultantPhone.replace(/[^\d+]/g, "")}`} style={{ fontWeight: 700 }}>{consultantPhone}</a> and we&apos;ll organise it.</span>}
       {form && partner && <LeadForm partner={partner} kind="inspection" lotId={lotId} vehicle={vehicle} onClose={() => setForm(false)} />}
     </div>
   );

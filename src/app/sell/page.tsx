@@ -11,7 +11,7 @@ const STEPS = [
   ["1", "Fill in and sign", "What it is, how it's going, a few phone photos, reserve or no reserve, then sign with your finger. About 10 minutes.", "tangerine"],
   ["2", "We call you", "Within 1 business day, with a price guide. Then you verify your ID in your browser: about 2 minutes.", "sun"],
   ["3", "Photos at your place", "We photograph the vehicle and prepare its condition report where it's kept.", "lime"],
-  ["4", "7-day auction", "Listed to verified buyers nationwide. No viewings: buyers book an independent mobile inspection instead.", "sky"],
+  ["4", "7-day auction", "Listed to verified buyers nationwide. Buyers see it on a free video walkaround, or in person by appointment if you agree. Viewing only, no test drives.", "sky"],
   ["5", "Settlement", "The buyer pays Tyrebiter and the registration is transferred, then they collect at a booked time. You're paid within 3 business days of collection.", "grape"],
 ];
 const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Professional, at your place"], ["Visitors to your home", "Every interested buyer", "None", "Only the buyer, to collect"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];

@@ -85,6 +85,31 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       await chargeInvoice(b.invoiceId);
       return done();
     }
+    case "viewing": {
+      // confirm a time (with who hosts), decline with a reason, or mark it done / missed
+      const what = ["confirm", "decline", "done", "no_show"].includes(b.do) ? b.do : null;
+      if (!what || !/^[0-9a-f-]{36}$/.test(String(b.id || ""))) return fail("Unknown booking.");
+      const starts = what === "confirm" ? new Date(String(b.startsAt || "")) : null;
+      if (starts && Number.isNaN(starts.getTime())) return fail("Pick a date and time.");
+      const { error } = await db.rpc("admin_viewing", { p_id: b.id, p_action: what, p_starts: starts ? starts.toISOString() : null, p_host: what === "confirm" ? (b.host === "seller" ? "seller" : "consultant") : null, p_note: String(b.note || "").slice(0, 500) || null });
+      if (error) return fail(error.message.includes("viewing_time") ? "Pick a time in the future." : error.message.includes("viewing_not") ? "That booking isn't open any more." : friendly(error.message));
+      return done();
+    }
+    case "dealer": {
+      const { error } = await db.rpc("admin_dealer", { p_user: String(b.userId), p_approve: b.approve === true, p_note: String(b.note || "").slice(0, 500) || null });
+      if (error) return fail(friendly(error.message));
+      return done();
+    }
+    case "invoices-paid": {
+      // one transfer that paid several invoices (dealers paying for a few vehicles at once)
+      const ids = (Array.isArray(b.invoiceIds) ? b.invoiceIds : []).map(String).filter((x: string) => /^[0-9a-f-]{36}$/.test(x)).slice(0, 50);
+      if (!ids.length) return fail("Tick the invoices this payment covered.");
+      const { data: invs } = await db.from("invoices").select("id, buyer_id, status").in("id", ids);
+      if ((invs || []).length !== ids.length || new Set((invs || []).map((i) => i.buyer_id)).size !== 1) return fail("Pick invoices for one member only.");
+      let n = 0;
+      for (const id of ids) if (await markBalanceReceived(id)) n++;
+      return done({ message: `${n} of ${ids.length} marked paid${n < ids.length ? " (the others weren't waiting on a balance)" : ""}.` });
+    }
     case "balance-received": {
       if (!(await markBalanceReceived(String(b.invoiceId)))) return fail("That invoice isn't waiting on a balance.");
       return done();

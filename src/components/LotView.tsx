@@ -4,7 +4,9 @@ import type { Disclosures, Fees, FinanceSettings, Lot, Partner } from "@/lib/typ
 import { Gallery } from "@/components/Gallery";
 import { ShareButton, ViewBeacon } from "@/components/LotBits";
 import { LotInteractive, LotQuestions, LotDelivery } from "@/components/LotInteractive";
-import { MobileInspection } from "@/components/Partners";
+import { MechanicalInspection } from "@/components/Partners";
+import { Viewings } from "@/components/Viewings";
+import { CompareToggle } from "@/components/Compare";
 import { LotCard } from "@/components/LotCard";
 import { Tick } from "@/components/CarArt";
 import { gradeInfo } from "@/lib/grades";
@@ -99,7 +101,8 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
           {sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
           <h1 className="d2" style={{ fontSize: "clamp(44px,7vw,96px)" }}>{lot.short_title || lot.title}.</h1>
           {lot.subtitle && <p className="lede">{lot.subtitle}</p>}
-          <div className="stat-row"><span>{watchers} watching</span><span>{(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</span><ShareButton title={lot.title} /></div>
+          <div className="stat-row"><span>{watchers} watching</span><span>{(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</span><ShareButton title={lot.title} />{!preview && <CompareToggle id={lot.id} title={lot.title} />}</div>
+          {lot.inspected_at && <a className="tag inspected" href="#inspected" data-testid="lot-inspected">Inspected by a mechanic</a>}
         </div>
         <Gallery photos={photos} backdrop={lot.backdrop} type={lot.vehicle_type} videos={videos} externalVideo={lot.video_url} title={lot.title} />
 
@@ -130,8 +133,19 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <h2 className="d3">Condition report.</h2>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 20px", borderRadius: 20, background: "var(--panel)" }}>
                 <span style={{ width: 28, height: 28, borderRadius: 14, background: "var(--sun)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>i</span>
-                <span style={{ fontSize: 15, lineHeight: 1.55 }}><b>A guide only.</b> Prepared from a visual inspection at the vehicle&apos;s location and the seller&apos;s written declarations. It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. We recommend an independent mobile inspection before you bid. If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
+                <span style={{ fontSize: 15, lineHeight: 1.55 }}><b>A guide only.</b> Prepared from a visual inspection at the vehicle&apos;s location and the seller&apos;s written declarations. It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "Book a free video walkaround or a mechanical inspection before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
               </div>
+              {lot.inspected_at && (
+                <div className="inspected-box" id="inspected" data-testid="inspected-box">
+                  <span className="tick" style={{ background: "var(--mint)" }}><Tick /></span>
+                  <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <b style={{ fontSize: 18 }}>Inspected by a mechanic{lot.inspected_by ? ` (${lot.inspected_by})` : ""} on {shortDate(lot.inspected_at)}.</b>
+                    {lot.inspection_summary && <span style={{ fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-line" }}>{lot.inspection_summary}</span>}
+                    <span style={{ fontSize: 15 }}><a className="blue" href={`/api/lots/${lot.id}/inspection-report`} style={{ fontWeight: 700 }} rel="nofollow">Read the full report ›</a> <span className="muted">(sign in to read it)</span></span>
+                    <span className="hint" style={{ margin: 0 }}>Done before listing, at the seller&apos;s request. It shows the vehicle&apos;s condition on that day; things can change, so you can still order your own.</span>
+                  </span>
+                </div>
+              )}
               {lot.visual_grade && (
                 <div className="gradebox">
                   <div className="orb"><span style={{ fontWeight: 700 }}>Visual grade</span><b>{lot.visual_grade}</b><span style={{ fontWeight: 700 }}>{g[1]}</span></div>
@@ -172,6 +186,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 {([
                   ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
                   ["Seller identity", "ID and proof of ownership verified", true],
+                  ...(lot.inspected_at ? [["Mechanical inspection", `By ${lot.inspected_by || "a mechanic"} on ${shortDate(lot.inspected_at)}, before listing`, true] as [string, string, boolean]] : []),
                   ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
                   photos.some((ph) => ph.credit) ? ["Photographs", "Includes supplied photos (credited on each photo)", false] : ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
                   lot.odometer != null ? ["Odometer", "Reading photographed on the dash. True distance can't be verified", false] : lot.hours != null ? ["Hours", "Reading photographed on the meter. True hours can't be verified", false] : null,
@@ -200,10 +215,18 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               </div>
             )}
 
+            {!preview && ["live", "scheduled", "offers", "referred"].includes(lot.status) && (
+              <div className="lotsec" id="see-it" style={{ gap: 14 }}>
+                <h2 className="d3" style={{ fontSize: 40 }}>See it before you bid.</h2>
+                <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} endsAt={lot.ends_at} auction={forSale} open={questionsOpen} />
+                <MechanicalInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={questionsOpen} />
+              </div>
+            )}
+
             <div className="lotsec" id="inspection" style={{ gap: 14 }}>
               <h2 className="d3" style={{ fontSize: 40 }}>Inspection &amp; collection.</h2>
               <div className="rows">
-                <div><span className="muted">Inspection</span><b style={{ textAlign: "right" }}>Independent mobile inspection, or through your consultant</b></div>
+                <div><span className="muted">Seeing it</span><b style={{ textAlign: "right" }}>{lot.in_person_viewing ? "Video walkaround, or in person strictly by appointment" : "Video walkaround or a mechanical inspection"}</b></div>
                 <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"}</b></div>
                 <div><span className="muted">Collection</span><b style={{ textAlign: "right" }}>{lot.suburb}, {lot.state}{lot.registration === "unregistered" ? ". By carrier, trailer or permit" : ""}</b></div>
                 <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Sent once ownership is transferred and your collection time is confirmed</b></div>
@@ -212,7 +235,6 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                   {lot.buy_now_price && <span><b>Buy Now:</b> {consumerRights("outright", lot.seller_type)}</span>}
                   <Link className="blue" href="/terms#t-asis" style={{ fontWeight: 700 }}>Your consumer rights ›</Link></span></div>
               </div>
-              <MobileInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={forSale && !preview} />
               {["live", "sold"].includes(lot.status) && <LotDelivery lotId={lot.id} partner={transporter} vehicle={vehicle} />}
             </div>
 
@@ -251,7 +273,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                   <span className="face" aria-hidden="true">{consultant.photo_path ? <img src={photoUrl(consultant.photo_path)} alt="" /> : consultant.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>
                   <span style={{ display: "flex", flexDirection: "column" }}><b style={{ fontSize: 17 }}>{consultant.name}</b><span className="muted" style={{ fontSize: 14 }}>{consultant.title}</span></span>
                 </div>
-                <span className="muted" style={{ fontSize: 15 }}>Questions about this vehicle, or want an inspection organised? Call your consultant.</span>
+                <span className="muted" style={{ fontSize: 15 }}>Questions, a video walkaround or an inspection? Call your consultant.</span>
                 <div className="acts">
                   {consultant.phone && <a className="btn btn-dark" href={`tel:${consultant.phone.replace(/\s/g, "")}`}>Call {consultant.phone}</a>}
                   {consultant.email && <a className="btn btn-soft" style={{ background: "#FFFFFF" }} href={`mailto:${consultant.email}?subject=${encodeURIComponent(`Lot ${lot.id}: ${lot.title}`)}`}>Email</a>}

@@ -38,7 +38,7 @@ export default async function SalePage({ params }: { params: Promise<{ slug: str
           {sale.stats.first_end && <span>First closes {dateTime(sale.stats.first_end)}</span>}
           {sale.stats.last_end && sale.stats.last_end !== sale.stats.first_end && <span>Last closes {dateTime(sale.stats.last_end)}</span>}
         </div>
-        <p className="hint" style={{ margin: 0 }}>Each vehicle has its own auction and closes on its own time, a few minutes apart. A bid in the last minutes extends only that vehicle. Every vehicle is at the seller&apos;s location: order a mobile inspection or call the consultant on the listing.</p>
+        <p className="hint" style={{ margin: 0 }}>Each vehicle has its own auction and closes on its own time, a few minutes apart. A bid in the last minutes extends only that vehicle. Every vehicle is at the seller&apos;s location: book a free video walkaround, order a mechanical inspection, or call the consultant on the listing.</p>
       </div>
       {!live.length && closed.length > 0 && <h2 className="d3">Results.</h2>}
       {shown.length === 0 ? <div className="empty"><b style={{ fontSize: 20 }}>Vehicles are being added.</b><span className="muted">Check back soon.</span></div>

@@ -1,3 +1,4 @@
+import { viewingError } from "@/lib/viewings";
 import "server-only";
 import { NextResponse } from "next/server";
 import { money } from "@/lib/format";
@@ -10,6 +11,8 @@ export const fail = (error: string, status = 400) => NextResponse.json({ error }
 export function friendly(message: string | undefined) {
   const m = message || "";
   if (m.includes("not_signed_in")) return "Sign in to continue.";
+  const viewing = viewingError(m);
+  if (viewing) return viewing;
   if (m.includes("account_suspended")) return "Your account can't bid at the moment. If you think that's a mistake, call us.";
   if (m.includes("not_verified")) return "Finish setting up your account (your details, mobile and ID) before you bid.";
   const short = depositShort(m);

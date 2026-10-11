@@ -16,7 +16,8 @@ import { Icon } from "~/ui/art";
 import { BidPanel } from "~/ui/BidPanel";
 import { Gallery } from "~/ui/Gallery";
 import { QuestionBox, QuoteBox, ReportLink } from "~/ui/LotExtras";
-import { ConsultantCard, FinanceBox, MobileInspection } from "~/ui/Partners";
+import { ConsultantCard, FinanceBox, MechanicalInspection } from "~/ui/Partners";
+import { Viewings } from "~/ui/Viewings";
 import { LotCard } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
@@ -165,7 +166,15 @@ export default function LotScreen() {
 
         <View style={s.pad}>
           <T v="d3">Condition report.</T>
-          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>Prepared from a visual inspection at the vehicle's location and the seller's written declarations. It isn't a mechanical or roadworthy inspection and may not show every fault. We recommend an independent mobile inspection before you bid. If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
+          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>Prepared from a visual inspection at the vehicle's location and the seller's written declarations. It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "Book a free video walkaround or a mechanical inspection before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
+          {lot.inspected_at ? (
+            <Soft bg="#E9F8EE" style={{ gap: 6 }} testID="inspected-box">
+              <T v="strong" style={{ fontSize: 17 }}>Inspected by a mechanic{lot.inspected_by ? ` (${lot.inspected_by})` : ""} on {new Date(lot.inspected_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}.</T>
+              {lot.inspection_summary ? <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{lot.inspection_summary}</T> : null}
+              <LinkText title="Read the full report ›" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/api/lots/${lot.id}/inspection-report`)} style={{ fontSize: 15 }} />
+              <T v="small">Done before listing, at the seller's request. It shows the vehicle's condition on that day; you can still order your own.</T>
+            </Soft>
+          ) : null}
           {lot.visual_grade ? (
             <View style={{ gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
@@ -228,11 +237,19 @@ export default function LotScreen() {
           </View>
         ) : null}
 
+        {["live", "scheduled", "offers", "referred"].includes(lot.status) ? (
+          <View style={s.pad} testID="see-it">
+            <T v="d3">See it before you bid.</T>
+            <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} endsAt={lot.ends_at} auction={forSale} open />
+            <MechanicalInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder />
+          </View>
+        ) : null}
+
         <View style={s.pad}>
           <T v="d3">Inspection & collection.</T>
           <View>
             {([
-              ["Inspection", "Independent mobile inspection, or through your consultant"],
+              ["Seeing it", lot.in_person_viewing ? "Video walkaround, or in person strictly by appointment" : "Video walkaround or a mechanical inspection"],
               ["Before collection", unreg ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"],
               ["Collection", `${lot.suburb}, ${lot.state}${unreg ? ". By carrier, trailer or permit" : ""}`],
               ["Address", "Sent once ownership is transferred and your collection time is confirmed"],
@@ -240,7 +257,6 @@ export default function LotScreen() {
               <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>
             ))}
           </View>
-          <MobileInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder={forSale} />
           <Soft testID="lot-rights"><T v="strong">Your rights.</T><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{consumerRights("auction", lot.seller_type)}</T>
             {lot.buy_now_price ? <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Buy Now: </Text>{consumerRights("outright", lot.seller_type)}</T> : null}
             <LinkText title="Your consumer rights ›" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)} style={{ fontSize: 15 }} /></Soft>

@@ -76,6 +76,10 @@ export interface Lot {
   verified_at?: string | null;
   ev_battery_soh?: number | null;
   ev_battery_report?: string | null;
+  in_person_viewing?: boolean;
+  inspected_at?: string | null;
+  inspected_by?: string | null;
+  inspection_summary?: string | null;
   relisted_from?: number | null;
   corrected_at?: string | null;
   sale_id?: number | null;
@@ -158,6 +162,7 @@ export interface Profile {
 }
 
 export interface Invoice {
+  buyer_business?: { name?: string | null; abn?: string | null; gst?: boolean; dealer?: boolean } | null;
   id: string;
   ref: string;
   lot_id: number;
@@ -257,7 +262,7 @@ export type MyDeposit = DepositSummary & {
 /** Our account details for PayID and bank transfers. */
 export type PayBank = { name: string; bsb: string; account: string; payId: string | null };
 
-export const TERMS_VERSION = "2026-10-11";
+export const TERMS_VERSION = "2026-10-12";
 
 export interface Sale {
   id: number;

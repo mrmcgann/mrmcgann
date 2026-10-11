@@ -21,7 +21,7 @@ const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-22
   C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-11' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-12' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -174,14 +174,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-10-11' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-10-12' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-11', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-12', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -726,7 +726,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-11', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-12', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
   await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
@@ -972,8 +972,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id = '${U.C}'`);
-  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id = '${U.D}'`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-12' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-12' where id = '${U.D}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
     (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
@@ -1071,8 +1071,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
   await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id='${U.E}'`);
-  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-11' where id='${U.F}'`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-12' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-12' where id='${U.F}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
     (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
@@ -1103,13 +1103,13 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // ... and can't come back with a new account
   await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-11' where id='${U.G}'`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-12' where id='${U.G}'`);
   r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
   r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
   ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
   r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
-  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-11' where id='${U.H}'`);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-12' where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
@@ -1184,6 +1184,106 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   for (const who of ['anon', 'A', 'ADM']) {
     r = await as(who, `select health_snapshot_core()`); ok(`health: the inner snapshot isn't callable (${who})`, !!r.error, r.error);
   }
+}
+
+// ---------- viewings: video walkarounds, in-person by appointment; dealers; price drops; reviews; inspected ----------
+{
+  const today = (await c.query(`select ((now() at time zone 'Australia/Brisbane')::date + 1)::text d, ((now() at time zone 'Australia/Brisbane')::date + 30)::text far`)).rows[0];
+  const day = today.d, far = today.far;
+  U.VW = 'f1f1f1f1-0000-4000-8000-0000000000f1';
+  await c.query(`insert into auth.users (id, email) values ('${U.VW}', 'vw@x.au') on conflict do nothing`);
+  const VL = (await c.query(`select id from lots where status = 'live' and ends_at > now() + interval '2 days' and seller_id is distinct from '${U.A}' order by id limit 1`)).rows[0]?.id;
+  if (!VL) { await c.query(`update lots set ends_at = now() + interval '5 days' where id = 10599`); }
+  const L = VL || 10599;
+  await c.query(`update lots set in_person_viewing = false where id = ${L}`);
+  await c.query(`insert into lot_private (lot_id, seller_address, seller_phone, seller_email) values (${L}, '12 Test St, Ipswich QLD 4305', '0400000001', 'seller@x.au')
+    on conflict (lot_id) do update set seller_address = excluded.seller_address, seller_phone = excluded.seller_phone, seller_email = excluded.seller_email`);
+  const slots = (s) => JSON.stringify(s);
+  r = await as('anon', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok('viewing: signed-out visitors can\'t book', !!r.error, r.error);
+  r = await as('VW', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok('viewing: a verified mobile is needed', r.error?.includes('viewing_needs_mobile'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day: far, part: 'morning' }])]); ok('viewing: times more than two weeks out refused', r.error?.includes('viewing_times_range'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'midnight' }])]); ok('viewing: only morning, afternoon or evening', r.error?.includes('viewing_times'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }, { day, part: 'afternoon' }, { day, part: 'evening' }, { day, part: 'morning' }])]); ok('viewing: at most three times', r.error?.includes('viewing_times'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb, 'Show the tray please') v`, [slots([{ day, part: 'morning' }, { day, part: 'evening' }])]);
+  const V1 = r.rows?.[0]?.v?.id; ok('viewing: video walkaround requested', !!V1 && /^VW-\d+$/.test(r.rows[0].v.ref), r.error);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.ADM}' and kind = 'staff' and title like 'Video walkaround request%'`); ok('viewing: staff are told', r.rows?.[0]?.n >= 1);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok('viewing: one open request per vehicle', r.error?.includes('viewing_already'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'in_person', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok("viewing: in person only when the seller allows it", r.error?.includes('viewing_in_person_off'), r.error);
+  await c.query(`update lots set in_person_viewing = true where id = ${L}`);
+  r = await as('A', `select request_viewing(${L}, 'in_person', $1::jsonb) v`, [slots([{ day, part: 'afternoon' }])]); const V2 = r.rows?.[0]?.v?.id; ok('viewing: in person by appointment', !!V2, r.error);
+  r = await as('A', `insert into viewings (lot_id, user_id, kind) values (${L}, '${U.A}', 'video')`); ok("viewing: members can't write bookings directly", !!r.error);
+  r = await as('A', `update viewings set status = 'confirmed' where id = '${V1}' returning id`); ok("viewing: members can't confirm their own", !!r.error || (r.rows || []).length === 0);
+  r = await as('B', `select id from viewings`); ok("viewing: others can't see your bookings", (r.rows || []).length === 0);
+  r = await as('A', `select id, status from viewings where user_id = '${U.A}'`); ok('viewing: you see your own', (r.rows || []).length === 2);
+  r = await as('ADM_PW', `select admin_viewing('${V2}', 'confirm', now() + interval '1 day', 'seller')`); ok('viewing: confirming needs an admin with two-step', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_viewing('${V2}', 'confirm', now() - interval '1 hour', 'seller')`); ok('viewing: not in the past', r.error?.includes('viewing_time'), r.error);
+  r = await as('ADM', `select admin_viewing('${V2}', 'confirm', now() + interval '30 minutes', 'seller')`); ok('viewing: staff confirm a time', !r.error, r.error);
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Viewing booked:%' order by created_at desc limit 1`);
+  ok('viewing: the buyer gets the address only once confirmed, with the rules', /12 Test St, Ipswich/.test(r.rows?.[0]?.body || '') && /no test drives/.test(r.rows[0].body) && /photo ID/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'viewing-seller:${V2}:%'`); ok('viewing: the hosting seller is told', r.rows?.[0]?.n >= 1);
+  r = await as('service', `select viewing_sweep() n`); r = await as('service', `select reminded_at is not null x from viewings where id = '${V2}'`); ok('viewing: a reminder about an hour before', r.rows?.[0]?.x === true);
+  r = await as('ADM', `select admin_viewing('${V1}', 'decline', null, null, 'The seller is away until Friday.')`); ok('viewing: staff can decline', !r.error, r.error);
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'We couldn''t book your video walkaround%' order by created_at desc limit 1`); ok('viewing: the buyer is told why', /away until Friday/.test(r.rows?.[0]?.body || ''), JSON.stringify(r.rows));
+  r = await as('A', `select cancel_viewing('${V2}')`); ok('viewing: the buyer can cancel', !r.error, r.error);
+  r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'viewing-cancel:${V2}%'`); ok('viewing: the seller hears it was cancelled', r.rows?.[0]?.n >= 1);
+  r = await as('B', `select cancel_viewing('${V2}')`); ok("viewing: you can't cancel someone else's", r.error?.includes('viewing_not_found'), r.error);
+  r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb) v`, [slots([{ day, part: 'morning' }])]); const V3 = r.rows?.[0]?.v?.id;
+  await c.query(`update lots set status = 'passed' where id = ${L}`);
+  await as('service', `select viewing_sweep()`); r = await as('service', `select status from viewings where id = '${V3}'`); ok('viewing: open requests end when the vehicle stops being for sale', r.rows?.[0]?.status === 'cancelled', JSON.stringify(r.rows));
+  await c.query(`update lots set status = 'live' where id = ${L}`);
+
+  // dealers
+  r = await as('A', `update profiles set dealer_status = 'approved' where id = '${U.A}'`); ok("dealer: members can't approve themselves", r.error?.includes('protected_field'), r.error);
+  await as('service', `update profiles set dealer_status = 'pending', company_name = 'Ash Motors Pty Ltd', abn = '51824753556', gst_registered = true, dealer_applied_at = now() where id = '${U.A}'`);
+  r = await as('ADM_PW', `select admin_dealer('${U.A}', true)`); ok('dealer: approving needs two-step', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_dealer('${U.A}', true)`); ok('dealer: staff approve', !r.error, r.error);
+  await c.query('begin');
+  const inv = (await c.query(`select create_invoice(10620, '${U.A}', 12000, 'auction') id`)).rows[0].id;
+  const bb = (await c.query(`select buyer_business from invoices where id = $1`, [inv])).rows[0].buyer_business;
+  await c.query('rollback');
+  ok('dealer: the business name and ABN go on the tax invoice', bb?.name === 'Ash Motors Pty Ltd' && bb.abn === '51824753556' && bb.gst === true && bb.dealer === true, JSON.stringify(bb));
+  r = await as('A', `update profiles set abn = '53004085616' where id = '${U.A}' returning dealer_status`); ok('dealer: changing the ABN means it is checked again', r.rows?.[0]?.dealer_status === 'pending', JSON.stringify(r));
+  await as('service', `update profiles set dealer_status = 'none', company_name = null, abn = null, gst_registered = false where id = '${U.A}'`);
+
+  // price drop
+  const PD = (await c.query(`select id, buy_now_price from lots where status = 'live' and buy_now_price is not null and current_bid < buy_now_price order by id limit 1`)).rows[0];
+  if (PD) {
+    await c.query(`insert into watchlist (user_id, lot_id) values ('${U.B}', ${PD.id}) on conflict do nothing`);
+    await c.query(`update lots set buy_now_price = buy_now_price + 1000 where id = ${PD.id}`);
+    r = await as('service', `select count(*)::int n from notifications where user_id = '${U.B}' and kind = 'price_drop'`); ok('price drop: a rise sends nothing', r.rows?.[0]?.n === 0);
+    await c.query(`update lots set buy_now_price = buy_now_price - 2000 where id = ${PD.id}`);
+    r = await as('service', `select body from notifications where user_id = '${U.B}' and kind = 'price_drop'`); ok('price drop: watchers told, with the all-in price', (r.rows || []).length === 1 && /all-in/.test(r.rows[0].body), JSON.stringify(r.rows));
+    await c.query(`update lots set buy_now_price = ${PD.buy_now_price} where id = ${PD.id}`);
+  } else ok('price drop: a Buy Now lot to test with', false);
+
+  // inspected listings and the search filter
+  await c.query(`update lots set inspected_at = current_date, inspected_by = 'Test Mechanics' where id = ${L}`);
+  r = await as('anon', `select id from search_lots($1::jsonb, 100, 0)`, [JSON.stringify({ inspected: '1' })]); ok('search: inspected only', (r.rows || []).length >= 1 && r.rows.every((x) => Number(x.id) === Number(L)), JSON.stringify(r.rows));
+  r = await as('anon', `select inspection_report_path from lot_private where lot_id = ${L}`); ok('inspection report path stays private', (r.rows || []).length === 0 || !!r.error);
+  await c.query(`update lots set inspected_at = null, inspected_by = null where id = ${L}`);
+
+  // the inspection before listing comes out of the seller's proceeds
+  await c.query('begin');
+  await c.query(`update seller_agreements set fees = coalesce(fees, '{}'::jsonb) || '{"pre_inspection_fee": 220}' where lot_id = ${SL}`);
+  await c.query(`delete from seller_payouts where invoice_id = '${SINV}'`);
+  await c.query(`update invoices set status = 'deposit_paid' where id = '${SINV}'`);
+  await c.query(`update invoices set status = 'paid' where id = '${SINV}'`);
+  const po = (await c.query(`select net_amount, other_deductions, deductions_note from seller_payouts where invoice_id = '${SINV}'`)).rows[0];
+  await c.query('rollback');
+  ok('pre-inspection: the fee comes out of the payout', Number(po?.other_deductions) === 220 && Number(po.net_amount) === 880 && po.deductions_note === 'Inspection before listing', JSON.stringify(po));
+
+  // reviews: everyone asked after collection, only once the review link is set
+  await c.query('begin');
+  const RI = (await c.query(`select id, buyer_id from invoices where collected_at is null order by created_at limit 1`)).rows[0];
+  await c.query(`update invoices set collected_at = now() where id = $1`, [RI.id]);
+  const none = (await c.query(`select count(*)::int n from notifications where kind = 'review'`)).rows[0].n;
+  await c.query(`update invoices set collected_at = null where id = $1`, [RI.id]);
+  await c.query(`insert into settings (key, value) values ('business', '{"review_url": "https://g.page/r/tyrebiter/review"}') on conflict (key) do update set value = settings.value || excluded.value`);
+  await c.query(`update invoices set collected_at = now() where id = $1`, [RI.id]);
+  const rv = (await c.query(`select body from notifications where kind = 'review' and user_id = $1`, [RI.buyer_id])).rows;
+  await c.query('rollback');
+  ok('reviews: nothing until the review link is set', none === 0, String(none));
+  ok('reviews: the buyer is asked after collection, good or bad', rv.length === 1 && /good or bad/.test(rv[0].body) && rv[0].body.includes('https://g.page/r/tyrebiter/review'), JSON.stringify(rv));
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

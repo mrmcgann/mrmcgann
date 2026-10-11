@@ -13,7 +13,7 @@ export const revalidate = 600;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.siteUrl;
   const abs = (u: string) => (u.startsWith("http") ? u : `${base}${u}`);
-  const pages = ["", "/auctions", "/makes", "/sales", "/sell", "/help", "/listing-promise", "/finance", "/insurance", "/warranty", "/terms", "/website-terms", "/privacy", "/seller-agreement", "/contact", "/delete-account",
+  const pages = ["", "/auctions", "/makes", "/sales", "/sell", "/value", "/help", "/listing-promise", "/finance", "/insurance", "/warranty", "/terms", "/website-terms", "/privacy", "/seller-agreement", "/contact", "/delete-account",
     ...CATEGORIES.map((c) => `/for-sale/${c.key}`)]
     .map((p) => ({ url: `${base}${p}`, changeFrequency: "daily" as const, priority: p === "" ? 1 : 0.7 }));
   if (!env.supabaseUrl) return pages;

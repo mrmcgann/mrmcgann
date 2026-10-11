@@ -1,3 +1,4 @@
+import { formatAbn } from "@/lib/abn";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
@@ -59,6 +60,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   ];
   const buyerName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
 
+  // the business details at the time of sale (later changes don't rewrite this invoice)
+  const biz = (inv.buyer_business as { name?: string | null; abn?: string | null } | null) || (profile?.company_name ? { name: profile.company_name, abn: profile.abn } : null);
   return (
     <div className="wrap" style={{ maxWidth: 820 }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -69,7 +72,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <span style={{ display: "flex", flexDirection: "column" }}><b style={{ fontSize: 20 }}>Tax invoice {inv.ref}</b><span className="muted" style={{ fontSize: 14 }}>{env.legalName} · ABN {env.abn}</span></span>
             <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}><span className="muted">{dateLong(inv.created_at)}</span><a className="blue no-print" href={`/api/invoices/${inv.id}/pdf`} style={{ fontWeight: 700 }}>Download PDF ›</a></span>
           </div>
-          <span className="muted" style={{ fontSize: 14 }}>Billed to {profile?.company_name ? `${profile.company_name} (ABN ${profile.abn}) · ` : ""}{buyerName}. Lot {inv.lot_id}{inv.lots.vin ? ` · VIN ${inv.lots.vin}` : ""}.</span>
+          <span className="muted" style={{ fontSize: 14 }}>Billed to {biz?.name ? `${biz.name}${biz.abn ? ` (ABN ${formatAbn(biz.abn)})` : ""} · ` : ""}{buyerName}. Lot {inv.lot_id}{inv.lots.vin ? ` · VIN ${inv.lots.vin}` : ""}.</span>
           <div className="allin" style={{ borderTop: 0, paddingTop: 8 }}>
             {rows.map(([k, v]) => <div key={k}><span className="muted">{k}</span><span>{money(v, true)}</span></div>)}
             <div className="tot"><span>Total</span><span>{money(Number(inv.total) + Number(inv.storage_fee || 0), true)}</span></div>

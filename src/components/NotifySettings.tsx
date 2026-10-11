@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-const ROWS: [string, string][] = [["outbid", "You've been outbid"], ["ending", "Watched vehicle ending in 1 hour"], ["won", "You've won, or payment is due"], ["searches", "New match for a saved search"], ["marketing", "News and featured vehicles"]];
+const ROWS: [string, string][] = [["outbid", "You've been outbid"], ["ending", "Watched vehicle ending in 1 hour"], ["won", "You've won, or payment is due"], ["searches", "New match for a saved search"], ["price_drop", "Price drop on a watched Buy Now vehicle"], ["marketing", "News and featured vehicles"]];
 
 export function NotifySettings({ initial, token }: { initial: Record<string, { sms: boolean; email: boolean }>; token?: string }) {
   const [n, setN] = useState(initial);

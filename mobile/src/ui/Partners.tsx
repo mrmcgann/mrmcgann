@@ -15,25 +15,25 @@ import { C, F } from "./theme";
 
 const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}`);
 
-/** Listing: buyers don't view in person. They order an independent mobile inspection here, or call the vehicle's consultant to organise one. */
-export function MobileInspection({ lotId, title, partner, consultantPhone, consultantName, canOrder }: {
+/** Listing: our mechanical inspection service (a mechanic from our inspection partner goes to the vehicle), or the
+ *  vehicle's consultant organises one. */
+export function MechanicalInspection({ lotId, title, partner, consultantPhone, consultantName, canOrder }: {
   lotId: number; title: string; partner: Partner | null; consultantPhone: string | null; consultantName?: string | null; canOrder: boolean;
 }) {
   const [form, setForm] = useState(false);
   const who = consultantName ? consultantName.split(" ")[0] : "your consultant";
   return (
-    <Soft style={{ gap: 8 }}>
-      <T v="strong" style={{ fontSize: 17 }}>Mobile inspection.</T>
+    <Soft style={{ gap: 8 }} testID="mechanical-inspection">
+      <T v="strong" style={{ fontSize: 17 }}>Mechanical inspection.</T>
       <T v="muted">
-        In-person viewings aren't available.{" "}
         {partner
-          ? <>An independent mechanic from {partner.name} can inspect the vehicle where it is and send you a written report with photos{partner.price_from ? <>, from <Text style={{ fontFamily: F.bold, color: C.ink }}>{money(partner.price_from)}</Text></> : null}.</>
-          : "An independent mechanic can inspect it where it is and send you a written report."}
+          ? <>We send a qualified mechanic from {partner.name} to the vehicle. They check it over and email you a written report with photos{partner.price_from ? <>, from <Text style={{ fontFamily: F.bold, color: C.ink }}>{money(partner.price_from)}</Text></> : null}.</>
+          : "A qualified mechanic inspects it where it is and sends you a written report with photos."}
       </T>
-      {partner && canOrder ? <Button testID="order-inspection" small kind="dark" title="Order a mobile inspection" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} /> : null}
+      {partner && canOrder ? <Button testID="order-inspection" small kind="dark" title="Order a mechanical inspection" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} /> : null}
       {partner?.turnaround && canOrder ? <T v="small">{partner.turnaround}. Allow time before bidding closes.</T> : null}
       {consultantPhone ? (
-        <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>Or call {who} on <Text testID="inspection-call" accessibilityRole="link" style={s.link} onPress={() => Linking.openURL(`tel:${consultantPhone.replace(/[^\d+]/g, "")}`)}>{consultantPhone}</Text> to organise an inspection.</T>
+        <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>Or call {who} on <Text testID="inspection-call" accessibilityRole="link" style={s.link} onPress={() => Linking.openURL(`tel:${consultantPhone.replace(/[^\d+]/g, "")}`)}>{consultantPhone}</Text> and we'll organise it.</T>
       ) : null}
       {partner ? <InspectionSheet visible={form} onClose={() => setForm(false)} partner={partner} lotId={lotId} vehicle={`${title} (lot ${lotId})`} /> : null}
     </Soft>
@@ -75,7 +75,7 @@ export function InspectionSheet({ visible, onClose, partner, lotId, vehicle, kin
 
   if (!signedIn || missing.length) {
     return (
-      <Sheet visible={visible} onClose={onClose} title={transport ? "Get a transport quote." : "Order a mobile inspection."} testID="inspection-sheet"
+      <Sheet visible={visible} onClose={onClose} title={transport ? "Get a transport quote." : "Order a mechanical inspection."} testID="inspection-sheet"
         footer={!signedIn
           ? <><Button testID="lead-signin" title="Sign in" onPress={() => go(`/signin?next=${encodeURIComponent(path)}`)} /><Button kind="soft" title="Join free" onPress={() => go(`/join?next=${encodeURIComponent(path)}`)} /></>
           : <Button testID="lead-verify" title="Continue" onPress={() => go(`/join?step=${missing[0]}&next=${encodeURIComponent(path)}`)} />}>
@@ -86,7 +86,7 @@ export function InspectionSheet({ visible, onClose, partner, lotId, vehicle, kin
     );
   }
   return (
-    <Sheet visible={visible} onClose={close} title={ref ? "Sent." : transport ? `Get a transport quote from ${partner.name}.` : "Order a mobile inspection."} scroll testID="inspection-sheet"
+    <Sheet visible={visible} onClose={close} title={ref ? "Sent." : transport ? `Get a transport quote from ${partner.name}.` : "Order a mechanical inspection."} scroll testID="inspection-sheet"
       footer={ref ? <Button title="Done" onPress={close} /> : <Button testID="lead-submit" title={transport ? "Send my details" : "Order the inspection"} busy={busy} onPress={submit} />}>
       {ref ? (
         <T v="body" style={{ fontSize: 17, lineHeight: 25 }}>{partner.name} will be in touch {transport ? "with a quote" : "to confirm the price and a time. The report comes to you by email"}. Your reference is <Text style={{ fontFamily: F.heavy }}>{ref}</Text>. We've emailed you a copy.</T>
@@ -169,7 +169,7 @@ export function ConsultantCard({ consultant, lotId, title }: { consultant: AppCo
           {consultant.title ? <T v="small">{consultant.title}</T> : null}
         </View>
       </View>
-      <T v="muted">Questions about this vehicle, or want an inspection organised? Call your consultant.</T>
+      <T v="muted">Questions, a video walkaround or an inspection? Call your consultant.</T>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {phone ? <Button testID="consultant-call" small kind="dark" title={`Call ${phone}`} onPress={() => Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`)} /> : null}
         {consultant.email ? <Button testID="consultant-email" small kind="white" title="Email" onPress={() => Linking.openURL(`mailto:${consultant.email}?subject=${encodeURIComponent(`Lot ${lotId}: ${title}`)}`)} /> : null}

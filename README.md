@@ -96,8 +96,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    16. `supabase/migrations/20261011000016_sell_form.sql` (the signed sell form: reserve, answers, signature and PDF; photos only into the sellers' photo bucket)
    17. `supabase/migrations/20261012000017_bidding_deposits.sql` (pay by PayID or bank transfer, bans for non-payers, optional bidding deposits)
    18. `supabase/migrations/20261012000018_security.sql` (two-step sign-in for admins, the admin log, new-admin alerts, internal settings and privileged functions closed to the public)
-   19. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
-   20. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   19. `supabase/migrations/20261012000019_viewings_dealers.sql` (video walkarounds and viewings by appointment, inspected listings, dealer accounts, price-drop alerts, review requests)
+   20. `supabase/seed.sql` (optional sample vehicles, a sample consultant and sample partners; delete them before launch)
+   21. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -294,6 +295,14 @@ Watches the site's own machinery every minute and tells you when something break
 - **Fix with Claude Code:** sends the problem to Claude Code as a GitHub issue. Claude Code works on a copy of the code, follows `CLAUDE.md` and commits a change to its own branch; it can read and write code but can't run commands, and the tests run on its change by themselves. Its progress shows on the page (and you're emailed when it's ready); reply to it from the page, then "Get it ready to go live" (a pull request: Vercel makes a preview, and the files it changes are listed, with sensitive ones flagged) and "Put it live" (only the exact change you were shown, only once the `test` job has passed on it, and never a change to the GitHub workflows). If the error comes back after that, it reopens by itself.
 - **If your GitHub repository is public** (it is today), anyone can read its issues, so error messages and stack traces are left out of what's sent to Claude Code and the page warns you. Make the repository private (GitHub → the repository → Settings → General → Danger Zone → Change visibility) and protect `main` (Settings → Rules → Rulesets: require a pull request and the `test` check).
 - **Set it up** (about 15 minutes, the page shows the steps): install the Claude GitHub app on the repository (github.com/apps/claude); add the repository secret `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` on a Pro or Max plan); make a fine-grained GitHub token for this repository only (Contents, Issues and Pull requests: read and write; Checks, Commit statuses and Deployments: read); then set `GITHUB_TOKEN` and `GITHUB_REPO` in Vercel. The workflows are in `.github/workflows/` (`claude.yml` for Claude Code, `ci.yml` for the tests every change must pass).
+
+## Seeing vehicles, inspections and dealers
+- **Video walkarounds (every listing, free):** a buyer picks up to three times on the listing; you confirm one in **Admin → Viewings** and choose who calls (your consultant or the seller). The buyer gets a text and email, and a reminder about an hour before.
+- **In-person viewings, strictly by appointment:** only on listings where the seller said yes in their agreement (or you tick it in the vehicle editor). Verified buyers only, photo ID, viewing only and no test drives. The address goes to the buyer only in the confirmation.
+- **Mechanical inspections:** buyers order one from the listing; it goes to your inspection partner (Admin → Partners, kind "inspection") as a lead.
+- **Inspected listings:** sellers can tick "inspect it before it lists" when they sign (fee in **Admin → Fees & settings → Selling checks**, taken from the proceeds only if it sells). Book the mechanic, then fill in "Viewings and inspection" in the vehicle editor and upload the report PDF: the listing gets an "Inspected" badge and buyers can filter for it.
+- **Dealer accounts:** businesses apply in their account; check the ABN on abr.business.gov.au and approve in **Admin → Dealers** (set `ABR_GUID`, free from the ABR, to check it automatically). Approved dealers pay several invoices with one transfer using their own reference; record it with "mark paid" on the same page.
+- **Reviews:** add your Google review link in **Admin → Fees & settings → Reviews**. Every buyer is asked after collection and every seller after their payout.
 
 ## Security
 Nothing online is unhackable, so the site is built in layers: if one is beaten, the next still holds, and you hear about it.

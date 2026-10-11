@@ -87,5 +87,16 @@ ok('security: settings values are escaped in the Terms', !t1.includes('<img') &&
 const p1 = JSON.stringify(fillLegal(PRIVACY, { fees: {} }, { text: true }));
 ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}/.test(p1) && JSON.parse(p1).length === PRIVACY.length);
 
+// seeing the vehicle (video walkarounds, viewings by appointment, inspections) and dealer accounts
+{
+  const t = JSON.stringify(fillLegal({ TERMS, HELP, PRIVACY, SELLER_AGREEMENT }, { selling: { pre_inspection_fee: 249 } }));
+  ok('viewings: strictly by appointment, viewing only', /strictly by appointment/.test(t) && /no test drives/i.test(t));
+  ok('viewings: never "can\u2019t view" any more', !/can’t view|Not in person/.test(t));
+  ok('walkaround: free video walkaround offered', /free video walkaround/i.test(t));
+  ok('inspection: mechanical inspection, independent mechanic', /mechanical inspection/.test(t) && /independent of Tyrebiter/.test(t));
+  ok('pre-inspection: fee from the proceeds, only if it sells', t.includes('$249 including GST') && /only if it sells|nothing to pay/.test(t));
+  ok('privacy: the address goes to a buyer only for a confirmed viewing', /confirmed in-person viewing/.test(t));
+  ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
+}
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -5,7 +5,7 @@
 import { CATEGORIES, CAT, MAKES, MAKE_ALIASES, STATE_WORDS, STATE_NAMES, FUELS, TRANS, LICENCES, kindLabel, categoryOf, type CategoryKey } from "./vehicles.ts";
 
 export const FILTER_KEYS = ["q", "cat", "type", "make", "model", "ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "lams", "lic", "berths", "lenmin", "lenmax",
-  "fuel", "trans", "drive", "state", "seller", "rego", "runs", "nores", "buynow", "ending", "grade", "sale", "sort", "view"] as const;
+  "fuel", "trans", "drive", "state", "seller", "rego", "runs", "inspected", "nores", "buynow", "ending", "grade", "sale", "sort", "view"] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type SearchFilters = Partial<Record<FilterKey, string>>;
 
@@ -29,7 +29,7 @@ const VALID: Partial<Record<FilterKey, (v: string) => string | null>> = {
   grade: (v) => (/^[A-E]$/i.test(v) ? v.toUpperCase() : null),
   sort: (v) => (SORTS.some((s) => s[0] === v) ? v : null),
   view: (v) => (v === "offers" || v === "closed" ? v : null),
-  lams: (v) => (v === "1" ? v : null), nores: (v) => (v === "1" ? v : null), buynow: (v) => (v === "1" ? v : null),
+  lams: (v) => (v === "1" ? v : null), nores: (v) => (v === "1" ? v : null), buynow: (v) => (v === "1" ? v : null), inspected: (v) => (v === "1" ? v : null),
   make: (v) => v.trim().slice(0, 40) || null, model: (v) => v.trim().slice(0, 40) || null, q: (v) => v.replace(/\s+/g, " ").trim().slice(0, 80) || null,
 };
 for (const k of ["ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "berths", "sale"] as const) VALID[k] = (v) => (DIGITS.test(v) ? v : null);
@@ -130,6 +130,7 @@ const FLAG_WORDS: [string, Action][] = [
   ["hr licence", { lic: "HR" }], ["heavy rigid", { lic: "HR" }], ["hc licence", { lic: "HC" }], ["heavy combination", { lic: "HC" }], ["mc licence", { lic: "MC" }], ["multi combination", { lic: "MC" }],
   ["unregistered", { rego: "unregistered" }], ["unreg", { rego: "unregistered" }], ["no rego", { rego: "unregistered" }], ["without rego", { rego: "unregistered" }], ["not registered", { rego: "unregistered" }],
   ["registered", { rego: "registered" }], ["with rego", { rego: "registered" }], ["regod", { rego: "registered" }], ["road registered", { rego: "registered" }], ["current rego", { rego: "registered" }],
+  ["mechanically inspected", { inspected: "1" }], ["inspected", { inspected: "1" }], ["mechanic inspected", { inspected: "1" }], ["with inspection report", { inspected: "1" }],
   ["runs and drives", { runs: "drives" }], ["starts and drives", { runs: "drives" }], ["runner", { runs: "drives" }], ["drivable", { runs: "drives" }], ["driveable", { runs: "drives" }],
   ["no reserve", { nores: "1" }], ["without reserve", { nores: "1" }], ["buy now", { buynow: "1" }], ["buy it now", { buynow: "1" }],
   ["ending today", { ending: "today" }], ["closing today", { ending: "today" }], ["ends today", { ending: "today" }], ["ending soon", { ending: "1h" }], ["closing soon", { ending: "1h" }], ["ending this week", { ending: "3d" }],
@@ -333,6 +334,7 @@ export function describeParts(f: SearchFilters): string[] {
   if (f.seller) p.push(f.seller === "private" ? "Private sellers" : "Business sellers");
   if (f.rego) p.push(f.rego === "registered" ? "Registered" : "Unregistered");
   if (f.runs) p.push("Starts and drives");
+  if (f.inspected) p.push("Inspected by a mechanic");
   if (f.sale) p.push("In one sale");
   if (f.nores) p.push("No reserve");
   if (f.buynow) p.push("Buy Now");

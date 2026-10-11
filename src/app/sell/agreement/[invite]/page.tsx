@@ -21,6 +21,7 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
   const v = data as Preview | null;
   const here = `/sell/agreement/${invite}`;
   const settings = await getSettingsCached();
+  const inspectionFee = Number((settings.selling as { pre_inspection_fee?: number } | undefined)?.pre_inspection_fee || 0);
   const clauses = fillLegal(SELLER_AGREEMENT, settings);
 
   if (!v) return <Shell><div className="notice bad">This link isn&apos;t valid or has expired. Call us on {env.phone} and we&apos;ll send a new one.</div></Shell>;
@@ -64,7 +65,7 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
         <>
           {prefill && <div className="notice ok" data-testid="agreement-prefilled">We&apos;ve filled in the answers from your sell form ({ap?.ref}). Check them, change anything that&apos;s different now, and sign.</div>}
           <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses}
-            prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} />
+            prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} inspectionFee={inspectionFee} />
         </>
       )}
     </Shell>

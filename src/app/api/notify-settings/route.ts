@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const token = new URL(req.url).searchParams.get("t");
   const userId = token ? userFromToken(token) : (await currentUser(await supabaseServer()))?.id;
   if (!userId) return fail("Sign in first.", 401);
-  const keys = ["outbid", "ending", "won", "searches", "marketing"];
+  const keys = ["outbid", "ending", "won", "searches", "price_drop", "marketing"];
   // "push" (the apps) is kept only when sent, so a website save doesn't switch app alerts off
   const clean: Record<string, { sms: boolean; email: boolean; push?: boolean }> = Object.fromEntries(keys.map((k) => [k, { sms: !!notify?.[k]?.sms, email: !!notify?.[k]?.email, ...(typeof notify?.[k]?.push === "boolean" ? { push: notify[k].push } : {}) }]));
   const admin = supabaseAdmin();

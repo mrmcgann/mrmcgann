@@ -81,7 +81,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
-      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at"];
+      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "in_person_viewing", "inspected_at", "inspected_by", "inspection_summary"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
     for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
@@ -92,6 +92,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     if (out.rego_plate) out.rego_plate = String(out.rego_plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
     out.featured = f.featured === true || f.featured === "true";
+    out.in_person_viewing = f.in_person_viewing === true || f.in_person_viewing === "true";
     out.updated_at = new Date().toISOString();
     return out;
   }
@@ -469,9 +470,22 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
       </div>
 
+      <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="editor-viewing">
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Viewings and inspection</h2>
+        <p className="hint">Every listing offers a free video walkaround. In-person viewings are strictly by appointment, and only if the seller agreed. Bookings are in <a className="blue" href="/admin/viewings">Viewings</a>.</p>
+        <label className="checkrow"><input type="checkbox" checked={f.in_person_viewing === true || f.in_person_viewing === "true"} onChange={(e) => setF({ ...f, in_person_viewing: e.target.checked })} data-testid="in-person-toggle" /> Buyers can view it in person, by appointment (the seller agreed)</label>
+        {p.pre_inspection_requested === true && <div className="notice" data-testid="pre-inspection-wanted">The seller asked for an inspection before listing (the fee comes out of the proceeds when it sells). Book the mechanic, then fill this in and upload the report.</div>}
+        <div className="grid3">
+          <label className="field"><span>Inspected on</span><input className="input" type="date" value={String(f.inspected_at || "").slice(0, 10)} onChange={(e) => setF({ ...f, inspected_at: e.target.value || null })} /></label>
+          {inp("inspected_by", "Inspected by (mechanic or business)")}
+        </div>
+        {area("inspection_summary", "Inspection summary", "A few plain lines from the mechanic's report: what's good, what needs attention. Shown on the listing with an \"Inspected\" badge.")}
+        {id && <ReportUpload lotId={id} current={(p.inspection_report_path as string) || null} />}
+      </div>
+
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Seller (private)</h2>
-        <p className="hint">Never shown on the site. The address is sent to buyers only when you confirm an inspection or a collection.</p>
+        <p className="hint">Never shown on the site. The address is sent to a buyer only when you confirm an in-person viewing or a collection.</p>
         {id && seller && (
           <div className="soft" style={{ gap: 8 }}>
             <b>Seller onboarding{seller.requireChecks ? " (required before publishing)" : " (checks switched off in settings)"}</b>
@@ -511,5 +525,28 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       </div>
       <div className="pill-row"><button className="btn btn-dark" disabled={busy} onClick={() => save()}>Save</button>{f.status === "draft" && id && <button className="btn btn-blue" disabled={busy} onClick={publish}>Publish</button>}</div>
     </>
+  );
+}
+
+// The mechanic's report (PDF) for an inspected listing: uploaded through the server into a private bucket.
+function ReportUpload({ lotId, current }: { lotId: number; current: string | null }) {
+  const [msg, setMsg] = useState<string>(current ? "A report is uploaded." : "");
+  const [busy, setBusy] = useState(false);
+  async function up(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf" || file.size > 15 * 1024 * 1024) { setMsg("Choose a PDF of 15 MB or less."); return; }
+    setBusy(true); setMsg("");
+    const fd = new FormData(); fd.set("lotId", String(lotId)); fd.set("file", file);
+    const res = await fetch("/api/admin/inspection-report", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    setMsg(res.ok ? "Report uploaded. Members can read it from the listing." : data.error || "Couldn't upload it.");
+  }
+  return (
+    <label className="field"><span>Mechanic&apos;s report (PDF)</span>
+      <input className="input" type="file" accept="application/pdf" onChange={up} disabled={busy} data-testid="report-upload" />
+      {msg && <span className="hint" role="status">{msg}</span>}
+    </label>
   );
 }
