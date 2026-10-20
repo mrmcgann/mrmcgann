@@ -1,6 +1,8 @@
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
+// In CI, a crash shows as an annotation on the run (the full log isn't always at hand)
+if (process.env.GITHUB_ACTIONS) process.on('uncaughtException', (e) => { console.log('::error title=Database test crashed::' + String(e?.stack || e).replace(/\n/g, ' | ').slice(0, 1500)); process.exit(1); });
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const M = ROOT + '/supabase/';
 const PG = { host: process.env.PGHOST || '/tmp', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres' };
@@ -1418,6 +1420,6 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);
-fails.forEach((f) => console.log('FAIL:', f));
+fails.forEach((f) => console.log(process.env.GITHUB_ACTIONS ? '::error title=Database test::' + f.replace(/\n/g, ' ') : 'FAIL: ' + f));
 await c.end();
 process.exit(failN ? 1 : 0);

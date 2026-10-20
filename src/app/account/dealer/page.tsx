@@ -6,7 +6,7 @@ import { AccountNav } from "@/app/account/AccountNav";
 import { PayBox } from "@/components/deposit/PayBox";
 import { formatAbn } from "@/lib/abn";
 import { money } from "@/lib/format";
-import { env, payBank } from "@/lib/env";
+import { payBank } from "@/lib/env";
 import { DealerForm } from "./DealerForm";
 
 export const metadata: Metadata = { title: "Dealer account", robots: { index: false } };

@@ -2,7 +2,7 @@ import { currentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { json, fail } from "@/lib/api";
 import { payIdEnabled } from "@/lib/payid";
-import { env, payBank } from "@/lib/env";
+import { payBank } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
