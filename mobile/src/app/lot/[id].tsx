@@ -14,6 +14,10 @@ import type { LotBundle, MyLotState } from "~/lib/types";
 import { Button, Empty, LinkText, Loading, Screen, Soft, T } from "~/ui/kit";
 import { Icon } from "~/ui/art";
 import { BidPanel } from "~/ui/BidPanel";
+import { TenderPanel } from "~/ui/Tender";
+import { DamageMap } from "~/ui/DamageMap";
+import { ZONE_LABEL } from "@/lib/damage";
+import { dateTime } from "@/lib/format";
 import { Gallery } from "~/ui/Gallery";
 import { QuestionBox, QuoteBox, ReportLink } from "~/ui/LotExtras";
 import { ConsultantCard, FinanceBox, MechanicalInspection } from "~/ui/Partners";
@@ -135,14 +139,19 @@ export default function LotScreen() {
         <Gallery photos={photos} videos={videos} externalVideo={lot.video_url} backdropKey={lot.backdrop} vehicleType={lot.vehicle_type} title={lot.title} />
         <View style={s.pad}>
           <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id} · {lot.suburb}, {lot.state}{tag ? ` · ${tag}` : ""}</T>
-          {sale ? <LinkText testID="lot-sale" title={`Part of the ${sale.title} ›`} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/sales/${sale.slug}`)} style={{ fontSize: 15 }} /> : null}
+          {sale && sale.mode === "live" && lot.live_state
+            ? <LinkText testID="lot-sale" title={lot.live_state === "open" ? "Up now in the live auction ›" : lot.live_state === "waiting" ? `Live auction: ${sale.title}, ${dateTime(sale.starts_at)} ›` : `Offered in the live auction: ${sale.title} ›`} onPress={() => router.push(`/live/${sale.slug}`)} style={{ fontSize: 15 }} />
+            : sale ? <LinkText testID="lot-sale" title={`Part of the ${sale.title} ›`} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/sales/${sale.slug}`)} style={{ fontSize: 15 }} /> : null}
+          {lot.method === "tender" ? <T v="small" style={{ fontFamily: F.bold, color: C.grape }}>Sold by tender</T> : null}
           <T v="d2">{lot.short_title || lot.title}.</T>
           {lot.subtitle ? <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>{lot.subtitle}</T> : null}
           <T v="small">{watchers} watching · {(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</T>
         </View>
 
         <View style={s.pad}>
-          <BidPanel lot={lot} fees={fees} mine={mine} history={history} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />
+          {lot.method === "tender" && lot.status === "live"
+            ? <TenderPanel lot={lot} fees={fees} mine={mine} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />
+            : <BidPanel lot={lot} fees={fees} mine={mine} history={history} sale={sale} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />}
           {["live", "scheduled", "offers", "referred"].includes(lot.status) ? <FinanceBox lotId={lot.id} finance={finance} insurers={!!b.insurers} buyNow={!!lot.buy_now_price} warranty={!!b.warranty} /> : null}
           {consultant ? <ConsultantCard consultant={consultant} lotId={lot.id} title={lot.title} /> : null}
         </View>
@@ -195,10 +204,11 @@ export default function LotScreen() {
           {flaws.length ? (
             <View style={{ gap: 12 }}>
               <T v="h">Damage and wear.</T>
-              {flaws.map((fl) => (
+              <DamageMap flaws={flaws} category={lot.category} />
+              {flaws.map((fl, i) => (
                 <View key={fl.id} style={{ flexDirection: "row", gap: 12 }}>
                   {fl.url ? <Image source={{ uri: fl.url }} style={s.flawImg} contentFit="cover" /> : <View style={[s.flawImg, { backgroundColor: C.panel }]} />}
-                  <View style={{ flex: 1, gap: 2 }}><T v="strong">{fl.title}</T>{fl.note ? <T v="muted">{fl.note}</T> : null}</View>
+                  <View style={{ flex: 1, gap: 2 }}><T v="strong">{flaws.some((x) => x.zone) ? `${i + 1}. ` : ""}{fl.title}</T>{fl.zone ? <T v="small">{ZONE_LABEL[fl.zone]}</T> : null}{fl.note ? <T v="muted">{fl.note}</T> : null}</View>
                 </View>
               ))}
             </View>
@@ -257,7 +267,7 @@ export default function LotScreen() {
               <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>
             ))}
           </View>
-          <Soft testID="lot-rights"><T v="strong">Your rights.</T><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{consumerRights("auction", lot.seller_type)}</T>
+          <Soft testID="lot-rights"><T v="strong">Your rights.</T><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{lot.method === "tender" ? `Tender: ${consumerRights("outright", lot.seller_type)}` : consumerRights("auction", lot.seller_type)}</T>
             {lot.buy_now_price ? <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Buy Now: </Text>{consumerRights("outright", lot.seller_type)}</T> : null}
             <LinkText title="Your consumer rights ›" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)} style={{ fontSize: 15 }} /></Soft>
           {["live", "sold"].includes(lot.status) ? <QuoteBox lotId={lot.id} partner={transporter} title={lot.title} /> : null}

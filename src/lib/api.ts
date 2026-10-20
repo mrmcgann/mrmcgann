@@ -1,4 +1,5 @@
 import { viewingError } from "@/lib/viewings";
+import { liveError } from "@/lib/live";
 import "server-only";
 import { NextResponse } from "next/server";
 import { money } from "@/lib/format";
@@ -13,6 +14,8 @@ export function friendly(message: string | undefined) {
   if (m.includes("not_signed_in")) return "Sign in to continue.";
   const viewing = viewingError(m);
   if (viewing) return viewing;
+  const live = liveError(m);
+  if (live) return live;
   if (m.includes("account_suspended")) return "Your account can't bid at the moment. If you think that's a mistake, call us.";
   if (m.includes("not_verified")) return "Finish setting up your account (your details, mobile and ID) before you bid.";
   const short = depositShort(m);

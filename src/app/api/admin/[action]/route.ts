@@ -13,6 +13,7 @@ import { sendSms } from "@/lib/sms";
 import { sendEmail, mailHtml } from "@/lib/email";
 import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
+import { liveError, streamEmbed } from "@/lib/live";
 import { env } from "@/lib/env";
 export const maxDuration = 120; // the SEO audit and insights refresh can take a minute
 const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
@@ -32,7 +33,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   const body = await req.clone().json().catch(() => ({}));
   const res = await run(req, action, s);
   const t = body as Record<string, unknown>;
-  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId"]
+  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId"]
     .map((k) => (t[k] !== undefined && t[k] !== null ? `${k}:${String(t[k]).slice(0, 80)}` : null)).find(Boolean) || null;
   await audit(s.user?.id, action, target, body, res.ok ? "ok" : String(res.status));
   return res;
@@ -220,17 +221,18 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       const amount = Math.round(Number(String(b.amount ?? "").replace(/[^0-9.]/g, "")) * 100) / 100;
       if (!(amount > 0)) return fail("Enter the amount that arrived.");
       const who = String(b.member || "").trim();
-      if (!who) return fail("Enter the member's payment reference (BID…) or email.");
+      if (!who) return fail("Enter the member's payment reference (BID…), BPAY CRN or email.");
       const ref = cleanRef(who);
       const q = db.from("profiles").select("id, first_name, last_name, deposit_ref, email");
-      const { data: m } = await (who.includes("@") ? q.ilike("email", who) : q.eq("deposit_ref", ref)).maybeSingle();
+      // a BPAY payment arrives with the member's CRN (digits only)
+      const { data: m } = await (who.includes("@") ? q.ilike("email", who) : /^\d{2,20}$/.test(ref) ? q.eq("bpay_crn", ref) : q.eq("deposit_ref", ref)).maybeSingle();
       if (!m) return fail("No member has that reference or email. Check the reference on the bank statement.");
       const payer = String(b.payerName || "").trim();
       if (!payer) return fail("Enter the name on the account it came from (on the bank statement).");
       if (!payerMatches(payer, m.first_name, m.last_name) && b.confirmName !== true) {
         return json({ ok: false, needsConfirm: true, error: `The payer "${payer}" doesn't look like ${m.first_name} ${m.last_name}. Payments must come from an account in the member's name. Tick the box if you've confirmed it's theirs (for example a joint account), or send it back.` }, 409);
       }
-      const { data: id, error } = await db.rpc("record_deposit", { p_user: m.id, p_amount: amount, p_method: b.method === "payid" ? "payid" : "bank",
+      const { data: id, error } = await db.rpc("record_deposit", { p_user: m.id, p_amount: amount, p_method: b.method === "payid" ? "payid" : b.method === "bpay" ? "bpay" : "bank",
         p_reference: String(b.reference || m.deposit_ref || ""), p_payer_name: payer, p_payer_bsb: String(b.payerBsb || ""), p_payer_account: String(b.payerAccount || ""),
         p_note: String(b.note || "") || null, p_provider: null, p_provider_ref: null });
       if (error) return fail(friendly(error.message));
@@ -518,11 +520,46 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (slug.length < 3 || title.length < 3) return fail("Add a title and a web address (at least 3 letters).");
       const row = { slug, title, intro: String(b.intro || "").trim().slice(0, 2000) || null, seller_label: String(b.sellerLabel || "").trim().slice(0, 120) || null,
         state: ["QLD", "NSW", "VIC", "WA", "SA", "TAS", "ACT", "NT"].includes(b.state) ? b.state : null, published: b.published === true, updated_at: new Date().toISOString() };
+      // a live auction event: a start time, how long each vehicle is offered, the reset window, an optional stream
+      const live = b.mode === "live";
+      const startsAt = b.startsAt ? new Date(String(b.startsAt)) : null;
+      if (live && (!startsAt || Number.isNaN(startsAt.getTime()))) return fail("Choose when the live auction starts.");
+      const stream = String(b.streamUrl || "").trim();
+      const embed = stream ? streamEmbed(stream) : null;
+      if (stream && !embed) return fail("Paste a YouTube or Vimeo link for the stream (or leave it empty).");
+      const lotSeconds = Math.round(Number(b.lotSeconds) || 60), extendSeconds = Math.round(Number(b.extendSeconds) || 20);
+      if (live && (lotSeconds < 20 || lotSeconds > 600)) return fail("Offer each vehicle for 20 seconds to 10 minutes.");
+      if (live && (extendSeconds < 5 || extendSeconds > 120)) return fail("The reset after a bid must be 5 to 120 seconds.");
+      Object.assign(row, { mode: live ? "live" : "timed", starts_at: live && startsAt ? startsAt.toISOString() : null, stream_url: live ? embed : null,
+        auctioneer: live ? String(b.auctioneer || "").trim().slice(0, 120) || null : null, lot_seconds: live ? lotSeconds : 60, extend_seconds: live ? extendSeconds : 20,
+        auto_advance: b.autoAdvance !== false });
       const q = b.id ? db.from("sales").update(row).eq("id", Number(b.id)).select("id").single() : db.from("sales").insert(row).select("id").single();
       const { data, error } = await q;
-      if (error) return fail(error.message.includes("duplicate") ? "That web address is already used by another sale." : "Couldn't save the sale.");
+      if (error) return fail(error.message.includes("duplicate") ? "That web address is already used by another sale." : liveError(error.message) || "Couldn't save the sale.");
       revalidateTag("lots"); revalidateTag("sales");
       return done({ id: data?.id });
+    }
+    case "live": {
+      // the auctioneer's console: every step is one database function that checks two-step admin itself
+      const sale = Number(b.saleId);
+      const ops: Record<string, () => PromiseLike<{ data: unknown; error: { message: string } | null }>> = {
+        start: () => supabase.rpc("admin_live_start", { p_sale: sale }),
+        next: () => supabase.rpc("admin_live_next", { p_sale: sale, p_lot: b.lotId ? Number(b.lotId) : null }),
+        message: () => supabase.rpc("admin_live_message", { p_sale: sale, p_message: String(b.message || "").slice(0, 80) }),
+        pause: () => supabase.rpc("admin_live_pause", { p_sale: sale, p_message: b.message ? String(b.message).slice(0, 80) : null }),
+        resume: () => supabase.rpc("admin_live_resume", { p_sale: sale }),
+        time: () => supabase.rpc("admin_live_time", { p_sale: sale, p_seconds: Math.round(Number(b.seconds) || 30) }),
+        close: () => supabase.rpc("admin_live_close", { p_sale: sale }),
+        end: () => supabase.rpc("admin_live_end", { p_sale: sale }),
+        floor: () => supabase.rpc("admin_floor_bid", { p_sale: sale, p_bidder: String(b.bidder || "").slice(0, 24), p_amount: Math.round(Number(String(b.amount || "").replace(/[^0-9]/g, ""))) }),
+        order: () => supabase.rpc("admin_sale_order", { p_sale: sale, p_ids: (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n: number) => n > 0).slice(0, 500) }),
+      };
+      const op = String(b.op || "");
+      if (!ops[op]) return fail("Unknown step.");
+      const { data, error } = await ops[op]();
+      if (error) return fail(friendly(error.message));
+      if (["start", "next", "close", "end", "order"].includes(op)) { revalidateTag("lots"); revalidateTag("sales"); }
+      return done({ result: data });
     }
     case "stagger": {
       const first = new Date(String(b.first || ""));

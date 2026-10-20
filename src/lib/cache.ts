@@ -6,6 +6,7 @@ import { searchLots, lotFacets, PAGE_SIZE } from "@/lib/data";
 import type { SearchFilters } from "@/lib/search";
 import { DEFAULT_FEES, type Consultant, type Fees, type Lot, type LotFlaw, type LotPhoto, type LotVideo, type Partner, type Sale } from "@/lib/types";
 import type { Correction } from "@/lib/listing";
+import type { Calendar } from "@/lib/calendar";
 
 // Public data, cached and shared by every visitor. At 10,000 people on the site
 // the database sees a few queries a second for these pages, not thousands.
@@ -31,7 +32,7 @@ export interface LotBundle {
   videos: LotVideo[];
   consultant: Consultant | null;
   corrections: Correction[];
-  sale: Pick<Sale, "id" | "slug" | "title"> | null;
+  sale: Pick<Sale, "id" | "slug" | "title" | "mode" | "starts_at" | "live_status"> | null;
 }
 
 const CONSULTANT_COLS = "id, name, title, phone, email, photo_path, is_default";
@@ -52,7 +53,7 @@ export function getLotCached(id: number) {
         ? db.from("consultants").select(CONSULTANT_COLS).or(`id.eq.${lot.consultant_id},is_default.eq.true`).eq("active", true)
         : db.from("consultants").select(CONSULTANT_COLS).eq("is_default", true).eq("active", true),
       db.from("lot_corrections").select("field, label, before, after, created_at").eq("lot_id", id).order("created_at").limit(100),
-      lot.sale_id ? db.from("sales").select("id, slug, title").eq("id", lot.sale_id).maybeSingle() : Promise.resolve({ data: null }),
+      lot.sale_id ? db.from("sales").select("id, slug, title, mode, starts_at, live_status").eq("id", lot.sale_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
     const cs = (consultants || []) as Consultant[];
     const consultant = cs.find((c) => c.id === lot.consultant_id) || cs.find((c) => c.is_default) || null;
@@ -131,3 +132,10 @@ export function getSaleCached(slug: string) {
     return { ...(data as Sale), stats: (stats || {}) as SaleStats };
   }, ["sale", slug], { revalidate: 30, tags: ["sales", "lots"] })();
 }
+
+// The auction calendar (live sales, fleet sales, tenders and timed closings by day), for /calendar and its .ics feed.
+export const getCalendarCached = unstable_cache(async (): Promise<Calendar> => {
+  const { data } = await supabasePublic().rpc("auction_calendar", { p_days: 21 });
+  const c = (data || {}) as Partial<Calendar>;
+  return { sales: c.sales || [], days: c.days || [] };
+}, ["calendar"], { revalidate: 120, tags: ["sales", "lots"] });

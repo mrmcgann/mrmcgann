@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getFeesCached, getSaleCached, searchLotsCached } from "@/lib/cache";
 import { LotCard } from "@/components/LotCard";
 import { PAGE_SIZE } from "@/lib/data";
@@ -21,6 +21,7 @@ export default async function SalePage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const sale = await getSaleCached(slug);
   if (!sale) notFound();
+  if (sale.mode === "live") redirect(`/live/${sale.slug}`);
   const live = (await searchLotsCached({ sale: String(sale.id) })) as Lot[];
   const closed = live.length ? [] : ((await searchLotsCached({ sale: String(sale.id), view: "closed" })) as Lot[]);
   const shown = (live.length ? live : closed).slice(0, PAGE_SIZE);

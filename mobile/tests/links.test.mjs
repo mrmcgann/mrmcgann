@@ -19,6 +19,8 @@ eq("unknown goes home", appPath("/terms#t-claims"), "/");
 eq("empty goes home", appPath(""), "/");
 eq("scheme link", appPath("tyrebiter://lot/10500"), "/lot/10500");
 eq("not a lot number", appPath("/lot/abc"), "/");
+eq("live auction room", appPath("https://tyrebiter.com.au/live/ex-council-fleet"), "/live/ex-council-fleet");
+eq("live: bad name goes home", appPath("/live/../etc"), "/");
 eq("query", queryToObject("?cat=utes&q=hilux+sr5&max=30000"), { cat: "utes", q: "hilux sr5", max: "30000" });
 
 console.log(`${pass} passed, ${fail} failed`);

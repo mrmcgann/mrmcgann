@@ -21,6 +21,8 @@ export const env = {
   legalName: process.env.NEXT_PUBLIC_LEGAL_NAME || "Tyrebiter Pty Ltd",
   address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "[Business address]",
   payId: process.env.NEXT_PUBLIC_PAYID || "",
+  /** BPAY biller code (4 to 6 digits). Empty: BPAY isn't offered. */
+  bpayBiller: /^\d{4,6}$/.test(process.env.NEXT_PUBLIC_BPAY_BILLER || "") ? process.env.NEXT_PUBLIC_BPAY_BILLER! : "",
   twilioMessagingService: process.env.TWILIO_MESSAGING_SERVICE_SID || "",
   bankBsb: process.env.NEXT_PUBLIC_BANK_BSB || "[BSB]",
   bankAccount: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "[ACCOUNT]",
@@ -28,6 +30,9 @@ export const env = {
   phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE || "[1300 XXX XXX]",
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "help@tyrebiter.com.au",
 };
+
+/** Our account details for PayID, bank transfer and BPAY (PayBox on the web, PayRows in the app). */
+export const payBank = () => ({ name: env.bankName, bsb: env.bankBsb, account: env.bankAccount, payId: env.payId || null, bpayBiller: env.bpayBiller || null });
 
 export const has = {
   stripe: Boolean(env.stripeSecret),

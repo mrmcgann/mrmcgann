@@ -98,5 +98,14 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
   ok('privacy: the address goes to a buyer only for a confirmed viewing', /confirmed in-person viewing/.test(t));
   ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
 }
+// live auctions, tenders and BPAY: the wording matches the engine
+ok('live: the terms explain live auctions, with an anchor the room links to', terms.includes('id=\\"t-live\\"') && /auctioneer decides/.test(terms) && /floor bids/.test(terms), '');
+ok('live: the page, not the stream, counts', /The price and countdown on the page are what count, not the video stream/.test(terms));
+ok('live: unoffered vehicles close on their bids when a sale finishes early', /closes on the bids already placed/.test(terms));
+ok('tender: sealed, not extended, highest at its own amount, earliest wins a tie', terms.includes('id=\\"t-tender\\"') && /aren’t extended/.test(terms) && /buys at its own amount \(if two are equal, the one put in first\)/.test(terms));
+ok("tender: not a sale by auction, so the outright rights apply", /Buy Now, a winning tender, an accepted offer/.test(terms) && /A tender isn’t a sale by auction/.test(terms));
+ok('bpay: CRN explained, never cards', /Customer Reference Number \(CRN\)/.test(terms) && /We don’t accept cards, cash or cheques/.test(terms));
+ok('help: live auctions, tenders, calendar, results and BPAY answered', ['How do live auctions work?', 'What is a tender?', 'Where can I see what’s coming up?', 'Can I see what vehicles sold for?', 'Can I pay by BPAY?'].every((q) => JSON.stringify(HELP).includes(q)));
+ok('seller agreement: live auctions and tenders covered', /a live auction \(an auctioneer offers vehicles one at a time/.test(JSON.stringify(SELLER_AGREEMENT)));
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

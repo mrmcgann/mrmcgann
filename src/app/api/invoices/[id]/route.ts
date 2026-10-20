@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getFeesCached } from "@/lib/cache";
 import { json, fail } from "@/lib/api";
-import { env } from "@/lib/env";
+import { env, payBank } from "@/lib/env";
 import type { Invoice } from "@/lib/types";
 
 type Coll = { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null };
@@ -20,12 +20,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { data } = await db.from("invoices").select("*, lots(title, suburb, state, vin, gst_status, category, backdrop, cover_path)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) return fail("Invoice not found.", 404);
   const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string; backdrop: string; cover_path: string | null } };
-  const [{ data: coll }, { data: claims }, fees, { data: tr }] = await Promise.all([
+  const [{ data: coll }, { data: claims }, fees, { data: tr }, { data: prof }] = await Promise.all([
     db.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at").eq("invoice_id", inv.id).maybeSingle(),
     db.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
     db.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
+    db.from("profiles").select("bpay_crn").eq("id", user.id).maybeSingle(),
   ]);
+  const crn = (prof as { bpay_crn?: string | null } | null)?.bpay_crn;
   // Transfer of ownership (between payment and collection); the app shows the same steps as the website.
   const transfer = tr ? { ...tr, proof_paths: undefined, proof_count: (tr.proof_paths || []).length } : null;
   const c = coll as Coll | null;
@@ -58,7 +60,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     canClaim,
     overdueDays,
     storagePerDay: Number(fees.storage_per_day || 50),
-    bank: inv.status === "deposit_paid" ? { name: env.bankName, bsb: env.bankBsb, account: env.bankAccount, payId: env.payId || null, reference: inv.ref } : null,
+    bank: inv.status === "deposit_paid" ? { ...payBank(), reference: inv.ref, crn: crn || null } : null,
     seller: { legalName: env.legalName, abn: env.abn, phone: env.phone, supportEmail: env.supportEmail },
     pdfUrl: `${env.siteUrl}/api/invoices/${inv.id}/pdf`,
   });

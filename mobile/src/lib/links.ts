@@ -11,6 +11,7 @@ export function appPath(link: string | null | undefined): string {
   const q = query ? `?${query.split("#")[0]}` : "";
   let m: RegExpExecArray | null;
   if ((m = /^\/lot\/(\d{1,9})\/?$/.exec(p))) return `/lot/${m[1]}`;
+  if ((m = /^\/live\/([a-z0-9-]{3,60})\/?$/.exec(p))) return `/live/${m[1]}`;
   if ((m = /^\/account\/invoices\/([0-9a-f-]{36})\/?$/i.exec(p))) return `/invoice/${m[1]}`;
   if ((m = /^\/invoice\/([0-9a-f-]{36})\/?$/i.exec(p))) return `/invoice/${m[1]}`;
   if ((m = /^\/handover\/([0-9a-f]{32})\/?$/.exec(p))) return `/handover/${m[1]}`;

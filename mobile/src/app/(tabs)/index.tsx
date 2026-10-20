@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CATEGORIES } from "@/lib/vehicles";
-import { money } from "@/lib/format";
+import { dateTime, money } from "@/lib/format";
 import { pub } from "~/lib/api";
 import { useSession } from "~/lib/session";
 import type { HomeData } from "~/lib/types";
@@ -42,6 +42,13 @@ export default function Home() {
       </View>
       <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} contentStyle={{ paddingTop: 8, gap: 26 }} testID="home">
         {config?.notice ? <Notice>{config.notice}</Notice> : null}
+        {(data?.live || []).map((x) => (
+          <Pressable key={x.slug} testID="home-live" accessibilityRole="button" accessibilityLabel={`Live auction: ${x.title}`} onPress={() => router.push(`/live/${x.slug}`)} style={s.live}>
+            <Text style={s.liveTag}>{x.live_status === "running" ? "Live now" : x.live_status === "paused" ? "Live, paused" : `Live auction · ${dateTime(x.starts_at)}`}</Text>
+            <Text style={s.liveTitle} numberOfLines={2}>{x.title}</Text>
+            <Text style={s.liveSub}>{x.count} vehicle{x.count === 1 ? "" : "s"} · {x.live_status === "running" || x.live_status === "paused" ? "Join the room ›" : "Bid early ›"}</Text>
+          </Pressable>
+        ))}
         <View style={{ gap: 12 }}>
           <T v="eyebrow" style={{ color: C.urgent }}>Live auctions · Australia-wide</T>
           <Text style={s.hero}>Every car.{"\n"}Beautifully <Text style={s.heroSerif}>sold.</Text></Text>
@@ -114,6 +121,10 @@ export default function Home() {
 }
 
 const s = StyleSheet.create({
+  live: { borderRadius: 24, padding: 18, gap: 4, backgroundColor: C.ink },
+  liveTag: { fontFamily: F.heavy, fontSize: 13, color: C.sun },
+  liveTitle: { fontFamily: F.heavy, fontSize: 22, lineHeight: 27, letterSpacing: -0.5, color: "#FFFFFF" },
+  liveSub: { fontFamily: F.semibold, fontSize: 15, color: "rgba(255,255,255,0.8)" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, height: 54 },
   word: { fontFamily: F.heavy, fontSize: 22, letterSpacing: -0.8, color: C.ink },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },

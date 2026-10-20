@@ -13,7 +13,7 @@ export const revalidate = 600;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.siteUrl;
   const abs = (u: string) => (u.startsWith("http") ? u : `${base}${u}`);
-  const pages = ["", "/auctions", "/makes", "/sales", "/sell", "/value", "/help", "/listing-promise", "/finance", "/insurance", "/warranty", "/terms", "/website-terms", "/privacy", "/seller-agreement", "/contact", "/delete-account",
+  const pages = ["", "/auctions", "/calendar", "/makes", "/sales", "/sell", "/value", "/help", "/listing-promise", "/finance", "/insurance", "/warranty", "/terms", "/website-terms", "/privacy", "/seller-agreement", "/contact", "/delete-account",
     ...CATEGORIES.map((c) => `/for-sale/${c.key}`)]
     .map((p) => ({ url: `${base}${p}`, changeFrequency: "daily" as const, priority: p === "" ? 1 : 0.7 }));
   if (!env.supabaseUrl) return pages;
@@ -30,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     rows.push(...(data as Row[]));
     if (data.length < 1000) break;
   }
-  const { data: sales } = await db.from("sales").select("slug, updated_at").eq("published", true).limit(500);
+  const { data: sales } = await db.from("sales").select("slug, updated_at, mode").eq("published", true).limit(500);
   const pairs = [...new Set(rows.filter((l) => l.state).map((l) => `/for-sale/${l.category}/${String(l.state).toLowerCase()}`))];
 
   // make and model pages: live stock, or at least 3 sales in the last 18 months (the same rule the pages use)
@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...pages,
     ...[...pairs, ...makePages, ...modelPages].map((p) => ({ url: `${base}${p}`, changeFrequency: "daily" as const, priority: 0.6 })),
-    ...(sales || []).map((s: { slug: string; updated_at: string }) => ({ url: `${base}/sales/${s.slug}`, lastModified: s.updated_at, changeFrequency: "hourly" as const, priority: 0.7 })),
+    ...(sales || []).map((s: { slug: string; updated_at: string; mode?: string }) => ({ url: `${base}/${s.mode === "live" ? "live" : "sales"}/${s.slug}`, lastModified: s.updated_at, changeFrequency: "hourly" as const, priority: 0.7 })),
     ...rows.map((l) => ({
       url: `${base}/lot/${l.id}`, lastModified: l.updated_at,
       changeFrequency: (l.status === "sold" ? "monthly" : "hourly") as "monthly" | "hourly",

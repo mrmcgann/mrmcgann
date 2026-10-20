@@ -1,6 +1,6 @@
 "use client";
 import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor, modelsFor } from "@/lib/vehicles";
-import { ENDINGS, type Facets, type SearchFilters } from "@/lib/search";
+import { ENDINGS, HOW_SOLD, WRITE_OFFS, type Facets, type SearchFilters } from "@/lib/search";
 import { GRADES } from "@/lib/grades";
 
 const YEARS = Array.from({ length: 45 }, (_, i) => new Date().getFullYear() + 1 - i);
@@ -81,7 +81,9 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
       <div className="fgrp"><b>Seller</b>{chips("seller", [["private", "Private"], ["business", "Business"]])}</div>
       <div className="fgrp"><b>Registration</b>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</div>
       <div className="fgrp"><b>Condition</b>{chips("runs", [["drives", "Starts and drives"]])}<label className="checkrow"><input type="checkbox" checked={f.inspected === "1"} onChange={(e) => set({ inspected: e.target.checked ? "1" : "" })} />Inspected by a mechanic</label></div>
+      <div className="fgrp"><b>Write-off history</b>{chips("wo", WRITE_OFFS)}</div>
       <div className="fgrp"><b>Visual grade</b>{sel("grade", "Minimum visual grade", GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`]), "Any grade")}</div>
+      <div className="fgrp"><b>How it&apos;s sold</b>{chips("how", HOW_SOLD)}</div>
       <div className="fgrp"><b>Auction</b>
         <label className="checkrow"><input type="checkbox" checked={f.nores === "1"} onChange={(e) => set({ nores: e.target.checked ? "1" : "" })} />No reserve, or reserve met</label>
         <label className="checkrow"><input type="checkbox" checked={f.buynow === "1"} onChange={(e) => set({ buynow: e.target.checked ? "1" : "" })} />Buy Now available</label>

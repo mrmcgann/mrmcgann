@@ -33,6 +33,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
     buy_now_price: l.buy_now_price, seller_type: l.seller_type ?? null, fees: (l as Lot & { fees?: WatchItem["fees"] }).fees ?? null, backdrop: l.backdrop, vehicle_type: l.vehicle_type,
     cover: l.cover_path ? photoUrl(l.cover_path) : null, place: [l.suburb, l.state].filter(Boolean).join(", "), spec: specLine(l) || [l.year, l.make, l.model].filter(Boolean).join(" "),
     year: l.year, grade: l.visual_grade, is_seller: (l as Lot & { seller_id?: string | null }).seller_id === user.id,
+    method: l.method || "auction", live_state: l.live_state ?? null,
     my_max: myMax.get(l.id) ?? null, watched: false, remind: false, note: null, added_at: null, ...extra,
   });
   for (const r of (rows || []) as unknown as WatchRow[]) if (r.lots) items.set(r.lot_id, toItem(r.lots, { watched: true, remind: r.remind, note: r.note || null, added_at: r.created_at }));

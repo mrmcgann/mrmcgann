@@ -16,8 +16,8 @@ export const shownPrice = (l: Pick<AppLot, "status" | "sold_price" | "current_bi
 function TimeChip({ lot }: { lot: AppLot }) {
   const live = lot.status === "live";
   const now = useNow(live);
-  const label = live ? countdown(new Date(lot.ends_at || 0).getTime() - now) : lot.status === "sold" ? "Sold" : lot.status === "offers" ? "Make an offer" : lot.status === "referred" ? "Under offer" : "Ended";
-  const soon = live && new Date(lot.ends_at || 0).getTime() - now < 300000;
+  const label = live ? (lot.live_state === "waiting" ? "Live auction" : lot.live_state === "open" ? "Up now, live" : (lot.method === "tender" ? "Tender · " : "") + countdown(new Date(lot.ends_at || 0).getTime() - now)) : lot.status === "sold" ? "Sold" : lot.status === "offers" ? "Make an offer" : lot.status === "referred" ? "Under offer" : "Ended";
+  const soon = live && (lot.live_state === "open" || (!lot.live_state && new Date(lot.ends_at || 0).getTime() - now < 300000));
   return <View style={[s.time, soon && { backgroundColor: C.urgent }]}><Text style={[s.timeText, soon && { color: "#FFFFFF" }]}>{label}</Text></View>;
 }
 
@@ -42,7 +42,7 @@ export const LotCard = memo(function LotCard({ lot, watched, onWatch, compact }:
         </View>
         <View style={s.bottomRow}>
           {lot.visual_grade ? <Tag label={`Grade ${lot.visual_grade}`} color="rgba(255,255,255,0.92)" /> : <View />}
-          {lot.status === "live" && lot.has_reserve && !lot.reserve_met ? <Tag label="Reserve not met" color={C.sun} /> : lot.status === "live" && !lot.has_reserve ? <Tag label="No reserve" color={C.mint} /> : null}
+          {lot.method === "tender" && lot.status === "live" ? <Tag label={`${lot.tender_count || 0} tender${lot.tender_count === 1 ? "" : "s"}`} color={C.lilac} /> : lot.status === "live" && lot.has_reserve && !lot.reserve_met ? <Tag label="Reserve not met" color={C.sun} /> : lot.status === "live" && !lot.has_reserve ? <Tag label="No reserve" color={C.mint} /> : null}
         </View>
       </View>
       <View style={{ gap: 3, paddingHorizontal: 4 }}>
@@ -50,8 +50,8 @@ export const LotCard = memo(function LotCard({ lot, watched, onWatch, compact }:
         <T v="title" numberOfLines={2} style={{ fontSize: compact ? 17 : 19, lineHeight: compact ? 21 : 23 }}>{lot.title}</T>
         <T v="small" numberOfLines={1}>{[specLine(lot) || [lot.year, lot.make].filter(Boolean).join(" "), lot.registration === "unregistered" ? "Unregistered" : null].filter(Boolean).join(" · ")}</T>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 4 }}>
-          <Text style={s.price}>{money(price)}</Text>
-          <T v="small">{lot.status === "live" && lot.bid_count === 0 ? "Starting bid" : `${lot.bid_count} bid${lot.bid_count === 1 ? "" : "s"}`}</T>
+          <Text style={s.price}>{lot.method === "tender" && lot.status === "live" ? `From ${money(lot.start_price)}` : money(price)}</Text>
+          <T v="small">{lot.method === "tender" && lot.status === "live" ? "Sealed tender" : lot.status === "live" && lot.bid_count === 0 ? "Starting bid" : `${lot.bid_count} bid${lot.bid_count === 1 ? "" : "s"}`}</T>
         </View>
       </View>
     </Pressable>

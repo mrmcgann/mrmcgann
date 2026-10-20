@@ -21,8 +21,9 @@ import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
 /** Live price, bidding, Buy Now and offers for one vehicle (the website's BidPanel). */
-export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, onStatusChange, onMineChange }: {
+export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, onStatusChange, onMineChange, sale }: {
   lot: AppLot; fees: Fees; mine: MyLotState | null; history: BidRow[]; onStatusChange: () => void; onMineChange: () => void;
+  sale?: { slug: string; title: string; mode?: string; starts_at?: string | null } | null;
 }) {
   const fees = useMemo(() => lotFees(allFees, lot), [allFees, lot]);
   const { me, signedIn, refresh } = useSession();
@@ -59,7 +60,11 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   const lastStatus = useRef(L.status);
   useEffect(() => { if (L.status !== lastStatus.current) { lastStatus.current = L.status; onStatusChange(); } }, [L.status, onStatusChange]);
 
-  const ended = L.status !== "live" || (L.ends_at ? endsMs <= now : false);
+  // a vehicle waiting its turn in a live auction only has an estimated time, so it never shows as closed early
+  const waiting = L.live_state === "waiting";
+  const upNow = L.live_state === "open" && L.status === "live";
+  const liveSale = sale && sale.mode === "live" && L.live_state ? sale : null;
+  const ended = L.status !== "live" || (!waiting && L.ends_at ? endsMs <= now : false);
   const typed = digits(amount);
   const preview = useMemo(() => priceBreakdown(typed || minNext, fees), [typed, minNext, fees]);
   const bigJump = typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
@@ -93,7 +98,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
       setLeading(d.status === "leading");
       if (Platform.OS !== "web") Haptics.notificationAsync(d.status === "leading" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
       setMsg(d.status === "leading"
-        ? { kind: "ok", text: `You're the highest bidder at ${money(d.current_bid)}. We'll bid for you up to ${money(typed)}.${d.extended ? " The auction has been extended by 10 minutes." : ""}` }
+        ? { kind: "ok", text: `You're the highest bidder at ${money(d.current_bid)}. We'll bid for you up to ${money(typed)}.${d.extended ? (liveSale ? " The countdown has been reset." : " The auction has been extended by 10 minutes.") : ""}` }
         : { kind: "bad", text: `Another bidder's maximum is higher. The current bid is now ${money(d.current_bid)}. Try a higher maximum.` });
       onMineChange();
       void askForPush(); // outbid alerts matter most once you've bid
@@ -133,13 +138,20 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   if (!ended) {
     body = (
       <View style={{ gap: 14 }}>
-        {bn ? (
+        {liveSale ? (
+          <Soft bg={C.ink} testID="live-cta">
+            <Text style={{ fontFamily: F.heavy, fontSize: 17, color: "#FFFFFF" }}>{upNow ? "Up now in the live auction." : `Live auction, ${dateTime(liveSale.starts_at)}.`}</Text>
+            <Text style={{ fontFamily: F.medium, fontSize: 15, lineHeight: 21, color: "rgba(255,255,255,0.8)" }}>{upNow ? "Join the room to bid as the auctioneer calls it." : "Bid early here and we bid for you up to your max when it's offered, or join the room on the day."}</Text>
+            <Button small kind="soft" title="Open the live room" onPress={() => router.push(`/live/${liveSale.slug}`)} />
+          </Soft>
+        ) : null}
+        {bn && !upNow ? (
           <View style={s.bn}>
             <View><Text style={s.bnK}>Buy it now</Text><Text style={s.bnV}>{money(bn)}</Text></View>
             <Button small kind="dark" title="Buy now" onPress={() => { if (!needsSetup()) { setAck(false); setSheet("buy"); } }} />
           </View>
         ) : null}
-        <MoneyField testID="bid-amount" label="Your maximum bid" value={amount} onChange={setAmount} hint={`Minimum ${money(minNext)}. We bid for you, one increment at a time, up to your max. Bids in the last 10 minutes add 10 minutes.`} />
+        <MoneyField testID="bid-amount" label="Your maximum bid" value={amount} onChange={setAmount} hint={`Minimum ${money(minNext)}. We bid for you, one increment at a time, up to your max. ${liveSale ? "When the auctioneer offers it, each bid resets the countdown." : "Bids in the last 10 minutes add 10 minutes."}`} />
         {short ? <DepositShortBox need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />
           : signedIn && !missing.length ? <DepositHint fees={fees} deposit={me?.profile?.deposit} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} /> : null}
         {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
@@ -198,9 +210,9 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
             <T v="small">{L.bid_count} bid{L.bid_count === 1 ? "" : "s"}{rt ? " · live" : ""}</T>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.k}>{ended ? "Status" : "Ends in"}</Text>
-            <Text style={[s.v, { color: ended ? C.ink : C.urgent, fontSize: ended ? 26 : 28 }]}>{ended ? "Closed" : countdown(left)}</Text>
-            <T v="small">{dateTime(L.ends_at)}</T>
+            <Text style={s.k}>{ended ? "Status" : waiting ? "Offered" : upNow ? "Selling in" : "Ends in"}</Text>
+            <Text style={[s.v, { color: ended || waiting ? C.ink : C.urgent, fontSize: ended || waiting ? 26 : 28 }]}>{ended ? "Closed" : waiting ? "Live" : countdown(left)}</Text>
+            <T v="small">{waiting ? `In the live auction, about ${dateTime(L.ends_at)}` : upNow ? "Up now in the live auction" : dateTime(L.ends_at)}</T>
           </View>
         </View>
         {body}

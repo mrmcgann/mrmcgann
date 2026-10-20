@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getFeesCached } from "@/lib/cache";
 import { payIdEnabled } from "@/lib/payid";
-import { env } from "@/lib/env";
+import { env, payBank } from "@/lib/env";
 import { AccountNav } from "../AccountNav";
 import { DepositHome, type MyDeposit } from "./DepositHome";
 
@@ -24,7 +24,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     <div className="wrap">
       <div className="acctgrid">
         <AccountNav current="deposit" profile={profile} />
-        <DepositHome d={data as MyDeposit} fees={fees} bank={{ name: env.bankName, bsb: env.bankBsb, account: env.bankAccount, payId: env.payId || null }}
+        <DepositHome d={data as MyDeposit} fees={fees} bank={payBank()}
           payIdOn={payIdEnabled()} testMode={env.testMode} target={bid > 0 ? bid : null} back={lot ? { href: `/lot/${lot}`, label: "Back to the vehicle" } : null}
           name={profile.first_name || ""} />
       </div>

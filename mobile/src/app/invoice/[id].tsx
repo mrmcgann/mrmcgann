@@ -93,7 +93,7 @@ export default function InvoiceScreen() {
         <Soft bg={C.sun} testID="balance-due">
           <T v="strong">{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has gone towards it. Balance due: ${money(inv.balance_due, true)}.` : `Pay ${money(inv.balance_due, true)} by ${dateLong(inv.due_at)}.`}</T>
           <T v="body">{`Pay by PayID or bank transfer${Number(inv.deposit_applied) > 0 ? ` by ${dateLong(inv.due_at)}` : ""}, from an account in your name (or your lender can pay us if you're using finance). Use your invoice number as the reference.`}</T>
-          <PayRows amount={Number(inv.balance_due)} reference={d.bank.reference} bank={d.bank} payIdOn={!!me?.config.payId} requestUrl={`/api/invoices/${inv.id}/payid`} requestLabel={`Get a PayID for ${money(inv.balance_due, true)}`}
+          <PayRows amount={Number(inv.balance_due)} reference={d.bank.reference} crn={d.bank.crn} bank={d.bank} payIdOn={!!me?.config.payId} requestUrl={`/api/invoices/${inv.id}/payid`} requestLabel={`Get a PayID for ${money(inv.balance_due, true)}`}
             note="Once it clears, we confirm it here and by text. Then we take you through the transfer of ownership and collection." />
         </Soft>
       ) : inv.status === "deposit_paid" && d.bank ? (

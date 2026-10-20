@@ -74,7 +74,7 @@ export default async function Deposits() {
             <tr key={r.id} style={r.status === "cancelled" ? { opacity: 0.5 } : undefined}>
               <td><span style={{ whiteSpace: "nowrap" }}>{when(r.created_at)}</span></td>
               <td>{who(r)}<br /><span className="muted">{r.profiles?.deposit_ref}</span></td>
-              <td>{KIND[r.kind] || r.kind}{r.status === "pending" ? " (to send)" : r.status === "cancelled" ? " (cancelled)" : ""}{r.method ? ` · ${r.method === "payid" ? "PayID" : "bank"}` : ""}</td>
+              <td>{KIND[r.kind] || r.kind}{r.status === "pending" ? " (to send)" : r.status === "cancelled" ? " (cancelled)" : ""}{r.method ? ` · ${r.method === "payid" ? "PayID" : r.method === "bpay" ? "BPAY" : "bank"}` : ""}</td>
               <td style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: r.amount > 0 ? "#0B7A47" : undefined }}>{r.amount > 0 ? "+" : "−"}{money(Math.abs(r.amount), true)}</td>
               <td>{[r.payer_name, r.payer_bsb ? `BSB ${bsb(r.payer_bsb)}` : null, r.reference, r.note].filter(Boolean).join(" · ")}</td>
             </tr>

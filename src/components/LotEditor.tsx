@@ -11,6 +11,7 @@ import { env } from "@/lib/env";
 import { rulesFor } from "@/lib/transfer";
 import { AdminAction } from "@/components/AdminAction";
 import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified } from "@/lib/listing";
+import { ZONES } from "@/lib/damage";
 
 export interface SellerInfo {
   inviteUrl: string | null;
@@ -41,8 +42,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const db = supabaseBrowser();
   const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => { db.from("consultants").select("id, name").eq("active", true).order("sort").then(({ data }: { data: { id: string; name: string }[] | null }) => setConsultants(data || [])); }, [db]);
-  const [sales, setSales] = useState<{ id: number; title: string }[]>([]);
-  useEffect(() => { db.from("sales").select("id, title").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string }[] | null }) => setSales(data || [])); }, [db]);
+  const [sales, setSales] = useState<{ id: number; title: string; mode: string }[]>([]);
+  useEffect(() => { db.from("sales").select("id, title, mode").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string; mode: string }[] | null }) => setSales(data || [])); }, [db]);
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
@@ -81,8 +82,12 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
-      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "in_person_viewing", "inspected_at", "inspected_by", "inspection_summary"];
+      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "in_person_viewing", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
+    out.method = f.method === "tender" ? "tender" : "auction";
+    out.sale_order = f.sale_order === "" || f.sale_order == null ? null : Number(f.sale_order);
+    // in a live auction the closing time belongs to the auctioneer (and the estimate to the clock): never write it from here
+    if (f.live_state) delete out.ends_at;
     for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
     for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.write_off_status = f.write_off_status || "unknown";
@@ -446,6 +451,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <input className="input" value={String(fl.title || "")} onChange={(e) => setFlaws(flaws.map((x) => (x.id === fl.id ? { ...x, title: e.target.value } : x)))} onBlur={(e) => updateFlaw(String(fl.id), { title: e.target.value })} />
                   <input className="input" placeholder="Short note, e.g. Cosmetic, about 8 cm" value={String(fl.note || "")} onChange={(e) => setFlaws(flaws.map((x) => (x.id === fl.id ? { ...x, note: e.target.value } : x)))} onBlur={(e) => updateFlaw(String(fl.id), { note: e.target.value })} />
+                  <select className="input" aria-label="Where on the vehicle" value={String(fl.zone || "")} onChange={(e) => updateFlaw(String(fl.id), { zone: e.target.value || null })} data-testid="flaw-zone">
+                    <option value="">Where on the vehicle? (for the damage map)</option>{ZONES.map(([z, l]) => <option key={z} value={z}>{l}</option>)}
+                  </select>
                   <button className="linkbtn" style={{ color: "#B4123E", alignSelf: "flex-start" }} onClick={() => deleteFlaw(String(fl.id))}>Delete flaw</button>
                 </div>
               </div>
@@ -464,9 +472,19 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
         <div className="grid2">
           <label className="field"><span>Starts</span><input className="input" type="datetime-local" value={toLocal(f.starts_at)} onChange={(e) => setF({ ...f, starts_at: fromLocal(e.target.value) })} /><span className="hint">Leave empty to start when published.</span></label>
-          <label className="field"><span>Ends</span><input className="input" type="datetime-local" value={toLocal(f.ends_at)} onChange={(e) => setF({ ...f, ends_at: fromLocal(e.target.value) })} /><span className="hint">Bids in the last 10 minutes extend it automatically.</span></label>
+          {f.live_state
+            ? <div className="field"><span>Ends</span><span className="hint" style={{ margin: 0 }}>In a live auction: offered {f.live_state === "waiting" ? "in its turn" : f.live_state === "open" ? "now" : "already"} by the auctioneer. The time on the listing is an estimate.</span></div>
+            : <label className="field"><span>Ends</span><input className="input" type="datetime-local" value={toLocal(f.ends_at)} onChange={(e) => setF({ ...f, ends_at: fromLocal(e.target.value) })} /><span className="hint">{f.method === "tender" ? "Tenders close on time (no extensions)." : "Bids in the last 10 minutes extend it automatically."}</span></label>}
         </div>
-        <label className="field" style={{ maxWidth: 420 }}><span>Part of a sale (optional)</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">Not part of a sale</option>{sales.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select><span className="hint">Group a fleet&apos;s vehicles in one sale page. Set up sales in <a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
+        <div className="field"><span>How it&apos;s sold</span>
+          <div className="chipset" data-testid="method-select">
+            <button type="button" className={f.method !== "tender" ? "on" : ""} aria-pressed={f.method !== "tender"} onClick={() => setF({ ...f, method: "auction" })}>Auction</button>
+            <button type="button" className={f.method === "tender" ? "on" : ""} aria-pressed={f.method === "tender"} onClick={() => setF({ ...f, method: "tender", buy_now_price: "" })} data-testid="method-tender">Tender (sealed offers)</button>
+          </div>
+          <span className="hint">{f.method === "tender" ? "Buyers put in one sealed amount each; the highest buys at that price when it closes, if it meets the reserve. No Buy Now. Can't change once there are tenders." : "A timed auction, or a live auction if it's in a live sale."}</span>
+        </div>
+        <label className="field" style={{ maxWidth: 420 }}><span>Part of a sale (optional)</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">Not part of a sale</option>{sales.map((x) => <option key={x.id} value={x.id}>{x.title}{x.mode === "live" ? " (live auction)" : ""}</option>)}</select><span className="hint">Group a fleet&apos;s vehicles in one sale page, or put it in a live auction. Set up sales in <a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
+        {sales.find((x) => x.id === Number(f.sale_id))?.mode === "live" && inp("sale_order", "Order in the live auction (1 goes first)", { inputMode: "numeric" })}
         <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
       </div>
 

@@ -69,6 +69,8 @@ export default function Watchlist() {
     if (l.status === "referred") return l.leader_id === uid ? { k: "winning", t: "With the seller", c: C.sun } : { k: "ended", t: "Referred", c: C.panel2 };
     if (l.status === "offers") return { k: "ended", t: "Make an offer open", c: C.sun };
     if (l.status !== "live") return { k: "ended", t: "Ended", c: C.panel2 };
+    // a tender is sealed until it closes: nobody is winning or outbid yet
+    if (l.method === "tender") return { k: "watch", t: mx != null ? "Tender in" : "Tender", c: mx != null ? C.lilac : C.panel };
     if (mx == null) return { k: "watch", t: "Not bid yet", c: C.panel };
     return l.leader_id === uid ? { k: "winning", t: "You're winning", c: C.mint } : { k: "outbid", t: "Outbid", c: C.berry };
   };

@@ -6,15 +6,30 @@ import { money, dateTime, dateLong } from "@/lib/format";
 
 const ST = ["", "pending_charge", "charging", "paid", "deposit_paid", "payment_failed", "cancelled"];
 
-export default async function Invoices({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function Invoices({ searchParams }: { searchParams: Promise<{ status?: string; ref?: string }> }) {
   await requireAdmin(); // checked on every page, not just the layout
-  const { status = "" } = await searchParams;
-  let q = supabaseAdmin().from("invoices").select("*, lots(title), profiles(first_name, last_name, mobile, email)").order("created_at", { ascending: false }).limit(200);
+  const { status = "", ref = "" } = await searchParams;
+  const db = supabaseAdmin();
+  let q = db.from("invoices").select("*, lots(title), profiles(first_name, last_name, mobile, email)").order("created_at", { ascending: false }).limit(200);
   if (status) q = q.eq("status", status);
+  // the reference on a bank statement: an invoice number (TB-…), a member's reference (BID…) or a BPAY CRN
+  const find = ref.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+  if (find) {
+    if (/^TB-?\d+$/.test(find)) q = q.eq("ref", find.includes("-") ? find : find.replace(/^TB/, "TB-"));
+    else {
+      const { data: m } = await db.from("profiles").select("id").or(`deposit_ref.eq.${find.replace(/-/g, "")},bpay_crn.eq.${find.replace(/\D/g, "") || "0"}`).limit(1).maybeSingle();
+      q = q.eq("buyer_id", m?.id || "00000000-0000-0000-0000-000000000000");
+    }
+  }
   const { data } = await q;
   return (
     <>
       <h1 className="d2">Invoices.</h1>
+      <form className="pill-row" action="/admin/invoices" role="search">
+        <input className="input" name="ref" defaultValue={ref} placeholder="Reference on the payment: TB-…, BID… or BPAY CRN" aria-label="Find by payment reference" style={{ maxWidth: 380 }} />
+        <button className="btn btn-dark" style={{ height: 44, fontSize: 14 }}>Find</button>
+        {ref && <Link className="linkbtn" href="/admin/invoices">Clear</Link>}
+      </form>
       <div className="pill-row">{ST.map((s) => <Link key={s} className="pill pill-soft" href={`/admin/invoices${s ? `?status=${s}` : ""}`} style={status === s ? { background: "var(--ink)", color: "#FFFFFF" } : undefined}>{s ? s.replace("_", " ") : "All"}</Link>)}</div>
       <div className="admin-card" style={{ overflowX: "auto" }}>
         <table className="table"><thead><tr><th>Invoice</th><th>Buyer</th><th>Amounts</th><th>Status</th><th>Actions</th></tr></thead>

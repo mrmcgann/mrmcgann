@@ -98,7 +98,7 @@ export function DepositPay({ fees, summary, bank, payIdOn, testMode, target, bac
       )}
 
       {ready && topUp > 0 && (
-        <PayBox amount={topUp} reference={summary.ref} bank={bank} payIdOn={payIdOn} request={{ url: "/api/deposit/payid", label: `Get a PayID for ${money(topUp)}` }}
+        <PayBox amount={topUp} reference={summary.ref} crn={summary.crn} bank={bank} payIdOn={payIdOn} request={{ url: "/api/deposit/payid", label: `Get a PayID for ${money(topUp)}` }}
           note={<span className="hint">Pay from an account in your own name (or a joint account you hold). We can&apos;t accept money from anyone else, and your deposit only ever goes back to the account it came from.</span>} />
       )}
       {ready && topUp === 0 && <div className="notice ok">Your deposit already covers this. {back && <Link className="blue" href={back.href}>{back.label}</Link>}</div>}

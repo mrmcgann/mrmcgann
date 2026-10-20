@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getFeesCached, getPartnersCached } from "@/lib/cache";
 import { DeliveryBox } from "@/components/LotExtras";
-import { env } from "@/lib/env";
+import { env, payBank } from "@/lib/env";
 import { dateLong, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 import { InvoiceActions } from "./InvoiceActions";
@@ -87,9 +87,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <div className="soft" style={{ background: "var(--sun)", gap: 14 }} data-testid="invoice-pay">
             <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <b style={{ fontSize: 22, letterSpacing: "-0.02em" }}>Pay {money(inv.balance_due, true)} by {dateLong(inv.due_at)}.</b>
-              <span>{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has already gone towards it. Pay the rest` : "Pay it"} by PayID or bank transfer, from an account in your name (or from your lender, if you&apos;re using finance), with your invoice number as the reference. We release the vehicle once it has cleared.</span>
+              <span>{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has already gone towards it. Pay the rest` : "Pay it"} by PayID, bank transfer or BPAY, from an account in your name (or from your lender, if you&apos;re using finance), with your invoice number as the reference. We release the vehicle once it has cleared.</span>
             </span>
-            <PayBox amount={Number(inv.balance_due)} reference={inv.ref} bank={{ name: env.bankName, bsb: env.bankBsb, account: env.bankAccount, payId: env.payId || null }}
+            <PayBox amount={Number(inv.balance_due)} reference={inv.ref} bank={payBank()} crn={profile?.bpay_crn}
               payIdOn={payIdEnabled()} request={{ url: `/api/invoices/${inv.id}/payid`, label: `Get a PayID for ${money(inv.balance_due, true)}` }}
               note={<span className="hint">Paying late? Interest applies from the due date, and if it isn&apos;t paid the sale is cancelled{Number(inv.deposit_applied) > 0 ? ", the deposit kept" : ""} and your account closed (Terms of sale, sections 8 and 11). Call us on {env.phone} if anything&apos;s holding you up.</span>} />
           </div>

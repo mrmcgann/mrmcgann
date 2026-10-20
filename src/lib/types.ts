@@ -83,6 +83,13 @@ export interface Lot {
   relisted_from?: number | null;
   corrected_at?: string | null;
   sale_id?: number | null;
+  /** "auction" (timed or live) or "tender" (sealed, revealed at close) */
+  method?: "auction" | "tender";
+  /** in a live auction: waiting its turn, up now, or done */
+  live_state?: "waiting" | "open" | "closed" | null;
+  sale_order?: number | null;
+  extend_seconds?: number | null;
+  tender_count?: number;
   build_date?: string | null;
   compliance_date?: string | null;
   gvm_kg?: number | null;
@@ -123,7 +130,7 @@ export interface Partner {
   referral_url: string | null; accepts_leads: boolean; commission_note: string | null; sponsored: boolean; sample: boolean; sort: number; active: boolean; updated_at?: string;
 }
 export interface FinanceSettings { show_on_listings?: boolean; min_price?: number; term_months?: number; deposit_pct?: number }
-export interface LotFlaw { id: string; lot_id: number; title: string; note: string | null; photo_path: string | null; sort: number }
+export interface LotFlaw { id: string; lot_id: number; title: string; note: string | null; photo_path: string | null; sort: number; zone?: string | null }
 
 export interface Profile {
   id: string;
@@ -151,6 +158,7 @@ export interface Profile {
   company_name?: string | null;
   abn?: string | null;
   deposit_ref?: string | null;
+  bpay_crn?: string | null;
   // from me()
   pay_mode?: "transfer" | "deposit" | "card";
   payment_ok?: boolean;
@@ -243,6 +251,8 @@ export interface DepositSummary {
   limit: number | null;
   unlimited: boolean;
   ref: string;
+  /** BPAY Customer Reference Number (the same for every payment) */
+  crn?: string | null;
   rate: number;
   min: number;
   cap: number;
@@ -260,9 +270,9 @@ export type MyDeposit = DepositSummary & {
   refund_to: { name: string | null; bsb: string | null; ending: string | null } | null;
 };
 /** Our account details for PayID and bank transfers. */
-export type PayBank = { name: string; bsb: string; account: string; payId: string | null };
+export type PayBank = { name: string; bsb: string; account: string; payId: string | null; bpayBiller?: string | null };
 
-export const TERMS_VERSION = "2026-10-12";
+export const TERMS_VERSION = "2026-10-21";
 
 export interface Sale {
   id: number;
@@ -272,4 +282,15 @@ export interface Sale {
   seller_label: string | null;
   state: string | null;
   published: boolean;
+  mode?: "timed" | "live";
+  starts_at?: string | null;
+  stream_url?: string | null;
+  auctioneer?: string | null;
+  live_status?: "scheduled" | "running" | "paused" | "ended";
+  current_lot_id?: number | null;
+  live_message?: string | null;
+  live_message_at?: string | null;
+  lot_seconds?: number;
+  extend_seconds?: number;
+  auto_advance?: boolean;
 }

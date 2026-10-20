@@ -52,7 +52,7 @@ export interface LotBundle {
   warranty?: boolean;
   transporter?: Partner | null;
   corrections?: Correction[];
-  sale?: { id: number; slug: string; title: string } | null;
+  sale?: { id: number; slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
   questions: { question: string; answer: string; answered_at: string }[];
   watchers: number;
   similar: AppLot[];
@@ -70,9 +70,11 @@ export interface MyLotState {
   questions: { question: string; answer: string | null; status: string }[];
 }
 
-export type LiveState = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price"> & { server_time?: string };
+export type LiveState = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state" | "tender_count"> & { server_time?: string };
 
-export interface HomeData { ending: AppLot[]; featured: AppLot | null; fresh: AppLot[]; cats: Record<string, number>; cheap: number; total: number }
+export interface HomeData { ending: AppLot[]; featured: AppLot | null; fresh: AppLot[]; cats: Record<string, number>; cheap: number; total: number;
+  /** live auctions on now or starting in the next week (newer servers only) */
+  live?: { slug: string; title: string; starts_at: string | null; live_status: string; count: number }[] }
 export interface SearchResult { lots: AppLot[]; hasMore: boolean; page: number; facets: Facets | null; filters: SearchFilters; parts: string[] }
 
 // The seller's own listing: bids (names blurred) and the videos they've added.
@@ -103,7 +105,7 @@ export interface InvoiceDetail {
   canClaim: boolean;
   overdueDays: number;
   storagePerDay: number;
-  bank: { name: string; bsb: string; account: string; payId: string | null; reference: string } | null;
+  bank: { name: string; bsb: string; account: string; payId: string | null; reference: string; bpayBiller?: string | null; crn?: string | null } | null;
   seller: { legalName: string; abn: string; phone: string; supportEmail: string };
   pdfUrl: string;
 }

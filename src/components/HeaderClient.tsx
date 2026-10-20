@@ -55,6 +55,8 @@ export function MobileMenu() {
         <div className="sheet wrap" style={{ position: "absolute", left: 0, right: 0, top: 60, background: "#FFFFFF", borderBottom: "1px solid var(--line)" }} onClick={() => setOpen(false)}>
           {CATEGORIES.map((c) => <Link key={c.key} href={`/auctions?cat=${c.key}`}>{c.label}</Link>)}
           <Link href="/auctions?ending=today">Ending today</Link>
+          <Link href="/calendar">Auction calendar</Link>
+          <Link href="/auctions?view=closed">Results</Link>
           <Link href="/sell">Sell your vehicle</Link>
           <Link href="/finance">Car finance</Link>
           <Link href="/insurance">Car insurance</Link>

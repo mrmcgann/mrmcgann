@@ -28,9 +28,9 @@ export function RecordDeposit() {
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="record-deposit">
       <div className="grid3">
-        <label className="field"><span>Member reference (BID…) or email</span><input className="input" value={f.member} onChange={set("member")} placeholder="BIDK7M2QX" autoComplete="off" /></label>
+        <label className="field"><span>Member reference (BID…), BPAY CRN or email</span><input className="input" value={f.member} onChange={set("member")} placeholder="BIDK7M2QX" autoComplete="off" /></label>
         <label className="field"><span>Amount received ($)</span><input className="input" inputMode="decimal" value={f.amount} onChange={set("amount")} /></label>
-        <label className="field"><span>How it came</span><select className="input" value={f.method} onChange={set("method")}><option value="bank">Bank transfer</option><option value="payid">PayID / Osko</option></select></label>
+        <label className="field"><span>How it came</span><select className="input" value={f.method} onChange={set("method")}><option value="bank">Bank transfer</option><option value="payid">PayID / Osko</option><option value="bpay">BPAY</option></select></label>
         <label className="field"><span>Name on the paying account</span><input className="input" value={f.payerName} onChange={set("payerName")} placeholder="As on the statement" /></label>
         <label className="field"><span>Their BSB</span><input className="input" inputMode="numeric" value={f.payerBsb} onChange={set("payerBsb")} placeholder="For refunds" /></label>
         <label className="field"><span>Their account number</span><input className="input" inputMode="numeric" value={f.payerAccount} onChange={set("payerAccount")} placeholder="For refunds" /></label>
@@ -65,7 +65,7 @@ export function AdjustDeposit() {
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }} data-testid="adjust-deposit">
       <div className="grid3">
-        <label className="field"><span>Member reference (BID…) or email</span><input className="input" value={f.member} onChange={set("member")} autoComplete="off" /></label>
+        <label className="field"><span>Member reference (BID…), BPAY CRN or email</span><input className="input" value={f.member} onChange={set("member")} autoComplete="off" /></label>
         <label className="field"><span>Change ($, minus to take off)</span><input className="input" value={f.amount} onChange={set("amount")} placeholder="-500" /></label>
         <label className="field"><span>Reason (they&apos;ll see it)</span><input className="input" value={f.note} onChange={set("note")} placeholder="Recorded twice by mistake" /></label>
       </div>

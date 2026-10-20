@@ -5,12 +5,16 @@
 import { CATEGORIES, CAT, MAKES, MAKE_ALIASES, STATE_WORDS, STATE_NAMES, FUELS, TRANS, LICENCES, kindLabel, categoryOf, type CategoryKey } from "./vehicles.ts";
 
 export const FILTER_KEYS = ["q", "cat", "type", "make", "model", "ymin", "ymax", "min", "max", "km", "hrs", "ccmin", "ccmax", "lams", "lic", "berths", "lenmin", "lenmax",
-  "fuel", "trans", "drive", "state", "seller", "rego", "runs", "inspected", "nores", "buynow", "ending", "grade", "sale", "sort", "view"] as const;
+  "fuel", "trans", "drive", "state", "seller", "rego", "runs", "inspected", "wo", "how", "nores", "buynow", "ending", "grade", "sale", "sort", "view"] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type SearchFilters = Partial<Record<FilterKey, string>>;
 
 export const SORTS: [string, string][] = [["ending", "Closing soonest"], ["newest", "Latest listings"], ["price", "Lowest price"], ["price_desc", "Highest price"],
   ["km", "Lowest kilometres"], ["year", "Newest vehicle"], ["bids", "Most bids"]];
+/** Write-off history: never written off, or repairable / statutory write-offs and salvage. */
+export const WRITE_OFFS: [string, string][] = [["clear", "Never written off"], ["writeoff", "Write-offs and salvage"]];
+/** How it's sold: a timed online auction, a live auction event (one vehicle at a time with an auctioneer), or a tender. */
+export const HOW_SOLD: [string, string][] = [["timed", "Timed online auction"], ["live", "Live auction"], ["tender", "Tender"]];
 export const ENDINGS: [string, string][] = [["1h", "Within the hour"], ["today", "Within 24 hours"], ["3d", "Within 3 days"]];
 
 const DIGITS = /^\d{1,9}$/;
@@ -25,6 +29,8 @@ const VALID: Partial<Record<FilterKey, (v: string) => string | null>> = {
   seller: (v) => (v === "private" || v === "business" ? v : null),
   rego: (v) => (v === "registered" || v === "unregistered" ? v : null),
   runs: (v) => (v === "drives" ? v : null),
+  wo: (v) => (v === "clear" || v === "writeoff" ? v : null),
+  how: (v) => (HOW_SOLD.some((h) => h[0] === v) ? v : null),
   ending: (v) => (["1h", "today", "3d"].includes(v) ? v : null),
   grade: (v) => (/^[A-E]$/i.test(v) ? v.toUpperCase() : null),
   sort: (v) => (SORTS.some((s) => s[0] === v) ? v : null),
@@ -131,6 +137,10 @@ const FLAG_WORDS: [string, Action][] = [
   ["unregistered", { rego: "unregistered" }], ["unreg", { rego: "unregistered" }], ["no rego", { rego: "unregistered" }], ["without rego", { rego: "unregistered" }], ["not registered", { rego: "unregistered" }],
   ["registered", { rego: "registered" }], ["with rego", { rego: "registered" }], ["regod", { rego: "registered" }], ["road registered", { rego: "registered" }], ["current rego", { rego: "registered" }],
   ["mechanically inspected", { inspected: "1" }], ["inspected", { inspected: "1" }], ["mechanic inspected", { inspected: "1" }], ["with inspection report", { inspected: "1" }],
+  ["write off", { wo: "writeoff" }], ["write offs", { wo: "writeoff" }], ["written off", { wo: "writeoff" }], ["repairable write off", { wo: "writeoff" }], ["salvage", { wo: "writeoff" }],
+  ["wovr", { wo: "writeoff" }], ["repairable", { wo: "writeoff" }], ["never written off", { wo: "clear" }], ["not written off", { wo: "clear" }], ["no write off", { wo: "clear" }],
+  ["tender", { how: "tender" }], ["tenders", { how: "tender" }], ["by tender", { how: "tender" }], ["live auction", { how: "live" }], ["live auctions", { how: "live" }], ["live sale", { how: "live" }],
+  ["simulcast", { how: "live" }], ["timed auction", { how: "timed" }], ["online auction", { how: "timed" }],
   ["runs and drives", { runs: "drives" }], ["starts and drives", { runs: "drives" }], ["runner", { runs: "drives" }], ["drivable", { runs: "drives" }], ["driveable", { runs: "drives" }],
   ["no reserve", { nores: "1" }], ["without reserve", { nores: "1" }], ["buy now", { buynow: "1" }], ["buy it now", { buynow: "1" }],
   ["ending today", { ending: "today" }], ["closing today", { ending: "today" }], ["ends today", { ending: "today" }], ["ending soon", { ending: "1h" }], ["closing soon", { ending: "1h" }], ["ending this week", { ending: "3d" }],
@@ -335,6 +345,8 @@ export function describeParts(f: SearchFilters): string[] {
   if (f.rego) p.push(f.rego === "registered" ? "Registered" : "Unregistered");
   if (f.runs) p.push("Starts and drives");
   if (f.inspected) p.push("Inspected by a mechanic");
+  if (f.wo) p.push(WRITE_OFFS.find((x) => x[0] === f.wo)?.[1] || "");
+  if (f.how) p.push(HOW_SOLD.find((x) => x[0] === f.how)?.[1] || "");
   if (f.sale) p.push("In one sale");
   if (f.nores) p.push("No reserve");
   if (f.buynow) p.push("Buy Now");

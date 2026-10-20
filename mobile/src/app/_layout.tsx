@@ -87,6 +87,7 @@ function Shell() {
       }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Home" }} />
         <Stack.Screen name="lot/[id]" options={{ title: "", headerTransparent: false }} />
+        <Stack.Screen name="live/[slug]" options={{ title: "Live auction" }} />
         <Stack.Screen name="invoice/[id]" options={{ title: "Invoice" }} />
         <Stack.Screen name="handover/[token]" options={{ title: "Handover" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />

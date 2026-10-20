@@ -10,7 +10,9 @@ import { CompareToggle } from "@/components/Compare";
 import { LotCard } from "@/components/LotCard";
 import { Tick } from "@/components/CarArt";
 import { gradeInfo } from "@/lib/grades";
-import { km, money } from "@/lib/format";
+import { dateTime, km, money } from "@/lib/format";
+import { DamageMap } from "@/components/DamageMap";
+import { ZONE_LABEL } from "@/lib/damage";
 import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
@@ -98,7 +100,10 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
         <div className="center" style={{ gap: 14, paddingTop: "clamp(32px,5vw,56px)" }}>
           {!preview && <nav aria-label="Breadcrumb" className="crumbs" data-testid="crumbs">{lotCrumbs(lot).map(([name, href], i, all) => <span key={href}>{i === all.length - 1 ? <span>{name}</span> : <Link href={href}>{name}</Link>}{i < all.length - 1 && <span aria-hidden="true"> › </span>}</span>)}</nav>}
           <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id} · {lot.suburb}, {lot.state}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
-          {sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
+          {sale && sale.mode === "live" && lot.live_state
+            ? <Link className="tag live-tag" href={`/live/${sale.slug}`} data-testid="lot-sale">{lot.live_state === "open" ? "Up now in the live auction ›" : lot.live_state === "waiting" ? `Live auction: ${sale.title}, ${dateTime(sale.starts_at)} ›` : `Offered in the live auction: ${sale.title} ›`}</Link>
+            : sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
+          {lot.method === "tender" && <span className="tag" style={{ background: "var(--lilac)" }} data-testid="lot-tender">Sold by tender</span>}
           <h1 className="d2" style={{ fontSize: "clamp(44px,7vw,96px)" }}>{lot.short_title || lot.title}.</h1>
           {lot.subtitle && <p className="lede">{lot.subtitle}</p>}
           <div className="stat-row"><span>{watchers} watching</span><span>{(lot.views || 0).toLocaleString("en-AU")} {lot.views === 1 ? "view" : "views"}</span><ShareButton title={lot.title} />{!preview && <CompareToggle id={lot.id} title={lot.title} />}</div>
@@ -162,11 +167,12 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               {flaws.length > 0 && (
                 <>
                   <h3 style={{ fontSize: 22, fontWeight: 800 }}>Damage and wear.</h3>
+                  <DamageMap flaws={flaws} category={lot.category} />
                   <div className="flaws">
-                    {flaws.map((f) => (
+                    {flaws.map((f, i) => (
                       <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <div className="ph" style={{ padding: 0, overflow: "hidden" }}>{f.photo_path ? <img src={photoUrl(f.photo_path)} alt={f.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ padding: 14 }}>Close-up photo</span>}</div>
-                        <b>{f.title}</b>{f.note && <span className="muted">{f.note}</span>}
+                        <b>{flaws.some((x) => x.zone) && <span className="dmap-num">{i + 1}</span>}{f.title}</b>{f.zone && <span className="hint" style={{ margin: 0 }}>{ZONE_LABEL[f.zone]}</span>}{f.note && <span className="muted">{f.note}</span>}
                       </div>
                     ))}
                   </div>
@@ -231,7 +237,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 <div><span className="muted">Collection</span><b style={{ textAlign: "right" }}>{lot.suburb}, {lot.state}{lot.registration === "unregistered" ? ". By carrier, trailer or permit" : ""}</b></div>
                 <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Sent once ownership is transferred and your collection time is confirmed</b></div>
                 <div><span className="muted">Your rights</span><span style={{ textAlign: "left", fontSize: 15, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 6, maxWidth: 620 }} data-testid="lot-rights">
-                  <span>{consumerRights("auction", lot.seller_type)}</span>
+                  {lot.method === "tender" ? <span><b>Tender:</b> {consumerRights("outright", lot.seller_type)}</span> : <span>{consumerRights("auction", lot.seller_type)}</span>}
                   {lot.buy_now_price && <span><b>Buy Now:</b> {consumerRights("outright", lot.seller_type)}</span>}
                   <Link className="blue" href="/terms#t-asis" style={{ fontWeight: 700 }}>Your consumer rights ›</Link></span></div>
               </div>
@@ -247,7 +253,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
           </div>
 
           <aside className="bidcard" id="bid">
-            <LotInteractive lot={lot} fees={fees} history={history} phone={env.phone} />
+            <LotInteractive lot={lot} fees={fees} history={history} phone={env.phone} sale={sale} />
             {["live", "scheduled", "offers", "referred"].includes(lot.status) && (
               <div className="soft finbox">
                 <b style={{ fontSize: 17 }}>Finance &amp; insurance.</b>

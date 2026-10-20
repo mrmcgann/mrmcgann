@@ -27,6 +27,8 @@ export type WatchItem = {
   buy_now_price: number | null; seller_type: Lot["seller_type"] | null; fees: Lot["fees"] | null; backdrop: string; vehicle_type: VehicleType;
   cover: string | null; place: string; spec: string; year: number | null; grade: Grade | null; is_seller: boolean;
   my_max: number | null; watched: boolean; remind: boolean; note: string | null; added_at: string | null;
+  /** a tender (sealed offers) or an auction; in a live auction, waiting its turn or up now */
+  method?: "auction" | "tender"; live_state?: "waiting" | "open" | "closed" | null;
 };
 type LiveKeys = "status" | "ends_at" | "current_bid" | "bid_count" | "reserve_met" | "leader_id" | "winner_id" | "sold_price" | "decision_by" | "buy_now_price";
 type Status = { k: "winning" | "outbid" | "watch" | "won" | "lost" | "sold" | "referred" | "offers" | "passed" | "ended"; t: string; tone: string };
@@ -46,7 +48,9 @@ export function statusOf(i: WatchItem, userId: string, now: number): Status {
   if (i.status === "referred") return i.leader_id === userId ? { k: "referred", t: "Your bid is with the seller", tone: "var(--sun)" } : { k: bid ? "lost" : "referred", t: "Referred to the seller", tone: "var(--panel2)" };
   if (i.status === "offers") return { k: "offers", t: "Offers open", tone: "var(--sun)" };
   if (i.status === "passed") return { k: bid ? "lost" : "passed", t: "Passed in", tone: "var(--panel2)" };
-  if (!isLive(i, now)) return { k: "ended", t: "Closing", tone: "var(--panel2)" };
+  // a tender's amounts are sealed until it closes, so nobody is "winning" or "outbid" yet
+  if (i.method === "tender" && i.status === "live") return { k: "watch", t: bid ? `Your tender ${money(i.my_max || 0)} is in` : "Tender", tone: bid ? "var(--lilac)" : "#FFFFFF" };
+  if (!isLive(i, now) && i.live_state !== "waiting") return { k: "ended", t: "Closing", tone: "var(--panel2)" };
   if (!bid) return { k: "watch", t: "Not bid yet", tone: "#FFFFFF" };
   return i.leader_id === userId ? { k: "winning", t: "You're winning", tone: "var(--mint)" } : { k: "outbid", t: "Outbid", tone: "var(--berry)" };
 }
@@ -295,6 +299,8 @@ function BidButton({ i, can, onOpen, small }: { i: WatchItem; can: boolean; onOp
   const n = nextBid(i);
   const style = small ? { height: 40, fontSize: 14, padding: "0 16px" } : { height: 48, fontSize: 15 };
   if (i.is_seller) return <span className="hint">Your vehicle</span>;
+  if (i.method === "tender") return <Link className="btn btn-blue" style={style} href={`/lot/${i.id}#bid`}>{i.my_max != null ? "Change tender" : "Put in a tender"}</Link>;
+  if (i.live_state === "open") return <Link className="btn btn-dark" style={style} href={`/lot/${i.id}`}>Up now: bid live</Link>;
   if (!can) return <Link className="btn btn-blue" style={style} href={`/lot/${i.id}`}>Place bid</Link>;
   return <button className="btn btn-blue" style={style} onClick={onOpen} data-testid={`wl-bidbtn-${i.id}`}>{`Bid ${money(n)}`}</button>;
 }

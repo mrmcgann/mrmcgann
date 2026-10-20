@@ -14,13 +14,14 @@ import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
 
-type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price">;
+type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state">;
+export type LotSale = { slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
 const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Bidding deposit (refundable)", 5: "Verify your ID" };
 const pick = (x: Partial<Live>): Partial<Live> => {
   const o: Partial<Live> = {};
-  for (const k of ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price"] as const) {
+  for (const k of ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price", "live_state"] as const) {
     if (x[k] !== undefined) (o as Record<string, unknown>)[k] = x[k];
   }
   return o;
@@ -33,7 +34,7 @@ const pick = (x: Partial<Live>): Partial<Live> => {
 export function BidPanel(props: {
   lot: Lot; fees: Fees; userId: string | null; missing: number[]; cardLabel: string | null; termsCurrent: boolean; deposit?: DepositSummary | null;
   myMax: number | null; watched: boolean; invoiceId: string | null; lastOffer: { amount: number; status: string } | null;
-  isSeller: boolean; history: Hist; suspended?: boolean;
+  isSeller: boolean; history: Hist; suspended?: boolean; sale?: LotSale;
 }) {
   const { lot, userId, missing, cardLabel } = props;
   const fees = useMemo(() => lotFees(props.fees, lot), [props.fees, lot]);
@@ -120,7 +121,12 @@ export function BidPanel(props: {
   }, [minNext]);
 
   const endsAtAdjusted = live.ends_at ? new Date(endsMs).toISOString() : null;
-  const ended = live.status !== "live" || (live.ends_at ? endsMs <= Date.now() : false);
+  // a vehicle waiting its turn in a live auction only has an estimated time, so it never shows as closed early
+  const waiting = live.live_state === "waiting";
+  const upNow = live.live_state === "open" && live.status === "live";
+  const ended = live.status !== "live" || (!waiting && live.ends_at ? endsMs <= Date.now() : false);
+  const liveSale = props.sale && props.sale.mode === "live" && live.live_state ? props.sale : null;
+  const extendLine = liveSale ? "When the auctioneer offers it, each bid resets the countdown so everyone can answer." : "Bids in the last 10 minutes add 10 minutes.";
   const leading = leaderIsMe;
   const typed = Number(String(amount).replace(/[^0-9]/g, "")) || 0;
   const preview = useMemo(() => priceBreakdown(typed || minNext, fees), [typed, minNext, fees]);
@@ -156,7 +162,7 @@ export function BidPanel(props: {
     apply({ current_bid: data.current_bid, ends_at: data.ends_at, bid_count: live.bid_count + 1 });
     setLeaderIsMe(data.status === "leading");
     setMsg(data.status === "leading"
-      ? { kind: "ok", text: `You're the highest bidder at ${money(data.current_bid)}. We'll bid for you up to ${money(typed)}.${data.extended ? " The auction has been extended by 10 minutes." : ""}` }
+      ? { kind: "ok", text: `You're the highest bidder at ${money(data.current_bid)}. We'll bid for you up to ${money(typed)}.${data.extended ? (liveSale ? " The countdown has been reset." : " The auction has been extended by 10 minutes.") : ""}` }
       : { kind: "bad", text: `Another bidder's maximum is higher. The current bid is now ${money(data.current_bid)}. Try a higher maximum.` });
     void sync();
   }
@@ -191,7 +197,13 @@ export function BidPanel(props: {
     const bnPrev = bn ? priceBreakdown(bn, fees) : null;
     body = (
       <>
-        {bn && (
+        {liveSale && (
+          <Link className="live-cta" href={`/live/${liveSale.slug}`} data-testid="live-cta">
+            <b>{upNow ? "Up now in the live auction." : `Live auction, ${dateTime(liveSale.starts_at)}.`}</b>
+            <span>{upNow ? "Join the room to bid as the auctioneer calls it." : "Bid early here (we bid for you up to your max when it's offered), or join the room on the day."} ›</span>
+          </Link>
+        )}
+        {bn && !upNow && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px", borderRadius: 18, background: "var(--lime)" }}>
             <span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: 13, fontWeight: 700 }}>Buy it now</span><b style={{ fontSize: 26, letterSpacing: "-0.03em" }}>{money(bn)}</b></span>
             <button className="btn btn-dark" style={{ height: 48, fontSize: 15 }} onClick={() => { if (!needsSetup()) setBuyOpen(true); }}>Buy now</button>
@@ -200,7 +212,7 @@ export function BidPanel(props: {
         <form onSubmit={review} style={{ display: "flex", flexDirection: "column", gap: 14 }} noValidate>
           <label className="field"><span>Your maximum bid</span>
             <span className="moneyin"><span className="muted">$</span><input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} aria-describedby="bidhelp" /></span>
-            <span className="hint" id="bidhelp">Minimum {money(minNext)}. We bid for you, one increment at a time, up to your max. Bids in the last 10 minutes add 10 minutes.</span>
+            <span className="hint" id="bidhelp">Minimum {money(minNext)}. We bid for you, one increment at a time, up to your max. {extendLine}</span>
           </label>
           {!short && <DepositNeed fees={fees} deposit={props.deposit ?? null} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} signedIn={!!userId && !missing.length} />}
           {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />}
@@ -276,7 +288,9 @@ export function BidPanel(props: {
         </div>
         <div className="big2">
           <div><div className="k">{live.status === "sold" ? "Sold for" : "Current bid"}</div><div className="v">{money(live.status === "sold" ? live.sold_price : live.current_bid)}</div><div className="hint">{live.status !== "sold" && <><b data-testid="allin-now">{money(priceBreakdown(Math.max(live.current_bid || 0, lot.start_price || 0), fees).total, true)} all-in</b> · </>}{live.bid_count} bids{rt ? " · live" : ""}</div></div>
-          <div><div className="k">{ended ? "Status" : "Ends in"}</div>{ended ? <div className="v" style={{ fontSize: 28 }}>Closed</div> : <Countdown className="v" style={{ color: "var(--urgent)" }} endsAt={endsAtAdjusted} />}<div className="hint">{dateTime(live.ends_at)}</div></div>
+          {waiting && !ended
+            ? <div><div className="k">Offered</div><div className="v" style={{ fontSize: 28 }}>Live</div><div className="hint">In the live auction, about {dateTime(live.ends_at)}</div></div>
+            : <div><div className="k">{ended ? "Status" : upNow ? "Selling in" : "Ends in"}</div>{ended ? <div className="v" style={{ fontSize: 28 }}>Closed</div> : <Countdown className="v" style={{ color: "var(--urgent)" }} endsAt={endsAtAdjusted} />}<div className="hint">{upNow ? "Up now in the live auction" : dateTime(live.ends_at)}</div></div>}
         </div>
         {body}
         <WatchButton lotId={lot.id} initial={props.watched} title={lot.title} variant="button" />

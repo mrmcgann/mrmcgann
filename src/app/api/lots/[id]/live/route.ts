@@ -5,7 +5,7 @@ import { supabasePublic } from "@/lib/supabase/anon";
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { data } = await supabasePublic().from("lots")
-    .select("id, status, current_bid, bid_count, ends_at, reserve_met, has_reserve, leader_id, decision_by, sold_price, winner_id, buy_now_price")
+    .select("id, status, current_bid, bid_count, ends_at, reserve_met, has_reserve, leader_id, decision_by, sold_price, winner_id, buy_now_price, method, live_state, tender_count")
     .eq("id", Number(id)).maybeSingle();
   if (!data) return Response.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "public, s-maxage=30" } });
   return Response.json({ ...data, server_time: new Date().toISOString() }, {

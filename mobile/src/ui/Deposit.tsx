@@ -5,6 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { depositFor, payMode } from "@/lib/fees";
 import { depositShortBy, limitChoices } from "@/lib/deposits";
 import { money } from "@/lib/format";
+import { formatCrn } from "@/lib/bpay";
 import type { DepositSummary, Fees, PayBank } from "@/lib/types";
 import { api, errText } from "~/lib/api";
 import { Button, MoneyField, Notice, T, digits } from "./kit";
@@ -28,8 +29,10 @@ function CopyRow({ k, v, copy, hl, testID }: { k: string; v: string; copy?: stri
 }
 
 /** Exactly how to pay: the amount, the reference that matches it to you, and our account. Optional single-use PayID. */
-export function PayRows({ amount, reference, bank, payIdOn, requestUrl, requestLabel, note }: {
+export function PayRows({ amount, reference, bank, payIdOn, requestUrl, requestLabel, note, crn }: {
   amount: number; reference: string; bank: PayBank; payIdOn?: boolean; requestUrl?: string; requestLabel?: string; note?: string;
+  /** the member's BPAY CRN: BPAY shows too when our biller code is set */
+  crn?: string | null;
 }) {
   const [one, setOne] = useState<{ payId: string; amount: number; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +68,14 @@ export function PayRows({ amount, reference, bank, payIdOn, requestUrl, requestL
           <CopyRow k="BSB" v={bank.bsb} copy={bank.bsb.replace(/\D/g, "")} />
           <CopyRow k="Account" v={bank.account} copy={bank.account.replace(/\D/g, "")} />
           {bank.payId ? <CopyRow k="Or PayID" v={bank.payId} copy={bank.payId} /> : null}
+          {bank.bpayBiller && crn ? (
+            <>
+              <Text style={s.or}>Or pay by BPAY</Text>
+              <CopyRow k="Biller code" v={bank.bpayBiller} copy={bank.bpayBiller} testID="pay-biller" />
+              <CopyRow k="Reference (CRN)" v={formatCrn(crn)} copy={crn} hl testID="pay-crn" />
+              <T v="small">Your CRN is the same for every payment to us. BPAY can take a business day or two to reach us.</T>
+            </>
+          ) : null}
         </>
       )}
       <View style={s.warn}><T v="body" style={{ fontSize: 14, lineHeight: 20 }}><Text style={{ fontFamily: F.bold }}>Always check before you pay. </Text>We never change these details by email, text or phone, and we never ask you to pay a seller. Unsure? Call us first.</T></View>
@@ -153,7 +164,7 @@ export function DepositPay({ fees, summary, bank, payIdOn, testMode, target, onA
 
       {ready && topUp > 0 ? (
         <>
-          <PayRows amount={topUp} reference={summary.ref} bank={bank} payIdOn={payIdOn} requestUrl="/api/deposit/payid" requestLabel={`Get a PayID for ${money(topUp)}`}
+          <PayRows amount={topUp} reference={summary.ref} crn={summary.crn} bank={bank} payIdOn={payIdOn} requestUrl="/api/deposit/payid" requestLabel={`Get a PayID for ${money(topUp)}`}
             note="Pay from an account in your own name (or a joint account you hold). We can’t accept money from anyone else, and your deposit only ever goes back to the account it came from." />
           {waiting ? (
             <View style={s.wait} testID="deposit-waiting" accessibilityLiveRegion="polite">

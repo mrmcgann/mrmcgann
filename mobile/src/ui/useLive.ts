@@ -4,7 +4,7 @@ import { supabase } from "~/lib/supabase";
 import { pub } from "~/lib/api";
 import type { LiveState } from "~/lib/types";
 
-const KEYS = ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price"] as const;
+const KEYS = ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price", "live_state", "tender_count"] as const;
 const pick = (x: Partial<LiveState>) => {
   const o: Partial<LiveState> = {};
   for (const k of KEYS) if (x[k] !== undefined) (o as Record<string, unknown>)[k] = x[k];

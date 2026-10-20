@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { money } from "@/lib/format";
+import { formatCrn } from "@/lib/bpay";
 
-export type Bank = { name: string; bsb: string; account: string; payId: string | null };
+export type Bank = { name: string; bsb: string; account: string; payId: string | null; bpayBiller?: string | null };
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const [done, setDone] = useState(false);
@@ -30,8 +31,10 @@ function Row({ k, v, copy, hl, testId }: { k: string; v: string; copy?: string; 
 
 // How to pay us: PayID or bank transfer into our account, with the exact amount and the reference that matches it to
 // you. A single-use PayID (when the payments provider is switched on) does the matching by itself.
-export function PayBox({ amount, reference, bank, payIdOn, request, note }: {
+export function PayBox({ amount, reference, bank, payIdOn, request, note, crn }: {
   amount: number; reference: string; bank: Bank; payIdOn: boolean;
+  /** The member's BPAY Customer Reference Number: shows BPAY too when our biller code is set. */
+  crn?: string | null;
   /** Ask for a single-use PayID: POST here with { amount }. */
   request?: { url: string; label: string } | null;
   note?: React.ReactNode;
@@ -73,6 +76,14 @@ export function PayBox({ amount, reference, bank, payIdOn, request, note }: {
           <Row k="BSB" v={bank.bsb} copy={bank.bsb.replace(/\D/g, "")} />
           <Row k="Account number" v={bank.account} copy={bank.account.replace(/\D/g, "")} />
           {bank.payId && <Row k="Or PayID" v={bank.payId} copy={bank.payId} />}
+          {bank.bpayBiller && crn && (
+            <>
+              <span className="payor">Or pay by BPAY</span>
+              <Row k="Biller code" v={bank.bpayBiller} copy={bank.bpayBiller} testId="pay-biller" />
+              <Row k="Reference (CRN)" v={formatCrn(crn)} copy={crn} hl testId="pay-crn" />
+              <span className="hint">Your CRN is the same for every payment to us. BPAY can take a business day or two to reach us, so allow for that before the due date.</span>
+            </>
+          )}
         </>
       )}
       <div className="paywarn">
