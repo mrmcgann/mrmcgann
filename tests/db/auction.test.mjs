@@ -808,7 +808,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('metrics: recomputing replaces, never doubles', await m('views') === 4);
   r = await as('service', `select compute_daily_metrics((now() at time zone 'Australia/Brisbane')::date, false) n`);
   ok('metrics: recomputing without traffic keeps the traffic numbers', await m('views') === 4 && await m('visitors', 'src:google') === 1);
-  r = await as('service', `select count(*)::int n from profiles where created_at >= (now() at time zone 'Australia/Brisbane')::date and id_verified_at is not null`);
+  r = await as('service', `select count(*)::int n from profiles where created_at >= ((now() at time zone 'Australia/Brisbane')::date)::timestamp at time zone 'Australia/Brisbane' and id_verified_at is not null`);
   ok('metrics: of today\'s new members, how many verified', await m('signups_verified') === r.rows[0].n, JSON.stringify(r.rows));
 
   for (const who of ['anon', 'A', 'ADM']) {
@@ -1061,8 +1061,9 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('C', `select deposit_totals()`); ok("admin totals: members can't read them", !!r.error);
   r = await as('service', `select deposit_totals() t, (select sum(amount) from bidder_deposits where status <> 'cancelled') s`); const tot = r.rows?.[0]?.t;
   ok('admin totals: what we hold matches the ledger', Number(tot?.held) === Number(r.rows?.[0]?.s) && tot.bidders >= 2 && Number(tot.applied_unpaid) > 0, JSON.stringify(r.rows));
-  await as('service', `select compute_daily_metrics(current_date, false)`);
-  r = await as('service', `select (select value from metric_values where day = current_date and metric = 'members_verified' and dim = '') m,
+  // "today" is Brisbane's day (the CI server runs on UTC)
+  await as('service', `select compute_daily_metrics((now() at time zone 'Australia/Brisbane')::date, false)`);
+  r = await as('service', `select (select value from metric_values where day = (now() at time zone 'Australia/Brisbane')::date and metric = 'members_verified' and dim = '') m,
     (select count(*) from profiles p where id_status = 'verified' and mobile_verified and deposit_balance(p.id) >= 500) n,
     (select count(*) from profiles p where id_status = 'verified' and mobile_verified and payment_method_id is not null and deposit_balance(p.id) < 500) cards`);
   ok('insights: "ready to bid" counts deposits, not cards', Number(r.rows?.[0]?.m) === Number(r.rows?.[0]?.n) && Number(r.rows[0].n) >= 2 && Number(r.rows[0].cards) >= 1, JSON.stringify(r.rows));
