@@ -17,7 +17,7 @@ import { C, F } from "./theme";
 import { consumerRights, rightsLine } from "@/lib/listing";
 import { DepositHint, DepositShortBox, shortFrom } from "./Deposit";
 import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
-import { ACK_CHECK, premiumLabel } from "@/lib/transport";
+import { ACK_CHECK, premiumLabel, feesLine } from "@/lib/transport";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
@@ -241,7 +241,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="muted">{lot.title}. We'll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. Bids can't be withdrawn.</T>
         <View>
           <LineItem k="If you win at your full maximum" v={money(preview.price)} />
-          <LineItem k="Premium, GST and admin fee" v={money(preview.subtotal - preview.price, true)} />
+          <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
           <LineItem k="All-in, at most" v={money(preview.total, true)} bold />
         </View>
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{payNote}</T>
@@ -259,7 +259,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="small" testID="rights-outright">{consumerRights("outright", lot.seller_type)}</T>
         {bnPrev ? <View>
           <LineItem k="Buy Now price" v={money(bn)} />
-          <LineItem k="Premium, GST and admin fee" v={money(bnPrev.subtotal - (bn || 0), true)} />
+          <LineItem k={feesLine(bnPrev.transport)} v={money(bnPrev.subtotal - (bn || 0), true)} />
           <LineItem k="All-in" v={money(bnPrev.total, true)} bold />
           <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{buyNowPayLine(bnPrev) ?? (bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`)}</T>
         </View> : null}

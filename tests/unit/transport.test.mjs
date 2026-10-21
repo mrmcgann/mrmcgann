@@ -1,7 +1,7 @@
 // Transport to our depot in the buyer's premium, and the pickup and collection words (website, server and app).
 // node --experimental-strip-types tests/unit/transport.test.mjs
 import { priceBreakdown, lotFees } from '../../src/lib/fees.ts';
-import { premiumLabel, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
+import { premiumLabel, feesLine, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -27,6 +27,7 @@ ok('locked: no vehicle, today’s fees', lotFees(F) === F);
 // Words
 ok('label: the rate and the transport', premiumLabel({ premium_rate: 0.1, transport: 250 }) === "Buyer's premium (10% + $250 transport to our depot)", premiumLabel({ premium_rate: 0.1, transport: 250 }));
 ok('label: no transport, just the rate', premiumLabel({ premium_rate: 0.125 }) === "Buyer's premium (12.5%)");
+ok('fees line: names the transport beside an all-in price', feesLine(250) === 'Premium (with $250 transport to our depot), GST and admin fee' && feesLine(0) === 'Premium, GST and admin fee' && feesLine(null) === 'Premium, GST and admin fee');
 const reg = collectLine({ suburb: 'Eagle Farm', state: 'QLD', registration: 'registered' }, 250);
 ok('collect line: our depot, the transport in the premium', reg.includes('our depot in Eagle Farm, QLD') && reg.includes("the $250 transport is in the buyer's premium") && reg.includes('registration is in your name'), reg);
 ok('collect line: unregistered', /certificate of sale is done/.test(collectLine({ suburb: 'Wetherill Park', state: 'NSW', registration: 'unregistered' })));

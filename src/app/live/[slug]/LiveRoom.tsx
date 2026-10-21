@@ -15,6 +15,7 @@ import { ackPayLine } from "@/lib/deposits";
 import { rightsLine } from "@/lib/listing";
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, streamEmbed, type LiveLot, type LiveSale } from "@/lib/live";
 import type { Fees, Lot } from "@/lib/types";
+import { ACK_CHECK, feesLine } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
 type LotMsg = Partial<LiveLot> & { id: number };
@@ -288,12 +289,12 @@ function AgreeOnce({ lot, amount, fees, busy, onAgree, onClose }: { lot: LiveLot
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="allin" style={{ border: 0, padding: 0 }}>
         <div><span className="muted">Your bid</span><span>{money(amount)}</span></div>
-        <div><span className="muted">Premium, GST and admin fee</span><span>{money(p.subtotal - p.price, true)}</span></div>
+        <div><span className="muted">{feesLine(p.transport)}</span><span>{money(p.subtotal - p.price, true)}</span></div>
         <div className="tot"><span>All-in if you win at this bid</span><span>{money(p.total, true)}</span></div>
       </div>
       <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, padding: "14px 16px", borderRadius: 16, background: "var(--panel)" }}>
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0 }} data-testid="live-ack" />
-        <span>For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold <b>as is, where is</b>, the condition report is a guide only, and {ackPayLine(p.payMode)}, under the <Link className="blue" href="/terms#t-live" target="_blank" style={{ fontWeight: 700 }}>terms of sale</Link>.</span>
+        <span>For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold <b>as is, where is</b>: {ACK_CHECK}. And {ackPayLine(p.payMode)}, under the <Link className="blue" href="/terms#t-live" target="_blank" style={{ fontWeight: 700 }}>terms of sale</Link>.</span>
       </label>
       <p className="hint" style={{ margin: 0 }}>{rightsLine("auction", null)}.</p>
       <button className="btn btn-blue" onClick={onAgree} disabled={busy || !ack} data-testid="live-agree">{busy ? "Bidding…" : `Bid ${money(amount)}`}</button>

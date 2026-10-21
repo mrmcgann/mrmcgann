@@ -11,7 +11,7 @@ import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { payNoteFor } from "@/components/BidConfirm";
-import { ACK_CHECK } from "@/lib/transport";
+import { ACK_CHECK, feesLine } from "@/lib/transport";
 import { ackPayLine } from "@/lib/deposits";
 import { rightsLine } from "@/lib/listing";
 import { TENDER_STEPS } from "@/lib/live";
@@ -146,7 +146,7 @@ export function TenderPanel(props: {
           <p className="muted" style={{ fontSize: 16 }}>{lot.title}. If yours is the highest tender when it closes and it meets the reserve, you buy it at {money(typed)}. <b>It&apos;s binding once the tender closes.</b> Until then you can change it or take it back.</p>
           <div className="allin" style={{ border: 0, padding: 0 }}>
             <div><span className="muted">Your tender</span><span>{money(typed)}</span></div>
-            <div><span className="muted">Premium, GST and admin fee</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
+            <div><span className="muted">{feesLine(preview.transport)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
             <div className="tot"><span>All-in if it wins</span><span>{money(preview.total, true)}</span></div>
           </div>
           <p style={{ fontSize: 14, lineHeight: 1.5 }}>{payNoteFor(preview, props.cardLabel)}</p>

@@ -45,6 +45,10 @@ export function premiumLabel(f: { premium_rate: number; transport?: number | nul
   return `Buyer's premium (${pct}%${t > 0 ? ` + ${money(t)} transport to our depot` : ""})`;
 }
 
+/** The fees beside an all-in price: "Premium (with $250 transport to our depot), GST and admin fee". */
+export const feesLine = (transport?: number | null) =>
+  Number(transport) > 0 ? `Premium (with ${money(Number(transport))} transport to our depot), GST and admin fee` : "Premium, GST and admin fee";
+
 /** One line on collection for a listing. */
 export function collectLine(lot: { suburb?: string | null; state?: string | null; registration?: string | null }, transport?: number | null): string {
   const place = depotPlace(lot);

@@ -17,6 +17,7 @@ import type { Fees, Lot } from "~/lib/types";
 import { Button, Check, Empty, LineItem, Loading, Notice, Screen, Sheet, Soft, T, Tag } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
 import { C, F } from "~/ui/theme";
+import { ACK_CHECK, feesLine } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
 
@@ -188,11 +189,11 @@ export default function LiveRoomScreen() {
         </>}>
         {preview ? <View>
           <LineItem k="Your bid" v={money(preview.price)} />
-          <LineItem k="Premium, GST and admin fee" v={money(preview.subtotal - preview.price, true)} />
+          <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
           <LineItem k="All-in if you win at this bid" v={money(preview.total, true)} bold />
         </View> : null}
         <Soft style={{ padding: 14 }}>
-          <Check testID="live-ack" checked={ack} onChange={setAck}>{`For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold as is, where is, the condition report is a guide only, and ${ackPayLine(preview?.payMode || "transfer")}, under the terms of sale.`}</Check>
+          <Check testID="live-ack" checked={ack} onChange={setAck}>{`For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold as is, where is: ${ACK_CHECK}. And ${ackPayLine(preview?.payMode || "transfer")}, under the terms of sale.`}</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-live`)}>How live auctions work ›</Text>
         </Soft>
         <T v="small">{rightsLine("auction", null)}.</T>

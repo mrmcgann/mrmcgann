@@ -10,7 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 import { BidConfirm, payNoteFor } from "@/components/BidConfirm";
-import { premiumLabel } from "@/lib/transport";
+import { premiumLabel, feesLine } from "@/lib/transport";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
@@ -238,7 +238,7 @@ export function BidPanel(props: {
             <p className="hint" style={{ margin: 0 }} data-testid="rights-outright">{consumerRights("outright", lot.seller_type)} <Link className="blue" href="/terms#t-asis" target="_blank">Your rights ›</Link></p>
             <div className="allin" style={{ border: 0, padding: 0 }}>
               <div><span className="muted">Buy Now price</span><span>{money(bn)}</span></div>
-              <div><span className="muted">Premium, GST and admin fee</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
+              <div><span className="muted">{feesLine(bnPrev.transport)}</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
               <div className="tot"><span>All-in</span><span>{money(bnPrev.total, true)}</span></div>
             </div>
             <p style={{ fontSize: 14 }}>{buyNowPayLine(bnPrev)

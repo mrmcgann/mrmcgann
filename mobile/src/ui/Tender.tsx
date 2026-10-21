@@ -6,7 +6,7 @@ import { depositFor, lotFees, priceBreakdown } from "@/lib/fees";
 import { countdown, dateTime, money } from "@/lib/format";
 import { rightsLine } from "@/lib/listing";
 import { ackPayLine, winPayLine } from "@/lib/deposits";
-import { ACK_CHECK } from "@/lib/transport";
+import { ACK_CHECK, feesLine } from "@/lib/transport";
 import { TENDER_STEPS } from "@/lib/live";
 import { api, ApiError, errText } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -103,7 +103,7 @@ export function TenderPanel({ lot, fees: allFees, mine, onMineChange, onStatusCh
       <View style={s.allin}>
         <T v="strong">If your tender of {money(preview.price)} wins, you pay</T>
         <LineItem k="Your tender" v={money(preview.price)} />
-        <LineItem k="Premium, GST and admin fee" v={money(preview.subtotal - preview.price, true)} />
+        <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
         <LineItem k="All-in" v={money(preview.total, true)} bold />
       </View>
 
@@ -115,7 +115,7 @@ export function TenderPanel({ lot, fees: allFees, mine, onMineChange, onStatusCh
         <T v="muted">{lot.title}. If yours is the highest tender when it closes and it meets the reserve, you buy it at {money(typed)}. It's binding once the tender closes; until then you can change it or take it back.</T>
         <View>
           <LineItem k="Your tender" v={money(typed)} />
-          <LineItem k="Premium, GST and admin fee" v={money(preview.subtotal - preview.price, true)} />
+          <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
           <LineItem k="All-in if it wins" v={money(preview.total, true)} bold />
         </View>
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{winPayLine(preview) || ""}</T>
