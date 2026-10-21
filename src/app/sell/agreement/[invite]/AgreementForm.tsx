@@ -3,19 +3,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SignaturePad } from "@/components/SignaturePad";
-import { QUESTIONS, needsDetails, type Signature } from "@/lib/sellForm";
+import { QUESTIONS, SELLER_ACKS, needsDetails, type Signature } from "@/lib/sellForm";
 
 type Clause = [string, string, string[]];
 // The same questions as the sell form (src/lib/sellForm.ts), so a seller who used it sees their answers here.
 const YN = QUESTIONS;
 
-export function AgreementForm({ invite, userId, reserve, legalName, clauses, prefill, ownerType, inspectionFee = 0 }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[]; prefill?: Record<string, string>; ownerType?: string; inspectionFee?: number }) {
+export function AgreementForm({ invite, userId, reserve, legalName, clauses, prefill, ownerType, inspectionFee = 0, pickupDefault = "" }: { invite: string; userId: string; reserve: number | null; legalName: string; clauses: Clause[]; prefill?: Record<string, string>; ownerType?: string; inspectionFee?: number; pickupDefault?: string }) {
   const router = useRouter();
   const [d, setD] = useState<Record<string, string>>({ write_off: "none", keys: "2", service_books: "no", ...(prefill || {}) });
   const [sig, setSig] = useState<Signature | null>(null);
   const [noDraw, setNoDraw] = useState(false);
   const [gst, setGst] = useState(false);
-  const [viewing, setViewing] = useState<"" | "yes" | "no">("");
+  const [pickup, setPickup] = useState(pickupDefault);
+  const [pickupNotes, setPickupNotes] = useState("");
+  const [acks, setAcks] = useState<string[]>([]);
   const [preInspect, setPreInspect] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [err, setErr] = useState("");
@@ -25,7 +27,8 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    if (!viewing) { setErr("Tell us whether buyers can view it in person, by appointment (section 2)."); return; }
+    if (pickup.trim().length < 8) { setErr("Add the address where our transport partner picks it up (section 2)."); return; }
+    if (acks.length < SELLER_ACKS.length) { setErr("Tick each box in section 2 to agree how buyers check it and how it's picked up."); return; }
     if (!sig && !noDraw) { setErr("Sign in the box (with your finger, a pen or the mouse)."); return; }
     setBusy(true); setErr("");
     const docs: string[] = [];
@@ -36,7 +39,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       if (!error) docs.push(path);
     }
     const res = await fetch("/api/seller/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      invite, reserve: f.get("reserve"), disclosures: d, gst, abn: f.get("abn"), ownerType: f.get("ownerType"), docs, inPersonViewing: viewing === "yes", preInspection: preInspect,
+      invite, reserve: f.get("reserve"), disclosures: d, gst, abn: f.get("abn"), ownerType: f.get("ownerType"), docs, pickupAddress: pickup, pickupNotes, acknowledgements: acks, preInspection: preInspect,
       bank: { name: f.get("bankName"), bsb: f.get("bsb"), account: f.get("account") },
       signedName: f.get("signedName"), agree: f.get("agree") === "on", owner: f.get("owner") === "on", signature: noDraw ? null : sig, noDraw,
     }) });
@@ -54,12 +57,15 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
           <span className="hint">Kept secret from bidders. If bidding ends below it, you decide whether to accept. Leave blank for no reserve (it sells to the highest bidder).</span></label>
       </section>
 
-      <section className="formcard" data-testid="agreement-viewing">
-        <h2 className="d3" style={{ fontSize: 30 }}>2. Letting buyers see it.</h2>
-        <p className="muted" style={{ margin: 0 }}>Every listing includes a free video walkaround: we (or you, if you&apos;d like) video-call an interested buyer and show them the vehicle. Buyers who can see it bid with more confidence.</p>
-        <b style={{ fontSize: 16 }}>Can verified buyers also view it in person, strictly by appointment?</b>
-        <div className="pill-row">{([["yes", "Yes, by appointment"], ["no", "No, video only"]] as const).map(([v, l]) => <button type="button" key={v} className={`pill ${viewing === v ? "pill-dark" : "pill-soft"}`} aria-pressed={viewing === v} onClick={() => setViewing(v)} data-testid={`viewing-${v}`}>{l}</button>)}</div>
-        <span className="hint">We book every viewing with you first, and only send the buyer your address once it&apos;s booked. Buyers are ID-verified and show photo ID. Viewing only: no test drives, and the keys stay with you or our consultant.</span>
+      <section className="formcard" data-testid="agreement-pickup">
+        <h2 className="d3" style={{ fontSize: 30 }}>2. Buyers and the pickup.</h2>
+        <p className="muted" style={{ margin: 0 }}>Buyers never come to your place, and we never tell them who you are or where you live. They see our condition report, the photos and your walkaround video, and they can order a mechanical inspection from our partner mechanic. Once the vehicle is paid for, our transport partner picks it up and the buyer collects it from our depot.</p>
+        <label className="field"><span>Where we pick it up</span><input className="input" value={pickup} onChange={(e) => setPickup(e.target.value)} autoComplete="street-address" placeholder="Street address, suburb, state and postcode" data-testid="agreement-pickup-address" />
+          <span className="hint">Only our transport partner (and our partner mechanic, if a bidder orders an inspection) gets this, to collect or inspect the vehicle.</span></label>
+        <label className="field"><span>Anything the driver should know (optional)</span><input className="input" value={pickupNotes} onChange={(e) => setPickupNotes(e.target.value)} placeholder="e.g. gate code, where it's parked, best time to call" /></label>
+        {SELLER_ACKS.map(([k, t]) => (
+          <label key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" checked={acks.includes(k)} onChange={(e) => setAcks(e.target.checked ? [...new Set([...acks, k])] : acks.filter((x) => x !== k))} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid={`ack-${k}`} /><span>{t}</span></label>
+        ))}
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 6 }}><input type="checkbox" checked={preInspect} onChange={(e) => setPreInspect(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid="pre-inspection" />
           <span><b>Have a mechanic inspect it before it goes live{inspectionFee > 0 ? ` (${"$" + inspectionFee.toLocaleString("en-AU")} including GST)` : ""}.</b><br /><span className="hint">Your listing gets an &quot;Inspected&quot; badge and the mechanic&apos;s report, which gives buyers the confidence to bid higher. The fee comes out of the sale proceeds when it sells; if it doesn&apos;t sell, there&apos;s nothing to pay.</span></span></label>
       </section>

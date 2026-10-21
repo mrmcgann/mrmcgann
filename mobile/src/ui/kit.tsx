@@ -59,9 +59,9 @@ export function Pill({ label, on, onPress, count, style, testID }: { label: stri
 export function Tag({ label, color = C.panel, ink = C.ink }: { label: string; color?: string; ink?: string }) {
   return <View style={[s.tag, { backgroundColor: color }]}><Text style={[s.tagText, { color: ink }]} numberOfLines={1}>{label}</Text></View>;
 }
-export function Notice({ kind = "sun", children, style }: { kind?: "sun" | "ok" | "bad" | "info"; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function Notice({ kind = "sun", children, style, testID }: { kind?: "sun" | "ok" | "bad" | "info"; children: ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
   const bg = kind === "ok" ? C.mint : kind === "bad" ? C.badBg : kind === "info" ? C.panel : C.sun;
-  return <View accessibilityRole="alert" style={[s.notice, { backgroundColor: bg }, style]}>{typeof children === "string" ? <T v="strong" style={{ fontSize: 15, lineHeight: 21 }}>{children}</T> : children}</View>;
+  return <View accessibilityRole="alert" testID={testID} style={[s.notice, { backgroundColor: bg }, style]}>{typeof children === "string" ? <T v="strong" style={{ fontSize: 15, lineHeight: 21 }}>{children}</T> : children}</View>;
 }
 export function Soft({ children, style, bg = C.panel, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; bg?: string; testID?: string }) {
   return <View testID={testID} style={[s.soft, { backgroundColor: bg }, style]}>{children}</View>;

@@ -1,4 +1,5 @@
 import { viewingError } from "@/lib/viewings";
+import { transportError } from "@/lib/transport";
 import { liveError } from "@/lib/live";
 import "server-only";
 import { NextResponse } from "next/server";
@@ -14,6 +15,8 @@ export function friendly(message: string | undefined) {
   if (m.includes("not_signed_in")) return "Sign in to continue.";
   const viewing = viewingError(m);
   if (viewing) return viewing;
+  const transport = transportError(m);
+  if (transport) return transport;
   const live = liveError(m);
   if (live) return live;
   if (m.includes("account_suspended")) return "Your account can't bid at the moment. If you think that's a mistake, call us.";
@@ -46,7 +49,7 @@ export function friendly(message: string | undefined) {
   if (m.includes("invite_used")) return "This listing is already linked to another seller account.";
   if (m.includes("invite_not_found")) return "That seller link isn't valid. Ask us to send a new one.";
   if (m.includes("already_listed")) return "This vehicle is already listed, so the agreement can't be changed online. Call us.";
-  if (m.includes("wrong_code")) return "That release code doesn't match. Check it with the collector.";
+  if (m.includes("wrong_code")) return "That release code doesn't match. Check it with the person collecting.";
   if (m.includes("too_many_attempts")) return "Too many wrong codes. Call us before handing over the vehicle.";
   if (m.includes("not_confirmed")) return "This collection hasn't been confirmed yet.";
   if (m.includes("offer_not_pending")) return "That offer is no longer pending.";

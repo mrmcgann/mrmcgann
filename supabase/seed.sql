@@ -63,6 +63,11 @@ insert into public.lots (id, status, title, short_title, subtitle, vehicle_type,
  'Quintrex Hornet 420 open aluminium boat with a 40 hp Yamaha outboard, on its own trailer. 140 hours. Easy to launch and retrieve single-handed.',
  'Used for estuary fishing a few times a year. Outboard serviced each season.','Outboard serviced yearly','None declared','Not included','t','B','B','B','B',null,6000,6000,0, now(), now() + interval '4 days', now());
 
+insert into public.lot_private (lot_id, reserve_price, seller_name, seller_phone, seller_address) values
+(10660, null, 'Sample Seller', '0400000000', 'Sample address, Geelong VIC 3220'),
+(10661, null, 'Sample Seller', '0400000000', 'Sample address, Toowoomba QLD 4350'),
+(10662, null, 'Sample Seller', '0400000000', 'Sample address, Bunbury WA 6230');
+
 select setval('public.lot_number_seq', 10700);
 update public.lots set featured = true where id = 10432;
 
@@ -104,6 +109,28 @@ update public.lots set verified = public.listing_check_keys(), verified_at = coa
   runs = case when id = 10662 then 'untested' else 'drives' end,
   write_off_status = case when write_off_status = 'unknown' then 'none' else write_off_status end
   where status <> 'draft';
+
+-- Sample depots: our transport partner's yards, where buyers collect (listings show the depot, never the seller's
+-- suburb). Replace them with your real depots before launch. Each sample vehicle collects from the depot in its
+-- town, with a sample transport amount (pickup from the seller to the depot, before GST) in its buyer's premium.
+insert into public.depots (name, suburb, state, postcode, hours) values
+  ('Sample Depot Eagle Farm', 'Eagle Farm', 'QLD', '4009', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Toowoomba', 'Toowoomba', 'QLD', '4350', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Townsville', 'Townsville', 'QLD', '4810', 'Monday to Friday, 7am to 3pm'),
+  ('Sample Depot Parramatta', 'Parramatta', 'NSW', '2150', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Dandenong', 'Dandenong', 'VIC', '3175', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Geelong', 'Geelong', 'VIC', '3220', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Elizabeth', 'Elizabeth', 'SA', '5112', 'Monday to Friday, 8am to 4pm'),
+  ('Sample Depot Moonah', 'Moonah', 'TAS', '7009', 'Monday to Friday, 8am to 3pm'),
+  ('Sample Depot Bunbury', 'Bunbury', 'WA', '6230', 'Monday to Friday, 8am to 4pm');
+insert into public.depot_private (depot_id, address, phone, email)
+  select id, 'Sample yard, ' || suburb || ' ' || state || ' ' || postcode, '0400000001', 'depot@tyrebiter.com.au' from public.depots;
+alter table public.lots disable trigger lot_transport_lock;
+update public.lots l set depot_id = d.id, statutory_warranty = false,
+  transport_fee = case l.category when 'trucks' then 650 when 'caravans' then 450 when 'boats' then 350 when 'motorbikes' then 180 else 250 end
+  from public.depots d where d.suburb = l.suburb and d.state = l.state;
+update public.lots set fees = fees || jsonb_build_object('transport', transport_fee) where fees is not null and transport_fee is not null;
+alter table public.lots enable trigger lot_transport_lock;
 
 -- Sample transport and warranty partners (shown in test mode only). Replace before launch.
 insert into public.partners (kind, slug, name, licence, blurb, price_from, turnaround, referral_url, commission_note, sample, active, sort, accepts_leads) values

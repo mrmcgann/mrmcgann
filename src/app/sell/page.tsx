@@ -7,14 +7,14 @@ import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Sell your car or truck", description: "Sell your car, ute, truck, caravan, boat or machinery by online auction to verified buyers Australia-wide. Fill in one short form, sign on your phone, and we photograph it at your place.", alternates: { canonical: "/sell" } };
 
-const STEPS = [
+const steps = (v: Record<string, string>) => [
   ["1", "Fill in and sign", "What it is, how it's going, a few phone photos, reserve or no reserve, then sign with your finger. About 10 minutes.", "tangerine"],
   ["2", "We call you", "Within 1 business day, with a price guide. Then you verify your ID in your browser: about 2 minutes.", "sun"],
-  ["3", "Photos at your place", "We photograph the vehicle and prepare its condition report where it's kept.", "lime"],
-  ["4", "7-day auction", "Listed to verified buyers nationwide. Buyers see it on a free video walkaround, or in person by appointment if you agree. Viewing only, no test drives.", "sky"],
-  ["5", "Settlement", "The buyer pays Tyrebiter and the registration is transferred, then they collect at a booked time. You're paid within 3 business days of collection.", "grape"],
+  ["3", "Photos at your place", "We photograph the vehicle and prepare its condition report where it's kept, and you send us a short walkaround video.", "lime"],
+  ["4", "7-day auction", "Listed to verified buyers nationwide. Buyers never visit and never get your name or address. If a bidder orders a mechanical inspection, we call you to agree a time for our partner mechanic.", "sky"],
+  ["5", "Pickup and payout", `The buyer pays Tyrebiter first. Then our transport partner picks it up from you and takes it to our depot, where the buyer collects it. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
 ];
-const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Professional, at your place"], ["Visitors to your home", "Every interested buyer", "None", "Only the buyer, to collect"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
+const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Professional, at your place"], ["Visitors to your home", "Every interested buyer", "None", "No buyers, ever: just our team and the pickup"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
 
 export default async function Sell() {
   const settings = await getSettingsCached();
@@ -27,7 +27,7 @@ export default async function Sell() {
       <div className="center hero">
         <span className="eyebrow" style={{ color: "var(--grape)" }}>Sell your car, ute or truck</span>
         <h1 className="d1" style={{ fontSize: "clamp(56px,10vw,124px)" }}>Sold properly.<br /><span className="serif" style={{ color: "var(--grape)" }}>From your driveway.</span></h1>
-        <p className="lede">We photograph your vehicle and check it against the listing at your place, auction it to buyers across Australia, and pay you once the buyer has paid and collected.</p>
+        <p className="lede">We photograph your vehicle and check it against the listing at your place, auction it to buyers across Australia, and pick it up once the buyer has paid. Buyers never come to your place.</p>
       </div>
       <div className="sf-wrap" id="appraisal">
         <SellForm clauses={clauses} phone={env.phone} />
@@ -35,7 +35,7 @@ export default async function Sell() {
 
       <section id="how-sell">
         <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>How selling works.</h2>
-        <div className="steps5">{STEPS.map(([n, t, d, c]) => <div key={n}><span className={`dot bg-${c}`} style={c === "grape" ? { color: "#FFFFFF" } : undefined}>{n}</span><h3 style={{ fontSize: 22, fontWeight: 800 }}>{t}</h3><p className="muted">{d}</p></div>)}</div>
+        <div className="steps5">{steps(v).map(([n, t, d, c]) => <div key={n}><span className={`dot bg-${c}`} style={c === "grape" ? { color: "#FFFFFF" } : undefined}>{n}</span><h3 style={{ fontSize: 22, fontWeight: 800 }}>{t}</h3><p className="muted">{d}</p></div>)}</div>
       </section>
 
       <section>

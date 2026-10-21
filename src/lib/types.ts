@@ -76,6 +76,7 @@ export interface Lot {
   verified_at?: string | null;
   ev_battery_soh?: number | null;
   ev_battery_report?: string | null;
+  /** always false: buyers never view vehicles at the seller's place */
   in_person_viewing?: boolean;
   inspected_at?: string | null;
   inspected_by?: string | null;
@@ -105,7 +106,16 @@ export interface Lot {
   seller_id?: string | null;
   consultant_id?: string | null;
   fees?: Partial<Record<keyof Fees, number | string>> | null;
+  /** the depot the buyer collects from (lots.suburb/state/postcode are its location) */
+  depot_id?: string | null;
+  /** the transport from the seller to the depot (before GST), part of the buyer's premium; locked when bidding opens */
+  transport_fee?: number | null;
+  /** whether a statutory warranty applies (stated before bidding opens) */
+  statutory_warranty?: boolean | null;
 }
+
+/** Our transport partner's yard, where buyers collect (public parts; the street address is private). */
+export interface Depot { id: string; name: string; suburb: string; state: string; postcode: string; hours: string | null; active?: boolean; partner_id?: string | null }
 
 // What the seller declared when they signed the agency agreement (shown on the listing).
 export interface Disclosures {
@@ -178,6 +188,8 @@ export interface Invoice {
   sold_via: string;
   price: number;
   premium: number;
+  /** the part of the premium that is the transport to our depot */
+  transport?: number;
   gst: number;
   admin_fee: number;
   subtotal: number;
@@ -233,6 +245,8 @@ export interface Fees {
   deposit_rate?: number;
   deposit_min?: number;
   deposit_cap?: number;
+  /** The vehicle's transport to our depot (before GST), part of the buyer's premium. Per vehicle: lotFees() fills it in. */
+  transport?: number;
 }
 
 export const DEFAULT_FEES: Fees = {
@@ -272,7 +286,7 @@ export type MyDeposit = DepositSummary & {
 /** Our account details for PayID and bank transfers. */
 export type PayBank = { name: string; bsb: string; account: string; payId: string | null; bpayBiller?: string | null };
 
-export const TERMS_VERSION = "2026-10-21";
+export const TERMS_VERSION = "2026-10-22";
 
 export interface Sale {
   id: number;

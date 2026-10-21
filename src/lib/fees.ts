@@ -26,24 +26,26 @@ export function bidLimit(available: number, f: Fees): number | null {
 /** The deposit to pay for a bid limit the bidder chooses (at the cap there's no limit at all). */
 export const depositForLimit = (limit: number, f: Fees) => depositFor(limit, f);
 
-// Mirrors public.price_breakdown() in the database. Used for the live all-in preview.
+// Mirrors public.price_breakdown_with() in the database. Used for the live all-in preview.
+// The buyer's premium is the premium rate of the price plus the vehicle's transport to our depot (GST on all of it).
 // With deposits, cardAmount is the part that comes from the bidding deposit; balanceDue is paid by transfer
 // (with "transfer", that's everything).
 export function priceBreakdown(price: number, f: Fees) {
-  const premium = r2(price * f.premium_rate);
+  const transport = Math.max(0, r2(Number(f.transport) || 0));
+  const premium = r2(r2(price * f.premium_rate) + transport);
   const gst = r2(premium * 0.1);
-  const subtotal = price + premium + gst + f.admin_fee;
+  const subtotal = r2(price + premium + gst + f.admin_fee);
   const pm = payMode(f);
   if (pm === "transfer") {
     return {
-      price, premium, gst, adminFee: f.admin_fee, subtotal, mode: "deposit" as "card" | "deposit", cardBase: 0, surcharge: 0,
+      price, premium, transport, gst, adminFee: f.admin_fee, subtotal, mode: "deposit" as "card" | "deposit", cardBase: 0, surcharge: 0,
       cardAmount: 0, balanceDue: subtotal, total: subtotal, payMode: "transfer" as PayMode,
     };
   }
   if (pm === "deposit") {
     const fromDeposit = Math.min(depositFor(price, f), subtotal);
     return {
-      price, premium, gst, adminFee: f.admin_fee, subtotal, mode: "deposit" as "card" | "deposit", cardBase: fromDeposit, surcharge: 0,
+      price, premium, transport, gst, adminFee: f.admin_fee, subtotal, mode: "deposit" as "card" | "deposit", cardBase: fromDeposit, surcharge: 0,
       cardAmount: fromDeposit, balanceDue: r2(subtotal - fromDeposit), total: subtotal, payMode: "deposit" as PayMode,
     };
   }
@@ -51,22 +53,30 @@ export function priceBreakdown(price: number, f: Fees) {
   const cardBase = mode === "card" ? subtotal : subtotal < f.nrd_split ? f.nrd_low : f.nrd_high;
   const surcharge = r2(cardBase * f.surcharge_rate);
   return {
-    price, premium, gst, adminFee: f.admin_fee, subtotal, mode, cardBase, surcharge,
-    cardAmount: cardBase + surcharge, balanceDue: subtotal - cardBase, total: subtotal + surcharge, payMode: "card" as PayMode,
+    price, premium, transport, gst, adminFee: f.admin_fee, subtotal, mode, cardBase, surcharge,
+    cardAmount: r2(cardBase + surcharge), balanceDue: r2(subtotal - cardBase), total: r2(subtotal + surcharge), payMode: "card" as PayMode,
   };
 }
 
 // How money is taken is the same for every vehicle; only the fees are locked per vehicle.
 const GLOBAL_KEYS = new Set(["pay_mode", "deposit_rate", "deposit_min", "deposit_cap"]);
+const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 
-/** The fees locked on a vehicle when it went live (lots.fees), over today's fees. A fee change never applies to a
- *  vehicle already listed, so every price shown for it uses these. Mirrors public.lot_price_breakdown(). */
-export function lotFees(f: Fees, lot?: { fees?: Partial<Record<keyof Fees, number | string>> | null } | null): Fees {
-  if (!lot?.fees) return f;
+/** The fees locked on a vehicle when it went live (lots.fees), over today's fees, with its transport to our depot.
+ *  A fee change never applies to a vehicle already listed, so every price shown for it uses these. Listings that
+ *  went live before the transport was part of the premium carry none; a draft shows the amount entered so far.
+ *  Mirrors public.lot_price_breakdown(). */
+export function lotFees(f: Fees, lot?: { fees?: Partial<Record<keyof Fees, number | string>> | null; transport_fee?: number | string | null } | null): Fees {
+  if (!lot) return f;
   const out = { ...f } as Record<string, number | string>;
-  for (const [k, v] of Object.entries(lot.fees)) {
-    if (GLOBAL_KEYS.has(k)) continue;
-    if (k in out && v !== null && v !== "" && Number.isFinite(Number(v))) out[k] = Number(v);
+  if (lot.fees) {
+    for (const [k, v] of Object.entries(lot.fees)) {
+      if (GLOBAL_KEYS.has(k) || k === "transport") continue;
+      if (k in out && num(v) !== null) out[k] = Number(v);
+    }
+    out.transport = num(lot.fees.transport) ?? 0;
+  } else if (lot.fees === null || lot.transport_fee != null) {
+    out.transport = num(lot.transport_fee) ?? 0;
   }
   return out as unknown as Fees;
 }

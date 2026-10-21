@@ -204,3 +204,12 @@ export function agreementPrefill(disclosures: Record<string, unknown> | null | u
   if (d.business === "yes") out.business = "yes";
   return out;
 }
+
+/** What the seller agrees to about buyers and the pickup when they sign (seller_agreements.acknowledgements; the
+ *  server checks all four). Used by the agreement form and /api/seller/sign. */
+export const SELLER_ACKS: [string, string][] = [
+  ["pickup", "Once the buyer has paid, Tyrebiter's transport partner picks it up from the address above, at a time we book with me, and takes it to Tyrebiter's depot. Until then I'll keep it there, insured and in the condition it was listed."],
+  ["inspection", "If a bidder orders a mechanical inspection, I'll give Tyrebiter's partner mechanic access at a time we agree. They may start it, run it and, if it's registered, briefly road test it."],
+  ["video", "I'll send Tyrebiter a walkaround video of the vehicle for the listing (Tyrebiter checks it before it goes up)."],
+  ["no_contact", "I won't deal with buyers directly. If anyone contacts me about the vehicle, I'll tell Tyrebiter, and I won't show it to them or sell it to them outside Tyrebiter."],
+];

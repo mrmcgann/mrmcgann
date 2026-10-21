@@ -26,7 +26,7 @@ const title = (id) => TERMS.find(([i]) => i === id)[1];
 ok('section 9 is collection (storage, abandonment)', title('t-title').startsWith('9.'));
 ok('section 11 is default', title('t-default').startsWith('11.'));
 ok('section 12 is claims', title('t-claims').startsWith('12.'));
-ok('section 16 is collecting from the seller', title('t-site').startsWith('16.'));
+ok('section 16 is collecting from our depot', title('t-site').startsWith('16.'));
 ok('section 17 is outages and events outside control', title('t-errors').startsWith('17.'));
 ok('general is last', TERMS[TERMS.length - 1][0] === 't-general');
 
@@ -87,15 +87,25 @@ ok('security: settings values are escaped in the Terms', !t1.includes('<img') &&
 const p1 = JSON.stringify(fillLegal(PRIVACY, { fees: {} }, { text: true }));
 ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}/.test(p1) && JSON.parse(p1).length === PRIVACY.length);
 
-// seeing the vehicle (video walkarounds, viewings by appointment, inspections) and dealer accounts
+// checking a vehicle without seeing it, the pickup to our depot, and keeping the seller private
 {
-  const t = JSON.stringify(fillLegal({ TERMS, HELP, PRIVACY, SELLER_AGREEMENT }, { selling: { pre_inspection_fee: 249 } }));
-  ok('viewings: strictly by appointment, viewing only', /strictly by appointment/.test(t) && /no test drives/i.test(t));
-  ok('viewings: never "can\u2019t view" any more', !/can’t view|Not in person/.test(t));
-  ok('walkaround: free video walkaround offered', /free video walkaround/i.test(t));
-  ok('inspection: mechanical inspection, independent mechanic', /mechanical inspection/.test(t) && /independent of Tyrebiter/.test(t));
+  const t = JSON.stringify(fillLegal({ TERMS, HELP, PRIVACY, SELLER_AGREEMENT, WEBSITE_TERMS }, { selling: { pre_inspection_fee: 249 } }));
+  const seller = JSON.stringify(SELLER_AGREEMENT), privacy = JSON.stringify(PRIVACY);
+  ok('no viewings or test drives, anywhere', /There are no viewings, video calls or test drives/.test(terms) && /no viewings or test drives/i.test(help) && !/strictly by appointment|free video walkaround|in-person viewing|view it in person/i.test(t));
+  ok('inspection: optional, through our partner, paid by the bidder, independent', /mechanical inspection/.test(t) && /independent of Tyrebiter/.test(t) && /You pay the mechanic/.test(terms) && /You don’t attend, and you aren’t given the address/.test(terms));
+  ok('inspection: the report says what couldn’t be checked (no hoist)', /without a hoist/i.test(terms) && /Without a hoist/.test(help));
   ok('pre-inspection: fee from the proceeds, only if it sells', t.includes('$249 including GST') && /only if it sells|nothing to pay/.test(t));
-  ok('privacy: the address goes to a buyer only for a confirmed viewing', /confirmed in-person viewing/.test(t));
+  ok('transport: in the buyer’s premium, shown before bidding, fixed once it opens', /plus the vehicle’s transport to our depot/.test(terms) && /set before bidding opens and doesn’t change once it has/.test(terms) && /Why is transport in the buyer’s premium\?/.test(help));
+  ok('transport: the seller pays nothing for the pickup', /or the pickup to our depot/.test(seller) && /the buyer pays the transport to our depot/.test(help));
+  ok('pickup only after payment in full (both documents)', /Once you’ve paid in full, our transport partner picks it up/.test(terms) && /The vehicle is picked up only once the buyer has paid in full/.test(seller));
+  ok('risk: the seller until pickup, us from pickup until handover, with due care', /Until our transport partner picks the vehicle up, the seller must look after it/.test(terms) && /From pickup until handover, we’re responsible for it/.test(terms) && /due care and skill/.test(terms) && /From pickup until the buyer collects it from our depot, we’re responsible for it/.test(seller));
+  ok('a change found at pickup: the buyer may cancel for a full refund', /you choose: go ahead, or cancel the sale for a full refund/.test(terms));
+  ok('collection is from our depot, with the release code', /Collecting from our depot/.test(terms) && /The depot only hands over the vehicle when given the release code/.test(terms));
+  ok('seller kept private: never named to buyers; address only to transport and the mechanic', /We never give buyers the seller’s name, address or phone/.test(terms) && /Buyers never get your name, address or phone/.test(seller) && /A seller’s pickup address goes only to our transport partner/.test(privacy) && !/seller’s address for collection/.test(t));
+  ok('buyers must not look for or contact the seller', /Leave the seller alone/.test(terms) && /Don’t try to find out who or where a seller is/.test(JSON.stringify(WEBSITE_TERMS)) && /Can I contact the seller\?/.test(help));
+  ok('statutory warranty stated on each listing', /whether a statutory warranty applies/.test(terms));
+  ok('the seller agrees to a walkaround video and mechanic access', /Walkaround video:/.test(seller) && /give our partner mechanic access/.test(seller));
+  ok('lawyer items are marked', ['contracting for an unnamed seller', 'in Victoria, whether a vehicle consigned by a private seller', 'Queensland’s rules on charging a buyer’s premium', 'transit and depot cover', 'Subdivision 153-B'].every((x) => (terms + seller).includes(x)));
   ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
 }
 // live auctions, tenders and BPAY: the wording matches the engine

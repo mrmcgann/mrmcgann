@@ -11,6 +11,7 @@ import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { payNoteFor } from "@/components/BidConfirm";
+import { ACK_CHECK } from "@/lib/transport";
 import { ackPayLine } from "@/lib/deposits";
 import { rightsLine } from "@/lib/listing";
 import { TENDER_STEPS } from "@/lib/live";
@@ -151,7 +152,7 @@ export function TenderPanel(props: {
           <p style={{ fontSize: 14, lineHeight: 1.5 }}>{payNoteFor(preview, props.cardLabel)}</p>
           <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, padding: "14px 16px", borderRadius: 16, background: "var(--panel)" }}>
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0 }} />
-            <span>I understand this vehicle is sold <b>as is, where is</b>, at the seller&apos;s location, the condition report is a guide only, and {ackPayLine(preview.payMode)}, under the <Link className="blue" href="/terms#t-tender" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
+            <span>I understand this vehicle is sold <b>as is, where is</b>: {ACK_CHECK}. And {ackPayLine(preview.payMode)}, under the <Link className="blue" href="/terms#t-tender" style={{ fontWeight: 700 }} target="_blank">terms of sale</Link>.</span>
           </label>
           <p className="hint" style={{ margin: 0 }}>{rightsLine("outright", lot.seller_type)}. <Link className="blue" href="/terms#t-asis" target="_blank">What that means ›</Link></p>
           <button className="btn btn-blue" onClick={send} disabled={busy || !ack} data-testid="tender-send">{busy ? "Sending…" : `Put in my tender of ${money(typed)}`}</button>

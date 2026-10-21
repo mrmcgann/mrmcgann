@@ -7,7 +7,7 @@ import { Button, Check, Empty, Field, Loading, Notice, Screen, Soft, T } from "~
 
 type H = { status: string; confirmed_for: string | null; who: string; title: string; keys: number | null };
 
-/** The seller's handover: check ID, take the 6-digit release code, record odometer and keys. */
+/** The depot's handover: check ID, take the 6-digit release code, record odometer and keys. */
 export default function Handover() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const { config } = useSession();
@@ -39,13 +39,13 @@ export default function Handover() {
     <Screen keyboard testID="handover">
       <T v="eyebrow">Handover · {h.title}</T>
       <T v="d3">Handing over the keys.</T>
-      {done || h.status === "collected" ? <Notice kind="ok">Handover confirmed. Thank you. We'll pay you once the buyer's claim window closes, and send your settlement statement.</Notice>
+      {done || h.status === "collected" ? <Notice kind="ok">Handover confirmed. Thank you.</Notice>
         : h.status !== "confirmed" ? <Notice>This collection isn't confirmed yet. We'll text you when it is.</Notice> : (
         <>
           <Soft>
             <T v="body">Collection time: <T v="strong">{h.confirmed_for}</T></T>
             <T v="body">Collected by: <T v="strong">{h.who}</T></T>
-            {[`Check their photo ID matches ${h.who}.`, "Ask them for the 6-digit release code. Don't hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Tyrebiter.", "Enter the code, the odometer and the keys handed over below.", "Then remove your plates if your state requires it, and lodge your notice of disposal."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
+            {[`Check their photo ID matches ${h.who}.`, "Ask them for the 6-digit release code. Don't hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Tyrebiter.", "Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.", "Enter the code, the odometer and the keys handed over below."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
           </Soft>
           <Field label={`Release code from ${h.who}`} value={code} onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" inputStyle={{ fontSize: 28, letterSpacing: 6 }} />
           <Field label="Odometer now (km)" value={odo} onChangeText={setOdo} keyboardType="number-pad" />

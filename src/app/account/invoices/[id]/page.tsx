@@ -2,14 +2,14 @@ import { formatAbn } from "@/lib/abn";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getFeesCached, getPartnersCached } from "@/lib/cache";
 import { DeliveryBox } from "@/components/LotExtras";
 import { env, payBank } from "@/lib/env";
 import { dateLong, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 import { InvoiceActions } from "./InvoiceActions";
-import { BookCollection, ClaimBox } from "./Collection";
+import { BookCollection, ChangeDecision, ClaimBox } from "./Collection";
+import { buyerTransportLine, type BuyerTransport } from "@/lib/transport";
 import { TransferStep, type TransferRow } from "./Transfer";
 import { PayBox } from "@/components/deposit/PayBox";
 import { payIdEnabled } from "@/lib/payid";
@@ -26,26 +26,29 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) notFound();
   const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string } };
-  const [{ data: coll }, { data: claims }, fees, { data: tr }, partners] = await Promise.all([
+  const [{ data: coll }, { data: claims }, fees, { data: tr }, partners, { data: jobRows }] = await Promise.all([
     supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at, tracking_url").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
     supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
     getPartnersCached(),
+    supabase.rpc("invoice_transport", { p_invoice: inv.id }),
   ]);
+  const job = ((jobRows || []) as BuyerTransport[])[0] || null;
   const transporter = partners.find((p) => p.kind === "transport" && p.accepts_leads) || null;
   const hasWarranty = partners.some((p) => p.kind === "warranty");
   const transfer = tr ? ({ ...tr, proof_count: (tr.proof_paths || []).length } as TransferRow) : null;
   const owned = transfer?.status === "complete";
   const c = coll as Coll | null;
-  // The seller's address is released only once the collection time is confirmed.
-  let address: string | null = null;
-  if (c?.status === "confirmed" || c?.status === "collected") {
-    const { data: pr } = await supabaseAdmin().from("lot_private").select("seller_address").eq("lot_id", inv.lot_id).maybeSingle();
-    address = pr?.seller_address || null;
-  }
+  // The depot's street address comes with a confirmed collection time (invoice_transport). The seller's, never.
+  const address = job?.depot_address || null;
+  // the listing's place is its depot (lots.suburb follows the depot), so before the pickup exists it names the same one
+  const depotWhere = job?.depot_suburb ? `our depot in ${job.depot_suburb}, ${job.depot_state}` : inv.lots.suburb ? `our depot in ${inv.lots.suburb}, ${inv.lots.state}` : "our depot";
+  const atDepot = job?.status === "at_depot" || job?.status === "released";
+  const changeOpen = job?.condition_ok === false && !job.buyer_decision && !job.sale_cancelled;
   const paidCard = ["paid", "deposit_paid"].includes(inv.status);
   const fullyPaid = inv.status === "paid";
+  const canBook = fullyPaid && owned && job?.status === "at_depot" && !(job.condition_ok === false && job.buyer_decision !== "proceed");
   const collectBy = inv.collect_by ? new Date(inv.collect_by) : null;
   const overdueDays = collectBy && !inv.collected_at ? Math.max(0, Math.ceil((Date.now() - collectBy.getTime()) / 86400000)) : 0;
   const storageSoFar = overdueDays * Number(fees.storage_per_day || 50);
@@ -54,7 +57,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const gstTotal = Number(inv.gst) + Math.round((Number(inv.admin_fee) / 11) * 100) / 100 + Number(inv.vehicle_gst || 0);
   const rows: [string, number][] = [
     [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : "Winning bid", inv.price],
-    ["Buyer's premium", inv.premium], ["GST on premium", inv.gst], ["Admin fee (incl. GST)", inv.admin_fee],
+    [Number(inv.transport) > 0 ? `Buyer's premium (includes ${money(Number(inv.transport))} transport to our depot)` : "Buyer's premium", inv.premium], ["GST on premium", inv.gst], ["Admin fee (incl. GST)", inv.admin_fee],
     ...(Number(inv.surcharge) > 0 ? [["Card surcharge", inv.surcharge] as [string, number]] : []),
     ...(Number(inv.storage_fee) > 0 ? [["Storage", Number(inv.storage_fee)] as [string, number]] : []),
   ];
@@ -82,7 +85,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </div>
 
         {["pending_charge", "charging"].includes(inv.status) && <div className="notice">We&apos;re taking payment now. This page updates within a minute.</div>}
-        {inv.status === "paid" && <div className="notice ok">{inv.pay_method === "bank" ? (Number(inv.balance_due) > 0 ? `${money(inv.deposit_applied || 0, true)} from your bidding deposit and ${money(inv.balance_due, true)} by transfer received.` : `Paid from your bidding deposit (${money(inv.deposit_applied || 0, true)}).`) : inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card.` : "Deposit and balance received."} Paid in full.</div>}
+        {inv.status === "paid" && <div className="notice ok">{inv.pay_method === "bank" ? (Number(inv.balance_due) > 0 ? (Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} from your bidding deposit and ${money(inv.balance_due, true)} by transfer received.` : `${money(inv.balance_due, true)} received by transfer.`) : `Paid from your bidding deposit (${money(inv.deposit_applied || 0, true)}).`) : inv.mode === "card" ? `${money(inv.card_amount, true)} was charged to your card.` : "Deposit and balance received."} Paid in full.</div>}
         {inv.status === "deposit_paid" && inv.pay_method === "bank" && (
           <div className="soft" style={{ background: "var(--sun)", gap: 14 }} data-testid="invoice-pay">
             <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -108,22 +111,33 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}
 
         {paidCard && (
-          <div className="soft">
-            <b style={{ fontSize: 20 }}>Collection.</b>
-            {!fullyPaid && <span>Once your balance clears and the vehicle is in your name, book a time here. The address is sent once the time is confirmed.</span>}
-            {fullyPaid && !c && !owned && <span className="muted">Book a time once the transfer of ownership above is done. The address is sent once your collection time is confirmed.</span>}
-            {fullyPaid && !c && owned && <><span>Collect from the seller in {inv.lots.suburb}, {inv.lots.state}{collectBy ? <> by <b>{dateLong(inv.collect_by)}</b></> : ""}. Pick a time and we&apos;ll confirm it with the seller.</span><BookCollection invoiceId={inv.id} existing={null} /></>}
-            {fullyPaid && c?.status === "requested" && <BookCollection invoiceId={inv.id} existing={c} />}
+          <div className="soft" data-testid="collection">
+            <b style={{ fontSize: 20 }}>Pickup and collection.</b>
+            {!fullyPaid && <span>Once it&apos;s paid for, our transport partner picks it up from the seller and takes it to {depotWhere}. You collect it there once the transfer of ownership is done.</span>}
+            {fullyPaid && job && !inv.collected_at && <span data-testid="pickup-line">{buyerTransportLine(job)}</span>}
+            {fullyPaid && job && !inv.collected_at && !job.sale_cancelled && (
+              <ol className="steps-mini" data-testid="pickup-steps">
+                <li>{job.picked_up_at ? "✓ " : ""}Picked up from the seller</li>
+                <li>{atDepot ? "✓ " : ""}At {depotWhere}</li>
+                <li>{owned ? "✓ " : ""}Transfer of ownership done</li>
+                <li>{c?.status === "confirmed" || c?.status === "collected" ? "✓ " : ""}Collection time booked</li>
+              </ol>
+            )}
+            {fullyPaid && changeOpen && <ChangeDecision invoiceId={inv.id} note={job?.condition_note || null} />}
+            {fullyPaid && job?.condition_ok === false && job.buyer_decision === "cancel" && <span className="notice">You chose to cancel. We&apos;re cancelling the sale and refunding everything you paid; we&apos;ll be in touch.</span>}
+            {fullyPaid && !c && canBook && <><span>Collect it from {job?.depot_name || "our depot"} in {job?.depot_suburb}, {job?.depot_state}{collectBy ? <> by <b>{dateLong(inv.collect_by)}</b></> : ""}. Pick a time and we&apos;ll confirm it with the depot.</span><BookCollection invoiceId={inv.id} existing={null} hours={job?.depot_hours} /></>}
+            {fullyPaid && !c && !canBook && !owned && atDepot && <span className="muted">It&apos;s at the depot. Book a time once the transfer of ownership above is done.</span>}
+            {fullyPaid && c?.status === "requested" && <BookCollection invoiceId={inv.id} existing={c} hours={job?.depot_hours} />}
             {c?.status === "confirmed" && (
               <>
                 <span className="notice ok"><b>Confirmed: {c.confirmed_for}</b></span>
-                <span>Address: <b>{address || "we'll text it to you"}</b></span>
-                <span>Your release code. Give it to the seller only when you{c.collector_name ? ` (or ${c.collector_name})` : ""} are with the vehicle:</span>
+                <span>Collect from: <b>{job?.depot_name ? `${job.depot_name}, ` : ""}{address || "we'll text you the address"}</b>{job?.depot_hours ? <span className="muted"> (open {job.depot_hours})</span> : null}</span>
+                <span>Your release code. Give it to the depot team only when you{c.collector_name ? ` (or ${c.collector_name})` : ""} are with the vehicle:</span>
                 <div className="code-box">{c.release_code}</div>
                 <ol className="steps-mini">
                   <li>Bring photo ID{c.collector_name ? ` (${c.collector_name} brings theirs)` : ""} and this invoice.</li>
                   <li>Check the vehicle against the listing before you take the keys. Photograph anything that&apos;s different.</li>
-                  <li>Give the seller the code. They enter it on their phone to confirm handover.</li>
+                  <li>Give the depot team the code. They enter it to confirm handover.</li>
                   <li>From handover, the vehicle is your responsibility. Arrange insurance before you drive or move it.</li>
                 </ol>
               </>
@@ -131,6 +145,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             {c?.tracking_url && <a className="blue" href={c.tracking_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }} data-testid="tracking-link">Track the delivery ›</a>}
             {c?.status === "collected" && <span className="notice ok">Collected {dateLong(c.collected_at)}. {inv.claim_until && new Date(inv.claim_until).getTime() > Date.now() ? `If something is materially different from the listing, you can claim until ${dateLong(inv.claim_until)}.` : ""}</span>}
             {overdueDays > 0 && !inv.collected_at && <span className="notice bad">The collection window ended {dateLong(inv.collect_by)}. Storage of {money(fees.storage_per_day || 50)} a day applies ({money(storageSoFar)} so far), payable before release.</span>}
+            <span className="hint">We never give out the seller&apos;s name or address, and you never need to contact them: any question about the vehicle, ask us.</span>
           </div>
         )}
 

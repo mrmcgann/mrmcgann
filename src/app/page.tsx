@@ -124,9 +124,9 @@ export default async function Home() {
           <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Bid with <span className="serif">confidence.</span></h2>
           <div className="four">
             <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Checked against the vehicle.">VIN, odometer, transmission, fuel, features and warning lights checked on the vehicle before listing. Any correction is shown on the listing. <Link href="/listing-promise" style={{ fontWeight: 700 }}>How we check ›</Link></Tile>
-            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="See it before you bid.">A free video walkaround of any vehicle, viewings by appointment, and mechanical inspections with a written report.</Tile>
+            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Checked for you.">Our walkaround and condition report, the seller&apos;s video, and a mechanical inspection from our partner if you want one. No viewings at anyone&apos;s house.</Tile>
             <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">Every vehicle is searched for finance owing, write-offs and theft before listing.</Tile>
-            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount with the buyer&apos;s premium, GST and fees. No surcharge.</Tile>
+            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount: the buyer&apos;s premium (with the transport to our depot), GST and fees. No surcharge.</Tile>
           </div>
         </div>
       </section>
@@ -150,8 +150,8 @@ export default async function Home() {
         <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>How buying works.</h2>
         <div className="steps3">
           <div><span className="num" style={{ color: "var(--tangerine)" }}>1</span><h3>Register.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>{fees.pay_mode === "deposit" ? "Verify your mobile and ID once, then add a refundable bidding deposit by PayID or bank transfer. Joining is free." : "Verify your mobile and ID once. It's free: no deposit and no card needed to bid."}</p></div>
-          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>Research. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read the condition report, book a video walkaround or an inspection if you&apos;d like one, then set your maximum bid.</p></div>
-          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Payment is taken when you win. Collect at a booked time, or arrange transport.</p></div>
+          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>Research. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read the condition report, watch the video, order a mechanical inspection if you&apos;d like one, then set your maximum bid.</p></div>
+          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Pay by transfer when you win. We bring it to our depot, and you collect it at a booked time (or have it delivered).</p></div>
         </div>
         <div className="center" style={{ marginTop: 40, gap: 14 }}>
           <JoinOrWatchlist />

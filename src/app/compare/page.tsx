@@ -52,8 +52,7 @@ export default async function Compare({ searchParams }: { searchParams: Promise<
     ["Registration", (l) => l.registration === "unregistered" ? "Unregistered" : l.registration === "registered" ? `Registered ${l.rego_state || l.state}${l.rego_expiry ? ` to ${new Date(l.rego_expiry).toLocaleDateString("en-AU")}` : ""}` : null],
     ["Service books", (l) => l.service_books === true ? "Yes" : l.service_books === false ? "No" : null],
     ["Seller", (l) => l.seller_type ? SELLER_TYPE[l.seller_type] : null],
-    ["In-person viewing", (l) => l.in_person_viewing ? "By appointment" : "Video walkaround only"],
-    ["Location", (l) => `${l.suburb}, ${l.state}`],
+    ["Collect from", (l) => (l.suburb ? `Our depot in ${l.suburb}, ${l.state}` : "Our depot")],
   ];
   return (
     <div className="wrap" style={{ padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 24 }}>

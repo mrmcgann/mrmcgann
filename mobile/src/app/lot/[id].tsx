@@ -17,15 +17,16 @@ import { BidPanel } from "~/ui/BidPanel";
 import { TenderPanel } from "~/ui/Tender";
 import { DamageMap } from "~/ui/DamageMap";
 import { ZONE_LABEL } from "@/lib/damage";
-import { dateTime } from "@/lib/format";
+import { dateTime, money } from "@/lib/format";
 import { Gallery } from "~/ui/Gallery";
 import { QuestionBox, QuoteBox, ReportLink } from "~/ui/LotExtras";
 import { ConsultantCard, FinanceBox, MechanicalInspection } from "~/ui/Partners";
-import { Viewings } from "~/ui/Viewings";
 import { LotCard } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
-import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified } from "@/lib/listing";
+import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine } from "@/lib/listing";
+import { CHECK_IT, NO_VIEWINGS, depotPlace } from "@/lib/transport";
+import { lotFees } from "@/lib/fees";
 
 const LETTER = "ABCDE";
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
@@ -99,6 +100,7 @@ export default function LotScreen() {
     ["Write-off status", WRITE_OFF[lot.write_off_status || "unknown"]],
     ["Starts and drives", lot.runs ? RUNS[lot.runs] : null],
     ["Seller", lot.seller_type ? SELLER_TYPE[lot.seller_type] : null],
+    ["Statutory warranty", warrantyLine(lot.statutory_warranty)],
     ["Battery health", isElectrified(lot.fuel) && lot.ev_battery_soh != null ? `${lot.ev_battery_soh}% state of health` : null],
     ["Stolen check", lot.stolen_clear == null ? null : lot.stolen_clear ? "Not recorded as stolen" : "See note"],
     ["Keys", lot.keys], ["Service books", yes(lot.service_books)],
@@ -108,7 +110,7 @@ export default function LotScreen() {
     ["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body],
     ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
     ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null],
-    ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Location", `${lot.suburb}, ${lot.state}`], ["Lot", lot.id],
+    ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Collect from", depotPlace(lot) ? `Our depot in ${depotPlace(lot)}` : null], ["Lot", lot.id],
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
@@ -128,7 +130,6 @@ export default function LotScreen() {
   const cats: [string, string | null, string][] = [["Paint & body", lot.grade_paint, C.tangerine], ["Interior", lot.grade_interior, C.sky], ["Tyres", lot.grade_tyres, C.berry]];
   const show = (rows: [string, unknown][]) => rows.filter(([, v]) => v !== null && v !== undefined && v !== "");
   const questionsOpen = ["live", "scheduled", "referred", "offers"].includes(lot.status);
-  const forSale = ["live", "scheduled"].includes(lot.status);
   const tag = regoTag(lot);
   const unreg = lot.registration === "unregistered";
 
@@ -138,7 +139,7 @@ export default function LotScreen() {
       <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await Promise.all([load(), loadMine()]); setRefreshing(false); }} contentStyle={{ paddingHorizontal: 0, gap: 22 }} testID="lot-screen">
         <Gallery photos={photos} videos={videos} externalVideo={lot.video_url} backdropKey={lot.backdrop} vehicleType={lot.vehicle_type} title={lot.title} />
         <View style={s.pad}>
-          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id} · {lot.suburb}, {lot.state}{tag ? ` · ${tag}` : ""}</T>
+          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id}{depotPlace(lot) ? ` · Collect from ${depotPlace(lot)}` : ""}{tag ? ` · ${tag}` : ""}</T>
           {sale && sale.mode === "live" && lot.live_state
             ? <LinkText testID="lot-sale" title={lot.live_state === "open" ? "Up now in the live auction ›" : lot.live_state === "waiting" ? `Live auction: ${sale.title}, ${dateTime(sale.starts_at)} ›` : `Offered in the live auction: ${sale.title} ›`} onPress={() => router.push(`/live/${sale.slug}`)} style={{ fontSize: 15 }} />
             : sale ? <LinkText testID="lot-sale" title={`Part of the ${sale.title} ›`} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/sales/${sale.slug}`)} style={{ fontSize: 15 }} /> : null}
@@ -175,7 +176,7 @@ export default function LotScreen() {
 
         <View style={s.pad}>
           <T v="d3">Condition report.</T>
-          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>Prepared from a visual inspection at the vehicle's location and the seller's written declarations. It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "Book a free video walkaround or a mechanical inspection before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
+          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>Prepared from our walkaround and visual inspection where the vehicle is kept, and the seller's written declarations. It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
           {lot.inspected_at ? (
             <Soft bg="#E9F8EE" style={{ gap: 6 }} testID="inspected-box">
               <T v="strong" style={{ fontSize: 17 }}>Inspected by a mechanic{lot.inspected_by ? ` (${lot.inspected_by})` : ""} on {new Date(lot.inspected_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}.</T>
@@ -248,21 +249,26 @@ export default function LotScreen() {
         ) : null}
 
         {["live", "scheduled", "offers", "referred"].includes(lot.status) ? (
-          <View style={s.pad} testID="see-it">
-            <T v="d3">See it before you bid.</T>
-            <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} endsAt={lot.ends_at} auction={forSale} open />
+          <View style={s.pad} testID="check-it">
+            <T v="d3">How to check it.</T>
+            <T v="muted">{NO_VIEWINGS} The seller's name and address stay private.</T>
+            <View>{CHECK_IT.map(([t, d], i) => (
+              <View key={t} style={s.checkRow}><View style={s.checkNum}><Text style={s.checkNumText}>{i + 1}</Text></View><View style={{ flex: 1, gap: 2 }}><T v="strong">{t}</T><T v="muted" style={{ fontSize: 15, lineHeight: 21 }}>{d}</T></View></View>
+            ))}</View>
             <MechanicalInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder />
           </View>
         ) : null}
 
         <View style={s.pad}>
-          <T v="d3">Inspection & collection.</T>
-          <View>
+          <T v="d3">Pickup & collection.</T>
+          <View testID="collection-rows">
             {([
-              ["Seeing it", lot.in_person_viewing ? "Video walkaround, or in person strictly by appointment" : "Video walkaround or a mechanical inspection"],
+              ["Viewings and test drives", "None: buyers never go to the seller's place"],
               ["Before collection", unreg ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"],
-              ["Collection", `${lot.suburb}, ${lot.state}${unreg ? ". By carrier, trailer or permit" : ""}`],
-              ["Address", "Sent once ownership is transferred and your collection time is confirmed"],
+              ["Collect from", `${b.depot?.name ? `${b.depot.name}, ` : "Our depot, "}${depotPlace(lot)}${b.depot?.hours ? `. Open ${b.depot.hours}` : ""}${unreg ? ". By carrier, trailer or permit" : ""}`],
+              ["Getting it there", `Once it's paid for, our transport partner picks it up from the seller and takes it to the depot${Number(lotFees(fees, lot).transport) > 0 ? `. The ${money(Number(lotFees(fees, lot).transport))} transport is in the buyer's premium` : ""}`],
+              ["Address", "The depot's address comes with your confirmed collection time"],
+              ...(warrantyLine(lot.statutory_warranty) ? [["Statutory warranty", warrantyLine(lot.statutory_warranty) as string]] : []),
             ] as [string, string][]).map(([k, v]) => (
               <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>
             ))}
@@ -312,4 +318,7 @@ const s = StyleSheet.create({
   flawImg: { width: 96, height: 72, borderRadius: 12 },
   spec: { flexDirection: "row", justifyContent: "space-between", gap: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
   tick: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  checkRow: { flexDirection: "row", gap: 12, alignItems: "flex-start", paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  checkNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  checkNumText: { fontFamily: F.heavy, fontSize: 12, color: C.lime },
 });

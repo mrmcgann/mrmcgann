@@ -99,7 +99,7 @@ export function MechanicalInspection({ lotId, partner, vehicle, consultantPhone,
     <div className="vw-opt" data-testid="mechanical-inspection">
       <b style={{ fontSize: 17 }}>Mechanical inspection.</b>
       <span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>
-        {partner ? <>We send a qualified mechanic from {partner.name} to the vehicle. They check it over (engine, gearbox, brakes, suspension, body and a road test where it&apos;s registered) and email you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b></> : null}.</> : <>A qualified mechanic inspects it where it is and sends you a written report with photos.</>}
+        {partner ? <>Our partner mechanic from {partner.name} goes to where it&apos;s kept and checks it over: engine, gearbox, brakes, suspension, underneath and the body, with a short road test by the mechanic where it&apos;s registered. They email you a written report with photos{partner.price_from ? <>, from <b style={{ color: "var(--ink)" }}>{money(partner.price_from)}</b> paid to them</> : null}. You don&apos;t need to be there: we arrange it with the owner, whose details stay private.</> : <>Our partner mechanic inspects it where it&apos;s kept and emails you a written report with photos. You don&apos;t need to be there: we arrange it with the owner.</>}
       </span>
       {partner && open && <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)}>Order a mechanical inspection</button>}
       {partner?.turnaround && open && <span className="hint">{partner.turnaround}. Allow time before bidding closes.</span>}

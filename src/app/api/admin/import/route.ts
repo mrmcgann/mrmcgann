@@ -24,14 +24,17 @@ export async function POST(req: Request) {
   const db = supabaseAdmin();
   const saleId = Number(b.saleId) || null;
   const sellerName = String(b.sellerName || "").trim().slice(0, 120) || null;
+  const depotId = /^[0-9a-f-]{36}$/.test(String(b.depotId || "")) ? String(b.depotId) : null;
   const ids: number[] = [];
   for (let i = 0; i < good.length; i += 100) {
     const chunk = good.slice(i, i + 100);
-    const { data, error } = await db.from("lots").insert(chunk.map((r) => ({ ...r.lot, sale_id: saleId, seller_type: b.business === false ? "private" : "business" }))).select("id");
+    const { data, error } = await db.from("lots").insert(chunk.map((r) => ({ ...r.lot, sale_id: saleId, depot_id: depotId, seller_type: b.business === false ? "private" : "business" }))).select("id");
     if (error) return fail(`Couldn't add the vehicles (${error.message}). ${ids.length} were added before the problem.`);
     const added = (data || []).map((x) => x.id as number);
     ids.push(...added);
-    await db.from("lot_private").insert(added.map((id, k) => ({ lot_id: id, reserve_price: chunk[k].reserve, seller_name: sellerName })));
+    // where the vehicle is now is where we pick it up (private); the listing shows the depot
+    const pickupOf = (l: Record<string, unknown>) => [l.suburb, l.state, l.postcode].filter(Boolean).join(" ") || null;
+    await db.from("lot_private").insert(added.map((id, k) => ({ lot_id: id, reserve_price: chunk[k].reserve, seller_name: sellerName, seller_address: pickupOf(chunk[k].lot) })));
   }
   revalidateTag("lots");
   return json({ ok: true, added: ids.length, skipped: rows.length - good.length, first: ids[0] || null });

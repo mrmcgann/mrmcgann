@@ -53,6 +53,8 @@ export interface LotBundle {
   transporter?: Partner | null;
   corrections?: Correction[];
   sale?: { id: number; slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
+  /** the depot the buyer collects from */
+  depot?: { id: string; name: string; suburb: string; state: string; postcode: string; hours: string | null } | null;
   questions: { question: string; answer: string; answered_at: string }[];
   watchers: number;
   similar: AppLot[];
@@ -100,6 +102,9 @@ export interface InvoiceDetail {
   /** Certificate of sale (PDF, needs the session), once paid in full. */
   certificateUrl?: string | null;
   collection: { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null } | null;
+  /** The pickup from the seller to our depot (never the seller's details). Missing from older servers. */
+  pickup?: import("@/lib/transport").BuyerTransport | null;
+  /** The depot's street address, once the collection time is confirmed. */
   address: string | null;
   claims: { id: string; reason: string; status: string; resolution: string | null; created_at: string }[];
   canClaim: boolean;

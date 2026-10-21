@@ -4,7 +4,7 @@ import { supabasePublic } from "@/lib/supabase/anon";
 import { env } from "@/lib/env";
 import { searchLots, lotFacets, PAGE_SIZE } from "@/lib/data";
 import type { SearchFilters } from "@/lib/search";
-import { DEFAULT_FEES, type Consultant, type Fees, type Lot, type LotFlaw, type LotPhoto, type LotVideo, type Partner, type Sale } from "@/lib/types";
+import { DEFAULT_FEES, type Consultant, type Depot, type Fees, type Lot, type LotFlaw, type LotPhoto, type LotVideo, type Partner, type Sale } from "@/lib/types";
 import type { Correction } from "@/lib/listing";
 import type { Calendar } from "@/lib/calendar";
 
@@ -33,6 +33,8 @@ export interface LotBundle {
   consultant: Consultant | null;
   corrections: Correction[];
   sale: Pick<Sale, "id" | "slug" | "title" | "mode" | "starts_at" | "live_status"> | null;
+  /** the depot the buyer collects from (public parts only) */
+  depot?: Pick<Depot, "id" | "name" | "suburb" | "state" | "postcode" | "hours"> | null;
 }
 
 const CONSULTANT_COLS = "id, name, title, phone, email, photo_path, is_default";
@@ -42,7 +44,7 @@ export function getLotCached(id: number) {
     const db = supabasePublic();
     const { data: lot } = await db.from("lots").select("*").eq("id", id).maybeSingle();
     if (!lot) return null;
-    const [{ data: photos }, { data: flaws }, { data: questions }, { data: watchers }, { data: videos }, { data: consultants }, { data: corrections }, { data: sale }] = await Promise.all([
+    const [{ data: photos }, { data: flaws }, { data: questions }, { data: watchers }, { data: videos }, { data: consultants }, { data: corrections }, { data: sale }, { data: depot }] = await Promise.all([
       db.from("lot_photos").select("*").eq("lot_id", id).order("sort"),
       db.from("lot_flaws").select("*").eq("lot_id", id).order("sort"),
       db.from("lot_questions").select("question, answer, answered_at").eq("lot_id", id).eq("public", true).eq("status", "answered").order("created_at").limit(50),
@@ -54,11 +56,12 @@ export function getLotCached(id: number) {
         : db.from("consultants").select(CONSULTANT_COLS).eq("is_default", true).eq("active", true),
       db.from("lot_corrections").select("field, label, before, after, created_at").eq("lot_id", id).order("created_at").limit(100),
       lot.sale_id ? db.from("sales").select("id, slug, title, mode, starts_at, live_status").eq("id", lot.sale_id).maybeSingle() : Promise.resolve({ data: null }),
+      lot.depot_id ? db.from("depots").select("id, name, suburb, state, postcode, hours").eq("id", lot.depot_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
     const cs = (consultants || []) as Consultant[];
     const consultant = cs.find((c) => c.id === lot.consultant_id) || cs.find((c) => c.is_default) || null;
     return { lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: questions || [], watchers: Number(watchers || 0), videos: (videos || []) as LotVideo[], consultant,
-      corrections: (corrections || []) as Correction[], sale: (sale as LotBundle["sale"]) || null };
+      corrections: (corrections || []) as Correction[], sale: (sale as LotBundle["sale"]) || null, depot: (depot as LotBundle["depot"]) || null };
   }, ["lot", String(id)], { revalidate: 20, tags: [`lot-${id}`] })();
 }
 

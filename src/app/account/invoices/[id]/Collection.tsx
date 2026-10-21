@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export function BookCollection({ invoiceId, existing }: { invoiceId: string; existing: { preferred_day: string; preferred_time: string; collector_name: string | null } | null }) {
+export function BookCollection({ invoiceId, existing, hours }: { invoiceId: string; existing: { preferred_day: string; preferred_time: string; collector_name: string | null } | null; hours?: string | null }) {
   const router = useRouter();
   const [who, setWho] = useState<"me" | "someone" | "carrier">(existing?.collector_name ? "someone" : "me");
   const [err, setErr] = useState("");
@@ -11,7 +11,7 @@ export function BookCollection({ invoiceId, existing }: { invoiceId: string; exi
   const days: string[] = [];
   for (let i = 1; days.length < 7 && i < 14; i++) {
     const d = new Date(Date.now() + i * 86400000);
-    if (d.getDay() !== 0) days.push(d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" }));
+    if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" }));
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,10 +28,10 @@ export function BookCollection({ invoiceId, existing }: { invoiceId: string; exi
   }
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {existing && <span className="notice">Requested: {existing.preferred_day}, {existing.preferred_time.toLowerCase()}. We&apos;re confirming it with the seller. You can change it below until then.</span>}
+      {existing && <span className="notice">Requested: {existing.preferred_day}, {existing.preferred_time.toLowerCase()}. We&apos;re confirming it with the depot. You can change it below until then.</span>}
       <div className="row2">
         <label className="field"><span>Day</span><select className="input" name="day" defaultValue={existing?.preferred_day} style={{ background: "#FFFFFF" }}>{days.map((d) => <option key={d}>{d}</option>)}</select></label>
-        <label className="field"><span>Time</span><select className="input" name="time" defaultValue={existing?.preferred_time} style={{ background: "#FFFFFF" }}><option>Morning (8 am – 12 pm)</option><option>Afternoon (12 – 5 pm)</option><option>Evening (5 – 7 pm)</option></select></label>
+        <label className="field"><span>Time</span><select className="input" name="time" defaultValue={existing?.preferred_time} style={{ background: "#FFFFFF" }}><option>Morning (8 am – 12 pm)</option><option>Afternoon (12 – 4 pm)</option></select></label>
       </div>
       <div className="pill-row">
         {([["me", "I'll collect it"], ["someone", "Someone else will"], ["carrier", "A transport company will"]] as const).map(([k, l]) => (
@@ -45,10 +45,38 @@ export function BookCollection({ invoiceId, existing }: { invoiceId: string; exi
         </div>
       )}
       {who === "carrier" && <input className="input" name="ref" placeholder="Carrier booking reference" style={{ background: "#FFFFFF" }} />}
-      <span className="hint">Whoever collects must show photo ID matching the name here, and give the seller your release code. Keys and the vehicle are only handed over with the code.</span>
+      <span className="hint">{hours ? `The depot is open ${hours}. ` : ""}Whoever collects must show photo ID matching the name here, and give the depot team your release code. The vehicle is only handed over with the code.</span>
       {err && <span className="errmsg">{err}</span>}
       <button className="btn btn-dark" disabled={busy} style={{ alignSelf: "flex-start", height: 48 }}>{busy ? "Sending…" : existing ? "Update request" : "Request this time"}</button>
     </form>
+  );
+}
+
+// When our driver noted a change at pickup: go ahead, or cancel for a full refund.
+export function ChangeDecision({ invoiceId, note }: { invoiceId: string; note: string | null }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function answer(proceed: boolean) {
+    if (!proceed && !confirm("Cancel the purchase? We refund everything you paid.")) return;
+    setBusy(true); setErr("");
+    const res = await fetch("/api/transport", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoiceId, proceed }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setErr(data.error || "Couldn't save that."); return; }
+    router.refresh();
+  }
+  return (
+    <div className="notice bad" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="change-decision">
+      <b>When our driver picked it up, they noted something the listing doesn&apos;t show.</b>
+      {note && <span>{note}</span>}
+      <span>You can go ahead with the purchase, or cancel it and we refund everything you paid. Please choose within 2 business days.</span>
+      <span className="pill-row">
+        <button className="btn btn-dark" style={{ height: 46 }} disabled={busy} onClick={() => answer(true)} data-testid="change-proceed">Go ahead</button>
+        <button className="btn btn-soft" style={{ height: 46, background: "#FFFFFF" }} disabled={busy} onClick={() => answer(false)} data-testid="change-cancel">Cancel for a full refund</button>
+      </span>
+      {err && <span className="errmsg">{err}</span>}
+    </div>
   );
 }
 

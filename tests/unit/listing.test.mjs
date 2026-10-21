@@ -8,7 +8,7 @@ let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
 
 // The checks match the database's listing_check_keys()
-ok('checks: ten, in the database order', CHECK_KEYS.join(',') === 'vin,year,odometer,transmission,fuel,features,warning_lights,runs,damage,photos', CHECK_KEYS.join(','));
+ok('checks: eleven, in the database order', CHECK_KEYS.join(',') === 'vin,year,odometer,transmission,fuel,features,warning_lights,runs,damage,photos,privacy', CHECK_KEYS.join(','));
 ok('checks: each has staff and buyer wording', LISTING_CHECKS.every(([, a, b]) => a.length > 20 && b.length > 5));
 ok('runs: four states', Object.keys(RUNS).join(',') === 'drives,starts,no_start,untested');
 ok('write-off: inspected and statutory explained', WRITE_OFF.inspected.includes('Inspected') && WRITE_OFF.statutory.includes('never be registered'));
@@ -41,6 +41,7 @@ ok('import: tidy make, model, category and title', r0.make === 'Toyota' && r0.mo
 ok('import: registration, plate, state and expiry', r0.registration === 'registered' && r0.rego_plate === 'ABC123' && r0.rego_state === 'QLD' && r0.rego_expiry === '2027-03-31');
 ok('import: numbers and reserve', r0.odometer === 148000 && r0.start_price === 1000 && rows[0].reserve === 22000 && r0.keys === 2);
 ok('import: always a draft', r0.status === 'draft');
+ok('import: the transport to the depot', r0.transport_fee === 250, String(r0.transport_fee));
 const bad = rowsToLots(parseCsv('Make,Model,VIN,State,Rego expiry,Year\nFord,,BADVIN,XYZ,31/03/2027,1850\nIsuzu,NPR,,qld,,2015\n'));
 ok('import: problems reported', bad[0].problems.length >= 4, JSON.stringify(bad[0].problems));
 ok('import: a truck model is a truck', bad[1].lot.category === 'trucks' && bad[1].problems.length === 0 && bad[1].lot.state === 'QLD', JSON.stringify(bad[1]));

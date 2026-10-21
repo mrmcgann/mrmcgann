@@ -17,6 +17,7 @@ import { C, F } from "./theme";
 import { consumerRights, rightsLine } from "@/lib/listing";
 import { DepositHint, DepositShortBox, shortFrom } from "./Deposit";
 import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
+import { ACK_CHECK, premiumLabel } from "@/lib/transport";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
@@ -159,7 +160,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <View style={s.allin}>
           <T v="strong">If you win at {money(preview.price)}, you pay</T>
           <LineItem k="Winning bid" v={money(preview.price)} />
-          <LineItem k={`Buyer's premium (${Math.round(fees.premium_rate * 1000) / 10}%)`} v={money(preview.premium, true)} />
+          <LineItem k={premiumLabel(fees)} v={money(preview.premium, true)} />
           <LineItem k="GST on premium" v={money(preview.gst, true)} />
           <LineItem k="Admin fee" v={money(preview.adminFee, true)} />
           {preview.surcharge > 0 ? <LineItem k="Card surcharge" v={money(preview.surcharge, true)} /> : null}
@@ -246,7 +247,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{payNote}</T>
         {bigJump ? <Notice kind="bad"><Check checked={sure} onChange={setSure}>{`That's ${typed >= minNext * 2 ? `${Math.floor(typed / Math.max(1, minNext))}×` : "well above"} the next bid of ${money(minNext)}. Tick to confirm ${money(typed)} is right.`}</Check></Notice> : null}
         <Soft style={{ padding: 14 }}>
-          <Check testID="ack" checked={ack} onChange={setAck}>{`I understand this vehicle is sold as is, where is, at the seller's location, the condition report is a guide only, and ${ackPayLine(preview.payMode)}, under the terms of sale.`}</Check>
+          <Check testID="ack" checked={ack} onChange={setAck}>{`I understand this vehicle is sold as is, where is: ${ACK_CHECK}. And ${ackPayLine(preview.payMode)}, under the terms of sale.`}</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the terms of sale ›</Text>
         </Soft>
         <T v="small" testID="rights-auction">{rightsLine("auction", lot.seller_type)}. <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-asis`)}>What that means ›</Text></T>

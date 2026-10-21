@@ -6,6 +6,7 @@ import { depositFor, lotFees, priceBreakdown } from "@/lib/fees";
 import { countdown, dateTime, money } from "@/lib/format";
 import { rightsLine } from "@/lib/listing";
 import { ackPayLine, winPayLine } from "@/lib/deposits";
+import { ACK_CHECK } from "@/lib/transport";
 import { TENDER_STEPS } from "@/lib/live";
 import { api, ApiError, errText } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -119,7 +120,7 @@ export function TenderPanel({ lot, fees: allFees, mine, onMineChange, onStatusCh
         </View>
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{winPayLine(preview) || ""}</T>
         <Soft style={{ padding: 14 }}>
-          <Check testID="tender-ack" checked={ack} onChange={setAck}>{`I understand this vehicle is sold as is, where is, at the seller's location, the condition report is a guide only, and ${ackPayLine(preview.payMode)}, under the terms of sale.`}</Check>
+          <Check testID="tender-ack" checked={ack} onChange={setAck}>{`I understand this vehicle is sold as is, where is: ${ACK_CHECK}. And ${ackPayLine(preview.payMode)}, under the terms of sale.`}</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-tender`)}>How tenders work ›</Text>
         </Soft>
         <T v="small">{rightsLine("outright", lot.seller_type)}.</T>

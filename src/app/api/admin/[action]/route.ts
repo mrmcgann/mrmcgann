@@ -33,7 +33,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   const body = await req.clone().json().catch(() => ({}));
   const res = await run(req, action, s);
   const t = body as Record<string, unknown>;
-  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId"]
+  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId", "jobId"]
     .map((k) => (t[k] !== undefined && t[k] !== null ? `${k}:${String(t[k]).slice(0, 80)}` : null)).find(Boolean) || null;
   await audit(s.user?.id, action, target, body, res.ok ? "ok" : String(res.status));
   return res;
@@ -84,16 +84,6 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (paid) { await markInvoicePaid(b.invoiceId, paid); return done({ note: "That invoice was already paid; marked as paid." }); }
       await db.from("invoices").update({ status: "pending_charge" }).eq("id", b.invoiceId).eq("status", "payment_failed");
       await chargeInvoice(b.invoiceId);
-      return done();
-    }
-    case "viewing": {
-      // confirm a time (with who hosts), decline with a reason, or mark it done / missed
-      const what = ["confirm", "decline", "done", "no_show"].includes(b.do) ? b.do : null;
-      if (!what || !/^[0-9a-f-]{36}$/.test(String(b.id || ""))) return fail("Unknown booking.");
-      const starts = what === "confirm" ? new Date(String(b.startsAt || "")) : null;
-      if (starts && Number.isNaN(starts.getTime())) return fail("Pick a date and time.");
-      const { error } = await db.rpc("admin_viewing", { p_id: b.id, p_action: what, p_starts: starts ? starts.toISOString() : null, p_host: what === "confirm" ? (b.host === "seller" ? "seller" : "consultant") : null, p_note: String(b.note || "").slice(0, 500) || null });
-      if (error) return fail(error.message.includes("viewing_time") ? "Pick a time in the future." : error.message.includes("viewing_not") ? "That booking isn't open any more." : friendly(error.message));
       return done();
     }
     case "dealer": {
@@ -200,6 +190,9 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (pay?.status === "paid") notes.push("The seller was already paid: recover it under the seller agreement (sections 11 and 13).");
       else if (pay) await db.from("seller_payouts").update({ status: "cancelled", hold_reason: `Sale cancelled: ${reason}` }).eq("id", pay.id);
       await db.from("collections").update({ status: "cancelled" }).eq("invoice_id", inv.id).in("status", ["requested", "confirmed"]);
+      // the pickup: cancelled if it hasn't happened (the database does it); otherwise the vehicle is with our transport partner
+      const { data: job } = await db.from("transport_jobs").select("ref, status").eq("invoice_id", inv.id).maybeSingle();
+      if (job && ["picked_up", "at_depot"].includes(job.status)) notes.push(`The vehicle is with our transport partner (${job.ref}): arrange its return to the seller, or relist it from the depot (Pickups).`);
       const { data: tr } = await db.from("ownership_transfers").select("status").eq("invoice_id", inv.id).maybeSingle();
       if (tr?.status === "complete") notes.push("Ownership was already transferred: arrange for the registration to go back to the seller.");
       await db.from("lots").update({ status: "passed" }).eq("id", inv.lot_id);
@@ -268,30 +261,41 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
 
     // ---- Collections ----
     case "confirm-collection": {
+      // The buyer collects from our depot: they get its address and their release code; the depot gets the handover link.
       const when = String(b.when || "").trim();
       if (!when) return fail("Enter the confirmed day and time.");
       const { data: c } = await db.from("collections").update({ status: "confirmed", confirmed_for: when }).eq("id", b.collectionId).in("status", ["requested", "confirmed"]).select("*").single();
       if (!c) return fail("Not found");
-      const [{ data: priv }, { data: lot }, { data: buyer }] = await Promise.all([
-        db.from("lot_private").select("seller_address, seller_name").eq("lot_id", c.lot_id).single(),
+      const [{ data: job }, { data: lot }, { data: buyer }, { data: inv }] = await Promise.all([
+        db.from("transport_jobs").select("depot_id").eq("invoice_id", c.invoice_id).maybeSingle(),
         db.from("lots").select("title").eq("id", c.lot_id).single(),
         db.from("profiles").select("first_name, last_name").eq("id", c.buyer_id).single(),
+        db.from("invoices").select("ref").eq("id", c.invoice_id).single(),
       ]);
+      const [{ data: depot }, { data: dp }] = job?.depot_id
+        ? await Promise.all([db.from("depots").select("name, suburb, state, postcode, hours").eq("id", job.depot_id).single(), db.from("depot_private").select("address, phone, email").eq("depot_id", job.depot_id).maybeSingle()])
+        : [{ data: null }, { data: null }];
+      const where = dp?.address ? `${depot?.name || "our depot"}, ${dp.address}` : depot ? `${depot.name}, ${depot.suburb} ${depot.state}` : "our depot (we'll text you the address)";
+      const hours = depot?.hours ? ` The depot is open ${depot.hours}.` : "";
       const who = c.collector_name || `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim();
       await notify(c.buyer_id, "account", `Collection confirmed: ${when}`,
-        `Collect the ${lot?.title} on ${when} from ${priv?.seller_address}. Your release code is ${c.release_code}. Give it to the seller only when you're with the vehicle and happy with it. ${c.collector_name ? `${c.collector_name} will need photo ID. ` : "Bring photo ID. "}`,
+        `Collect the ${lot?.title} on ${when} from ${where}.${hours} Your release code is ${c.release_code}: give it to the depot team when you collect. ${c.collector_name ? `${c.collector_name} will need photo ID. ` : "Bring photo ID. "}Check it against the listing before you take it.`,
         `/account/invoices/${c.invoice_id}`, { dedupe: `coll-confirm:${c.id}:${when}` });
-      if (c.collector_mobile) await sendSms(c.collector_mobile, `Tyrebiter: collect the ${lot?.title} on ${when} from ${priv?.seller_address}. Bring photo ID. Release code: ${c.release_code}. Only give it to the seller at handover.`);
-      await notifySeller(c.lot_id, `Collection booked: ${when}`,
-        `${who} will collect the ${lot?.title} on ${when}. Check their photo ID, and only hand over the keys when they give you the 6-digit release code, which you enter here: ${env.siteUrl}/handover/${c.seller_token}. Never accept money from them directly.`,
-        `/handover/${c.seller_token}`, `coll-seller:${c.id}:${when}`);
+      const handover = `${env.siteUrl}/handover/${c.seller_token}`;
+      const rows: Record<string, unknown>[] = [];
+      if (c.collector_mobile) rows.push({ channel: "sms", to_addr: c.collector_mobile, kind: "account", title: "Tyrebiter collection", body: `Tyrebiter: collect the ${lot?.title} on ${when} from ${where}. Bring photo ID. Release code: ${c.release_code}. Give it to the depot team at handover.`, dedupe_key: `coll-collector:${c.id}:${when}`, priority: 1 });
+      const depotText = `Collection booked: ${lot?.title} (invoice ${inv?.ref}). ${who} will collect it on ${when}. Check their photo ID matches, and hand it over only for the 6-digit release code they give you, which you enter here: ${handover}. The buyer has paid Tyrebiter in full: never take money from them.`;
+      if (dp?.email) rows.push({ channel: "email", to_addr: dp.email, kind: "staff", title: `Collection booked: ${lot?.title}, ${when}`, body: depotText, link: `/handover/${c.seller_token}`, dedupe_key: `coll-depot:${c.id}:${when}:email`, priority: 1 });
+      if (dp?.phone) rows.push({ channel: "sms", to_addr: dp.phone, kind: "staff", title: "Tyrebiter collection", body: depotText, dedupe_key: `coll-depot:${c.id}:${when}:sms`, priority: 1 });
+      if (!dp?.email && !dp?.phone) rows.push({ channel: "email", to_addr: env.supportEmail, kind: "staff", title: `Pass this on to the depot: ${lot?.title}, ${when}`, body: `The depot has no email or phone in Depots, so pass this on.\n\n${depotText}`, dedupe_key: `coll-depot:${c.id}:${when}:staff`, priority: 1 });
+      if (rows.length) await db.from("outbox").insert(rows);
       return done();
     }
     case "cancel-collection":
       await db.from("collections").update({ status: "cancelled" }).eq("id", b.collectionId);
       return done();
     case "collected": {
-      // Manual handover (e.g. the seller confirmed by phone). Starts the claim window.
+      // Manual handover (the depot confirmed it by phone). Starts the claim window.
       const { data: claimUntil } = await db.rpc("business_days_from", { p_from: new Date().toISOString(), p_days: Number(b.claimDays) || 2 });
       await db.from("invoices").update({ collected_at: new Date().toISOString(), claim_until: claimUntil }).eq("id", b.invoiceId);
       await db.from("collections").update({ status: "collected", collected_at: new Date().toISOString(), handover: { by: "admin", note: b.note || null } }).eq("invoice_id", b.invoiceId);
@@ -568,6 +572,61 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (error) return fail(friendly(error.message));
       revalidateTag("lots");
       return done({ moved: data });
+    }
+    // ---- Pickups (seller to depot) and depots ----
+    case "transport": {
+      const what = ["depot", "book", "picked_up", "at_depot", "returned", "cancel", "note"].includes(b.do) ? b.do : null;
+      if (!what || !/^[0-9a-f-]{36}$/.test(String(b.jobId || ""))) return fail("Unknown pickup.");
+      const data = b.data && typeof b.data === "object" ? b.data : {};
+      const { data: st, error } = await supabase.rpc("admin_transport", { p_job: String(b.jobId), p_action: what, p_data: data });
+      if (error) return fail(friendly(error.message));
+      return done({ status: st });
+    }
+    case "transport-send": {
+      // The booking request to our transport partner: where to pick it up, who to call, where it goes.
+      const { data: j } = await db.from("transport_jobs").select("id, ref, lot_id, depot_id, status, pickup_on, pickup_window").eq("id", String(b.jobId)).maybeSingle();
+      if (!j || !["to_book", "booked"].includes(j.status)) return fail("That pickup isn't waiting to be booked.");
+      if (!j.depot_id) return fail("Choose the depot first.");
+      const [{ data: lot }, { data: pr }, { data: depot }, { data: dp }] = await Promise.all([
+        db.from("lots").select("title, vin, rego_plate, registration, runs, keys, category").eq("id", j.lot_id).single(),
+        db.from("lot_private").select("seller_name, seller_phone, seller_address, pickup_notes").eq("lot_id", j.lot_id).maybeSingle(),
+        db.from("depots").select("name, partner_id, suburb, state").eq("id", j.depot_id).single(),
+        db.from("depot_private").select("address, email").eq("depot_id", j.depot_id).maybeSingle(),
+      ]);
+      if (!pr?.seller_address) return fail("Add the pickup address on the vehicle first (Seller, private).");
+      const { data: pp } = depot?.partner_id ? await db.from("partner_private").select("lead_email").eq("partner_id", depot.partner_id).maybeSingle() : { data: null };
+      const to = pp?.lead_email || dp?.email;
+      if (!to) return fail("The depot has no transport partner email. Add one in Depots or Partners.");
+      const body = [`Booking reference: ${j.ref} (please quote it to the owner at pickup)`, `Vehicle: ${lot?.title}${lot?.rego_plate ? `, plate ${lot.rego_plate}` : ""}${lot?.vin ? `, VIN ${lot.vin}` : ""}`,
+        `Registered: ${lot?.registration === "unregistered" ? "no (carrier only)" : "yes"} · Starts and drives: ${lot?.runs === "drives" ? "yes" : lot?.runs === "starts" ? "starts, doesn't drive" : "no or untested (bring a winch)"} · Keys: ${lot?.keys ?? "?"}`,
+        `Pick up from: ${pr.seller_address}`, `Owner: ${pr.seller_name || "the owner"}, ${pr.seller_phone || "(we'll call you with the number)"}`, pr.pickup_notes ? `Notes: ${pr.pickup_notes}` : "",
+        j.pickup_on ? `Booked for: ${j.pickup_on} (${j.pickup_window || "any time"})` : "Please call the owner to book a time, then tell us the day.",
+        `Deliver to: ${depot?.name}, ${dp?.address || `${depot?.suburb} ${depot?.state}`}`, "",
+        "Before you load it, check it against the listing photos and tell us anything that's different (with photos). The owner's name, address and phone are confidential: use them only for this pickup, and never give them to the buyer or anyone else."].filter(Boolean).join("\n");
+      await db.from("outbox").insert({ channel: "email", to_addr: to, kind: "staff", title: `Pickup ${j.ref}: ${lot?.title}`, body, dedupe_key: `transport-send:${j.id}:${Date.now()}`, priority: 2 });
+      return done({ note: `Sent to ${to}.` });
+    }
+    case "depot-save": {
+      const t = (v: unknown, n = 200) => String(v ?? "").trim().slice(0, n);
+      const row = { name: t(b.name, 80), suburb: t(b.suburb, 60), state: t(b.state, 3).toUpperCase(), postcode: t(b.postcode, 4), hours: t(b.hours) || null,
+        partner_id: /^[0-9a-f-]{36}$/.test(String(b.partnerId || "")) ? String(b.partnerId) : null, active: b.active !== false, updated_at: new Date().toISOString() };
+      const priv = { address: t(b.address), phone: t(b.phone, 30) || null, email: t(b.email, 120) || null, contact_name: t(b.contactName, 80) || null, notes: t(b.notes, 1000) || null };
+      if (row.name.length < 2 || row.suburb.length < 2 || !/^\d{4}$/.test(row.postcode) || !["QLD", "NSW", "VIC", "SA", "WA", "TAS", "ACT", "NT"].includes(row.state)) return fail("Add the depot's name, suburb, state and 4-digit postcode.");
+      if (priv.address.length < 5) return fail("Add the depot's street address (buyers get it with a confirmed collection).");
+      if (priv.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(priv.email)) return fail("Check the depot's email.");
+      let depotId = /^[0-9a-f-]{36}$/.test(String(b.id || "")) ? String(b.id) : null;
+      if (depotId) {
+        const { error } = await db.from("depots").update(row).eq("id", depotId);
+        if (error) return fail(error.message);
+      } else {
+        const { data, error } = await db.from("depots").insert(row).select("id").single();
+        if (error || !data) return fail(error?.message || "Couldn't add the depot.");
+        depotId = data.id as string;
+      }
+      const { error: pe } = await db.from("depot_private").upsert({ depot_id: depotId, ...priv });
+      if (pe) return fail(pe.message);
+      revalidateTag("lots");
+      return done({ id: depotId });
     }
     case "tracking": {
       const url = String(b.url || "").trim();

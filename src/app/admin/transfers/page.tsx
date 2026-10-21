@@ -13,7 +13,7 @@ type Row = {
 const one = <T,>(x: T | T[] | null): T | null => (Array.isArray(x) ? x[0] : x);
 
 // Transfer of ownership between payment and collection. Check the buyer's proof, chase the seller's
-// part, and complete it; the buyer can then book a collection (and gets the address once it's confirmed).
+// part, and complete it; once the vehicle is at our depot the buyer books a collection there (and gets the depot's address once it's confirmed).
 export default async function Transfers({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   await requireAdmin(); // checked on every page, not just the layout
   const { status = "open" } = await searchParams;
@@ -49,7 +49,7 @@ export default async function Transfers({ searchParams }: { searchParams: Promis
             <span className="pill-row">
               <a className="pill pill-soft" href={`/api/invoices/${t.invoice_id}/certificate`} target="_blank" rel="noopener">Certificate of sale ›</a>
               {t.status !== "complete" && t.registration === "registered" && !t.seller_done_at && <AdminAction action="transfer-seller-done" payload={{ lotId: t.lot_id }} label="Seller's part done" input={{ name: "reference", placeholder: "Reference (optional)" }} tone="soft" />}
-              {t.status !== "complete" && <AdminAction action="transfer-review" payload={{ id: t.id, ok: true }} label={t.status === "submitted" ? "Checked: complete it" : "Complete it (sorted by phone)"} input={{ name: "note", placeholder: "Note (optional)" }} tone="blue" confirmText="Mark ownership done? The buyer can then book collection." />}
+              {t.status !== "complete" && <AdminAction action="transfer-review" payload={{ id: t.id, ok: true }} label={t.status === "submitted" ? "Checked: complete it" : "Complete it (sorted by phone)"} input={{ name: "note", placeholder: "Note (optional)" }} tone="blue" confirmText="Mark ownership done? The buyer can then book collection once it's at the depot." />}
               {t.status === "submitted" && <AdminAction action="transfer-review" payload={{ id: t.id, ok: false }} label="Send back" input={{ name: "note", placeholder: "What's needed (sent to the buyer)" }} tone="bad" />}
             </span>
           </div>

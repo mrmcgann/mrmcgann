@@ -27,8 +27,8 @@ export function MechanicalInspection({ lotId, title, partner, consultantPhone, c
       <T v="strong" style={{ fontSize: 17 }}>Mechanical inspection.</T>
       <T v="muted">
         {partner
-          ? <>We send a qualified mechanic from {partner.name} to the vehicle. They check it over and email you a written report with photos{partner.price_from ? <>, from <Text style={{ fontFamily: F.bold, color: C.ink }}>{money(partner.price_from)}</Text></> : null}.</>
-          : "A qualified mechanic inspects it where it is and sends you a written report with photos."}
+          ? <>Our partner mechanic from {partner.name} goes to where it's kept, checks it over and emails you a written report with photos{partner.price_from ? <>, from <Text style={{ fontFamily: F.bold, color: C.ink }}>{money(partner.price_from)}</Text> paid to them</> : null}. You don't need to be there: we arrange it with the owner, whose details stay private.</>
+          : "Our partner mechanic inspects it where it's kept and emails you a written report with photos. You don't need to be there: we arrange it with the owner."}
       </T>
       {partner && canOrder ? <Button testID="order-inspection" small kind="dark" title="Order a mechanical inspection" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} /> : null}
       {partner?.turnaround && canOrder ? <T v="small">{partner.turnaround}. Allow time before bidding closes.</T> : null}
@@ -169,7 +169,7 @@ export function ConsultantCard({ consultant, lotId, title }: { consultant: AppCo
           {consultant.title ? <T v="small">{consultant.title}</T> : null}
         </View>
       </View>
-      <T v="muted">Questions, a video walkaround or an inspection? Call your consultant.</T>
+      <T v="muted">Questions about it, or a mechanical inspection? Call your consultant: we check with the seller and come back to you.</T>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {phone ? <Button testID="consultant-call" small kind="dark" title={`Call ${phone}`} onPress={() => Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`)} /> : null}
         {consultant.email ? <Button testID="consultant-email" small kind="white" title="Email" onPress={() => Linking.openURL(`mailto:${consultant.email}?subject=${encodeURIComponent(`Lot ${lotId}: ${title}`)}`)} /> : null}

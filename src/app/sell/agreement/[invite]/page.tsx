@@ -45,7 +45,7 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
     <Shell title={v.title}>
       <div className="soft">
         <b style={{ fontSize: 18 }}>{v.title}</b>
-        <span className="muted">At {v.suburb}, {v.state}{v.vin ? ` · VIN ${v.vin}` : ""}{v.rego_plate ? ` · Rego ${v.rego_plate}` : ""}</span>
+        {(v.vin || v.rego_plate) && <span className="muted">{[v.vin ? `VIN ${v.vin}` : "", v.rego_plate ? `Rego ${v.rego_plate}` : ""].filter(Boolean).join(" · ")}</span>}
         {v.reserve_price != null && <span>Reserve we discussed: <b>{money(v.reserve_price)}</b> (you can change it below)</span>}
       </div>
       {!user ? (
@@ -65,7 +65,8 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
         <>
           {prefill && <div className="notice ok" data-testid="agreement-prefilled">We&apos;ve filled in the answers from your sell form ({ap?.ref}). Check them, change anything that&apos;s different now, and sign.</div>}
           <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses}
-            prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} inspectionFee={inspectionFee} />
+            prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} inspectionFee={inspectionFee}
+            pickupDefault={[profile?.street, [profile?.suburb, profile?.state, profile?.postcode].filter(Boolean).join(" ")].filter(Boolean).join(", ")} />
         </>
       )}
     </Shell>

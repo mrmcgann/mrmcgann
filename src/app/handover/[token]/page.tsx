@@ -6,7 +6,7 @@ import { HandoverForm } from "./HandoverForm";
 export const metadata: Metadata = { title: "Hand over the vehicle", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-// The seller's private handover page (link sent by SMS/email when collection is confirmed).
+// The depot's private handover page (the link goes to the depot by email and SMS when a collection is confirmed).
 export default async function Handover({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const db = supabaseAdmin();
@@ -21,7 +21,7 @@ export default async function Handover({ params }: { params: Promise<{ token: st
     <div className="wrap" style={{ maxWidth: 640, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 20 }}>
       <span className="eyebrow">Handover · {lot?.title}</span>
       <h1 className="d2" style={{ fontSize: "clamp(36px,6vw,56px)" }}>Handing over the keys.</h1>
-      {c.status === "collected" ? <div className="notice ok">Handover confirmed. Thank you. We&apos;ll pay you once the buyer&apos;s claim window closes, and send your settlement statement.</div>
+      {c.status === "collected" ? <div className="notice ok">Handover confirmed. Thank you.</div>
         : c.status !== "confirmed" ? <div className="notice">This collection isn&apos;t confirmed yet. We&apos;ll text you when it is.</div> : (
         <>
           <div className="soft">
@@ -30,8 +30,8 @@ export default async function Handover({ params }: { params: Promise<{ token: st
             <ol className="steps-mini">
               <li>Check their photo ID matches <b>{who}</b>.</li>
               <li>Ask them for the 6-digit release code. Don&apos;t hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Tyrebiter.</li>
+              <li>Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.</li>
               <li>Enter the code, the odometer and the keys handed over below.</li>
-              <li>Then remove your plates if your state requires it, and lodge your notice of disposal.</li>
             </ol>
           </div>
           <HandoverForm token={token} keys={lot?.keys || null} who={who} />

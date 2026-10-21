@@ -5,7 +5,7 @@ import { json, fail, friendly } from "@/lib/api";
 import { allow, clientIp, userAgent } from "@/lib/ratelimit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
-import { cleanDisclosures, cleanSignature, signatureSvg } from "@/lib/sellForm";
+import { SELLER_ACKS, cleanDisclosures, cleanSignature, signatureSvg } from "@/lib/sellForm";
 
 const txt = (v: unknown, n = 500) => String(v ?? "").trim().slice(0, n);
 
@@ -36,6 +36,11 @@ export async function POST(req: Request) {
   if (!docs.length) return fail("Upload a photo of the registration papers (or proof of ownership).");
   const bsb = String(b.bank?.bsb || "").replace(/[^0-9]/g, ""), acct = String(b.bank?.account || "").replace(/[^0-9]/g, "");
   if (!/^\d{6}$/.test(bsb) || !/^\d{5,10}$/.test(acct) || !txt(b.bank?.name)) return fail("Check your bank details (account name, 6-digit BSB, account number).");
+  // where our transport partner picks it up, and what the seller agrees to about buyers and the pickup
+  const pickup = txt(b.pickupAddress, 200);
+  if (pickup.length < 8) return fail("Add the address where our transport partner picks it up.");
+  const acks = SELLER_ACKS.map(([k]) => k).filter((k) => Array.isArray(b.acknowledgements) && b.acknowledgements.includes(k));
+  if (acks.length < SELLER_ACKS.length) return fail("Tick each box about buyers and the pickup to agree to them.");
 
   const admin = supabaseAdmin();
   const { data: agreementId, error } = await admin.rpc("sign_seller_agreement", {
@@ -44,15 +49,14 @@ export async function POST(req: Request) {
     p_docs: docs, p_ip: await clientIp(), p_ua: await userAgent(),
   });
   if (error) return fail(friendly(error.message));
-  // viewings in person (by appointment) and the optional inspection before listing (its fee is locked into the agreement)
+  // the pickup details, the seller's promises, and the optional inspection before listing (its fee is locked into the agreement)
   const { data: ag } = await admin.from("seller_agreements").select("lot_id, fees").eq("id", agreementId as string).maybeSingle();
   if (ag?.lot_id) {
     const { data: sell } = await admin.from("settings").select("value").eq("key", "selling").maybeSingle();
     const fee = b.preInspection === true ? Math.max(0, Number((sell?.value as { pre_inspection_fee?: number } | null)?.pre_inspection_fee || 0)) : 0;
     await Promise.all([
-      admin.from("seller_agreements").update({ fees: { ...((ag.fees as Record<string, unknown>) || {}), pre_inspection_fee: fee } }).eq("id", agreementId as string),
-      admin.from("lots").update({ in_person_viewing: b.inPersonViewing === true }).eq("id", ag.lot_id),
-      admin.from("lot_private").upsert({ lot_id: ag.lot_id, pre_inspection_requested: b.preInspection === true }),
+      admin.from("seller_agreements").update({ fees: { ...((ag.fees as Record<string, unknown>) || {}), pre_inspection_fee: fee }, acknowledgements: acks }).eq("id", agreementId as string),
+      admin.from("lot_private").upsert({ lot_id: ag.lot_id, pre_inspection_requested: b.preInspection === true, seller_address: pickup, pickup_notes: txt(b.pickupNotes, 300) || null }),
     ]);
   }
   if (signature) {
@@ -61,6 +65,6 @@ export async function POST(req: Request) {
     if (!up.error) await admin.from("seller_agreements").update({ signature_path: path }).eq("id", agreementId as string);
   }
   await admin.from("seller_bank").upsert({ seller_id: user.id, account_name: txt(b.bank.name, 120), bsb: `${bsb.slice(0, 3)}-${bsb.slice(3)}`, account_number: acct, confirmed_at: null, updated_at: new Date().toISOString() });
-  await sendEmail({ to: env.supportEmail, subject: `Seller signed: ${b.invite}`, text: `Agreement ${agreementId}. Check ownership papers and confirm bank details by phone in admin: ${env.siteUrl}/admin/lots${b.preInspection === true ? "\n\nThe seller wants an inspection before listing: book the mechanic." : ""}${b.inPersonViewing === true ? "\nIn-person viewings by appointment: yes." : ""}` }).catch(() => undefined);
+  await sendEmail({ to: env.supportEmail, subject: `Seller signed: ${b.invite}`, text: `Agreement ${agreementId}. Check ownership papers and confirm bank details by phone in admin: ${env.siteUrl}/admin/lots${b.preInspection === true ? "\n\nThe seller wants an inspection before listing: book the mechanic." : ""}\nPickup address: ${pickup}` }).catch(() => undefined);
   return json({ ok: true });
 }

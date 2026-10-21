@@ -4,7 +4,8 @@ import Link from "next/link";
 import { parseCsv } from "@/lib/csv";
 import { importTemplate, rowsToLots } from "@/lib/importLots";
 
-export function ImportTool({ sales }: { sales: { id: number; title: string }[] }) {
+export function ImportTool({ sales, depots }: { sales: { id: number; title: string }[]; depots: { id: string; name: string; suburb: string; state: string }[] }) {
+  const [depotId, setDepotId] = useState("");
   const [csv, setCsv] = useState("");
   const [saleId, setSaleId] = useState("");
   const [sellerName, setSellerName] = useState("");
@@ -17,7 +18,7 @@ export function ImportTool({ sales }: { sales: { id: number; title: string }[] }
 
   async function run() {
     setBusy(true); setMsg(null);
-    const res = await fetch("/api/admin/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv, saleId: saleId || null, sellerName, business }) });
+    const res = await fetch("/api/admin/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv, saleId: saleId || null, sellerName, business, depotId: depotId || null }) });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     setMsg(res.ok ? { ok: true, text: `Added ${d.added} draft${d.added === 1 ? "" : "s"}${d.skipped ? `; skipped ${d.skipped} with problems` : ""}.`, first: d.first } : { ok: false, text: d.error || "Couldn't import." });
@@ -30,6 +31,7 @@ export function ImportTool({ sales }: { sales: { id: number; title: string }[] }
       <textarea className="input" style={{ minHeight: 140, fontFamily: "monospace", fontSize: 13 }} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder="Year,Make,Model,…" aria-label="CSV" data-testid="import-csv" />
       <div className="grid3">
         <label className="field"><span>Add to a sale (optional)</span><select className="input" value={saleId} onChange={(e) => setSaleId(e.target.value)}><option value="">No sale</option>{sales.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select></label>
+        <label className="field"><span>Collection depot</span><select className="input" value={depotId} onChange={(e) => setDepotId(e.target.value)} data-testid="import-depot"><option value="">Choose later</option>{depots.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.suburb}, {d.state})</option>)}</select></label>
         <label className="field"><span>Seller name (private)</span><input className="input" value={sellerName} onChange={(e) => setSellerName(e.target.value)} placeholder="e.g. Fleet manager's company" /></label>
         <label className="field"><span>Seller</span><select className="input" value={business ? "business" : "private"} onChange={(e) => setBusiness(e.target.value === "business")}><option value="business">Business seller</option><option value="private">Private seller</option></select></label>
       </div>

@@ -72,7 +72,7 @@ export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoice
     return (
       <div className="soft" data-testid="transfer">
         <b style={{ fontSize: 20 }}>Transfer of ownership.</b>
-        <span className="notice">We&apos;re checking it{t.buyer_choice === "unregistered" ? " and arranging with the seller to cancel the registration" : ""}. We&apos;ll text you when it&apos;s done, usually within one business day. Then you can book your collection.</span>
+        <span className="notice">We&apos;re checking it{t.buyer_choice === "unregistered" ? " and arranging with the seller to cancel the registration" : ""}. We&apos;ll text you when it&apos;s done, usually within one business day. Once it&apos;s at our depot too, you book your collection.</span>
         <span>{cert}</span>
       </div>
     );
@@ -81,7 +81,7 @@ export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoice
   return (
     <form className="soft" onSubmit={submit} data-testid="transfer" style={{ gap: 14 }} noValidate>
       <b style={{ fontSize: 20 }}>Transfer of ownership.</b>
-      <span className="muted">Before you collect, the {title} goes into your name. The pickup address is sent once this is done and your collection time is confirmed.</span>
+      <span className="muted">Before you collect it from our depot, the {title} goes into your name. Meanwhile our transport partner brings it to the depot.</span>
       {t.review_note && <span className="notice bad" role="alert"><b>We need one more thing:</b> {t.review_note}</span>}
 
       {registered && (
@@ -95,7 +95,7 @@ export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoice
         <ol className="steps-mini">
           <li><b>The seller&apos;s part.</b> The seller lodges their part with {rules.authority}. {t.seller_done_at ? <span className="status-pill" style={{ background: "var(--mint)" }}>Done</span> : <span className="muted">We&apos;re arranging this with the seller.</span>}</li>
           <li><b>Your part.</b> {rules.buyer} <a className="blue" href={rules.buyerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Transfer it with {rules.authority} ›</a>{rules.cert ? <span className="hint" style={{ display: "block", marginTop: 4 }}>{rules.cert}</span> : null}</li>
-          <li><b>Show us.</b> Upload the confirmation (the receipt, or the new registration certificate in your name), or enter the receipt number. Need the seller&apos;s details or help? Call {consultantPhone}.</li>
+          <li><b>Show us.</b> Upload the confirmation (the receipt, or the new registration certificate in your name), or enter the receipt number. Need help, or does the form ask for the seller&apos;s details? Call us on {consultantPhone}: we handle that part, so the seller&apos;s details stay private.</li>
         </ol>
       )}
 
@@ -108,7 +108,7 @@ export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoice
 
       {takeUnreg && (
         <fieldset className="choice" style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will it be moved?</legend>
+          <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will you move it from our depot?</legend>
           {TRANSPORT.map(([k, label]) => (
             <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => setTransport(k)} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">Apply to {rules.authority} before collection day: <a className="blue" href={rules.permitUrl} target="_blank" rel="noopener noreferrer">{rules.permit} ›</a>. Bring it with you, or upload it here.</span>}</span></label>
           ))}

@@ -18,6 +18,7 @@ export const LISTING_CHECKS: [string, string, string][] = [
   ["runs", "Started and moved under its own power, or recorded that it doesn't (or wasn't tested)", "Start and drive checked"],
   ["damage", "All visible damage photographed and listed as a flaw", "Visible damage photographed"],
   ["photos", "Photos are of this vehicle, taken for this listing (no stock or old photos)", "Photos taken for this listing"],
+  ["privacy", "Nothing in the photos, video or words shows who the seller is or where they live (their house or street, mail, people, other cars' plates)", "Photos show only the vehicle"],
 ];
 export const CHECK_KEYS = LISTING_CHECKS.map(([k]) => k);
 
@@ -68,6 +69,14 @@ export function consumerRights(path: SalePath, seller: SellerType | null | undef
 export function rightsLine(path: SalePath, seller: SellerType | null | undefined) {
   if (path === "auction") return "Auction sale · as is, where is · your consumer law rights aren't affected";
   return `${seller === "business" ? "Business seller" : "Private seller"} · as is, where is · your consumer law rights aren't affected`;
+}
+
+/** The statutory warranty statement, made on every listing before bidding opens (Queensland requires the auctioneer
+ *  to say whether one applies). [LAWYER TO CONFIRM which sales carry one in each state] */
+export function warrantyLine(v: boolean | null | undefined): string | null {
+  if (v === true) return "Applies to this sale (the details are on your paperwork)";
+  if (v === false) return "Doesn't apply to this sale";
+  return null;
 }
 
 export type Correction = { field: string; label: string; before: string | null; after: string | null; created_at: string };

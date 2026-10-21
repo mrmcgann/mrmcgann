@@ -38,6 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     transporter: partners.find((p) => p.kind === "transport" && p.accepts_leads) || null,
     corrections: bundle.corrections,
     sale: bundle.sale,
+    depot: bundle.depot || null,
     questions: bundle.questions,
     watchers: bundle.watchers,
     similar: similar.map(withUrl),

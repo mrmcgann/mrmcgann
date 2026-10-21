@@ -10,6 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { WatchButton } from "@/components/WatchButton";
 import { Modal } from "@/components/Modal";
 import { BidConfirm, payNoteFor } from "@/components/BidConfirm";
+import { premiumLabel } from "@/lib/transport";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
@@ -222,7 +223,7 @@ export function BidPanel(props: {
         <div className="allin">
           <b style={{ fontSize: 16 }}>If you win at {money(preview.price)}, you pay</b>
           <div><span className="muted">Winning bid</span><span>{money(preview.price)}</span></div>
-          <div><span className="muted">Buyer&apos;s premium ({Math.round(fees.premium_rate * 1000) / 10}%)</span><span>{money(preview.premium, true)}</span></div>
+          <div><span className="muted">{premiumLabel(fees)}</span><span>{money(preview.premium, true)}</span></div>
           <div><span className="muted">GST on premium</span><span>{money(preview.gst, true)}</span></div>
           <div><span className="muted">Admin fee</span><span>{money(preview.adminFee, true)}</span></div>
           {preview.surcharge > 0 && <div><span className="muted">Card surcharge</span><span>{money(preview.surcharge, true)}</span></div>}

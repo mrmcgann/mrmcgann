@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     if (d[k] == null || d[k] === "") continue;
     details[k] = typeof d[k] === "number" && Number.isFinite(d[k]) ? (d[k] as number) : clip(d[k], k === "notes" ? 500 : 80);
   }
-  if (kind === "transport" && lot) details.collect_from = `${lot.suburb}, ${lot.state}`;
+  if (kind === "transport" && lot) details.collect_from = `Tyrebiter depot, ${lot.suburb}, ${lot.state}`;
   if (kind === "warranty" && lot) {
     const { data: odo } = await admin.from("lots").select("odometer").eq("id", lot.id).maybeSingle();
     if (odo?.odometer != null) details.odometer = `${Number(odo.odometer).toLocaleString("en-AU")} km`;
@@ -95,13 +95,16 @@ export async function POST(req: Request) {
   }).select("id, ref").single();
   if (error || !lead) return fail("Couldn't send that. Please try again or call us.", 500);
 
-  // To the partner (queued and retried by the outbox sender), a copy to the member, and for
-  // inspections a note to our team (they give the inspector the address and seller's contact).
+  // To the partner (queued and retried by the outbox sender), a copy to the member, and for inspections a note to our
+  // team: they arrange access with the owner and give the mechanic the address. Only the area goes in the partner's
+  // email; the buyer never gets the owner's details.
   const { data: priv } = await admin.from("partner_private").select("lead_email").eq("partner_id", partner.id).maybeSingle();
+  const { data: where } = kind === "inspection" && lot ? await admin.from("lot_private").select("seller_address").eq("lot_id", lot.id).maybeSingle() : { data: null };
+  const area = String(where?.seller_address || "").split(",").pop()?.trim() || "";
   const lines = [
     `Reference: ${lead.ref}`, `Name: ${name}`, `Mobile: ${phone}`, `Email: ${email}`, postcode ? `${kind === "transport" ? "Deliver to postcode" : "Postcode"}: ${postcode}` : "",
     ...Object.entries(details).map(([k, v]) => `${k.replace(/_/g, " ")}: ${["amount", "deposit", "balloon"].includes(k) ? money(Number(v)) : v}`),
-    kind === "inspection" && lot ? `Vehicle location: ${lot.suburb}, ${lot.state} (Tyrebiter will send the address and the seller's contact details)` : "",
+    kind === "inspection" && lot ? `The vehicle is with its owner${area ? ` in ${area}` : ""}. Tyrebiter arranges a time with the owner and sends you the address. The owner's details are confidential: never give them to the buyer, and send your report to the buyer and to Tyrebiter.` : "",
     "", `They agreed to: "${consent}"`, `Please contact them within 10 business days and quote ${lead.ref}.`,
   ].filter((l) => l !== "");
   const rows: Record<string, unknown>[] = [{
@@ -114,7 +117,7 @@ export async function POST(req: Request) {
   }];
   if (kind === "inspection") rows.push({
     channel: "email", to_addr: env.supportEmail, kind: "lead", title: `Mobile inspection ordered ${lead.ref}: ${lot?.title}`,
-    body: `${lines.join("\n")}\n\nSend the inspector the vehicle's address and the seller's contact details, and call the seller to let them know.`,
+    body: `${lines.join("\n")}\n\nCall the seller to arrange access, then send the mechanic the address and the seller's phone. Never give the buyer the seller's name, address or phone.`,
     link: "/admin/leads?kind=inspection", dedupe_key: `lead:${lead.id}:staff`, priority: 2,
   });
   const sent = await admin.from("outbox").insert(rows);

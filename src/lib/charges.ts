@@ -84,7 +84,7 @@ async function chargeClaimed(inv: Invoice & { lots?: { title: string } }) {
       paid_at: new Date().toISOString(), stripe_payment_intent: intentId, failure_reason: null,
     }).eq("id", inv.id).eq("status", "charging");
     const body = inv.mode === "card"
-      ? `You've bought the ${title}. ${money(inv.card_amount, true)} was charged to your card and your tax invoice is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle to someone with your release code.`
+      ? `You've bought the ${title}. ${money(inv.card_amount, true)} was charged to your card and your tax invoice is attached. Next, transfer the ownership into your name (the steps are on your invoice) while our transport partner brings it to our depot. Then you book a time to collect it there with your release code.`
       : `You've bought the ${title}. A ${money(inv.card_amount, true)} deposit was charged to your card (you lose it only if you don't pay) and your invoice is attached. Pay the ${money(inv.balance_due, true)} balance by bank transfer or PayID ${inv.due_at ? `by ${dateLong(inv.due_at)}` : "within 2 business days"}, reference ${inv.ref}, to the account on your invoice page. We never change our bank details by email.`;
     await notify(inv.buyer_id, "won", `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
     return "paid";
@@ -130,7 +130,7 @@ async function finishBankInvoice(inv: Invoice & { lots?: { title: string } }) {
   if (!data?.length) return "skipped";
   const dep = Number(inv.deposit_applied || 0);
   const body = full
-    ? `You've bought the ${title}. It's paid in full from your bidding deposit, and your tax invoice is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle to someone with your release code.`
+    ? `You've bought the ${title}. It's paid in full from your bidding deposit, and your tax invoice is attached. Next, transfer the ownership into your name (the steps are on your invoice) while our transport partner brings it to our depot. Then you book a time to collect it there with your release code.`
     : `You've bought the ${title}. ${dep > 0 ? `${money(dep, true)} of your bidding deposit has gone towards it. ` : ""}Pay the ${money(inv.balance_due, true)}${dep > 0 ? " balance" : ""} by PayID or bank transfer ${inv.due_at ? `by ${dateLong(inv.due_at)}` : "within 2 business days"}, reference ${inv.ref}, to the account on your invoice page, from an account in your name (or your lender can pay us). We release the vehicle once it has cleared. If it isn't paid, the sale is cancelled and your account closed. We never change our bank details by email or text.`;
   await notify(inv.buyer_id, "won", `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
   return "paid";
@@ -143,6 +143,6 @@ export async function markBalanceReceived(invoiceId: string): Promise<boolean> {
   const { data: inv } = await db.from("invoices").update({ status: "paid", balance_paid_at: now }).eq("id", invoiceId).eq("status", "deposit_paid").select("buyer_id, lot_id, ref").maybeSingle();
   if (!inv) return false;
   await db.from("invoices").update({ receipt_sent_at: now }).eq("id", invoiceId);
-  await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, we'll take you through transferring ownership into your name (the steps are on your invoice), then you book a collection time. The seller only hands over the vehicle with your release code.", `/account/invoices/${invoiceId}`, { dedupe: `receipt:${invoiceId}`, invoiceId });
+  await notify(inv.buyer_id, "account", `Receipt: ${inv.ref} paid in full`, "Your balance has cleared and your receipt is attached. Next, transfer the ownership into your name (the steps are on your invoice) while our transport partner brings it to our depot. Then you book a time to collect it there with your release code.", `/account/invoices/${invoiceId}`, { dedupe: `receipt:${invoiceId}`, invoiceId });
   return true;
 }

@@ -5,9 +5,9 @@ import { kickOutbox } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 
-// The seller confirms handover from their private link by entering the buyer's release code.
-// What the seller's handover screen shows (the app; the website renders it server-side).
-// The token is the seller's private 32-character link, so it identifies them.
+// The depot confirms handover from its private link by entering the buyer's release code.
+// What the handover screen shows (the app; the website renders it server-side).
+// The token is the depot's private 32-character link for this one collection.
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token") || "";
   if (!/^[0-9a-f]{32}$/.test(token)) return fail("This link isn't valid.", 404);
@@ -36,6 +36,6 @@ export async function POST(req: Request) {
   const r = data as { ok: boolean; error?: string };
   if (!r.ok) return fail(friendly(r.error));
   kickOutbox();
-  await sendEmail({ to: env.supportEmail, subject: "Vehicle handed over", text: `A seller confirmed handover. Odometer ${odo ?? "?"}, keys ${keys ?? "?"}. ${b.notes || ""}` }).catch(() => undefined);
+  await sendEmail({ to: env.supportEmail, subject: "Vehicle handed over", text: `The depot confirmed handover. Odometer ${odo ?? "?"}, keys ${keys ?? "?"}. ${b.notes || ""}` }).catch(() => undefined);
   return json(data);
 }

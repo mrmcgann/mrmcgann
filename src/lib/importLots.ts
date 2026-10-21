@@ -11,12 +11,14 @@ export const IMPORT_COLUMNS: [string, string][] = [
   ["vin", "VIN"], ["registration", "Registered or unregistered"], ["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry (YYYY-MM-DD)"],
   ["suburb", "Suburb"], ["state", "State"], ["postcode", "Postcode"], ["start_price", "Starting bid"], ["buy_now_price", "Buy Now price"], ["reserve", "Reserve"],
   ["keys", "Keys"], ["known_faults", "Known faults"], ["service_history", "Service history"], ["category", "Category"], ["title", "Title (optional)"],
+  ["transport", "Transport to depot ($)"],
 ];
 const ALIASES: Record<string, string> = {
   plate: "rego_plate", rego: "rego_plate", registration_number: "rego_plate", kms: "odometer", km: "odometer", kilometres: "odometer", odo: "odometer",
   transmission_type: "transmission", trans: "transmission", "fuel_type": "fuel", location: "suburb", reserve_price: "reserve", start: "start_price",
   starting_bid: "start_price", buy_now: "buy_now_price", rego_expiry_date: "rego_expiry", expiry: "rego_expiry", vin_number: "vin", chassis: "vin",
   "registered_or_unregistered": "registration", "odometer_km": "odometer", "rego_expiry_yyyy_mm_dd": "rego_expiry", "title_optional": "title",
+  transport_fee: "transport", transport_to_depot: "transport",
 };
 const key = (h: string) => { const k = h.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""); return ALIASES[k] || k; };
 
@@ -61,10 +63,12 @@ export function rowsToLots(table: string[][]): ImportRow[] {
       suburb: r.suburb || null, state: state || null, postcode: /^\d{4}$/.test(r.postcode) ? r.postcode : null,
       start_price: int(r.start_price) ?? 100, buy_now_price: int(r.buy_now_price), keys: int(r.keys),
       known_faults: r.known_faults || null, service_history: r.service_history || null,
+      // the pickup to the depot, from the transport quote (part of the buyer's premium); staff can add it later
+      transport_fee: r.transport ? int(r.transport) : null,
     };
     return { lot, reserve: int(r.reserve), problems };
   });
 }
 
 export const importTemplate = () => IMPORT_COLUMNS.map(([, h]) => h).join(",") + "\r\n" +
-  "2019,Toyota,HiLux,SR 4x4,Dual cab ute,White,Auto,Diesel,4WD,148000,,MR0HA3CD100000001,Registered,ABC123,QLD,2027-03-31,Toowoomba,QLD,4350,1000,,22000,2,,Full Toyota history,utes,\r\n";
+  "2019,Toyota,HiLux,SR 4x4,Dual cab ute,White,Auto,Diesel,4WD,148000,,MR0HA3CD100000001,Registered,ABC123,QLD,2027-03-31,Toowoomba,QLD,4350,1000,,22000,2,,Full Toyota history,utes,,250\r\n";

@@ -69,14 +69,14 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.text("Billed to", 50, 9, { color: MUTED }); s.text("Vehicle", 300, 9, { color: MUTED }); s.line(14);
   const biz = (inv.buyer_business as { name?: string | null; abn?: string | null } | null) || { name: buyer?.company_name, abn: buyer?.abn };
   const left = [biz.name, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), biz.abn ? `ABN ${biz.abn}` : null, buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean);
-  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Located at ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via}`].filter(Boolean);
+  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Collect from our depot in ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via}`].filter(Boolean);
   for (let i = 0; i < Math.max(left.length, right.length); i++) { if (left[i]) s.text(left[i], 50, 10); if (right[i]) s.text(right[i], 300, 10); s.line(14); }
   s.line(14); s.rule();
 
   const privateSale = lot.gst_status !== "inc";
   s.row(`Vehicle price (sold as agent for the seller${privateSale ? ", private sale, no GST" : ""})`, aud(inv.price));
   if (!privateSale) s.row("   includes GST on the vehicle (seller is GST-registered)", aud(inv.vehicle_gst));
-  s.row("Buyer's premium", aud(inv.premium));
+  s.row(Number(inv.transport) > 0 ? `Buyer's premium (includes ${aud(inv.transport)} transport to our depot)` : "Buyer's premium", aud(inv.premium));
   s.row("GST on buyer's premium", aud(inv.gst));
   s.row("Administration fee (includes GST)", aud(inv.admin_fee));
   if (Number(inv.surcharge) > 0) s.row("Card surcharge", aud(inv.surcharge));
@@ -103,7 +103,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   }
   s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? (bank ? (fromDeposit > 0 ? "Deposit applied, balance due" : "Payment due") : "Deposit paid, balance due") : inv.status.replace("_", " "), { bold: true });
   s.line(10); s.rule();
-  s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is paid to the seller. The buyer's premium and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and a separate tax invoice for the vehicle can be issued on the seller's behalf on request.`, 50, 495, 8);
+  s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST, and we can issue a tax invoice for the vehicle on request.`, 50, 495, 8);
 
   return { bytes: await doc.save(), filename: `Tyrebiter-${inv.ref}.pdf` };
 }
@@ -139,7 +139,7 @@ export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Ui
     [unreg ? "Previous registration" : "Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || ""})` : unreg ? "None" : ""],
     ["Registration status", unreg || t?.buyer_choice === "unregistered" ? "Sold unregistered, without plates" : `Registered${lot.rego_expiry ? `, expires ${day(String(lot.rego_expiry))}` : ""}. To be transferred to the buyer.`],
     [lot.hours != null ? "Hours (as indicated)" : "Odometer (as indicated)", lot.hours != null ? `${Number(lot.hours).toLocaleString("en-AU")} hours` : lot.odometer != null ? `${Number(lot.odometer).toLocaleString("en-AU")} km` : "Not recorded"],
-    ["Sale price", aud(Number(inv.price))], ["Sold by", inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "offer" ? "Accepted offer" : "Online auction"], ["Located at", `${lot.suburb || ""}, ${lot.state || ""}`],
+    ["Sale price", aud(Number(inv.price))], ["Sold by", inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "offer" ? "Accepted offer" : "Online auction"], ["Collected from", `Our depot in ${lot.suburb || ""}, ${lot.state || ""}`],
   ];
   for (const [k, v] of rows) s.row(k, safe(v));
   s.line(10); s.rule();

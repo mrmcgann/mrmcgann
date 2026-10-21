@@ -272,7 +272,8 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
         <ol className="sf-next">
           <li><b>We call you within 1 business day</b> with a price guide{done.reserve ? " and to talk through your reserve" : " and to confirm you're happy with no reserve"}.</li>
           <li><b>You verify your ID.</b> We text you a link: about 2 minutes in your browser, plus a photo of the rego papers and the account we pay you into.</li>
-          <li><b>We photograph it at your place</b>, then it goes live for 7 days to buyers across Australia.</li>
+          <li><b>We photograph it at your place</b> and you send us a short walkaround video, then it goes live for 7 days to buyers across Australia.</li>
+          <li><b>Buyers never visit</b> or get your details. Once the buyer has paid, our transport partner picks it up from you.</li>
         </ol>
         <div className="pill-row"><Link className="btn btn-dark" href="/auctions">Browse auctions</Link><Link className="btn" style={{ background: "#FFFFFF" }} href="/seller-agreement">Read the agreement again</Link></div>
       </div>

@@ -12,6 +12,9 @@ import { rulesFor } from "@/lib/transfer";
 import { AdminAction } from "@/components/AdminAction";
 import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified } from "@/lib/listing";
 import { ZONES } from "@/lib/damage";
+import { cleanPhoto } from "@/lib/photoPrep";
+import { money } from "@/lib/format";
+import type { Depot } from "@/lib/types";
 
 export interface SellerInfo {
   inviteUrl: string | null;
@@ -42,13 +45,15 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const db = supabaseBrowser();
   const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => { db.from("consultants").select("id, name").eq("active", true).order("sort").then(({ data }: { data: { id: string; name: string }[] | null }) => setConsultants(data || [])); }, [db]);
+  const [depots, setDepots] = useState<Depot[]>([]);
+  useEffect(() => { db.from("depots").select("id, name, suburb, state, postcode, hours, active").order("state").order("suburb").then(({ data }: { data: Depot[] | null }) => setDepots(data || [])); }, [db]);
   const [sales, setSales] = useState<{ id: number; title: string; mode: string }[]>([]);
   useEffect(() => { db.from("sales").select("id, title, mode").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string; mode: string }[] | null }) => setSales(data || [])); }, [db]);
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
   });
-  const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", ...(priv || {}) });
+  const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", pickup_notes: "", ...(priv || {}) });
   const [photos, setPhotos] = useState<Row[]>(initialPhotos);
   const [flaws, setFlaws] = useState<Row[]>(initialFlaws);
   const [vids, setVids] = useState<Row[]>(videos);
@@ -82,14 +87,16 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     const keys = ["status", "title", "short_title", "subtitle", "category", "vehicle_type", "backdrop", "featured", "year", "make", "model", "variant", "body", "engine", "transmission", "fuel", "odometer", "colour", "seats", "keys", "suburb", "state", "postcode", "take", "owner_note", "service_history", "known_faults", "roadworthy_note", "ppsr_clear", "ppsr_note", "visual_grade", "grade_paint", "grade_interior", "grade_tyres", "tyre_tread", "buy_now_price", "start_price", "starts_at", "ends_at",
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
-      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "in_person_viewing", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order"];
+      "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order",
+      "depot_id", "transport_fee", "statutory_warranty"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     out.method = f.method === "tender" ? "tender" : "auction";
     out.sale_order = f.sale_order === "" || f.sale_order == null ? null : Number(f.sale_order);
     // in a live auction the closing time belongs to the auctioneer (and the estimate to the clock): never write it from here
     if (f.live_state) delete out.ends_at;
     for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
-    for (const k of ["stolen_clear", "service_books", "lams"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
+    for (const k of ["stolen_clear", "service_books", "lams", "statutory_warranty"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
+    out.transport_fee = f.transport_fee === "" || f.transport_fee == null ? null : Math.round(Number(String(f.transport_fee).replace(/[^0-9.]/g, "")) * 100) / 100;
     out.write_off_status = f.write_off_status || "unknown";
     out.seller_type = f.seller_type || "private";
     out.verified = Array.isArray(f.verified) ? f.verified : [];
@@ -97,7 +104,6 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     if (out.rego_plate) out.rego_plate = String(out.rego_plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     out.ppsr_clear = f.ppsr_clear === "" || f.ppsr_clear == null ? null : f.ppsr_clear === true || f.ppsr_clear === "true";
     out.featured = f.featured === true || f.featured === "true";
-    out.in_person_viewing = f.in_person_viewing === true || f.in_person_viewing === "true";
     out.updated_at = new Date().toISOString();
     return out;
   }
@@ -123,7 +129,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     }
     const checkedNow = JSON.stringify(normalize(f).verified) !== JSON.stringify(base.verified);
     const me = checkedNow ? (await db.auth.getSession()).data.session?.user.id || null : null;
-    const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null };
+    const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null, pickup_notes: p.pickup_notes || null };
     const { error: pe } = await db.from("lot_private").upsert(privBody);
     setBusy(false);
     if (pe) { setMsg({ kind: "bad", text: pe.message.includes("reserve_locked:") ? `Not saved: ${pe.message.split("reserve_locked:")[1]}.` : pe.message }); return null; }
@@ -137,10 +143,16 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   }
 
   async function publish() {
-    const missing = [["title", "Title"], ["suburb", "Suburb"], ["state", "State"], ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
+    const missing = [["title", "Title"], ...(f.depot_id ? [] : [["suburb", "Suburb"], ["state", "State"]]), ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
       ...(f.registration === "registered" ? [["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry"]] : [])].filter(([k]) => !f[k]).map(([, l]) => l);
     if (!f.runs) missing.push("Starts and drives");
     if (!f.write_off_status || f.write_off_status === "unknown") missing.push("Write-off status");
+    if (seller?.requireChecks !== false) {
+      if (!f.depot_id) missing.push("Collection depot");
+      if (f.transport_fee === "" || f.transport_fee == null) missing.push("Transport amount");
+      if (f.statutory_warranty === "" || f.statutory_warranty == null) missing.push("Statutory warranty");
+      if (!String(p.seller_address || "").trim()) missing.push("Pickup address (Seller, private)");
+    }
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
     const todo = LISTING_CHECKS.filter(([k]) => !verified.includes(k)).map(([, label]) => label);
     if (todo.length) { setMsg({ kind: "bad", text: `Before publishing, check the listing against the vehicle: ${todo.join("; ")}.` }); return; }
@@ -162,8 +174,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     let sort = photos.length;
     const added: Row[] = [];
     for (const file of Array.from(files).slice(0, room)) {
-      const path = `${id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      const { error } = await db.storage.from("lot-photos").upload(path, file, { contentType: file.type });
+      // redrawn first: the place the photo was taken (a phone records it) never reaches the listing
+      let clean: Blob;
+      try { clean = await cleanPhoto(file); } catch (e) { setMsg({ kind: "bad", text: e instanceof Error ? e.message : "Couldn't prepare that photo." }); continue; }
+      const path = `${id}/${crypto.randomUUID()}.jpg`;
+      const { error } = await db.storage.from("lot-photos").upload(path, clean, { contentType: "image/jpeg" });
       if (error) { setMsg({ kind: "bad", text: `Upload failed: ${error.message}` }); continue; }
       const { data, error: ie } = await db.from("lot_photos").insert({ lot_id: id, path, angle: ANGLES[Math.min(sort, 3)], sort }).select("*").single();
       if (ie) { await db.storage.from("lot-photos").remove([path]); setMsg({ kind: "bad", text: ie.message.includes("media_limit") ? "A listing can have 10 photos and videos in total." : ie.message }); break; }
@@ -262,8 +277,10 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   }
   async function flawPhoto(fid: string, file: File | undefined) {
     if (!file || !id) return;
-    const path = `${id}/flaws/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-    const { error } = await db.storage.from("lot-photos").upload(path, file, { contentType: file.type });
+    let clean: Blob;
+    try { clean = await cleanPhoto(file); } catch (e) { setMsg({ kind: "bad", text: e instanceof Error ? e.message : "Couldn't prepare that photo." }); return; }
+    const path = `${id}/flaws/${crypto.randomUUID()}.jpg`;
+    const { error } = await db.storage.from("lot-photos").upload(path, clean, { contentType: "image/jpeg" });
     if (!error) updateFlaw(fid, { photo_path: path });
   }
   async function deleteFlaw(fid: string) {
@@ -326,7 +343,16 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <div className="grid2">{inp("berths", "Sleeps", { inputMode: "numeric" })}{inp("length_m", "Length (m)", { inputMode: "decimal" })}</div>
         </div>
         <div className="grid3">{inp("colour", "Colour")}{inp("seats", "Seats", { inputMode: "numeric" })}{inp("keys", "Keys", { inputMode: "numeric" })}</div>
-        <div className="grid3">{inp("suburb", "Suburb (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>
+        <div className="field" data-testid="depot-select"><span>Collection depot (shown on the listing)</span>
+          <select className="input" value={String(f.depot_id || "")} onChange={(e) => { const d = depots.find((x) => x.id === e.target.value); setF({ ...f, depot_id: d?.id || null, ...(d ? { suburb: d.suburb, state: d.state, postcode: d.postcode } : {}) }); }}>
+            <option value="">Choose the depot…</option>
+            {depots.filter((d) => d.active !== false || d.id === f.depot_id).map((d) => <option key={d.id} value={d.id}>{d.name} · {d.suburb}, {d.state}{d.active === false ? " (inactive)" : ""}</option>)}
+          </select>
+          <span className="hint">Where our transport partner takes it after it&apos;s paid for, and where the buyer collects. The listing shows the depot&apos;s suburb, never the seller&apos;s. Add depots in <a className="blue" href="/admin/depots">Depots</a>.</span>
+        </div>
+        {f.depot_id
+          ? <span className="hint" style={{ marginTop: -6 }} data-testid="depot-location">Shown on the listing: {String(f.suburb || "")}, {String(f.state || "")} {String(f.postcode || "")}.</span>
+          : <div className="grid3">{inp("suburb", "Suburb (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>}
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -360,6 +386,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
         <div className="grid3">
           {sel("seller_type", "Seller", [["private", "Private seller"], ["business", "Business seller (fleet, company, GST-registered)"]])}
+          <label className="field"><span>Statutory warranty (required)</span><select className="input" value={f.statutory_warranty == null || f.statutory_warranty === "" ? "" : String(f.statutory_warranty)} onChange={(e) => setF({ ...f, statutory_warranty: e.target.value === "" ? null : e.target.value === "true" })} data-testid="statutory-warranty"><option value="">Choose…</option><option value="false">Doesn&apos;t apply to this sale</option><option value="true">Applies to this sale</option></select><span className="hint">Stated on the listing before bidding opens (Queensland requires it). A vehicle we sell at auction for its private owner generally has none.</span></label>
           {isElectrified(String(f.fuel || "")) && inp("ev_battery_soh", "Battery health (% state of health)", { inputMode: "numeric", placeholder: "e.g. 94" })}
           {isElectrified(String(f.fuel || "")) && inp("ev_battery_report", "Battery certificate link", { placeholder: "https://…" })}
         </div>
@@ -410,9 +437,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <>
             <span className="muted" data-testid="media-count">{mediaUsed} of {MEDIA_MAX} used: up to 10 photos and videos, one of them a video. The first photo is the cover; the video shows second.</span>
             <div className="grid2">
-              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">Studio shots on their colour backdrop.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
+              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">Studio shots on their colour backdrop. The location the phone recorded is removed. Nothing that shows the seller&apos;s house, street or neighbours.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
               {liveVideos.length === 0 ? (
-                <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">One walkaround, MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
+                <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">One walkaround, MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away, without the location the phone recorded.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
               ) : (
                 <div className="soft" style={{ gap: 8 }}>
                   {liveVideos.map((v) => (
@@ -470,6 +497,12 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>Reserve ($, private)</span><input className="input" inputMode="numeric" value={(p.reserve_price as string) ?? ""} onChange={setPriv("reserve_price")} placeholder="Leave empty for no reserve" /></label>
           {inp("buy_now_price", "Buy Now price ($, optional)", { inputMode: "numeric" })}
         </div>
+        <label className="field" style={{ maxWidth: 520 }} data-testid="transport-fee"><span>Transport to the depot ($, before GST)</span>
+          <input className="input" inputMode="decimal" value={(f.transport_fee as string) ?? ""} onChange={set("transport_fee")} placeholder="From the transport quote" disabled={!["draft", "scheduled"].includes(String(f.status))} />
+          <span className="hint">{["draft", "scheduled"].includes(String(f.status))
+            ? "Our transport partner's quote to pick it up from the seller and take it to the depot. It's part of the buyer's premium (GST is added) and in every all-in price. Locked once bidding opens. Enter 0 if the seller is bringing it to the depot."
+            : `Locked into the buyer's premium when bidding opened${f.fees && (f.fees as Row).transport != null ? `: ${money(Number((f.fees as Row).transport))}` : ""}.`}</span>
+        </label>
         <div className="grid2">
           <label className="field"><span>Starts</span><input className="input" type="datetime-local" value={toLocal(f.starts_at)} onChange={(e) => setF({ ...f, starts_at: fromLocal(e.target.value) })} /><span className="hint">Leave empty to start when published.</span></label>
           {f.live_state
@@ -488,10 +521,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
       </div>
 
-      <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="editor-viewing">
-        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Viewings and inspection</h2>
-        <p className="hint">Every listing offers a free video walkaround. In-person viewings are strictly by appointment, and only if the seller agreed. Bookings are in <a className="blue" href="/admin/viewings">Viewings</a>.</p>
-        <label className="checkrow"><input type="checkbox" checked={f.in_person_viewing === true || f.in_person_viewing === "true"} onChange={(e) => setF({ ...f, in_person_viewing: e.target.checked })} data-testid="in-person-toggle" /> Buyers can view it in person, by appointment (the seller agreed)</label>
+      <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="editor-inspection">
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Mechanical inspection</h2>
+        <p className="hint">There are no viewings: buyers never go to the seller&apos;s place. Bidders can order an inspection from our partner mechanic (Admin → Leads); we give the mechanic the address and arrange the time with the seller.</p>
         {p.pre_inspection_requested === true && <div className="notice" data-testid="pre-inspection-wanted">The seller asked for an inspection before listing (the fee comes out of the proceeds when it sells). Book the mechanic, then fill this in and upload the report.</div>}
         <div className="grid3">
           <label className="field"><span>Inspected on</span><input className="input" type="date" value={String(f.inspected_at || "").slice(0, 10)} onChange={(e) => setF({ ...f, inspected_at: e.target.value || null })} /></label>
@@ -503,7 +535,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Seller (private)</h2>
-        <p className="hint">Never shown on the site. The address is sent to a buyer only when you confirm an in-person viewing or a collection.</p>
+        <p className="hint">Never shown to buyers, in any message or paperwork. Only our transport partner gets the pickup address and phone (to collect it once it&apos;s paid for), and our partner mechanic if a bidder orders an inspection. Questions from buyers come to us.</p>
         {id && seller && (
           <div className="soft" style={{ gap: 8 }}>
             <b>Seller onboarding{seller.requireChecks ? " (required before publishing)" : " (checks switched off in settings)"}</b>
@@ -538,7 +570,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>Phone</span><input className="input" value={(p.seller_phone as string) ?? ""} onChange={setPriv("seller_phone")} /></label>
           <label className="field"><span>Email</span><input className="input" value={(p.seller_email as string) ?? ""} onChange={setPriv("seller_email")} /></label>
         </div>
-        <label className="field"><span>Address</span><input className="input" value={(p.seller_address as string) ?? ""} onChange={setPriv("seller_address")} /></label>
+        <label className="field"><span>Pickup address (where our transport partner collects it)</span><input className="input" value={(p.seller_address as string) ?? ""} onChange={setPriv("seller_address")} data-testid="pickup-address" /></label>
+        <label className="field"><span>Pickup notes (for the driver)</span><input className="input" value={(p.pickup_notes as string) ?? ""} onChange={setPriv("pickup_notes")} placeholder="Gate code, where it's parked, best time to call" /></label>
         <label className="field"><span>Notes</span><textarea className="input" value={(p.seller_notes as string) ?? ""} onChange={setPriv("seller_notes")} /></label>
       </div>
       <div className="pill-row"><button className="btn btn-dark" disabled={busy} onClick={() => save()}>Save</button>{f.status === "draft" && id && <button className="btn btn-blue" disabled={busy} onClick={publish}>Publish</button>}</div>
