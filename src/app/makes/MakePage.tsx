@@ -51,7 +51,7 @@ export function makeDescription(make: string, model: string | null, d: Awaited<R
   const name = model ? `${make} ${model}` : make;
   const live = d.live.length ? `${d.live.length}${d.live.length > 48 ? "+" : ""} up for online auction now` : "None up for auction right now";
   const range = d.est.count >= 3 && d.est.low && d.est.high ? ` The middle half of recent sales: ${money(d.est.low)} to ${money(d.est.high)} (hammer prices).` : "";
-  return `${name} for sale across Australia. ${live}.${range} Checked against the vehicle, PPSR searched, all-in prices shown.`;
+  return `${name} for sale across Australia. ${live}.${range} An estimate on every listing, PPSR searched, all-in prices shown.`;
 }
 
 export function MakePage({ make, model, data }: { make: string; model: string | null; data: Awaited<ReturnType<typeof makeData>> }) {
@@ -70,7 +70,7 @@ export function MakePage({ make, model, data }: { make: string; model: string | 
         <h1 className="d2" data-testid="make-title">{makeTitle(make, model)}.</h1>
         <p className="lede" style={{ margin: 0 }}>
           {live.length ? `${live.length}${live.length > 48 ? "+" : ""} ${name} up for online auction across Australia right now.` : `No ${name} is up for auction right now. Save a search and we'll tell you as soon as one is listed.`}
-          {" "}Every vehicle is checked against its listing before it goes live, PPSR searched for finance and write-offs, and shown with its all-in price.
+          {" "}Each one has an auction estimate, the seller&apos;s photos and video checked by us against the papers and records, a PPSR search for finance and write-offs, and its all-in price.
         </p>
         {est.count >= 3 && est.low && est.mid && est.high && (
           <div className="notice" data-testid="make-range">Recent {name} sales on Tyrebiter: the middle half sold for between <b>{money(est.low)}</b> and <b>{money(est.high)}</b> (median {money(est.mid)}), from {est.count} sales in the last 18 months. Hammer prices, before the buyer&apos;s premium and fees; every vehicle is different.</div>
@@ -100,7 +100,7 @@ export function MakePage({ make, model, data }: { make: string; model: string | 
       )}
       <section style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 820 }}>
         <h2 className="d3" style={{ fontSize: 30 }}>Selling a {name}?</h2>
-        <p className="muted" style={{ margin: 0 }}>We photograph it at your place, check it against the listing, and auction it to verified buyers Australia-wide. <Link className="blue" href="/sell" style={{ fontWeight: 700 }}>Get a free appraisal ›</Link></p>
+        <p className="muted" style={{ margin: 0 }}>Send us your photos and a short video; we check them, write the listing and auction it live to verified buyers Australia-wide. <Link className="blue" href="/sell" style={{ fontWeight: 700 }}>Get a free appraisal ›</Link></p>
       </section>
     </div>
   );

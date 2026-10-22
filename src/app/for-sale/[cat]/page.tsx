@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ cat: stri
   const d = await forSaleData(cat, null);
   return {
     title: forSaleTitle(cat, null),
-    description: `${CAT[cat].label} for sale by online auction across Australia. Checked against the vehicle, PPSR searched, all-in prices shown.`,
+    description: `${CAT[cat].label} for sale by live online auction across Australia. An estimate on every listing, PPSR searched, all-in prices shown.`,
     alternates: { canonical: `/for-sale/${cat}` },
     robots: d.live.length || d.sold.length ? undefined : { index: false },
   };

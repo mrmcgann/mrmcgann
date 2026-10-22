@@ -25,6 +25,7 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
   const [call, setCall] = useState("");
   const [floor, setFloor] = useState({ bidder: "", amount: "" });
+  const [newReserve, setNewReserve] = useState("");
   const [autoNext, setAutoNext] = useState(true);
   const [, setTick] = useState(0);
 
@@ -102,7 +103,7 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
                 <div className="hint">{cur.reserve_price ? (reserveMet ? "Met: it's on the market" : `Needs ${money(Number(cur.reserve_price) - Number(cur.current_bid))} more`) : "Sells to the highest bid"}</div></div>
             </div>
             {open && <div className="lv-clock"><div className="lv-bar"><i style={{ width: `${Math.min(100, (left / Math.max(sale.lot_seconds || 60, sale.extend_seconds || 20)) * 100)}%` }} className={left <= 5 ? "hot" : ""} /></div><span className={`lv-secs${left <= 5 ? " hot" : ""}`} data-testid="console-seconds">{paused ? "Paused" : `${left}s`}</span></div>}
-            {!open && <span className="lv-line">{cur.status === "sold" ? `Sold for ${money(cur.sold_price)}.` : cur.status === "referred" ? "Below reserve: referred to the seller." : cur.status === "offers" || cur.status === "passed" ? "Passed in." : "Closed."}</span>}
+            {!open && <span className="lv-line">{cur.status === "sold" ? `Sold for ${money(cur.sold_price)}.` : cur.status === "referred" ? "Below reserve: referred to the seller." : cur.status === "offers" || cur.status === "passed" ? `Passed in${cur.bid_count ? ` at ${money(cur.current_bid)}` : ""}.` : "Closed."}</span>}
             <div className="pill-row">
               {open && !paused && <button className="btn btn-dark" disabled={busy} onClick={() => run("close", {}, (r) => (r === "sold" ? "Sold." : r === "referred" ? "Referred to the seller." : "Passed in."))} data-testid="console-close">Knock it down now</button>}
               {open && !paused && <button className="btn btn-soft" disabled={busy} onClick={() => run("time", { seconds: 30 })}>+30 seconds</button>}
@@ -111,6 +112,14 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
               {!open && sale.live_status !== "ended" && sale.live_status !== "scheduled" && <button className="btn btn-blue" disabled={busy} onClick={() => run("next", {}, (r) => (r ? "Next vehicle is up." : "That was the last vehicle: the sale has ended."))} data-testid="console-next">Next vehicle</button>}
             </div>
             <label className="checkrow"><input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /> Offer the next vehicle 3 seconds after each one closes</label>
+            {open && cur.reserve_price ? (
+              <form className="pill-row" onSubmit={(e) => { e.preventDefault(); const n = Math.round(Number(newReserve.replace(/[^0-9]/g, ""))); if (!(n > 0)) return; if (!confirm(`The seller has told you to lower the reserve to ${money(n)}?`)) return; void run("reserve", { reserve: n }, (r) => { const x = r as { reserve_met: boolean }; return x.reserve_met ? `Reserve lowered to ${money(n)}: it's on the market.` : `Reserve lowered to ${money(n)}.`; }).then((ok) => ok && setNewReserve("")); }} data-testid="console-reserve">
+                <input className="input" inputMode="numeric" value={newReserve} onChange={(e) => setNewReserve(e.target.value)} placeholder="Seller's new reserve" aria-label="Seller's new reserve" style={{ width: 180 }} />
+                <button className="btn btn-soft" style={{ height: 48 }} disabled={busy}>Lower reserve</button>
+                <button type="button" className="btn btn-soft" style={{ height: 48 }} disabled={busy} onClick={() => { if (confirm("The seller has told you to sell to the highest bid (remove the reserve)?")) void run("reserve", { reserve: null }, () => "Reserve removed: it sells to the highest bid."); }}>Remove reserve</button>
+                <span className="hint" style={{ margin: 0, flexBasis: "100%" }}>Only on the seller&apos;s instruction (by phone). It&apos;s recorded against your name as their instruction. A reserve can&apos;t be raised.</span>
+              </form>
+            ) : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <b>Calls (everyone sees them)</b>
@@ -155,8 +164,8 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
 
       {sale.live_status !== "ended" && sale.live_status !== "scheduled" && (
         <div className="admin-card" style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="muted" style={{ flex: 1, minWidth: 240 }}>Finishing early? Anything not yet offered closes on the bids it already has (sold if it meets the reserve, otherwise referred to the seller).</span>
-          <button className="btn btn-soft" disabled={busy} onClick={() => { if (confirm("End the sale now? Vehicles not yet offered close on their current bids.")) void run("end", {}, (n) => `Sale ended. ${n} vehicle${n === 1 ? "" : "s"} closed on early bids.`); }} data-testid="console-end">End the sale</button>
+          <span className="muted" style={{ flex: 1, minWidth: 240 }}>Finishing early? The vehicle that&apos;s up closes on its bids. Anything not yet offered is passed in (nothing is sold without the hammer), and its early bidders are told.</span>
+          <button className="btn btn-soft" disabled={busy} onClick={() => { if (confirm("End the sale now? Vehicles not yet offered are passed in.")) void run("end", {}, (n) => `Sale ended. ${n} vehicle${n === 1 ? "" : "s"} not offered ${n === 1 ? "was" : "were"} passed in.`); }} data-testid="console-end">End the sale</button>
         </div>
       )}
       {sale.live_status === "ended" && <div className="notice ok">This sale has ended. <a className="blue" href={`/api/admin/sale-report/${saleId}`}>Download the results (CSV)</a></div>}

@@ -24,8 +24,9 @@ import { ConsultantCard, FinanceBox, MechanicalInspection } from "~/ui/Partners"
 import { LotCard } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
-import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine } from "@/lib/listing";
-import { CHECK_IT, NO_VIEWINGS, depotPlace } from "@/lib/transport";
+import { LISTING_CHECKS, PHOTO_CHECK, REMOTE_REPORT, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine, warrantySign } from "@/lib/listing";
+import { CHECK_IT, NO_VIEWINGS, depotPlace, premiumLabel } from "@/lib/transport";
+import { certLine } from "@/lib/transfer";
 import { lotFees } from "@/lib/fees";
 
 const LETTER = "ABCDE";
@@ -121,11 +122,11 @@ export default function LotScreen() {
   const known: [string, string, boolean][] = [
     ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
     ["Seller identity", "ID and proof of ownership verified", true],
-    ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
-    ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
-    ...(lot.odometer != null ? [["Odometer", "Reading photographed on the dash. True distance can't be verified", false] as [string, string, boolean]] : lot.hours != null ? [["Hours", "Reading photographed on the meter. True hours can't be verified", false] as [string, string, boolean]] : []),
+    ...(checked.length ? [["Checked by us, from the seller's photos, video and records", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
+    ["Photos and video", PHOTO_CHECK, false],
+    ...(lot.odometer != null ? [["Odometer", "From the seller's photo of the dash. True distance can't be verified", false] as [string, string, boolean]] : lot.hours != null ? [["Hours", "From the seller's photo of the meter. True hours can't be verified", false] as [string, string, boolean]] : []),
     ["Service history", lot.service_history || "As declared by the seller", false],
-    ["Roadworthy / safety certificate", lot.roadworthy_note || "Not supplied unless stated. See your state's rules", false],
+    ["Roadworthy / safety certificate", certLine(lot), !!lot.roadworthy_issued_on],
   ];
   const cats: [string, string | null, string][] = [["Paint & body", lot.grade_paint, C.tangerine], ["Interior", lot.grade_interior, C.sky], ["Tyres", lot.grade_tyres, C.berry]];
   const show = (rows: [string, unknown][]) => rows.filter(([, v]) => v !== null && v !== undefined && v !== "");
@@ -153,6 +154,13 @@ export default function LotScreen() {
           {lot.method === "tender" && lot.status === "live"
             ? <TenderPanel lot={lot} fees={fees} mine={mine} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />
             : <BidPanel lot={lot} fees={fees} mine={mine} history={history} sale={sale} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />}
+          {["live", "scheduled"].includes(lot.status) ? (
+            <Soft testID="auction-notice" style={{ gap: 4, marginTop: 12 }}>
+              {warrantySign(lot.statutory_warranty) ? <T v="strong" testID="warranty-sign">{warrantySign(lot.statutory_warranty)}</T> : null}
+              <T v="small">{premiumLabel(lotFees(fees, lot))}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</T>
+              <T v="small">Sold in a live auction, under the hammer, by Tyrebiter as agent for the owner. Only registered, verified bidders can bid.</T>
+            </Soft>
+          ) : null}
           {["live", "scheduled", "offers", "referred"].includes(lot.status) ? <FinanceBox lotId={lot.id} finance={finance} insurers={!!b.insurers} buyNow={!!lot.buy_now_price} warranty={!!b.warranty} /> : null}
           {consultant ? <ConsultantCard consultant={consultant} lotId={lot.id} title={lot.title} /> : null}
         </View>
@@ -171,12 +179,12 @@ export default function LotScreen() {
             {show(facts).map(([k, v]) => <View key={k} style={s.fact}><T v="small">{k}</T><T v="strong" selectable>{String(v)}</T></View>)}
           </View>
           {lot.runs ? <T v="small">{RUNS_HINT[lot.runs]}</T> : null}
-          <T v="small">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours readings are photographed on the vehicle; whether they show the true distance can’t be verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
+          <T v="small">VIN, registration and PPSR are checked by Tyrebiter against the official records before listing. Odometer and hours readings are from the seller's photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
         </View>
 
         <View style={s.pad}>
           <T v="d3">Condition report.</T>
-          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>Prepared from our walkaround and visual inspection where the vehicle is kept, and the seller's written declarations. It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
+          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>{REMOTE_REPORT} It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
           {lot.inspected_at ? (
             <Soft bg="#E9F8EE" style={{ gap: 6 }} testID="inspected-box">
               <T v="strong" style={{ fontSize: 17 }}>Inspected by a mechanic{lot.inspected_by ? ` (${lot.inspected_by})` : ""} on {new Date(lot.inspected_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}.</T>
@@ -229,7 +237,7 @@ export default function LotScreen() {
               <View style={{ flex: 1 }}><T v="strong">{k}</T><T v="small">{v}</T></View>
             </View>
           ))}
-          <T v="small">Green: verified by Tyrebiter. Yellow: declared by the seller. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
+          <T v="small">Green: checked by Tyrebiter. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We're never at the vehicle. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
         </View>
 
         {show(declared).length ? (

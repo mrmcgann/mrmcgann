@@ -19,7 +19,10 @@ import { lotCrumbs } from "@/lib/seo";
 import { priceBreakdown, lotFees } from "@/lib/fees";
 import { env } from "@/lib/env";
 import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine } from "@/lib/listing";
-import { CHECK_IT, NO_VIEWINGS, depotPlace } from "@/lib/transport";
+import { CHECK_IT, NO_VIEWINGS, depotPlace, premiumLabel } from "@/lib/transport";
+import { certLine } from "@/lib/transfer";
+import { hasEstimate } from "@/lib/estimate";
+import { REMOTE_REPORT, PHOTO_CHECK, warrantySign } from "@/lib/listing";
 
 const LETTER = "ABCDE";
 const yes = (v: unknown) => (v === true || v === "yes" ? "Yes" : v === false || v === "no" ? "No" : v ? String(v) : null);
@@ -76,7 +79,8 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   ];
   const questionsOpen = ["live", "scheduled", "referred", "offers"].includes(lot.status);
   const vehicle = `${lot.title} (lot ${lot.id})`;
-  const price = lot.buy_now_price || Math.max(lot.current_bid || 0, lot.start_price || 0);
+  const atEstimate = !lot.buy_now_price && hasEstimate(lot) && !lot.bid_count;
+  const price = lot.buy_now_price || (atEstimate ? Number(lot.estimate_low) : Math.max(lot.current_bid || 0, lot.start_price || 0));
   const allIn = price ? priceBreakdown(price, lotFees(fees, lot)).total : 0;
   const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, finance) : null;
   const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
@@ -133,14 +137,14 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               </div>
               {lot.runs && <p className="hint" style={{ margin: 0 }}>{RUNS_HINT[lot.runs]}</p>}
               {isElectrified(lot.fuel) && lot.ev_battery_soh != null && lot.ev_battery_report && <p className="hint" style={{ margin: 0 }}>Battery health from an independent test. <a className="blue" href={lot.ev_battery_report} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Battery certificate ›</a></p>}
-              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter before listing. Odometer and hours readings are photographed on the vehicle; whether they show the true distance can’t be verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
+              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter against the official records before listing. Odometer and hours readings are from the seller&apos;s photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
             </div>
 
             <div className="lotsec" style={{ gap: 28 }}>
               <h2 className="d3">Condition report.</h2>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 20px", borderRadius: 20, background: "var(--panel)" }}>
                 <span style={{ width: 28, height: 28, borderRadius: 14, background: "var(--sun)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>i</span>
-                <span style={{ fontSize: 15, lineHeight: 1.55 }}><b>A guide only.</b> Prepared from our walkaround and visual inspection where the vehicle is kept, and the seller&apos;s written declarations. It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
+                <span style={{ fontSize: 15, lineHeight: 1.55 }} data-testid="report-basis"><b>A guide only.</b> {REMOTE_REPORT} It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
               </div>
               {lot.inspected_at && (
                 <div className="inspected-box" id="inspected" data-testid="inspected-box">
@@ -195,15 +199,15 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                   ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
                   ["Seller identity", "ID and proof of ownership verified", true],
                   ...(lot.inspected_at ? [["Mechanical inspection", `By ${lot.inspected_by || "a mechanic"} on ${shortDate(lot.inspected_at)}, before listing`, true] as [string, string, boolean]] : []),
-                  ...(checked.length ? [["Checked against the vehicle", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
-                  photos.some((ph) => ph.credit) ? ["Photographs", "Includes supplied photos (credited on each photo)", false] : ["Photographs", "Taken by Tyrebiter at the vehicle's location", true],
-                  lot.odometer != null ? ["Odometer", "Reading photographed on the dash. True distance can't be verified", false] : lot.hours != null ? ["Hours", "Reading photographed on the meter. True hours can't be verified", false] : null,
+                  ...(checked.length ? [["Checked by us, from the seller's photos, video and records", `${checked.map(([, , label]) => label).join(" · ")}${lot.verified_at ? `. ${new Date(lot.verified_at).toLocaleDateString("en-AU")}` : ""}`, true] as [string, string, boolean]] : []),
+                  ["Photos and video", photos.some((ph) => ph.credit) ? `${PHOTO_CHECK} Some are credited supplied photos.` : PHOTO_CHECK, false],
+                  lot.odometer != null ? ["Odometer", "From the seller's photo of the dash. True distance can't be verified", false] : lot.hours != null ? ["Hours", "From the seller's photo of the meter. True hours can't be verified", false] : null,
                   ["Service history", lot.service_history || "As declared by the seller", false],
-                  ["Roadworthy / safety certificate", lot.roadworthy_note || "Not supplied unless stated. See your state's rules", false],
+                  ["Roadworthy / safety certificate", certLine(lot), !!lot.roadworthy_issued_on],
                 ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (
                   <div className="check" key={k}><span className="tick" style={{ background: ours ? "var(--mint)" : "var(--sun)" }}>{ours ? <Tick /> : <b style={{ fontSize: 14 }}>i</b>}</span><span style={{ display: "flex", flexDirection: "column" }}><b>{k}</b><span className="muted" style={{ fontSize: 14 }}>{v}</span></span></div>
                 ))}
-                <p className="hint" style={{ marginTop: 12 }}>Green: verified by Tyrebiter. Yellow: declared by the seller. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
+                <p className="hint" style={{ marginTop: 12 }}>Green: checked by Tyrebiter. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We&apos;re never at the vehicle. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
               </div>
             </div>
 
@@ -263,6 +267,13 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
 
           <aside className="bidcard" id="bid">
             <LotInteractive lot={lot} fees={fees} history={history} phone={env.phone} sale={sale} />
+            {["live", "scheduled"].includes(lot.status) && (
+              <div className="noticebar" data-testid="auction-notice">
+                {warrantySign(lot.statutory_warranty) && <b style={{ fontSize: 16 }} data-testid="warranty-sign">{warrantySign(lot.statutory_warranty)}</b>}
+                <span>{premiumLabel(fl)}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</span>
+                <span>Sold in a live auction, under the hammer, by Tyrebiter as agent for the owner. Only registered, verified bidders can bid. <Link className="blue" href="/terms#t-live" style={{ fontWeight: 700 }}>Auction rules ›</Link></span>
+              </div>
+            )}
             {["live", "scheduled", "offers", "referred"].includes(lot.status) && (
               <div className="soft finbox">
                 <b style={{ fontSize: 17 }}>Finance &amp; insurance.</b>
@@ -272,7 +283,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                       <div className="fig"><span>Est. repayments</span><b>{money(Math.round(est.weekly))}/wk*</b></div>
                       <div className="fig"><span>Comparison rate from</span><b>{est.comparison}% p.a.*</b></div>
                     </div>
-                    <span className="hint">*Estimate only, not an offer of credit. {money(est.amount)} (the all-in price at the {lot.buy_now_price ? "Buy Now price" : "current bid"}) over {Math.round(est.months / 12)} years at {est.rate}% p.a., the lowest advertised rate from the lenders we compare. Comparison rate based on {est.basis}. {COMPARISON_WARNING}</span>
+                    <span className="hint">*Estimate only, not an offer of credit. {money(est.amount)} (the all-in price at the {lot.buy_now_price ? "Buy Now price" : atEstimate ? "low end of the estimate" : "current bid"}) over {Math.round(est.months / 12)} years at {est.rate}% p.a., the lowest advertised rate from the lenders we compare. Comparison rate based on {est.basis}. {COMPARISON_WARNING}</span>
                   </>
                 ) : <span className="muted" style={{ fontSize: 15 }}>Work out repayments and compare lenders before you bid.</span>}
                 <Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/finance?lot=${lot.id}`}>Compare car loans</Link>

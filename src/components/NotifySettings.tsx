@@ -2,8 +2,10 @@
 import { useState } from "react";
 
 const ROWS: [string, string][] = [["outbid", "You've been outbid"], ["ending", "Watched vehicle ending in 1 hour"], ["won", "You've won, or payment is due"], ["searches", "New match for a saved search"], ["price_drop", "Price drop on a watched Buy Now vehicle"], ["marketing", "News and featured vehicles"]];
+// With every vehicle in a live auction, "ending" is the hour-before reminder and there are no Buy Now prices to drop.
+const LIVE_ROWS: [string, string][] = ROWS.filter(([k]) => k !== "price_drop").map(([k, l]) => [k, k === "ending" ? "Watched vehicle due in the live auction within the hour" : l]);
 
-export function NotifySettings({ initial, token }: { initial: Record<string, { sms: boolean; email: boolean }>; token?: string }) {
+export function NotifySettings({ initial, token, liveOnly }: { initial: Record<string, { sms: boolean; email: boolean }>; token?: string; liveOnly?: boolean }) {
   const [n, setN] = useState(initial);
   const [saved, setSaved] = useState(false);
   async function flip(k: string, ch: "sms" | "email") {
@@ -15,7 +17,7 @@ export function NotifySettings({ initial, token }: { initial: Record<string, { s
   return (
     <div id="notifications">
       <h2 className="d3" style={{ fontSize: 36, marginBottom: 8 }}>Notifications.</h2>
-      {ROWS.map(([k, label]) => (
+      {(liveOnly ? LIVE_ROWS : ROWS).map(([k, label]) => (
         <div className="check" key={k} style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
           <b>{label}</b>
           <span style={{ display: "flex", gap: 18 }}>

@@ -2,6 +2,7 @@
 import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor, modelsFor } from "@/lib/vehicles";
 import { ENDINGS, HOW_SOLD, WRITE_OFFS, type Facets, type SearchFilters } from "@/lib/search";
 import { GRADES } from "@/lib/grades";
+import { useLiveOnly } from "@/components/SiteSettings";
 
 const YEARS = Array.from({ length: 45 }, (_, i) => new Date().getFullYear() + 1 - i);
 const PRICES = [1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 75000, 100000, 150000, 250000];
@@ -14,6 +15,8 @@ const $ = (v: number) => "$" + v.toLocaleString("en-AU");
 
 /** Every filter, Trade Me Motors-style, with live counts beside the options. */
 export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets: Facets | null; set: (patch: SearchFilters) => void }) {
+  // every vehicle in a live auction: nothing to choose about how it's sold, no Buy Now, and "ending" is when it's offered
+  const liveOnly = useLiveOnly();
   const cat = f.cat && f.cat !== "cheap" ? CAT[f.cat] : null;
   const extras = cat ? cat.extras : [];
   const usage = cat ? cat.usage : "km";
@@ -83,11 +86,11 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
       <div className="fgrp"><b>Condition</b>{chips("runs", [["drives", "Starts and drives"]])}<label className="checkrow"><input type="checkbox" checked={f.inspected === "1"} onChange={(e) => set({ inspected: e.target.checked ? "1" : "" })} />Inspected by a mechanic</label></div>
       <div className="fgrp"><b>Write-off history</b>{chips("wo", WRITE_OFFS)}</div>
       <div className="fgrp"><b>Visual grade</b>{sel("grade", "Minimum visual grade", GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`]), "Any grade")}</div>
-      <div className="fgrp"><b>How it&apos;s sold</b>{chips("how", HOW_SOLD)}</div>
+      {!liveOnly && <div className="fgrp"><b>How it&apos;s sold</b>{chips("how", HOW_SOLD)}</div>}
       <div className="fgrp"><b>Auction</b>
         <label className="checkrow"><input type="checkbox" checked={f.nores === "1"} onChange={(e) => set({ nores: e.target.checked ? "1" : "" })} />No reserve, or reserve met</label>
-        <label className="checkrow"><input type="checkbox" checked={f.buynow === "1"} onChange={(e) => set({ buynow: e.target.checked ? "1" : "" })} />Buy Now available</label>
-        {sel("ending", "Ending", ENDINGS, "Ending any time")}
+        {!liveOnly && <label className="checkrow"><input type="checkbox" checked={f.buynow === "1"} onChange={(e) => set({ buynow: e.target.checked ? "1" : "" })} />Buy Now available</label>}
+        {liveOnly ? sel("ending", "Up for auction", ENDINGS, "Up for auction any time") : sel("ending", "Ending", ENDINGS, "Ending any time")}
       </div>
     </div>
   );

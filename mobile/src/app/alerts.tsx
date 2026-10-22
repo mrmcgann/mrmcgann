@@ -17,10 +17,14 @@ const KINDS: [string, string, string][] = [
   ["marketing", "News and offers", "Occasional. Off unless you turn it on."],
 ];
 const pushDefault = (k: string) => k !== "marketing";
+// With every vehicle in a live auction, "ending" is the hour-before reminder and there are no Buy Now prices to drop.
+const LIVE_KINDS: [string, string, string][] = KINDS.filter(([k]) => k !== "price_drop")
+  .map(([k, label, sub]) => (k === "ending" ? [k, "Coming up", "A watched vehicle is due in the live auction within the hour."] : [k, label, sub]));
 
 /** Which alerts go by push, SMS and email (push is the app's; SMS and email match the website). */
 export default function Alerts() {
-  const { me, refresh } = useSession();
+  const { me, refresh, config } = useSession();
+  const shown = config?.liveOnly ? LIVE_KINDS : KINDS;
   const [prefs, setPrefs] = useState<Prefs>({});
   const [perm, setPerm] = useState<PushState>("undetermined");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -58,7 +62,7 @@ export default function Alerts() {
         <View style={{ flex: 1 }} />
         {(["push", "sms", "email"] as Ch[]).map((c) => <Text key={c} style={s.col}>{c === "sms" ? "SMS" : c === "push" ? "Push" : "Email"}</Text>)}
       </View>
-      {KINDS.map(([k, label, sub]) => (
+      {shown.map(([k, label, sub]) => (
         <View key={k} style={s.row}>
           <View style={{ flex: 1, gap: 2 }}><T v="strong">{label}</T><T v="small">{sub}</T></View>
           {(["push", "sms", "email"] as Ch[]).map((ch) => {

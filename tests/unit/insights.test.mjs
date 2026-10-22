@@ -110,7 +110,7 @@ ok('seo description: the all-in amount is never cut off, even for a long name', 
 ok('seo description: sold price', lotSeoDescription({ ...lot, status: 'sold', sold_price: 26000 }, null).includes('Sold at auction for $26,000'));
 ok('seo description: no price without bids says "Bids from"', lotSeoDescription({ ...lot, bid_count: 0, current_bid: 0 }, 1500).includes('Bids from $1,000 ($1,500 all-in)'));
 ok('seo description: no price at all rather than a price without its all-in amount', !lotSeoDescription(lot, null).includes('$'));
-ok('claims: only what was recorded on the listing', checkedClaim(lot) === 'Checked against the vehicle and PPSR searched.' && checkedClaim({ verified: ['vin'], ppsr_checked_at: null }) === '' && checkedClaim({ verified: [], ppsr_checked_at: 'x' }) === 'PPSR searched.');
+ok('claims: only what was recorded on the listing', checkedClaim(lot) === 'Listing checked and PPSR searched.' && checkedClaim({ verified: ['vin'], ppsr_checked_at: null }) === '' && checkedClaim({ verified: [], ppsr_checked_at: 'x' }) === 'PPSR searched.');
 ok('seo description: no checking claim when the checks weren\'t recorded', !lotSeoDescription({ ...lot, verified: [], ppsr_checked_at: null }, 27229).includes('Checked'));
 const o = { url: 'https://x.au/lot/10432', images: ['https://x.au/a.jpg'], buyNowAllIn: null, siteUrl: 'https://x.au' };
 const ld = lotJsonLd(lot, o);

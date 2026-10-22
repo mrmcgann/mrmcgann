@@ -8,6 +8,7 @@ import type { VehicleType } from "@/lib/vehicles";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { depositFor, priceBreakdown, lotFees } from "@/lib/fees";
 import { bidIncrement, dateTime, money } from "@/lib/format";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { Modal } from "@/components/Modal";
@@ -15,6 +16,7 @@ import { BidConfirm } from "@/components/BidConfirm";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { RemindSwitch, WatchNote } from "@/components/WatchRowControls";
 import { useViewer } from "@/components/Viewer";
+import { useLiveOnly } from "@/components/SiteSettings";
 
 // The watchlist: every vehicle you're watching or have bid on. Prices, bids and times update live (Realtime
 // Broadcast on lot:<id>, the same as the vehicle page, with a slow edge-cached re-check), the vehicle closing next
@@ -29,6 +31,8 @@ export type WatchItem = {
   my_max: number | null; watched: boolean; remind: boolean; note: string | null; added_at: string | null;
   /** a tender (sealed offers) or an auction; in a live auction, waiting its turn or up now */
   method?: "auction" | "tender"; live_state?: "waiting" | "open" | "closed" | null;
+  /** the auction estimate (whole dollars), shown with its all-in amount */
+  estimate_low?: number | null; estimate_high?: number | null;
 };
 type LiveKeys = "status" | "ends_at" | "current_bid" | "bid_count" | "reserve_met" | "leader_id" | "winner_id" | "sold_price" | "decision_by" | "buy_now_price";
 type Status = { k: "winning" | "outbid" | "watch" | "won" | "lost" | "sold" | "referred" | "offers" | "passed" | "ended"; t: string; tone: string };
@@ -60,6 +64,9 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 export function WatchBoard({ items, fees, userId, initialTab, initialSort }: { items: WatchItem[]; fees: Fees; userId: string; initialTab: string; initialSort: string }) {
   const v = useViewer();
+  const liveOnly = useLiveOnly();
+  // with every vehicle in a live auction, "ending" is when it's offered
+  const word = (l: string) => (liveOnly ? ({ "Ending today": "Up today", "Ending soonest": "Up next" } as Record<string, string>)[l] || l : l);
   const router = useRouter();
   const [list, setList] = useState<WatchItem[]>(items);
   const [tab, setTab] = useState(TABS.some(([k]) => k === initialTab) ? initialTab : "all");
@@ -177,7 +184,7 @@ export function WatchBoard({ items, fees, userId, initialTab, initialSort }: { i
           <p className="muted" style={{ margin: 0, fontSize: 17 }} data-testid="wl-summary">{summary ? `${summary[0].toUpperCase()}${summary.slice(1)}.` : "Nothing yet."}</p>
         </div>
         <label className="wl-sort"><span className="muted">Sort</span>
-          <select className="input" value={sort} onChange={(e) => pickSort(e.target.value)} aria-label="Sort the watchlist">{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          <select className="input" value={sort} onChange={(e) => pickSort(e.target.value)} aria-label="Sort the watchlist">{SORTS.map(([k, l]) => <option key={k} value={k}>{word(l)}</option>)}</select>
         </label>
       </div>
 
@@ -196,7 +203,7 @@ export function WatchBoard({ items, fees, userId, initialTab, initialSort }: { i
       )}
 
       <div className="seg" role="tablist" aria-label="Show" style={{ alignSelf: "flex-start" }}>
-        {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => pickTab(k)} data-testid={`wl-tab-${k}`}>{l} <span className="wl-n">{counts[k]}</span></button>)}
+        {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => pickTab(k)} data-testid={`wl-tab-${k}`}>{word(l)} <span className="wl-n">{counts[k]}</span></button>)}
       </div>
 
       {shown.length === 0 && (
@@ -270,16 +277,23 @@ export function WatchBoard({ items, fees, userId, initialTab, initialSort }: { i
   );
 }
 
+// The bid and its all-in amount in the same size; a vehicle waiting for its live auction also shows its estimate (with
+// its all-in range, again in the same size).
 function PriceBlock({ i, fees, big }: { i: WatchItem; fees: Fees; big?: boolean }) {
   const sold = i.status === "sold";
   const base = sold ? Number(i.sold_price || 0) : Math.max(i.current_bid || 0, i.start_price || 0);
-  const allIn = priceBreakdown(base, lotFees(fees, i)).total;
+  const fl = lotFees(fees, i);
+  const allIn = priceBreakdown(base, fl).total;
+  const waiting = i.live_state === "waiting" && i.status === "live";
   return (
     <div className={`wl-price${big ? " big" : ""}`}>
-      <span className="muted">{sold ? "Sold for" : i.bid_count ? "Current bid" : "Starting bid"}</span>
-      <b data-testid={`wl-bid-${i.id}`}>{money(sold ? i.sold_price : i.bid_count ? i.current_bid : base)}</b>
-      {!sold && <span className="wl-allin" data-testid={`wl-allin-${i.id}`}>{money(allIn, true)} all-in with fees</span>}
-      <span className="muted" style={{ fontSize: 13 }}>{plural(i.bid_count, "bid")}{i.my_max != null && !sold ? ` · your max ${money(i.my_max)}` : ""}</span>
+      <span className="muted">{sold ? "Sold for" : i.bid_count ? (waiting ? "Early bid" : "Current bid") : "Opening bid"}</span>
+      <span className="wl-pair">
+        <b data-testid={`wl-bid-${i.id}`}>{money(sold ? i.sold_price : i.bid_count ? i.current_bid : base)}</b>
+        {!sold && <b className="wl-allin" data-testid={`wl-allin-${i.id}`}>{allInMoney(allIn)} all-in</b>}
+      </span>
+      {!sold && hasEstimate(i) && <span className="wl-est" data-testid={`wl-est-${i.id}`}>Estimate {estimateText(i)} · {estimateAllInText(i, fl)} all-in</span>}
+      <span className="muted" style={{ fontSize: 13 }}>{plural(i.bid_count, waiting ? "early bid" : "bid")}{i.my_max != null && !sold ? ` · your max ${money(i.my_max)}` : ""}</span>
     </div>
   );
 }

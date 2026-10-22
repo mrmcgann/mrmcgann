@@ -14,7 +14,7 @@ export function SaleForm({ sale }: { sale?: Sale }) {
   const router = useRouter();
   const local = (iso?: string | null) => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : "");
   const [f, setF] = useState({ title: sale?.title || "", slug: sale?.slug || "", intro: sale?.intro || "", sellerLabel: sale?.seller_label || "", state: sale?.state || "", published: sale?.published || false,
-    mode: sale?.mode || "timed", startsAt: local(sale?.starts_at), streamUrl: sale?.stream_url || "", auctioneer: sale?.auctioneer || "",
+    mode: sale?.mode || "live", startsAt: local(sale?.starts_at), streamUrl: sale?.stream_url || "", auctioneer: sale?.auctioneer || "",
     lotSeconds: String(sale?.lot_seconds || 60), extendSeconds: String(sale?.extend_seconds || 20), autoAdvance: sale?.auto_advance !== false });
   const [msg, setMsg] = useState("");
   const slugOf = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -44,7 +44,7 @@ export function SaleForm({ sale }: { sale?: Sale }) {
         <div className="soft" style={{ gap: 12 }}>
           <div className="grid2">
             <label className="field"><span>Starts (your time)</span><input className="input" type="datetime-local" value={f.startsAt} onChange={(e) => setF({ ...f, startsAt: e.target.value })} data-testid="sale-starts" /></label>
-            <label className="field"><span>Auctioneer (name shown, optional)</span><input className="input" value={f.auctioneer} onChange={(e) => setF({ ...f, auctioneer: e.target.value })} placeholder="e.g. Sam Smith, licensed auctioneer" /></label>
+            <label className="field"><span>Auctioneer (required to start)</span><input className="input" value={f.auctioneer} onChange={(e) => setF({ ...f, auctioneer: e.target.value })} placeholder="e.g. Sam Smith" data-testid="sale-auctioneer" /><span className="hint">The licensed auctioneer running it. Their name is shown to bidders for the whole auction (Queensland law), so the sale can&apos;t start without it.</span></label>
           </div>
           <div className="grid2">
             <label className="field"><span>Each vehicle offered for (seconds)</span><input className="input" inputMode="numeric" value={f.lotSeconds} onChange={(e) => setF({ ...f, lotSeconds: e.target.value.replace(/\D/g, "") })} /></label>
@@ -52,7 +52,7 @@ export function SaleForm({ sale }: { sale?: Sale }) {
           </div>
           <label className="field"><span>Video stream (YouTube or Vimeo link, optional)</span><input className="input" value={f.streamUrl} onChange={(e) => setF({ ...f, streamUrl: e.target.value })} placeholder="https://www.youtube.com/live/…" /></label>
           <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontWeight: 600 }}><input type="checkbox" checked={f.autoAdvance} onChange={(e) => setF({ ...f, autoAdvance: e.target.checked })} /> <span>Keep it running by itself if the console is closed (starts on time and offers the next vehicle within a minute)</span></label>
-          <span className="hint">Vehicles in a live sale take early bids until their turn. Add them from the vehicle editor or the bulk upload, then put them in order in the console.</span>
+          <span className="hint">Vehicles in a live sale take early bids (which bidders can withdraw) until their turn. Each is sold under the hammer or passed in: nothing is referred to the seller or sold afterwards. Add them from the vehicle editor or the bulk upload, then put them in order in the console.</span>
         </div>
       )}
       <label className="field"><span>About the sale</span><textarea className="input" value={f.intro} onChange={(e) => setF({ ...f, intro: e.target.value })} placeholder="Plain facts: what's in it, where the vehicles are, how they were used and serviced. No claims we can't back up." /></label>

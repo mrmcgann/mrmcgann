@@ -92,3 +92,112 @@ export function blankLocation(moov: Uint8Array): number {
   visit(top.header, top.size, 0, false);
   return n;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Photos the seller sends with the sell form go onto their listing (we're never at the vehicle). The form redraws
+// them in the browser, but the server doesn't rely on that: before a photo is copied to the public listing, everything
+// but the picture is removed here. JPEG: the APP1 to APP15 segments (EXIF with GPS, XMP, IPTC and the rest) and comments
+// go, except ICC colour profiles and Adobe colour information; JFIF stays. PNG: text, EXIF and time chunks go. WebP:
+// EXIF and XMP go.
+// Anything else (HEIC, unknown) is refused (null) rather than published with its metadata.
+
+export type ImageKind = "jpeg" | "png" | "webp";
+export const IMAGE_TYPES: Record<ImageKind, string> = { jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+/** What kind of image the bytes are (by their first bytes, never the file name). */
+export function imageKind(b: Uint8Array): ImageKind | null {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
+  if (b.length >= 8 && b[0] === 0x89 && fourcc(b, 1).slice(0, 3) === "PNG" && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) return "png";
+  if (b.length >= 12 && fourcc(b, 0) === "RIFF" && fourcc(b, 8) === "WEBP") return "webp";
+  return null;
+}
+
+const asciiAt = (b: Uint8Array, at: number, s: string) => [...s].every((c, i) => b[at + i] === c.charCodeAt(0));
+
+const concat = (parts: Uint8Array[]) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+};
+
+// Walks the segments; inside a scan, copies the picture data up to the next marker (stuffed FF00 bytes and restart
+// markers are part of it). Stops at the end of the first image, so pictures a phone appends after it (depth and HDR
+// maps, with metadata of their own) are left out.
+function stripJpeg(b: Uint8Array): Uint8Array | null {
+  const parts: Uint8Array[] = [b.subarray(0, 2)];
+  let at = 2, inScan = false;
+  while (at < b.length) {
+    if (inScan) {
+      const start = at;
+      while (at + 1 < b.length && !(b[at] === 0xff && b[at + 1] !== 0x00 && b[at + 1] !== 0xff && !(b[at + 1] >= 0xd0 && b[at + 1] <= 0xd7))) at++;
+      if (at + 1 >= b.length) return null;
+      parts.push(b.subarray(start, at));
+      inScan = false;
+      continue;
+    }
+    if (b[at] !== 0xff || at + 1 >= b.length) return null; // not where a segment should start: refuse rather than guess
+    const marker = b[at + 1];
+    if (marker === 0xff) { at++; continue; } // fill byte
+    if (marker === 0xd9) { parts.push(b.subarray(at, at + 2)); return concat(parts); }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { parts.push(b.subarray(at, at + 2)); at += 2; continue; }
+    if (at + 4 > b.length) return null;
+    const len = (b[at + 2] << 8) + b[at + 3];
+    if (len < 2 || at + 2 + len > b.length) return null;
+    const body = at + 4;
+    const keep = marker === 0xe0 ? asciiAt(b, body, "JFIF") || asciiAt(b, body, "JFXX")
+      : marker === 0xe2 ? asciiAt(b, body, "ICC_PROFILE")
+      : marker === 0xee ? asciiAt(b, body, "Adobe")
+      : !(marker >= 0xe1 && marker <= 0xef) && marker !== 0xfe;
+    if (keep) parts.push(b.subarray(at, at + 2 + len));
+    at += 2 + len;
+    if (marker === 0xda) inScan = true;
+  }
+  return null;
+}
+
+const PNG_KEEP = new Set(["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "sBIT", "bKGD", "pHYs", "hIST", "acTL", "fcTL", "fdAT", "cICP", "mDCv", "cLLi"]);
+function stripPng(b: Uint8Array): Uint8Array | null {
+  const parts: Uint8Array[] = [b.subarray(0, 8)];
+  let at = 8, sawEnd = false;
+  while (at + 12 <= b.length) {
+    const len = u32(b, at), type = fourcc(b, at + 4), end = at + 12 + len;
+    if (end > b.length) return null;
+    if (PNG_KEEP.has(type)) parts.push(b.subarray(at, end));
+    at = end;
+    if (type === "IEND") { sawEnd = true; break; }
+  }
+  return sawEnd ? concat(parts) : null;
+}
+
+function stripWebp(b: Uint8Array): Uint8Array | null {
+  const le32 = (at: number) => b[at] + (b[at + 1] << 8) + (b[at + 2] << 16) + ((b[at + 3] << 24) >>> 0);
+  const parts: Uint8Array[] = [];
+  let at = 12, size = 4;
+  while (at + 8 <= b.length) {
+    const type = fourcc(b, at), len = le32(at + 4), end = at + 8 + len + (len % 2);
+    if (at + 8 + len > b.length) return null;
+    if (type !== "EXIF" && type !== "XMP ") {
+      const chunk = b.slice(at, Math.min(end, b.length));
+      if (type === "VP8X") chunk[8] &= ~(0x08 | 0x04); // the header no longer says there's EXIF or XMP
+      parts.push(chunk); size += chunk.length;
+    }
+    at = end;
+  }
+  if (!parts.length) return null;
+  const out = new Uint8Array(12 + size - 4);
+  out.set(b.subarray(0, 12), 0);
+  const total = out.length - 8;
+  out[4] = total & 255; out[5] = (total >>> 8) & 255; out[6] = (total >>> 16) & 255; out[7] = (total >>> 24) & 255;
+  let o = 12;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+/** The photo with only the picture kept, and its type; null when it isn't a JPEG, PNG or WebP we can read. */
+export function stripImageMetadata(b: Uint8Array): { bytes: Uint8Array; kind: ImageKind } | null {
+  const kind = imageKind(b);
+  if (!kind) return null;
+  const bytes = kind === "jpeg" ? stripJpeg(b) : kind === "png" ? stripPng(b) : stripWebp(b);
+  return bytes ? { bytes, kind } : null;
+}

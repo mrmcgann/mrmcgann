@@ -20,6 +20,8 @@ export async function GET() {
     stripe: has.stripe && Boolean(env.stripePublishable),
     sms: has.twilioVerify,
     stores: { ios: process.env.NEXT_PUBLIC_APP_STORE_URL || null, android: process.env.NEXT_PUBLIC_PLAY_STORE_URL || null },
+    // every vehicle is sold in a live auction (no timed auctions, Buy Now, tenders or offers)
+    liveOnly: (settings.auction as { live_only?: boolean } | undefined)?.live_only === true,
   }, {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600", "CDN-Cache-Control": "public, s-maxage=300" },
   });

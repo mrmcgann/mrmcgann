@@ -14,6 +14,7 @@ import { premiumLabel, feesLine } from "@/lib/transport";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
+import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state">;
 export type LotSale = { slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
@@ -168,6 +169,19 @@ export function BidPanel(props: {
     void sync();
   }
 
+  // A bid can be withdrawn until the hammer falls (an early bid, or a bid while the vehicle is up).
+  async function withdraw() {
+    if (!window.confirm(waiting ? "Withdraw your early bid? You can bid again any time before the hammer falls." : "Withdraw your bid now? The price is worked out again without it, and the countdown gives the room a moment to answer.")) return;
+    setBusy(true); setMsg(null);
+    const res = await fetch("/api/bid", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: lot.id }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "Couldn't withdraw your bid." }); return; }
+    setMyMax(null); setLeaderIsMe(false);
+    setMsg({ kind: "ok", text: "Your bid has been withdrawn. You won't buy this vehicle unless you bid again." });
+    void sync();
+  }
+
   async function acceptTerms() {
     setBusy(true);
     const res = await fetch("/api/terms/accept", { method: "POST" });
@@ -218,7 +232,9 @@ export function BidPanel(props: {
           {!short && <DepositNeed fees={fees} deposit={props.deposit ?? null} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} signedIn={!!userId && !missing.length} />}
           {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />}
           {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
-          <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} disabled={busy}>{leading ? "Raise my max" : "Review bid"}</button>
+          <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} disabled={busy}>{leading ? "Raise my max" : waiting ? "Review early bid" : "Review bid"}</button>
+          {myMax != null && (waiting || upNow) && <button type="button" className="linkbtn" onClick={withdraw} disabled={busy} data-testid="withdraw-bid">{waiting ? "Withdraw my early bid" : "Withdraw my bid"}</button>}
+          {liveSale && <span className="hint">You can withdraw a bid until the hammer falls. When the vehicle sells, the highest bid buys it.</span>}
         </form>
         <div className="allin">
           <b style={{ fontSize: 16 }}>If you win at {money(preview.price)}, you pay</b>
@@ -272,6 +288,13 @@ export function BidPanel(props: {
     );
   } else if (live.status === "offers") {
     body = <OfferForm lotId={lot.id} current={live.current_bid} decisionBy={live.decision_by} lastOffer={props.lastOffer} onNeedSetup={needsSetup} fees={fees} sellerType={lot.seller_type} />;
+  } else if (live.status === "passed") {
+    body = (
+      <div className="soft" style={{ background: "var(--panel)" }} data-testid="passed-in">
+        <b>Passed in.</b>
+        <span className="muted">{live.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."} It may be offered at a later auction: watch it, or save a search, to hear when.</span>
+      </div>
+    );
   } else if (live.status === "live") {
     body = <div className="soft" style={{ background: "var(--panel)" }}><b>Bidding has closed.</b><span className="muted">Working out the result…</span></div>;
   } else {
@@ -287,11 +310,25 @@ export function BidPanel(props: {
             ? <span className="tag" style={{ background: "var(--mint)" }}>Winning · your max {money(myMax)}</span>
             : <span className="tag" style={{ background: "var(--berry)" }}>Outbid · your max {money(myMax)}</span>)}
         </div>
+        {hasEstimate(lot) && !ended && (
+          <div className="estbox" data-testid="estimate">
+            <div className="big2">
+              <div><div className="k">Auction estimate</div><div className="v">{estimateText(lot)}</div></div>
+              <div><div className="k">All-in at the estimate</div><div className="v" data-testid="estimate-allin">{estimateAllInText(lot, fees)}</div></div>
+            </div>
+            <span className="hint" style={{ margin: 0 }}>{ESTIMATE_NOTE}</span>
+          </div>
+        )}
         <div className="big2">
-          <div><div className="k">{live.status === "sold" ? "Sold for" : "Current bid"}</div><div className="v">{money(live.status === "sold" ? live.sold_price : live.current_bid)}</div><div className="hint">{live.status !== "sold" && <><b data-testid="allin-now">{money(priceBreakdown(Math.max(live.current_bid || 0, lot.start_price || 0), fees).total, true)} all-in</b> · </>}{live.bid_count} bids{rt ? " · live" : ""}</div></div>
-          {waiting && !ended
-            ? <div><div className="k">Offered</div><div className="v" style={{ fontSize: 28 }}>Live</div><div className="hint">In the live auction, about {dateTime(live.ends_at)}</div></div>
-            : <div><div className="k">{ended ? "Status" : upNow ? "Selling in" : "Ends in"}</div>{ended ? <div className="v" style={{ fontSize: 28 }}>Closed</div> : <Countdown className="v" style={{ color: "var(--urgent)" }} endsAt={endsAtAdjusted} />}<div className="hint">{upNow ? "Up now in the live auction" : dateTime(live.ends_at)}</div></div>}
+          <div><div className="k">{live.status === "sold" ? "Sold for" : live.bid_count ? (waiting ? "Early bid" : "Current bid") : "Opening bid"}</div><div className="v">{money(live.status === "sold" ? live.sold_price : Math.max(live.current_bid || 0, live.bid_count ? 0 : lot.start_price || 0))}</div></div>
+          {live.status !== "sold" && <div><div className="k">All-in</div><div className="v" data-testid="allin-now">{allInMoney(priceBreakdown(Math.max(live.current_bid || 0, lot.start_price || 0), fees).total)}</div></div>}
+        </div>
+        <div className="timeline">
+          <span>{live.bid_count} {live.bid_count === 1 ? "bid" : "bids"}{rt ? " · live" : ""}</span>
+          {waiting && !ended && <span>Offered in the live auction, about <b>{dateTime(live.ends_at)}</b></span>}
+          {upNow && !ended && <span>Up now · selling in <Countdown style={{ color: "var(--urgent)", fontWeight: 800 }} endsAt={endsAtAdjusted} /></span>}
+          {!waiting && !upNow && !ended && <span>Ends in <Countdown style={{ color: "var(--urgent)", fontWeight: 800 }} endsAt={endsAtAdjusted} /> · {dateTime(live.ends_at)}</span>}
+          {ended && <span><b>Closed</b></span>}
         </div>
         {body}
         <WatchButton lotId={lot.id} initial={props.watched} title={lot.title} variant="button" />
@@ -305,7 +342,7 @@ export function BidPanel(props: {
         )}
         {termsOpen && (
           <Modal title="We've updated our terms." onClose={() => setTermsOpen(false)}>
-            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change is how you pay: PayID or bank transfer only, and an account is closed if a vehicle it wins isn&apos;t paid for.</p>
+            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change: every vehicle is now sold in a live auction, under the hammer, with an auction estimate, and you can withdraw a bid until the hammer falls.</p>
             <button className="btn btn-blue" onClick={acceptTerms} disabled={busy}>{busy ? "Saving…" : "I accept the terms"}</button>
             <button className="btn btn-soft" onClick={() => setTermsOpen(false)}>Not now</button>
           </Modal>

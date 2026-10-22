@@ -10,6 +10,7 @@ import { SearchFilterPanel } from "@/components/SearchFilters";
 import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { SORTS, describeParts, filtersFromParams, heading, toQueryString, type Facets, type FilterKey, type SearchFilters } from "@/lib/search";
 import { track } from "@/components/Tracker";
+import { useLiveOnly } from "@/components/SiteSettings";
 
 type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null; fees?: Fees };
 
@@ -20,6 +21,7 @@ const CHIP_REMOVES: Partial<Record<FilterKey, FilterKey[]>> = { make: ["make", "
 // The listing page renders in the browser from an edge-cached search API,
 // so the page itself is static and costs nothing to serve.
 export function AuctionsClient() {
+  const liveOnly = useLiveOnly();
   const sp = useSearchParams();
   const router = useRouter();
   const f = useMemo(() => filtersFromParams(new URLSearchParams(sp.toString())), [sp]);
@@ -93,7 +95,7 @@ export function AuctionsClient() {
             <div className="srch-sort">
               <button type="button" className="pill pill-dark filters-btn" style={{ height: 42 }} onClick={() => setDrawer(true)}>Filters{chips.length ? ` (${chips.length})` : ""}</button>
               <select aria-label="Sort" value={f.sort || "ending"} onChange={(e) => set({ sort: e.target.value === "ending" ? "" : e.target.value })}>
-                {SORTS.map(([v, l]) => <option key={v} value={v}>{f.view === "closed" && v === "ending" ? "Most recently closed" : l}</option>)}
+                {SORTS.map(([v, l]) => <option key={v} value={v}>{f.view === "closed" && v === "ending" ? "Most recently closed" : v === "ending" && liveOnly ? "Up next" : l}</option>)}
               </select>
             </div>
           </div>

@@ -4,6 +4,8 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CATEGORIES } from "@/lib/vehicles";
 import { dateTime, money } from "@/lib/format";
+import { lotFees, priceBreakdown } from "@/lib/fees";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { pub } from "~/lib/api";
 import { useSession } from "~/lib/session";
 import type { HomeData } from "~/lib/types";
@@ -13,7 +15,7 @@ import { LotCard, shownPrice } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F, backdrop, darkBackdrop } from "~/ui/theme";
 
-const TRY: [string, string][] = [["HiLux under 30k", "make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "cat=motorbikes&lams=1"], ["Caravan sleeps 4", "cat=caravans&berths=4"], ["Tipper on a car licence", "cat=trucks&type=tipper&lic=C"], ["First car under $5k", "cat=cars&max=5000"], ["Ending today", "ending=today"]];
+const TRY: [string, string][] = [["HiLux under 30k", "make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "cat=motorbikes&lams=1"], ["Caravan sleeps 4", "cat=caravans&berths=4"], ["Tipper on a car licence", "cat=trucks&type=tipper&lic=C"], ["First car under $5k", "cat=cars&max=5000"]];
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -28,6 +30,12 @@ export default function Home() {
   useEffect(() => { void load(); }, [load]);
   const unread = me?.profile?.unread || 0;
   const f = data?.featured;
+  const liveOnly = !!config?.liveOnly;
+  // the featured vehicle's price: its estimate (or bid) and the all-in amount, in the same size
+  const ff = f && config?.fees ? lotFees(config.fees, f) : null;
+  const fPrice = f ? (f.live_state === "waiting" && hasEstimate(f) && !f.bid_count
+    ? `Estimate ${estimateText(f)}${ff ? ` · All-in ${estimateAllInText(f, ff)}` : ""}`
+    : `${f.bid_count ? "Bid" : "Opening bid"} ${money(shownPrice(f))}${ff ? ` · All-in ${allInMoney(priceBreakdown(Number(shownPrice(f)) || 0, ff).total)}` : ""}`) : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
@@ -52,7 +60,7 @@ export default function Home() {
         <View style={{ gap: 12 }}>
           <T v="eyebrow" style={{ color: C.urgent }}>Live auctions · Australia-wide</T>
           <Text style={s.hero}>Every car.{"\n"}Beautifully <Text style={s.heroSerif}>sold.</Text></Text>
-          <T v="muted">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Professionally photographed, PPSR searched and sold to the highest bidder.</T>
+          <T v="muted">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, with an auction estimate on every listing. The seller's photos and video checked by us, PPSR searched, and always the all-in price.</T>
         </View>
         <Pressable testID="home-search" accessibilityRole="search" accessibilityLabel="Search vehicles" onPress={() => router.push("/search?focus=1")} style={s.search}>
           <Icon name="search" color={C.muted} />
@@ -60,7 +68,7 @@ export default function Home() {
         </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ marginHorizontal: -20 }}>
           <View style={{ width: 12 }} />
-          {TRY.map(([l, q]) => (
+          {[...TRY, [liveOnly ? "At auction today" : "Ending today", "ending=today"] as [string, string]].map(([l, q]) => (
             <Pressable key={q} accessibilityRole="button" onPress={() => router.push(`/search?${q}`)} style={s.try}><Text style={s.tryText}>{l}</Text></Pressable>
           ))}
           <View style={{ width: 12 }} />
@@ -91,13 +99,14 @@ export default function Home() {
             <Text style={s.featureTag}>Lot of the week</Text>
             <Text style={[s.featureTitle, darkBackdrop(f.backdrop) && { color: "#FFFFFF" }]}>{f.title}</Text>
             <View style={{ alignItems: "center" }}><CarArt type={f.vehicle_type} width={260} /></View>
-            <Text style={[s.featurePrice, darkBackdrop(f.backdrop) && { color: "#FFFFFF" }]}>{money(shownPrice(f))} · {f.suburb}, {f.state}</Text>
+            <Text testID="featured-price" style={[s.featurePrice, darkBackdrop(f.backdrop) && { color: "#FFFFFF" }]}>{fPrice}</Text>
+            <Text style={[s.featurePlace, darkBackdrop(f.backdrop) && { color: "#FFFFFF" }]}>{f.live_state === "waiting" ? `Live auction · ${dateTime(f.ends_at)} · ` : ""}{f.suburb}, {f.state}</Text>
           </Pressable>
         ) : null}
 
         {data?.ending.length ? (
           <View style={{ gap: 18 }}>
-            <View style={s.head}><T v="d3">Ending soonest.</T><Text style={s.more} onPress={() => router.push("/search")}>See all ›</Text></View>
+            <View style={s.head}><T v="d3">{data.ending.some((l) => l.live_state) ? "Up next at auction." : "Ending soonest."}</T><Text style={s.more} onPress={() => router.push("/search")}>See all ›</Text></View>
             {data.ending.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} onWatch={toggle} />)}
           </View>
         ) : data ? <Empty title="No live auctions right now." sub="New vehicles are listed every week. Save a search and we'll tell you first." /> : null}
@@ -112,7 +121,7 @@ export default function Home() {
         <View style={s.sell}>
           <T v="eyebrow" style={{ color: C.sun }}>Sell with Tyrebiter</T>
           <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>From your driveway.</Text></Text>
-          <Text style={s.sellBody}>We photograph and inspect it at your place, list it Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
+          <Text style={s.sellBody}>Send us photos and a short video from your phone. We check them, auction it live Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
           <Button testID="home-sell" kind="white" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
         </View>
       </Screen>
@@ -144,6 +153,7 @@ const s = StyleSheet.create({
   featureTag: { alignSelf: "flex-start", backgroundColor: C.ink, color: "#FFFFFF", fontFamily: F.heavy, fontSize: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: "hidden" },
   featureTitle: { fontFamily: F.heavy, fontSize: 26, lineHeight: 29, letterSpacing: -0.8, color: C.ink },
   featurePrice: { fontFamily: F.bold, fontSize: 16, color: C.ink },
+  featurePlace: { fontFamily: F.medium, fontSize: 14, color: C.ink },
   head: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
   more: { fontFamily: F.bold, fontSize: 16, color: C.blue },
   sell: { backgroundColor: C.ink, borderRadius: 28, padding: 24, gap: 12 },

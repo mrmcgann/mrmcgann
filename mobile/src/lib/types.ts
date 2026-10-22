@@ -28,6 +28,8 @@ export interface AppConfig {
   stripe: boolean;
   sms: boolean;
   stores?: { ios: string | null; android: string | null };
+  /** every vehicle is sold in a live auction (no timed auctions, Buy Now, tenders or offers) */
+  liveOnly?: boolean;
 }
 
 // bidder_mask is a made-up, name-shaped string (never the real name), shown blurred.

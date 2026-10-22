@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { userFromToken } from "@/lib/links";
 import { NotifySettings } from "@/components/NotifySettings";
+import { getSettingsCached } from "@/lib/cache";
 
 export const metadata: Metadata = { title: "Manage alerts", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function ManageAlerts({ params }: { params: Promise<{ token
   const { token } = await params;
   const userId = userFromToken(token);
   const { data: p } = userId ? await supabaseAdmin().from("profiles").select("email, notify").eq("id", userId).maybeSingle() : { data: null };
+  const settings = await getSettingsCached().catch(() => ({} as Record<string, Record<string, unknown>>));
   return (
     <div className="wrap" style={{ maxWidth: 720, padding: "clamp(40px,6vw,72px) 16px" }}>
       {!p ? <div className="notice bad">This link isn&apos;t valid. Sign in and use Account → Notifications instead.</div> : (
@@ -20,7 +22,7 @@ export default async function ManageAlerts({ params }: { params: Promise<{ token
           <form action={`/api/unsubscribe?t=${encodeURIComponent(token)}`} method="post">
             <button className="btn btn-dark">Unsubscribe from all optional alerts</button>
           </form>
-          <NotifySettings initial={p.notify} token={token} />
+          <NotifySettings initial={p.notify} token={token} liveOnly={settings.auction?.live_only === true} />
         </div>
       )}
     </div>

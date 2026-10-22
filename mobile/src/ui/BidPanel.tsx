@@ -18,6 +18,7 @@ import { consumerRights, rightsLine } from "@/lib/listing";
 import { DepositHint, DepositShortBox, shortFrom } from "./Deposit";
 import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
 import { ACK_CHECK, premiumLabel, feesLine } from "@/lib/transport";
+import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
@@ -112,6 +113,18 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
     setBusy(false);
     void sync();
   }
+  // A bid can be withdrawn until the hammer falls (an early bid, or one while the vehicle is up).
+  async function withdraw() {
+    setBusy(true); setMsg(null);
+    try {
+      await api("/api/bid", { method: "DELETE", body: { lotId: lot.id } });
+      setMyMax(null); setLeading(false);
+      setMsg({ kind: "ok", text: "Your bid has been withdrawn. You won't buy this vehicle unless you bid again." });
+      onMineChange();
+    } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
+    setBusy(false);
+    void sync();
+  }
   async function acceptTerms() {
     setBusy(true);
     try { await api("/api/terms/accept", { method: "POST" }); await refresh(); setSheet(null); setMsg({ kind: "ok", text: "Thanks. You can bid now." }); }
@@ -156,7 +169,9 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         {short ? <DepositShortBox need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />
           : signedIn && !missing.length ? <DepositHint fees={fees} deposit={me?.profile?.deposit} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} /> : null}
         {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
-        <Button testID="review-bid" title={leading ? "Raise my max" : "Review bid"} onPress={review} busy={busy} />
+        <Button testID="review-bid" title={leading ? "Raise my max" : waiting ? "Review early bid" : "Review bid"} onPress={review} busy={busy} />
+        {myMax != null && (waiting || upNow) ? <Button testID="withdraw-bid" small kind="soft" title={waiting ? "Withdraw my early bid" : "Withdraw my bid"} busy={busy} onPress={withdraw} /> : null}
+        {liveSale ? <T v="small">You can withdraw a bid until the hammer falls. When the vehicle sells, the highest bid buys it.</T> : null}
         <View style={s.allin}>
           <T v="strong">If you win at {money(preview.price)}, you pay</T>
           <LineItem k="Winning bid" v={money(preview.price)} />
@@ -190,6 +205,8 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
     );
   } else if (L.status === "offers") {
     body = <OfferBox lotId={lot.id} current={Number(L.current_bid)} decisionBy={L.decision_by} lastOffer={mine?.last_offer || null} needsSetup={needsSetup} onSent={onMineChange} fees={fees} sellerType={lot.seller_type} />;
+  } else if (L.status === "passed") {
+    body = <Soft testID="passed-in"><T v="strong">Passed in.</T><T v="muted">{L.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."} It may be offered at a later auction: watch it to hear when.</T></Soft>;
   } else if (L.status === "live") {
     body = <Soft><T v="strong">Bidding has closed.</T><T v="muted">Working out the result…</T></Soft>;
   } else {
@@ -203,19 +220,29 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           {reserveTag}
           {!ended && myMax != null ? (leading ? <Tag label={`Winning · your max ${money(myMax)}`} color={C.mint} /> : <Tag label={`Outbid · your max ${money(myMax)}`} color={C.berry} />) : null}
         </View>
+        {hasEstimate(lot) && !ended ? (
+          <Soft testID="estimate" style={{ gap: 6 }}>
+            <View style={{ flexDirection: "row", gap: 16 }}>
+              <View style={{ flex: 1 }}><Text style={s.k}>Auction estimate</Text><Text style={s.v2}>{estimateText(lot)}</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.k}>All-in at the estimate</Text><Text testID="estimate-allin" style={s.v2}>{estimateAllInText(lot, fees)}</Text></View>
+            </View>
+            <T v="small">{ESTIMATE_NOTE}</T>
+          </Soft>
+        ) : null}
         <View style={{ flexDirection: "row", gap: 16 }}>
           <View style={{ flex: 1 }}>
-            <Text style={s.k}>{L.status === "sold" ? "Sold for" : L.bid_count ? "Current bid" : "Starting bid"}</Text>
+            <Text style={s.k}>{L.status === "sold" ? "Sold for" : L.bid_count ? (waiting ? "Early bid" : "Current bid") : "Opening bid"}</Text>
             <Text testID="current-bid" style={s.v}>{money(L.status === "sold" ? L.sold_price : L.bid_count ? L.current_bid : minNext)}</Text>
-            {L.status !== "sold" ? <T v="small" testID="allin-now" style={{ fontFamily: F.bold, color: C.ink }}>{money(priceBreakdown(L.bid_count ? L.current_bid : minNext, fees).total, true)} all-in</T> : null}
-            <T v="small">{L.bid_count} bid{L.bid_count === 1 ? "" : "s"}{rt ? " · live" : ""}</T>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.k}>{ended ? "Status" : waiting ? "Offered" : upNow ? "Selling in" : "Ends in"}</Text>
-            <Text style={[s.v, { color: ended || waiting ? C.ink : C.urgent, fontSize: ended || waiting ? 26 : 28 }]}>{ended ? "Closed" : waiting ? "Live" : countdown(left)}</Text>
-            <T v="small">{waiting ? `In the live auction, about ${dateTime(L.ends_at)}` : upNow ? "Up now in the live auction" : dateTime(L.ends_at)}</T>
-          </View>
+          {L.status !== "sold" ? (
+            <View style={{ flex: 1 }}>
+              <Text style={s.k}>All-in</Text>
+              <Text testID="allin-now" style={s.v}>{allInMoney(priceBreakdown(L.bid_count ? L.current_bid : minNext, fees).total)}</Text>
+            </View>
+          ) : null}
         </View>
+        <T v="small">{[`${L.bid_count} bid${L.bid_count === 1 ? "" : "s"}${rt ? " · live" : ""}`,
+          ended ? "Closed" : waiting ? `Offered in the live auction, about ${dateTime(L.ends_at)}` : upNow ? `Up now · selling in ${countdown(left)}` : `Ends in ${countdown(left)} · ${dateTime(L.ends_at)}`].join(" · ")}</T>
         {body}
       </View>
 
@@ -238,7 +265,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           <Button testID="place-bid" title={`Place bid of up to ${money(typed)}`} busy={busy} disabled={!ack || (bigJump && !sure)} onPress={placeBid} />
           <Button kind="soft" title="Change amount" onPress={() => setSheet(null)} />
         </>}>
-        <T v="muted">{lot.title}. We'll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. Bids can't be withdrawn.</T>
+        <T v="muted">{lot.title}. We'll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. {liveSale ? "It's binding unless you withdraw it before the hammer falls." : "Bids can't be withdrawn."}</T>
         <View>
           <LineItem k="If you win at your full maximum" v={money(preview.price)} />
           <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
@@ -274,7 +301,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
 
       <Sheet visible={sheet === "terms"} onClose={() => setSheet(null)} title="We've updated our terms."
         footer={<><Button title="I accept the terms" busy={busy} onPress={acceptTerms} /><Button kind="soft" title="Not now" onPress={() => setSheet(null)} /></>}>
-        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy.</T>
+        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy. The main change: every vehicle is now sold in a live auction, under the hammer, with an auction estimate, and you can withdraw a bid until the hammer falls.</T>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the Terms of Sale ›</Text>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy`)}>Read the Privacy Policy ›</Text>
       </Sheet>
@@ -321,6 +348,7 @@ const s = StyleSheet.create({
   box: { borderRadius: 28, borderWidth: 1, borderColor: C.line, padding: 18, gap: 16, backgroundColor: "#FFFFFF" },
   k: { fontFamily: F.bold, fontSize: 13, color: C.muted },
   v: { fontFamily: F.heavy, fontSize: 30, letterSpacing: -0.8, color: C.ink, fontVariant: ["tabular-nums"] },
+  v2: { fontFamily: F.heavy, fontSize: 20, letterSpacing: -0.4, color: C.ink, fontVariant: ["tabular-nums"] },
   bn: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.lime, borderRadius: 18, padding: 14 },
   bnK: { fontFamily: F.bold, fontSize: 13, color: C.ink },
   bnV: { fontFamily: F.heavy, fontSize: 24, color: C.ink, letterSpacing: -0.6 },

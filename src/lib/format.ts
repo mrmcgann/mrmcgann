@@ -17,6 +17,10 @@ export function countdown(ms: number) {
 export const dateTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }) : "–";
 
+/** "Thu 5 Nov" (Brisbane time, like every auction time on the site). */
+export const dayShort = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }) : "–";
+
 export const dateLong = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "Australia/Brisbane" }) : "–";
 

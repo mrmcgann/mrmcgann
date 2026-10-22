@@ -7,7 +7,8 @@ import * as WebBrowser from "expo-web-browser";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
 import { ackPayLine } from "@/lib/deposits";
-import { rightsLine } from "@/lib/listing";
+import { rightsLine, warrantySign } from "@/lib/listing";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, quickBids, resultLine, secondsLeft, type LiveLot, type LiveSale } from "@/lib/live";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE, photoUrl } from "~/lib/env";
@@ -17,7 +18,7 @@ import type { Fees, Lot } from "~/lib/types";
 import { Button, Check, Empty, LineItem, Loading, Notice, Screen, Sheet, Soft, T, Tag } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
 import { C, F } from "~/ui/theme";
-import { ACK_CHECK, feesLine } from "@/lib/transport";
+import { ACK_CHECK, feesLine, premiumLabel } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
 
@@ -39,6 +40,7 @@ export default function LiveRoomScreen() {
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [mineHere, setMineHere] = useState<Record<number, boolean>>({});
 
   const load = useCallback(async () => {
     try {
@@ -95,8 +97,21 @@ export default function LiveRoomScreen() {
       setRoom((r) => (r?.current ? { ...r, current: { ...r.current, current_bid: d.current_bid, ends_at: d.ends_at, leader_id: d.status === "leading" ? userId : r.current.leader_id, bid_count: r.current.bid_count + 1 } } : r));
       if (Platform.OS !== "web") Haptics.notificationAsync(d.status === "leading" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
       setMsg(d.status === "leading" ? { kind: "ok", text: `You're in front at ${money(d.current_bid)}.` } : { kind: "bad", text: `Another bidder's maximum is higher: ${money(d.current_bid)}.` });
+      setMineHere((m) => ({ ...m, [cur.id]: true }));
     } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
     setBusy(false); setAsk(null);
+    void load();
+  }
+  // a bid can be withdrawn until the hammer falls
+  async function withdraw() {
+    if (!cur) return;
+    setBusy(true); setMsg(null);
+    try {
+      await api("/api/bid", { method: "DELETE", body: { lotId: cur.id } });
+      setMineHere((m) => { const n = { ...m }; delete n[cur.id]; return n; });
+      setMsg({ kind: "ok", text: "Your bid has been withdrawn." });
+    } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
+    setBusy(false);
     void load();
   }
   function tap(amount: number) {
@@ -121,7 +136,7 @@ export default function LiveRoomScreen() {
             <Tag label={sale.live_status === "running" ? "Live now" : paused ? "Paused" : sale.live_status === "ended" ? "Finished" : `Starts ${dateTime(sale.starts_at)}`} color={sale.live_status === "running" ? C.ink : paused ? C.sun : C.panel} ink={sale.live_status === "running" ? "#FFFFFF" : C.ink} />
           </View>
           <T v="d2">{sale.title}.</T>
-          {sale.auctioneer ? <T v="small">Auctioneer: {sale.auctioneer}</T> : null}
+          {sale.auctioneer ? <View testID="live-auctioneer" style={{ alignSelf: "flex-start" }}><Tag label={`Auctioneer: ${sale.auctioneer}`} /></View> : null}
           {sale.stream_url && sale.live_status !== "ended" ? <Button small kind="soft" title="Watch the stream" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/live/${sale.slug}`)} /> : null}
         </View>
         {sale.live_message && sale.live_status !== "scheduled" ? <View style={[s.call, paused && { backgroundColor: C.panel }]} testID="live-message"><Text style={s.callText}>{sale.live_message}</Text></View> : null}
@@ -131,12 +146,14 @@ export default function LiveRoomScreen() {
             <View style={s.photo}>{cur.cover_path ? <Image source={{ uri: photoUrl(cur.cover_path) || undefined }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={{ alignItems: "center", paddingTop: 30 }}><CarArt type="car" width={220} /></View>}</View>
             <T v="small">{cur.sale_order ? `Lot ${cur.sale_order}` : `Lot ${cur.id}`} · {[cur.year, cur.odometer != null ? km(cur.odometer) : null, [cur.suburb, cur.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</T>
             <T v="title" style={{ fontSize: 22, lineHeight: 27 }}>{cur.title}</T>
+            {hasEstimate(cur) && f ? <T v="body" testID="live-estimate" style={{ fontSize: 15 }}>Estimate <Text style={{ fontFamily: F.bold }}>{estimateText(cur)}</Text> · all-in <Text style={{ fontFamily: F.bold }}>{estimateAllInText(cur, f)}</Text></T> : null}
+            {f ? <T v="small" testID="live-terms">{warrantySign(cur.statutory_warranty) ? `${warrantySign(cur.statutory_warranty)} ` : ""}{premiumLabel(f)}, plus GST and the admin fee, applies.</T> : null}
             <Pressable onPress={() => router.push(`/lot/${cur.id}`)}><Text style={s.link}>Full listing and condition report ›</Text></Pressable>
             {open || cur.status === "sold" ? (
               <View>
                 <Text style={s.k}>{cur.status === "sold" ? "Sold for" : "Current bid"}</Text>
                 <Text style={s.price} testID="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</Text>
-                {open && f ? <T v="small" style={{ fontFamily: F.bold, color: C.ink }}>{money(priceBreakdown(Math.max(Number(cur.current_bid) || 0, Number(cur.start_price) || 0), f).total, true)} all-in · {cur.bid_count} bids</T> : null}
+                {open && f ? <><Text style={s.k}>All-in</Text><Text style={s.price} testID="live-allin">{allInMoney(priceBreakdown(Math.max(Number(cur.current_bid) || 0, Number(cur.start_price) || 0), f).total)}</Text><T v="small">With the buyer's premium, GST and admin fee · {cur.bid_count} bids</T></> : null}
               </View>
             ) : <View><Text style={s.k}>Result</Text><Text style={[s.price, { fontSize: 30 }]} testID="live-price">{resultLine(cur).replace(/\.$/, "")}</Text></View>}
             {open ? (
@@ -151,6 +168,7 @@ export default function LiveRoomScreen() {
               <Button key={b} testID={i === 0 ? "live-bid" : undefined} kind={i === 0 ? "blue" : "soft"} disabled={busy || leading} busy={busy && i === 0}
                 title={`Bid ${money(b)}${f ? ` · ${money(priceBreakdown(b, f).total, true)} all-in` : ""}`} onPress={() => tap(b)} />
             )) : null}
+            {open && !paused && userId && (leading || mineHere[cur.id]) ? <Button testID="live-withdraw" small kind="soft" title="Withdraw my bid" busy={busy} onPress={withdraw} /> : null}
             {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
           </View>
         ) : (
@@ -166,6 +184,7 @@ export default function LiveRoomScreen() {
                 <Pressable key={l.id} style={s.card} onPress={() => router.push(`/lot/${l.id}`)} testID="live-next">
                   <View style={s.thumb}>{l.cover_path ? <Image source={{ uri: photoUrl(l.cover_path) || undefined }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}</View>
                   <T v="strong" numberOfLines={2}>{l.title}</T>
+                  {hasEstimate(l) ? <T v="small">Estimate {estimateText(l)}</T> : null}
                   <T v="small">{l.bid_count ? `${money(l.current_bid)} early bid` : `From ${money(l.start_price)}`}</T>
                   <Text style={s.link}>Bid early ›</Text>
                 </Pressable>
@@ -179,7 +198,7 @@ export default function LiveRoomScreen() {
             {room.done.map((l) => <View key={l.id} style={s.result} testID="live-result"><T v="body" style={{ flex: 1 }} numberOfLines={1}>{l.title}</T><T v="strong">{resultLine(l)}</T></View>)}
           </View>
         ) : null}
-        <T v="small">Each bid is binding. The price and countdown here are what count; a video stream can run a few seconds behind. The auctioneer may also take bids from registered, verified buyers in the room or by phone.</T>
+        <T v="small" testID="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Tyrebiter as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it's passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The seller can't bid, and we never bid for the seller. The price and countdown here are what count; a video stream can run a few seconds behind. The auctioneer may also take bids by phone from registered bidders.</T>
       </Screen>
 
       <Sheet visible={ask != null} onClose={() => setAsk(null)} title={ask != null ? `Bid ${money(ask)}?` : ""} scroll testID="live-agree-sheet"

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { env } from "@/lib/env";
 import { VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
+import { PHOTO_RULES, VIDEO_STEPS } from "@/lib/sellForm";
 
 type V = { id: string; title: string; status: string; review_note: string | null; created_at: string };
 const TITLES = ["Walkaround", "Cold start", "Engine running", "Interior", "Underbody", "Features"];
@@ -60,7 +61,13 @@ export function SellerVideos({ lotId, videos, canAdd }: { lotId: number; videos:
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <b>Video</b>
-      {live.length === 0 && <span className="muted" style={{ fontSize: 15 }}>Listings with a walkaround video attract more bidders. Film in landscape, in daylight, for 1 to 3 minutes.</span>}
+      {live.length === 0 && (
+        <div className="muted" style={{ fontSize: 15, display: "flex", flexDirection: "column", gap: 6 }} data-testid="video-steps">
+          <span>We&apos;re never at your vehicle, so your walkaround video is how buyers (and we) see it run. Film in landscape, in daylight, for 1 to 3 minutes:</span>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 3 }}>{VIDEO_STEPS.map((t) => <li key={t}>{t}</li>)}</ol>
+          <span>{PHOTO_RULES[2]} {PHOTO_RULES[3]}</span>
+        </div>
+      )}
       {live.map((v) => (
         <div key={v.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px", borderRadius: 14, background: "var(--panel)" }}>
           <span><b>{v.title}</b> · <span className={v.status === "rejected" ? "errmsg" : "muted"}>{VIDEO_STATUS[v.status] || v.status}{v.status === "rejected" && v.review_note ? `: ${v.review_note}` : ""}</span></span>

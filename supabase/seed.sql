@@ -103,8 +103,8 @@ update public.lots l set vin = v.vin from (values
   (10620, '6G1EK52W06L000620'), (10633, 'KMHD3510AFU000633'), (10660, 'JYARM33E0LA000660'), (10661, '6T9T16CARGJ000661')
 ) v(id, vin) where l.id = v.id and l.vin is null;
 
--- The sample vehicles were checked against the vehicle before listing (the listing checks),
--- and whether they start and drive. Delete with the sample vehicles.
+-- The sample vehicles' listing checks were done from the seller's photos, video and records before listing,
+-- and the seller's video shows whether they start and drive. Delete with the sample vehicles.
 update public.lots set verified = public.listing_check_keys(), verified_at = coalesce(published_at, now()),
   runs = case when id = 10662 then 'untested' else 'drives' end,
   write_off_status = case when write_off_status = 'unknown' then 'none' else write_off_status end
@@ -138,5 +138,35 @@ insert into public.partners (kind, slug, name, licence, blurb, price_from, turna
 insert into public.partners (kind, slug, name, licence, blurb, features, pds_url, tmd_url, referral_url, commission_note, sample, active, sort, accepts_leads) values
   ('warranty', 'sample-warranty', 'Sample Warranty Co', 'AFSL 000004 (sample)', 'Mechanical breakdown cover with optional 24/7 roadside assistance.', '{"terms": "1 to 3 years", "roadside": "Optional", "claim_limit": "Up to the vehicle''s value", "excess": "From $0", "age_limit": "Under 15 years and 250,000 km"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/warranty?ref=tyrebiter', 'We may receive a commission from Sample Warranty Co if you buy.', true, true, 1, true);
 insert into public.partner_private (partner_id, lead_email) select id, 'partners@tyrebiter.com.au' from public.partners where sample and kind in ('transport', 'warranty');
+
+-- A sample live auction. Every vehicle is sold in a live auction (like Turners Live), so the sample vehicles wait in
+-- this one, taking early bids, each with a sample auction estimate (its basis kept on file) and, where its state needs
+-- one to transfer the registration, the seller's certificate. The clock never runs it (auto_advance is off): start it
+-- from Admin → Live auctions to see how a sale runs, and delete it with the sample vehicles. Before launch, every
+-- real sale names your licensed auctioneer.
+do $$
+declare v_today date := (now() at time zone 'Australia/Brisbane')::date; v_days int; v_sale bigint;
+begin
+  if not public.live_only() then return; end if;
+  v_days := (4 - extract(isodow from v_today)::int + 7) % 7;  -- the next Thursday at least 2 days away, 7pm Brisbane time
+  if v_days < 2 then v_days := v_days + 7; end if;
+  insert into public.sales (slug, title, intro, published, mode, starts_at, auctioneer, auto_advance, lot_seconds, extend_seconds)
+  values ('sample-live-auction', 'Sample live auction', 'Sample vehicles, to show how our live auctions work.', true, 'live',
+          ((v_today + v_days) + time '19:00') at time zone 'Australia/Brisbane', 'Sample Auctioneer', false, 60, 20)
+  returning id into v_sale;
+  update public.lots set gvm_kg = 22500 where id = 10590 and gvm_kg is null;
+  update public.lots l set buy_now_price = null, method = 'auction', sale_id = v_sale, sale_order = o.n,
+         estimate_low = o.lo, estimate_high = o.hi, roadworthy_note = null
+    from (values (10432, 1, 3500, 4300), (10611, 2, 5500, 6800), (10633, 3, 6000, 7500), (10620, 4, 3000, 4000),
+                 (10599, 5, 25000, 30000), (10660, 6, 7000, 8500), (10661, 7, 24000, 29000), (10662, 8, 14000, 17000),
+                 (10588, 9, 32000, 38000), (10590, 10, 52000, 62000)) o(id, n, lo, hi)
+   where l.id = o.id;
+  update public.lot_private set estimate_basis = 'Sample estimate: recent sales of similar vehicles (same model, age and kilometres). Replace with your own evidence.'
+   where lot_id in (select id from public.lots where sale_id = v_sale);
+  update public.lots set roadworthy_issued_on = v_today - 3
+   where sale_id = v_sale and registration = 'registered'
+     and public.roadworthy_needed(coalesce(rego_state, state), year, category, gvm_kg) is not null;
+  perform public.live_estimates(v_sale);
+end $$;
 
 alter table public.lots enable trigger lot_corrections_log;

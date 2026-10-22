@@ -4,7 +4,7 @@ import type { LiveLot, LiveSale } from "@/lib/live";
 
 // The live auction room's data (the page's first render and /api/sales/[slug]/live), read with the cookie-less
 // public client: only public columns of published sales and listed vehicles.
-const LOT_COLS = "id, title, status, live_state, sale_order, current_bid, start_price, bid_count, ends_at, reserve_met, has_reserve, leader_id, sold_price, cover_path, category, year, odometer, hours, suburb, state, fees";
+const LOT_COLS = "id, title, status, live_state, sale_order, current_bid, start_price, bid_count, ends_at, reserve_met, has_reserve, leader_id, sold_price, cover_path, category, year, odometer, hours, suburb, state, fees, estimate_low, estimate_high, statutory_warranty";
 const SALE_COLS = "id, slug, title, intro, state, seller_label, mode, starts_at, stream_url, auctioneer, live_status, current_lot_id, live_message, live_message_at, lot_seconds, extend_seconds";
 
 export type LiveRoomData = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };

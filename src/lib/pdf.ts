@@ -9,6 +9,12 @@ const BLUE = rgb(0.184, 0.357, 1);
 const aud = (n: number | null | undefined) => `$${Number(n || 0).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "Australia/Brisbane" }) : "");
 // Standard PDF fonts only cover Western characters; keep text within that set.
+// The notice every buyer gets with their paperwork: how it was sold, the statutory warranty statement, the PPSR search.
+function buyerNotice(lot: Record<string, unknown>) {
+  const warranty = lot.statutory_warranty === true ? "A statutory warranty applies to this sale: its details are with your paperwork." : "No statutory warranty applies to this sale, and no dealer guarantee or duty to repair applies unless it says otherwise above.";
+  const ppsr = lot.ppsr_checked_at ? ` We searched the PPSR on ${day(String(lot.ppsr_checked_at))}${lot.ppsr_cert_no ? ` (search certificate ${lot.ppsr_cert_no})` : ""}; any finance it showed is paid out of the sale.` : "";
+  return `Notice to the buyer: this vehicle was sold by auction, at the fall of the hammer in a live online auction run by a licensed auctioneer, by ${env.legalName} as agent for its owner. ${warranty}${ppsr} The odometer reading is as indicated on the dash; we can't verify the true distance. No cooling-off period applies.`;
+}
 const safe = (s: unknown) => String(s ?? "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/[^\x20-\x7E\xA0-\xFF·]/g, "");
 
 class Sheet {
@@ -57,7 +63,7 @@ async function newSheet() {
 // Tax invoice for a buyer (our fees are taxable supplies; the vehicle is sold as the seller's agent).
 export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
   const db = supabaseAdmin();
-  const { data: inv } = await db.from("invoices").select("*, lots(title, vin, rego_plate, rego_state, suburb, state, gst_status)").eq("id", invoiceId).maybeSingle();
+  const { data: inv } = await db.from("invoices").select("*, lots(title, vin, rego_plate, rego_state, suburb, state, gst_status, statutory_warranty, ppsr_checked_at, ppsr_cert_no)").eq("id", invoiceId).maybeSingle();
   if (!inv) return null;
   const { data: buyer } = await db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, email, company_name, abn").eq("id", inv.buyer_id).single();
   const lot = inv.lots || {};
@@ -69,7 +75,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.text("Billed to", 50, 9, { color: MUTED }); s.text("Vehicle", 300, 9, { color: MUTED }); s.line(14);
   const biz = (inv.buyer_business as { name?: string | null; abn?: string | null } | null) || { name: buyer?.company_name, abn: buyer?.abn };
   const left = [biz.name, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), biz.abn ? `ABN ${biz.abn}` : null, buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean);
-  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Collect from our depot in ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via}`].filter(Boolean);
+  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Collect from our depot in ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "auction" ? "live auction" : inv.sold_via}`].filter(Boolean);
   for (let i = 0; i < Math.max(left.length, right.length); i++) { if (left[i]) s.text(left[i], 50, 10); if (right[i]) s.text(right[i], 300, 10); s.line(14); }
   s.line(14); s.rule();
 
@@ -103,7 +109,9 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   }
   s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? (bank ? (fromDeposit > 0 ? "Deposit applied, balance due" : "Payment due") : "Deposit paid, balance due") : inv.status.replace("_", " "), { bold: true });
   s.line(10); s.rule();
-  s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST, and we can issue a tax invoice for the vehicle on request.`, 50, 495, 8);
+  s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is held in our trust account and paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and this tax invoice covers the vehicle too: we're treated as its supplier under Subdivision 153-B of the GST Act.`, 50, 495, 8);
+  s.line(4);
+  s.wrap(buyerNotice(lot), 50, 495, 8);
 
   return { bytes: await doc.save(), filename: `Tyrebiter-${inv.ref}.pdf` };
 }
@@ -113,7 +121,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
 // transfer of registration.
 export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
   const db = supabaseAdmin();
-  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, sold_via, status, paid_at, lots(title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state)").eq("id", invoiceId).maybeSingle();
+  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, sold_via, status, paid_at, lots(title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state, statutory_warranty, ppsr_checked_at, ppsr_cert_no)").eq("id", invoiceId).maybeSingle();
   if (!inv || inv.status !== "paid") return null;
   const lot = (inv.lots || {}) as unknown as Record<string, string | number | null>;
   const [{ data: buyer }, { data: t }] = await Promise.all([
@@ -139,11 +147,13 @@ export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Ui
     [unreg ? "Previous registration" : "Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || ""})` : unreg ? "None" : ""],
     ["Registration status", unreg || t?.buyer_choice === "unregistered" ? "Sold unregistered, without plates" : `Registered${lot.rego_expiry ? `, expires ${day(String(lot.rego_expiry))}` : ""}. To be transferred to the buyer.`],
     [lot.hours != null ? "Hours (as indicated)" : "Odometer (as indicated)", lot.hours != null ? `${Number(lot.hours).toLocaleString("en-AU")} hours` : lot.odometer != null ? `${Number(lot.odometer).toLocaleString("en-AU")} km` : "Not recorded"],
-    ["Sale price", aud(Number(inv.price))], ["Sold by", inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "offer" ? "Accepted offer" : "Online auction"], ["Collected from", `Our depot in ${lot.suburb || ""}, ${lot.state || ""}`],
+    ["Sale price", aud(Number(inv.price))], ["Sold by", inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "offer" ? "Accepted offer" : "Live online auction, at the fall of the hammer"], ["Statutory warranty", (lot.statutory_warranty as unknown) === true ? "Applies (see your paperwork)" : "None"], ["Collected from", `Our depot in ${lot.suburb || ""}, ${lot.state || ""}`],
   ];
   for (const [k, v] of rows) s.row(k, safe(v));
   s.line(10); s.rule();
   s.wrap(`${env.legalName} sold this vehicle as agent for its owner under our Terms of Sale (tyrebiter.com.au/terms), and has received payment in full. Ownership passes to the buyer named above. ${unreg ? "The vehicle is unregistered and must not be driven on a road without a permit; move it by carrier or trailer, or under a permit from the state transport authority. To register it, the new owner applies to their state transport authority with this certificate and any inspection that state requires." : "The registration is transferred to the buyer through the state transport authority before collection."} Keep this certificate with the vehicle's papers.`, 50, 495, 9);
+  s.line(4);
+  s.wrap(buyerNotice(lot), 50, 495, 8);
   s.line(8);
   s.wrap(`Issued ${day(new Date().toISOString())}. Check it at ${env.siteUrl.replace(/^https?:\/\//, "")} or call ${env.phone}, quoting ${inv.ref}.`, 50, 495, 8);
   return { bytes: await doc.save(), filename: `Tyrebiter-certificate-of-sale-${inv.ref}.pdf` };

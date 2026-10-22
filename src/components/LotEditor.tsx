@@ -8,9 +8,10 @@ import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
-import { rulesFor } from "@/lib/transfer";
+import { certNeeded, rulesFor } from "@/lib/transfer";
+import { ESTIMATE_BASIS_MIN, estimateMaxHigh, estimateProblem } from "@/lib/estimate";
 import { AdminAction } from "@/components/AdminAction";
-import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified } from "@/lib/listing";
+import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified, warrantyGuide } from "@/lib/listing";
 import { ZONES } from "@/lib/damage";
 import { cleanPhoto } from "@/lib/photoPrep";
 import { money } from "@/lib/format";
@@ -47,13 +48,17 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   useEffect(() => { db.from("consultants").select("id, name").eq("active", true).order("sort").then(({ data }: { data: { id: string; name: string }[] | null }) => setConsultants(data || [])); }, [db]);
   const [depots, setDepots] = useState<Depot[]>([]);
   useEffect(() => { db.from("depots").select("id, name, suburb, state, postcode, hours, active").order("state").order("suburb").then(({ data }: { data: Depot[] | null }) => setDepots(data || [])); }, [db]);
-  const [sales, setSales] = useState<{ id: number; title: string; mode: string }[]>([]);
-  useEffect(() => { db.from("sales").select("id, title, mode").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string; mode: string }[] | null }) => setSales(data || [])); }, [db]);
+  const [sales, setSales] = useState<{ id: number; title: string; mode: string; starts_at?: string | null; live_status?: string }[]>([]);
+  useEffect(() => { db.from("sales").select("id, title, mode, starts_at, live_status").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string; mode: string }[] | null }) => setSales(data || [])); }, [db]);
+  // Every vehicle is sold in a live auction (settings: auction.live_only): no timed end, Buy Now or tender here.
+  const [liveOnly, setLiveOnly] = useState(false);
+  useEffect(() => { db.from("settings").select("value").eq("key", "auction").maybeSingle().then(({ data }: { data: { value: { live_only?: boolean } } | null }) => setLiveOnly(data?.value?.live_only === true)); }, [db]);
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
   });
-  const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", pickup_notes: "", ...(priv || {}) });
+  const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", pickup_notes: "", estimate_basis: "", ...(priv || {}) });
+  const [basePriv, setBasePriv] = useState<Row>(() => ({ ...(priv || {}) }));
   const [photos, setPhotos] = useState<Row[]>(initialPhotos);
   const [flaws, setFlaws] = useState<Row[]>(initialFlaws);
   const [vids, setVids] = useState<Row[]>(videos);
@@ -88,13 +93,13 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
       "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order",
-      "depot_id", "transport_fee", "statutory_warranty"];
+      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     out.method = f.method === "tender" ? "tender" : "auction";
     out.sale_order = f.sale_order === "" || f.sale_order == null ? null : Number(f.sale_order);
     // in a live auction the closing time belongs to the auctioneer (and the estimate to the clock): never write it from here
     if (f.live_state) delete out.ends_at;
-    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(f[k]);
+    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id", "estimate_low", "estimate_high"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(String(f[k]).replace(/[^0-9.]/g, ""));
     for (const k of ["stolen_clear", "service_books", "lams", "statutory_warranty"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.transport_fee = f.transport_fee === "" || f.transport_fee == null ? null : Math.round(Number(String(f.transport_fee).replace(/[^0-9.]/g, "")) * 100) / 100;
     out.write_off_status = f.write_off_status || "unknown";
@@ -112,29 +117,44 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     setMsg(null);
     if (!String(f.title || "").trim()) { setMsg({ kind: "bad", text: "Add a title first." }); return null; }
     setBusy(true);
-    const body = payload(extra);
+    // The vehicle's details, then the private part (the reserve and the estimate's basis), then the status change, so
+    // the publish check sees everything just typed. A reserve being lowered goes first, so a lower estimate fits it.
+    const { status: newStatus, ...rest } = payload(extra) as Row & { status?: string };
+    const changingStatus = id ? !!newStatus && newStatus !== base.status : false;
+    const body = id ? rest : { ...rest, ...(newStatus ? { status: newStatus } : {}) };
+    const reserveNow = p.reserve_price === "" || p.reserve_price == null ? null : Number(String(p.reserve_price).replace(/[^0-9.]/g, ""));
+    const reserveWas = basePriv.reserve_price == null ? null : Number(basePriv.reserve_price);
+    const lowering = reserveWas != null && (reserveNow == null || reserveNow < reserveWas);
+    const privError = (m: string) => m.includes("reserve_locked:") ? `Not saved: ${m.split("reserve_locked:")[1]}.` : m.includes("estimate_rule:") ? `Not saved: ${m.split("estimate_rule:")[1].split("\n")[0]}.` : m;
+    const lotError = (m: string) => m.includes("not_ready:") ? `Not ready to publish: ${m.split("not_ready:")[1]}.` : m.includes("estimate_rule:") ? `Not saved: ${m.split("estimate_rule:")[1].split("\n")[0]}.` : m.includes("lots_estimate_range") ? "Not saved: the estimate's high end can be at most 25% (or $1,000) above the low end." : m;
     let lotId = id;
+    const savePriv = async () => {
+      const checkedNow = JSON.stringify(normalize(f).verified) !== JSON.stringify(base.verified);
+      const me = checkedNow ? (await db.auth.getSession()).data.session?.user.id || null : null;
+      const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: reserveNow, seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null, pickup_notes: p.pickup_notes || null, estimate_basis: String(p.estimate_basis || "").trim() || null };
+      const { error: pe } = await db.from("lot_private").upsert(privBody);
+      return pe ? privError(pe.message) : null;
+    };
     if (!lotId) {
       const { data, error } = await db.from("lots").insert(body).select("id").single();
-      if (error) { setBusy(false); setMsg({ kind: "bad", text: error.message }); return null; }
+      if (error) { setBusy(false); setMsg({ kind: "bad", text: lotError(error.message) }); return null; }
       lotId = data.id as number;
+      const pe = await savePriv();
+      if (pe) { setBusy(false); setMsg({ kind: "bad", text: pe }); return null; }
     } else {
+      if (lowering) { const pe = await savePriv(); if (pe) { setBusy(false); setMsg({ kind: "bad", text: pe }); return null; } }
       const { error } = await db.from("lots").update(body).eq("id", lotId);
-      if (error) {
-        setBusy(false);
-        const ready = error.message.includes("not_ready:") ? `Not ready to publish: ${error.message.split("not_ready:")[1]}.` : error.message;
-        setMsg({ kind: "bad", text: ready });
-        return null;
+      if (error) { setBusy(false); setMsg({ kind: "bad", text: lotError(error.message) }); return null; }
+      if (!lowering) { const pe = await savePriv(); if (pe) { setBusy(false); setMsg({ kind: "bad", text: pe }); return null; } }
+      if (changingStatus) {
+        const { error: se } = await db.from("lots").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", lotId);
+        if (se) { setBusy(false); setBase(normalize(f)); setBasePriv({ ...p, reserve_price: reserveNow }); setMsg({ kind: "bad", text: lotError(se.message) }); return null; }
       }
     }
-    const checkedNow = JSON.stringify(normalize(f).verified) !== JSON.stringify(base.verified);
-    const me = checkedNow ? (await db.auth.getSession()).data.session?.user.id || null : null;
-    const privBody = { lot_id: lotId, ...(me ? { checked_by: me } : {}), reserve_price: p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price), seller_name: p.seller_name || null, seller_phone: p.seller_phone || null, seller_email: p.seller_email || null, seller_address: p.seller_address || null, seller_notes: p.seller_notes || null, pickup_notes: p.pickup_notes || null };
-    const { error: pe } = await db.from("lot_private").upsert(privBody);
     setBusy(false);
-    if (pe) { setMsg({ kind: "bad", text: pe.message.includes("reserve_locked:") ? `Not saved: ${pe.message.split("reserve_locked:")[1]}.` : pe.message }); return null; }
     setF({ ...f, ...extra });
     setBase(normalize({ ...f, ...extra }));
+    setBasePriv({ ...p, reserve_price: reserveNow });
     setMsg({ kind: "ok", text: okText });
     fetch("/api/revalidate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId }) }).catch(() => {});
     if (!id) router.replace(`/admin/lots/${lotId}`);
@@ -143,7 +163,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   }
 
   async function publish() {
-    const missing = [["title", "Title"], ...(f.depot_id ? [] : [["suburb", "Suburb"], ["state", "State"]]), ["ends_at", "Auction end time"], ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
+    const inLive = liveOnly || !!f.live_state;
+    const missing = [["title", "Title"], ...(f.depot_id ? [] : [["suburb", "Suburb"], ["state", "State"]]), ...(inLive ? [] : [["ends_at", "Auction end time"]]), ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
       ...(f.registration === "registered" ? [["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry"]] : [])].filter(([k]) => !f[k]).map(([, l]) => l);
     if (!f.runs) missing.push("Starts and drives");
     if (!f.write_off_status || f.write_off_status === "unknown") missing.push("Write-off status");
@@ -153,11 +174,24 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       if (f.statutory_warranty === "" || f.statutory_warranty == null) missing.push("Statutory warranty");
       if (!String(p.seller_address || "").trim()) missing.push("Pickup address (Seller, private)");
     }
+    if (liveOnly) {
+      const sale = sales.find((x) => x.id === Number(f.sale_id));
+      if (!sale || sale.mode !== "live") missing.push("The live auction it's offered in");
+      if (f.buy_now_price) missing.push("No Buy Now price (every vehicle is sold in a live auction)");
+      if (f.method === "tender") missing.push("Sold by auction, not tender");
+      const est = estimateProblem(Number(f.estimate_low) || null, Number(f.estimate_high) || null, p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price));
+      if (est) missing.push(`Auction estimate (${est.replace(/\.$/, "")})`);
+      if (String(p.estimate_basis || "").trim().length < ESTIMATE_BASIS_MIN) missing.push("What the estimate is based on");
+    }
+    if (seller?.requireChecks !== false && f.registration === "registered") {
+      const cert = certNeeded(String(f.rego_state || f.state || ""), Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
+      if (cert && !f.roadworthy_issued_on && !/^\s*exempt/i.test(String(f.roadworthy_note || ""))) missing.push(`The date on the seller's ${cert} (or "Exempt …" in the roadworthy note)`);
+    }
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
     const todo = LISTING_CHECKS.filter(([k]) => !verified.includes(k)).map(([, label]) => label);
-    if (todo.length) { setMsg({ kind: "bad", text: `Before publishing, check the listing against the vehicle: ${todo.join("; ")}.` }); return; }
+    if (todo.length) { setMsg({ kind: "bad", text: `Before publishing, check the listing against the seller's photos, video and records: ${todo.join("; ")}.` }); return; }
     if (f.registration === "registered" && f.write_off_status === "statutory") { setMsg({ kind: "bad", text: "A statutory write-off can never be registered. List it as unregistered." }); return; }
-    if (new Date(String(f.ends_at)).getTime() < Date.now() + 3600000) { setMsg({ kind: "bad", text: "The end time must be at least an hour away." }); return; }
+    if (!inLive && new Date(String(f.ends_at)).getTime() < Date.now() + 3600000) { setMsg({ kind: "bad", text: "The end time must be at least an hour away." }); return; }
     if (f.registration === "registered" && f.rego_expiry && String(f.rego_expiry) < new Date().toISOString().slice(0, 10)) { setMsg({ kind: "bad", text: "The registration has expired. Renew it, or list the vehicle as unregistered." }); return; }
     if (!photos.length && !confirm("This vehicle has no photos yet. Publish anyway?")) return;
     await save({ status: "live", starts_at: f.starts_at || new Date().toISOString(), ...(hasBids ? {} : { current_bid: Number(f.start_price || 100) }) }, "Published. It's live on the site.");
@@ -312,7 +346,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
       </div>
       {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
-      {hasBids && <div className="notice">This lot has bids. The reserve can be lowered or removed but not raised. Any change to a key fact, the description or the damage list is shown on the listing as a correction, every bidder and watcher is told, and bidding is kept open for at least 24 hours.</div>}
+      {hasBids && <div className="notice">This lot has bids. The reserve can be lowered or removed but not raised. Any change to a key fact (the estimate too), the description or the damage list is shown on the listing as a correction and every bidder and watcher is told. {f.live_state ? "In a live auction it then can't be offered for 24 hours." : "Bidding is kept open for at least 24 hours."}</div>}
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Listing</h2>
@@ -386,11 +420,24 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
         <div className="grid3">
           {sel("seller_type", "Seller", [["private", "Private seller"], ["business", "Business seller (fleet, company, GST-registered)"]])}
-          <label className="field"><span>Statutory warranty (required)</span><select className="input" value={f.statutory_warranty == null || f.statutory_warranty === "" ? "" : String(f.statutory_warranty)} onChange={(e) => setF({ ...f, statutory_warranty: e.target.value === "" ? null : e.target.value === "true" })} data-testid="statutory-warranty"><option value="">Choose…</option><option value="false">Doesn&apos;t apply to this sale</option><option value="true">Applies to this sale</option></select><span className="hint">Stated on the listing before bidding opens (Queensland requires it). A vehicle we sell at auction for its private owner generally has none.</span></label>
+          <label className="field"><span>Statutory warranty (required)</span><select className="input" value={f.statutory_warranty == null || f.statutory_warranty === "" ? "" : String(f.statutory_warranty)} onChange={(e) => setF({ ...f, statutory_warranty: e.target.value === "" ? null : e.target.value === "true" })} data-testid="statutory-warranty"><option value="">Choose…</option><option value="false">Doesn&apos;t apply to this sale</option><option value="true">Applies to this sale</option></select><span className="hint" data-testid="warranty-guide">Stated on the listing and in the live room before bidding opens (Queensland requires it). {warrantyGuide(String(f.rego_state || f.state || ""), (f.seller_type as "private" | "business") || "private", String(f.category || ""))}</span></label>
           {isElectrified(String(f.fuel || "")) && inp("ev_battery_soh", "Battery health (% state of health)", { inputMode: "numeric", placeholder: "e.g. 94" })}
           {isElectrified(String(f.fuel || "")) && inp("ev_battery_report", "Battery certificate link", { placeholder: "https://…" })}
         </div>
-        <span className="hint" style={{ marginTop: -6 }}>Business sellers can mean extra consumer guarantees for Buy Now and offer sales. The seller&apos;s agreement sets this; change it only if it&apos;s wrong.</span>
+        <span className="hint" style={{ marginTop: -6 }}>The seller&apos;s agreement sets whether it&apos;s a private or business seller; change it only if it&apos;s wrong.</span>
+        {f.registration === "registered" && (() => {
+          const cert = certNeeded(String(f.rego_state || f.state || ""), Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
+          return (
+            <div className="grid2" data-testid="roadworthy">
+              <label className="field"><span>{cert ? `Date on the seller's ${cert}` : "Safety or roadworthy certificate date (if any)"}</span>
+                <input className="input" type="date" value={String(f.roadworthy_issued_on || "").slice(0, 10)} onChange={(e) => setF({ ...f, roadworthy_issued_on: e.target.value || null })} data-testid="roadworthy-date" />
+                <span className="hint">{cert
+                  ? `${String(f.rego_state || f.state || "").toUpperCase()} needs a ${cert} before the registration can be transferred to the buyer. The seller gets it (from an approved inspection station) and sends us a copy.${String(f.rego_state || f.state || "").toUpperCase() === "VIC" ? " In Victoria it must be issued less than 30 days before the auction." : String(f.rego_state || f.state || "").toUpperCase() === "QLD" ? " A private seller's Queensland certificate lasts 2 months." : ""} If it's exempt, start the roadworthy note with "Exempt" and say why.`
+                  : "None is needed to transfer this registration."}</span>
+              </label>
+            </div>
+          );
+        })()}
         <div className="grid2">
           {inp("video_url", "External video link (optional, e.g. YouTube)", { placeholder: "https://…" })}
           <label className="field"><span>Consultant shown on the listing</span><select className="input" value={String(f.consultant_id || "")} onChange={(e) => setF({ ...f, consultant_id: e.target.value || null })}><option value="">Default consultant</option>{consultants.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -399,8 +446,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="listing-checks">
-        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Checked against the vehicle</h2>
-        <p className="hint">Tick each one only after checking it on the vehicle itself, at the walkaround. All are needed to publish. Buyers see them as verified by Tyrebiter, and your name is recorded. If you change a fact once it&apos;s live, the change is shown on the listing and sent to bidders and watchers, and bidding gets at least 24 more hours.</p>
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Listing checks (from the seller&apos;s photos, video and records)</h2>
+        <p className="hint">We&apos;re never at the vehicle. Tick each one only after checking it against the seller&apos;s photos and walkaround video and the records (rego, PPSR, VIN). If something can&apos;t be seen, ask the seller for another photo or a short video; don&apos;t tick it. All are needed to publish, buyers see them as checked by Tyrebiter, and your name is recorded. A fact changed once it&apos;s live is shown on the listing as a correction and sent to bidders and watchers.</p>
         <label className="field" style={{ maxWidth: 420 }}><span>Starts and drives?</span><select className="input" value={String(f.runs || "")} onChange={(e) => setF({ ...f, runs: e.target.value || null })} data-testid="runs"><option value="">Choose…</option>{Object.entries(RUNS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {LISTING_CHECKS.map(([k, label]) => (
@@ -421,14 +468,14 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Condition report</h2>
-        <p className="hint">Grade only what you can see on the walkaround. See the grade definitions in the Help centre.</p>
+        <p className="hint">Grade only what the seller&apos;s photos and video clearly show. See the grade definitions in the Help centre.</p>
         <div className="grid2">{sel("visual_grade", "Overall visual grade", gradeOpts)}{inp("tyre_tread", "Tyre tread", { placeholder: "FL 4.5 · FR 4.0 · RL 5.5 · RR 5.0 mm" })}</div>
         <div className="grid3">{sel("grade_paint", "Paint & body", gradeOpts)}{sel("grade_interior", "Interior", gradeOpts)}{sel("grade_tyres", "Tyres", gradeOpts)}</div>
         <div className="grid2">
           <label className="field"><span>PPSR search</span><select className="input" value={f.ppsr_clear == null ? "" : String(f.ppsr_clear)} onChange={(e) => setF({ ...f, ppsr_clear: e.target.value === "" ? null : e.target.value === "true" })}><option value="">Pending</option><option value="true">Clear</option><option value="false">Not clear (explain below)</option></select></label>
           {inp("ppsr_note", "PPSR note")}
         </div>
-        <div className="grid3">{inp("service_history", "Service history (seller declared)")}{inp("known_faults", "Known faults (seller declared)")}{inp("roadworthy_note", "Roadworthy", { placeholder: "Not included" })}</div>
+        <div className="grid3">{inp("service_history", "Service history (seller declared)")}{inp("known_faults", "Known faults (seller declared)")}{inp("roadworthy_note", "Roadworthy note", { placeholder: "e.g. Exempt: trailer under 750 kg" })}</div>
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -437,9 +484,9 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <>
             <span className="muted" data-testid="media-count">{mediaUsed} of {MEDIA_MAX} used: up to 10 photos and videos, one of them a video. The first photo is the cover; the video shows second.</span>
             <div className="grid2">
-              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">Studio shots on their colour backdrop. The location the phone recorded is removed. Nothing that shows the seller&apos;s house, street or neighbours.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
+              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">The seller&apos;s photos, taken for this listing. Each one is redrawn, which removes the location the phone recorded. Nothing that shows the seller&apos;s house, street, neighbours or other cars&apos; plates.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
               {liveVideos.length === 0 ? (
-                <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">One walkaround, MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away, without the location the phone recorded.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
+                <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">The seller&apos;s walkaround (starting it, the dash with the ignition on, moving it under its own power), MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away, without the location the phone recorded.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
               ) : (
                 <div className="soft" style={{ gap: 8 }}>
                   {liveVideos.map((v) => (
@@ -493,32 +540,50 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Auction</h2>
         <div className="grid3">
-          {inp("start_price", "Starting bid ($)", { inputMode: "numeric" })}
-          <label className="field"><span>Reserve ($, private)</span><input className="input" inputMode="numeric" value={(p.reserve_price as string) ?? ""} onChange={setPriv("reserve_price")} placeholder="Leave empty for no reserve" /></label>
-          {inp("buy_now_price", "Buy Now price ($, optional)", { inputMode: "numeric" })}
+          {inp("start_price", "Opening bid ($)", { inputMode: "numeric" })}
+          <label className="field"><span>Reserve ($, private)</span><input className="input" inputMode="numeric" value={(p.reserve_price as string) ?? ""} onChange={setPriv("reserve_price")} placeholder="Leave empty for no reserve" /><span className="hint">Never above the low end of the estimate. The seller can lower it until the hammer falls.</span></label>
+          {!liveOnly && inp("buy_now_price", "Buy Now price ($, optional)", { inputMode: "numeric" })}
         </div>
+        <div className="grid3" data-testid="estimate-fields">
+          {inp("estimate_low", "Auction estimate, low ($)", { inputMode: "numeric", placeholder: "e.g. 14000" })}
+          {inp("estimate_high", "Auction estimate, high ($)", { inputMode: "numeric", placeholder: Number(f.estimate_low) > 0 ? `up to ${estimateMaxHigh(Number(f.estimate_low))}` : "e.g. 17000" })}
+          <span className="hint" style={{ alignSelf: "center" }} data-testid="estimate-check">{(() => {
+            const r = p.reserve_price === "" || p.reserve_price == null ? null : Number(p.reserve_price);
+            const e = estimateProblem(Number(f.estimate_low) || null, Number(f.estimate_high) || null, r);
+            return e || "Looks right: shown on the listing with the all-in amounts.";
+          })()}</span>
+        </div>
+        <label className="field"><span>What the estimate is based on (private, required)</span>
+          <textarea className="input" value={(p.estimate_basis as string) ?? ""} onChange={setPriv("estimate_basis")} placeholder="e.g. Three 2018 HiLux SR5 utes with 120-150,000 km sold at auction in the last 60 days: $31,000, $33,500, $34,000. Condition from the seller's photos: average." data-testid="estimate-basis" />
+          <span className="hint">Kept on file, never shown. A statement about a future price needs reasonable grounds, and this record is them: recent comparable sales (ours or published results), price guides, and the condition shown. Keep the range honest: at most 25% wide (or $1,000), and never pitched low to draw bidders or high to please the seller.</span>
+        </label>
         <label className="field" style={{ maxWidth: 520 }} data-testid="transport-fee"><span>Transport to the depot ($, before GST)</span>
           <input className="input" inputMode="decimal" value={(f.transport_fee as string) ?? ""} onChange={set("transport_fee")} placeholder="From the transport quote" disabled={!["draft", "scheduled"].includes(String(f.status))} />
           <span className="hint">{["draft", "scheduled"].includes(String(f.status))
             ? "Our transport partner's quote to pick it up from the seller and take it to the depot. It's part of the buyer's premium (GST is added) and in every all-in price. Locked once bidding opens. Enter 0 if the seller is bringing it to the depot."
             : `Locked into the buyer's premium when bidding opened${f.fees && (f.fees as Row).transport != null ? `: ${money(Number((f.fees as Row).transport))}` : ""}.`}</span>
         </label>
-        <div className="grid2">
-          <label className="field"><span>Starts</span><input className="input" type="datetime-local" value={toLocal(f.starts_at)} onChange={(e) => setF({ ...f, starts_at: fromLocal(e.target.value) })} /><span className="hint">Leave empty to start when published.</span></label>
-          {f.live_state
-            ? <div className="field"><span>Ends</span><span className="hint" style={{ margin: 0 }}>In a live auction: offered {f.live_state === "waiting" ? "in its turn" : f.live_state === "open" ? "now" : "already"} by the auctioneer. The time on the listing is an estimate.</span></div>
-            : <label className="field"><span>Ends</span><input className="input" type="datetime-local" value={toLocal(f.ends_at)} onChange={(e) => setF({ ...f, ends_at: fromLocal(e.target.value) })} /><span className="hint">{f.method === "tender" ? "Tenders close on time (no extensions)." : "Bids in the last 10 minutes extend it automatically."}</span></label>}
-        </div>
-        <div className="field"><span>How it&apos;s sold</span>
-          <div className="chipset" data-testid="method-select">
-            <button type="button" className={f.method !== "tender" ? "on" : ""} aria-pressed={f.method !== "tender"} onClick={() => setF({ ...f, method: "auction" })}>Auction</button>
-            <button type="button" className={f.method === "tender" ? "on" : ""} aria-pressed={f.method === "tender"} onClick={() => setF({ ...f, method: "tender", buy_now_price: "" })} data-testid="method-tender">Tender (sealed offers)</button>
-          </div>
-          <span className="hint">{f.method === "tender" ? "Buyers put in one sealed amount each; the highest buys at that price when it closes, if it meets the reserve. No Buy Now. Can't change once there are tenders." : "A timed auction, or a live auction if it's in a live sale."}</span>
-        </div>
-        <label className="field" style={{ maxWidth: 420 }}><span>Part of a sale (optional)</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">Not part of a sale</option>{sales.map((x) => <option key={x.id} value={x.id}>{x.title}{x.mode === "live" ? " (live auction)" : ""}</option>)}</select><span className="hint">Group a fleet&apos;s vehicles in one sale page, or put it in a live auction. Set up sales in <a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
+        <label className="field" style={{ maxWidth: 520 }}><span>{liveOnly ? "Live auction it's offered in (required)" : "Part of a sale (optional)"}</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">{liveOnly ? "Choose the live auction…" : "Not part of a sale"}</option>{sales.filter((x) => !liveOnly || (x.mode === "live" && x.live_status !== "ended") || x.id === Number(f.sale_id)).map((x) => <option key={x.id} value={x.id}>{x.title}{x.mode === "live" ? ` (live auction${x.starts_at ? `, ${new Date(x.starts_at).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""})` : ""}</option>)}</select><span className="hint">{liveOnly ? "Every vehicle is offered by the auctioneer in a live auction and sold under the hammer. Buyers can leave early bids as soon as it's published. Set up auctions in " : "Group a fleet's vehicles in one sale page, or put it in a live auction. Set up sales in "}<a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
         {sales.find((x) => x.id === Number(f.sale_id))?.mode === "live" && inp("sale_order", "Order in the live auction (1 goes first)", { inputMode: "numeric" })}
-        <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
+        {!liveOnly && (
+          <>
+            <div className="grid2">
+              <label className="field"><span>Starts</span><input className="input" type="datetime-local" value={toLocal(f.starts_at)} onChange={(e) => setF({ ...f, starts_at: fromLocal(e.target.value) })} /><span className="hint">Leave empty to start when published.</span></label>
+              {f.live_state
+                ? <div className="field"><span>Ends</span><span className="hint" style={{ margin: 0 }}>In a live auction: offered {f.live_state === "waiting" ? "in its turn" : f.live_state === "open" ? "now" : "already"} by the auctioneer. The time on the listing is an estimate.</span></div>
+                : <label className="field"><span>Ends</span><input className="input" type="datetime-local" value={toLocal(f.ends_at)} onChange={(e) => setF({ ...f, ends_at: fromLocal(e.target.value) })} /><span className="hint">{f.method === "tender" ? "Tenders close on time (no extensions)." : "Bids in the last 10 minutes extend it automatically."}</span></label>}
+            </div>
+            <div className="field"><span>How it&apos;s sold</span>
+              <div className="chipset" data-testid="method-select">
+                <button type="button" className={f.method !== "tender" ? "on" : ""} aria-pressed={f.method !== "tender"} onClick={() => setF({ ...f, method: "auction" })}>Auction</button>
+                <button type="button" className={f.method === "tender" ? "on" : ""} aria-pressed={f.method === "tender"} onClick={() => setF({ ...f, method: "tender", buy_now_price: "" })} data-testid="method-tender">Tender (sealed offers)</button>
+              </div>
+              <span className="hint">{f.method === "tender" ? "Buyers put in one sealed amount each; the highest buys at that price when it closes, if it meets the reserve. No Buy Now. Can't change once there are tenders." : "A timed auction, or a live auction if it's in a live sale."}</span>
+            </div>
+            <div className="pill-row">{[3, 5, 7].map((d) => <button key={d} type="button" className="pill pill-soft" onClick={() => { const e = new Date(Date.now() + d * 86400000); e.setHours(19, 0, 0, 0); setF({ ...f, ends_at: e.toISOString() }); }}>{d} days, ends 7 pm</button>)}</div>
+          </>
+        )}
+        {liveOnly && !!f.live_state && <span className="hint">{f.live_state === "waiting" ? "Waiting its turn: the time on the listing is an estimate the clock keeps up to date." : f.live_state === "open" ? "Up now in the live auction." : "Already offered."}</span>}
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="editor-inspection">

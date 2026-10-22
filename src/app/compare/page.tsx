@@ -5,6 +5,7 @@ import { CompareRemove } from "@/components/Compare";
 import { CarArt } from "@/components/CarArt";
 import { priceBreakdown, lotFees } from "@/lib/fees";
 import { km, money } from "@/lib/format";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { photoUrl } from "@/lib/photos";
 import { CAT, kindLabel } from "@/lib/vehicles";
 import { RUNS, SELLER_TYPE, WRITE_OFF } from "@/lib/listing";
@@ -14,7 +15,7 @@ import type { Lot } from "@/lib/types";
 export const metadata: Metadata = { title: "Compare vehicles", robots: { index: false } };
 
 const when = (s: string | null) => (s ? new Date(s).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null);
-const STATUS: Record<string, string> = { live: "Live auction", scheduled: "Starting soon", offers: "Taking offers", referred: "Under offer", sold: "Sold", passed: "Ended" };
+const STATUS: Record<string, string> = { live: "Live auction", scheduled: "Starting soon", offers: "Taking offers", referred: "Under offer", sold: "Sold", passed: "Passed in" };
 
 // Up to four vehicles side by side: the all-in price first (what you'd actually pay), then condition and the facts.
 export default async function Compare({ searchParams }: { searchParams: Promise<{ ids?: string }> }) {
@@ -32,10 +33,16 @@ export default async function Compare({ searchParams }: { searchParams: Promise<
     );
   }
   const price = (l: Lot) => l.status === "sold" ? l.sold_price || 0 : l.buy_now_price && l.current_bid < l.buy_now_price ? Math.max(l.current_bid || 0, l.start_price || 0) : Math.max(l.current_bid || 0, l.start_price || 0);
+  // every price with its all-in amount in the same size and weight
+  const lots = items.map((b) => b.lot);
   const rows: [string, (l: Lot) => React.ReactNode][] = [
-    ["Current bid", (l) => <><b>{money(price(l))}</b><br /><span className="muted" style={{ fontSize: 13 }}>{money(priceBreakdown(price(l), lotFees(fees, l)).total, true)} all-in with fees</span></>],
-    ["Buy Now", (l) => l.buy_now_price && l.current_bid < l.buy_now_price ? <><b>{money(l.buy_now_price)}</b><br /><span className="muted" style={{ fontSize: 13 }}>{money(priceBreakdown(l.buy_now_price, lotFees(fees, l)).total, true)} all-in</span></> : "No"],
-    ["Status", (l) => <>{STATUS[l.status] || l.status}{l.status === "live" && l.ends_at ? <><br /><span className="muted" style={{ fontSize: 13 }}>Ends {when(l.ends_at)}</span></> : null}</>],
+    ...(lots.some((l) => hasEstimate(l)) ? [["Auction estimate", (l: Lot) => hasEstimate(l) && l.status !== "sold"
+      ? <span data-testid="cmp-estimate"><b>{estimateText(l)}</b><br /><b>{estimateAllInText(l, lotFees(fees, l))} all-in</b></span> : "–"] as [string, (l: Lot) => React.ReactNode]] : []),
+    [lots.every((l) => l.status === "sold") ? "Sold for" : "Current bid", (l) => <><b>{money(price(l))}</b>{l.status !== "sold" && <><br /><b data-testid="cmp-allin">{allInMoney(priceBreakdown(price(l), lotFees(fees, l)).total)} all-in with fees</b></>}</>],
+    ...(lots.some((l) => l.buy_now_price) ? [["Buy Now", (l: Lot) => l.buy_now_price && l.current_bid < l.buy_now_price
+      ? <><b>{money(l.buy_now_price)}</b><br /><b>{allInMoney(priceBreakdown(l.buy_now_price, lotFees(fees, l)).total)} all-in</b></> : "No"] as [string, (l: Lot) => React.ReactNode]] : []),
+    ["Status", (l) => <>{l.status === "live" && l.live_state === "open" ? "Up now, live" : STATUS[l.status] || l.status}{l.status === "live" && l.ends_at && l.live_state !== "open"
+      ? <><br /><span className="muted" style={{ fontSize: 13 }}>{l.live_state === "waiting" ? `Offered about ${when(l.ends_at)}` : `Ends ${when(l.ends_at)}`}</span></> : null}</>],
     ["Reserve", (l) => !l.has_reserve ? "No reserve" : l.reserve_met ? "Reserve met" : "Reserve not met"],
     ["Bids", (l) => String(l.bid_count || 0)],
     ["Year", (l) => l.year],

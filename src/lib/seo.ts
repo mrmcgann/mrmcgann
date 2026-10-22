@@ -22,8 +22,8 @@ type SeoLot = Pick<Lot, "id" | "title" | "status" | "year" | "make" | "model" | 
 /** What we can truthfully say this listing was checked for (only what's recorded on it). */
 export function checkedClaim(l: Pick<SeoLot, "verified" | "ppsr_checked_at">): string {
   const all = CHECK_KEYS.every((k) => (l.verified || []).includes(k));
-  if (all && l.ppsr_checked_at) return "Checked against the vehicle and PPSR searched.";
-  if (all) return "Checked against the vehicle.";
+  if (all && l.ppsr_checked_at) return "Listing checked and PPSR searched.";
+  if (all) return "Listing checked.";
   if (l.ppsr_checked_at) return "PPSR searched.";
   return "";
 }

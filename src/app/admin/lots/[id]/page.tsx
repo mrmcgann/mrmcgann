@@ -18,11 +18,15 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     db.from("lot_photos").select("*").eq("lot_id", lotId).order("sort"),
     db.from("lot_flaws").select("*").eq("lot_id", lotId).order("sort"),
     db.from("seller_agreements").select("*").eq("lot_id", lotId).eq("status", "signed").order("signed_at", { ascending: false }).limit(1),
-    db.from("settings").select("value").eq("key", "selling").maybeSingle(),
+    db.from("settings").select("key, value").in("key", ["selling", "auction"]),
     db.from("lot_snapshots").select("id, reason, taken_at, data").eq("lot_id", lotId).order("taken_at", { ascending: false }).limit(3),
     db.from("lot_videos").select("id, status, public_path, title").eq("lot_id", lotId).in("status", ["pending", "approved"]),
   ]);
   if (!lot) notFound();
+  const settingRows = (selling || []) as { key: string; value: Record<string, unknown> }[];
+  const sellingSet = settingRows.find((r) => r.key === "selling") || null;
+  // every vehicle is sold under the hammer: no offers to the next bidder (the database refuses them too)
+  const liveOnly = settingRows.find((r) => r.key === "auction")?.value?.live_only === true;
   const [{ data: corrections }, { data: maxes }, { data: cancelled }, { data: offers }, { data: relisted }] = await Promise.all([
     db.from("lot_corrections").select("label, before, after, created_at").eq("lot_id", lotId).order("created_at", { ascending: false }).limit(50),
     lot.status === "live" ? db.from("max_bids").select("bidder_id, max_amount, first_set_at, profiles(first_name, last_name, mobile)").eq("lot_id", lotId).order("max_amount", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -49,7 +53,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     bank: bank ? { account_name: bank.account_name, bsb: bank.bsb, account_number: bank.account_number, confirmed_at: bank.confirmed_at } : null,
     sellerId,
     ownershipCheckedAt: priv?.ownership_checked_at || null,
-    requireChecks: (selling?.value as { require_checks?: boolean } | null)?.require_checks !== false,
+    requireChecks: (sellingSet?.value as { require_checks?: boolean } | null)?.require_checks !== false,
   };
   return (
     <>
@@ -72,7 +76,8 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
       {["passed", "cancelled"].includes(lot.status) && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="admin-after">
           <h2 style={{ fontSize: 22, fontWeight: 800 }}>Didn&apos;t sell</h2>
-          {lot.status === "passed" && (cancelled || []).length > 0 && (
+          {lot.status === "passed" && (cancelled || []).length > 0 && liveOnly && <p className="hint">The buyer didn&apos;t pay ({cancelled![0].ref}). Every vehicle is sold under the hammer, so relist it for a later auction.</p>}
+          {lot.status === "passed" && (cancelled || []).length > 0 && !liveOnly && (
             <>
               <p className="hint">The buyer didn&apos;t pay ({cancelled![0].ref}). Offer it to the next highest bidder at their highest bid. They have 24 hours to accept; it&apos;s binding once they do.</p>
               <span className="pill-row">

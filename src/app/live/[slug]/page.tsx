@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getFeesCached } from "@/lib/cache";
+import { getFeesCached, getSettingsCached } from "@/lib/cache";
+import { licenceLine } from "@/lib/licences";
 import { liveRoom } from "@/lib/liveRoom";
 import { env } from "@/lib/env";
 import { LiveRoom } from "./LiveRoom";
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 // and (when there is one) a video stream. The rules are the database's (live_advance, admin_live_*, place_bid).
 export default async function LivePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [room, fees] = await Promise.all([liveRoom(slug), getFeesCached()]);
+  const [room, fees, settings] = await Promise.all([liveRoom(slug), getFeesCached(), getSettingsCached()]);
   if (!room) notFound();
   const event = {
     "@context": "https://schema.org", "@type": "Event", name: `Live auction: ${room.sale.title}`, startDate: room.sale.starts_at,
@@ -33,7 +34,7 @@ export default async function LivePage({ params }: { params: Promise<{ slug: str
   return (
     <div className="wrap" style={{ paddingBlock: "clamp(28px,5vw,56px)" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(event).replace(/</g, "\\u003c") }} />
-      <LiveRoom initial={room} fees={fees} />
+      <LiveRoom initial={room} fees={fees} licences={licenceLine(settings.business, process.env.NEXT_PUBLIC_DEALER_LICENCE)} />
     </div>
   );
 }

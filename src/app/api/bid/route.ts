@@ -18,3 +18,16 @@ export async function POST(req: Request) {
   if (r.outbid_user && r.outbid_user !== user.id) kickOutbox();
   return json(data);
 }
+
+// Withdraw a bid before the hammer falls (an early bid while the vehicle waits its turn, or a bid while it's up in the
+// live auction). The engine works the price out again as if this bidder had never bid.
+export async function DELETE(req: Request) {
+  const { lotId } = await req.json().catch(() => ({}));
+  const db = await supabaseServer();
+  const user = await currentUser(db);
+  if (!user) return fail("Sign in to continue.", 401);
+  const { data, error } = await db.rpc("withdraw_bid", { p_lot: Number(lotId) });
+  if (error) return failBid(error.message);
+  kickOutbox();
+  return json({ ok: true, ...(data as Record<string, unknown>) });
+}

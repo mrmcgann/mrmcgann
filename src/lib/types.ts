@@ -112,6 +112,11 @@ export interface Lot {
   transport_fee?: number | null;
   /** whether a statutory warranty applies (stated before bidding opens) */
   statutory_warranty?: boolean | null;
+  /** the auction estimate: where we expect the hammer to fall (whole dollars; the reserve is never above the low end) */
+  estimate_low?: number | null;
+  estimate_high?: number | null;
+  /** the date on the seller's safety or roadworthy certificate (a registered vehicle in a state that needs one) */
+  roadworthy_issued_on?: string | null;
 }
 
 /** Our transport partner's yard, where buyers collect (public parts; the street address is private). */
@@ -286,7 +291,7 @@ export type MyDeposit = DepositSummary & {
 /** Our account details for PayID and bank transfers. */
 export type PayBank = { name: string; bsb: string; account: string; payId: string | null; bpayBiller?: string | null };
 
-export const TERMS_VERSION = "2026-10-22";
+export const TERMS_VERSION = "2026-10-23";
 
 export interface Sale {
   id: number;

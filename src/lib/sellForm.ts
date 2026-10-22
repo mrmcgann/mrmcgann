@@ -38,6 +38,25 @@ export const OWNER_TYPES: [string, string][] = [["individual", "Me"], ["joint", 
 export const TRANSMISSIONS: [string, string][] = [["Auto", "Automatic"], ["Manual", "Manual"], ["CVT", "CVT (automatic)"], ["Automated manual", "Dual-clutch or automated manual"]];
 export const FUELS = ["Petrol", "Diesel", "Hybrid", "Electric", "LPG", "Other"];
 
+/** We're never at the vehicle, so the seller's photos and video are the listing. How to take them (sell form, seller
+ *  dashboard, agreement, Help). */
+export const PHOTO_RULES = [
+  "Taken by you in the last 14 days, in daylight, with the whole vehicle in the frame.",
+  "Show it as it is: no filters, edits or old photos. Show the damage too: a buyer can claim if it isn't shown.",
+  "Nothing that shows who you are or where you live: no house numbers, street signs, letterboxes, people or other cars' plates. Your own plate is fine.",
+  "We remove the place your phone records in each photo and video before anyone sees it.",
+];
+/** The photos for the listing, after the guided ones. */
+export const MORE_SHOTS = ["The other side", "The back seats, and the boot or tray", "The engine bay", "Each tyre's tread", "The compliance plate or VIN", "Close-ups of any damage or wear"];
+/** The walkaround video (one per listing, up to 250 MB). */
+export const VIDEO_STEPS = [
+  "Start it from cold, with the bonnet open, so buyers can hear it.",
+  "Film the dash with the engine running: the kilometres and any warning lights.",
+  "Walk slowly all the way around it, close enough to see the paint, then the inside.",
+  "Drive it forward and back a few metres (if it's safe and legal where you are), or say on the video that it doesn't drive.",
+  "Point out any damage, leaks or noises you know about.",
+];
+
 /** The guided photos (the meter photo is the dash for road vehicles, the hour meter for machines and boats). */
 export function photoSlots(category: string): [string, string, string][] {
   const usage = CAT[category as CategoryKey]?.usage || "km";
@@ -210,6 +229,6 @@ export function agreementPrefill(disclosures: Record<string, unknown> | null | u
 export const SELLER_ACKS: [string, string][] = [
   ["pickup", "Once the buyer has paid, Tyrebiter's transport partner picks it up from the address above, at a time we book with me, and takes it to Tyrebiter's depot. Until then I'll keep it there, insured and in the condition it was listed."],
   ["inspection", "If a bidder orders a mechanical inspection, I'll give Tyrebiter's partner mechanic access at a time we agree. They may start it, run it and, if it's registered, briefly road test it."],
-  ["video", "I'll send Tyrebiter a walkaround video of the vehicle for the listing (Tyrebiter checks it before it goes up)."],
+  ["video", "I'll send Tyrebiter the photos and a walkaround video for the listing, taken by me in the last 14 days and showing the vehicle as it is (no edits or filters). Tyrebiter is never at the vehicle and relies on them, and checks them before they go up."],
   ["no_contact", "I won't deal with buyers directly. If anyone contacts me about the vehicle, I'll tell Tyrebiter, and I won't show it to them or sell it to them outside Tyrebiter."],
 ];

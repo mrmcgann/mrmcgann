@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getFeesCached, getHomeCached } from "@/lib/cache";
+import { getCalendarCached, getFeesCached, getHomeCached, getSettingsCached } from "@/lib/cache";
 import { ForYou } from "@/components/ForYou";
 import { priceBreakdown, lotFees } from "@/lib/fees";
 import { LotCard } from "@/components/LotCard";
@@ -8,7 +8,8 @@ import { JoinOrWatchlist } from "@/components/HeaderUser";
 import { CarArt } from "@/components/CarArt";
 import { Countdown } from "@/components/Countdown";
 import { Tile } from "@/components/Tile";
-import { money, km } from "@/lib/format";
+import { money, km, dayShort, dateTime } from "@/lib/format";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { photoUrl } from "@/lib/photos";
 import { SearchBar } from "@/components/SearchBar";
 import { MotorsSearch } from "@/components/MotorsSearch";
@@ -22,9 +23,16 @@ export const revalidate = 15;
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
-  const [home, fees] = await Promise.all([getHomeCached(), getFeesCached()]);
+  const [home, fees, settings, cal] = await Promise.all([getHomeCached(), getFeesCached(), getSettingsCached().catch(() => ({} as Record<string, Record<string, unknown>>)),
+    getCalendarCached().catch(() => ({ sales: [], days: [] }))]);
   const lots = home.ending;
   const featured = home.featured;
+  const liveOnly = settings.auction?.live_only === true;
+  // the next live auction (or the one running now), for the band under the search
+  const next = cal.sales.find((x) => x.mode === "live" && x.live_status !== "ended" && x.count > 0) || null;
+  const fFees = featured ? lotFees(fees, featured) : null;
+  const fBid = featured ? Math.max(featured.current_bid || 0, featured.start_price || 0) : 0;
+  const fWaiting = featured?.live_state === "waiting";
   const fp = home.featuredPhotos;
   const covers = new Map(lots.concat(featured ? [featured] : []).map((l) => [l.id, l.cover_path || undefined]));
 
@@ -37,12 +45,19 @@ export default async function Home() {
             <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
           </span>
           <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
-          <p className="lede">Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia. Photographed and checked against the vehicle before listing, PPSR searched, and always shown with the all-in price.</p>
+          <p className="lede">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, with an auction estimate on every listing. Checked before listing, PPSR searched, and always shown with the all-in price.</p>
           <div style={{ width: "min(780px,100%)", marginTop: 8 }}><SearchBar variant="hero" /></div>
           <div className="try-row" aria-label="Try a search">
-            {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], ["Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
+            {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], [liveOnly ? "At auction today" : "Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
           </div>
           <div className="ctas"><Link className="more" href="/sell">Sell your vehicle ›</Link><Link className="more" href="/value">What&apos;s it worth? ›</Link></div>
+          {next && (
+            <Link className="nextsale" href={`/live/${next.slug}`} data-testid="next-sale">
+              <span className="dot" aria-hidden="true" />
+              <span><b>{next.live_status === "running" ? "Live now" : "Next live auction"}</b> {next.live_status === "running" ? next.title : `${dateTime(next.starts_at)} (Brisbane time)`} · {next.count} vehicle{next.count === 1 ? "" : "s"}</span>
+              <span className="go">{next.live_status === "running" ? "Join the room ›" : "Bid early ›"}</span>
+            </Link>
+          )}
         </div>
         <div className="lineup">
           {[["cars", "tangerine", "car", "Cars"], ["utes", "sky", "ute", "Utes & 4x4"], ["trucks", "lime", "truck", "Trucks"]].map(([cat, bg, type, label]) => (
@@ -77,9 +92,16 @@ export default async function Home() {
               <span className="tag" style={{ background: "var(--ink)", color: "#FFFFFF", alignSelf: "flex-start", height: 34, fontSize: 14 }}>Lot of the week</span>
               <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>{featured.short_title || featured.title}.</h2>
               <p style={{ fontSize: 20, fontWeight: 500 }}>{[featured.subtitle, featured.odometer != null ? km(featured.odometer) : null, `${featured.suburb}, ${featured.state}`].filter(Boolean).join(" · ")}</p>
-              <div className="stat">
-                <span><span className="k">Current bid</span><span className="v">{money(featured.current_bid)}</span><span style={{ fontSize: 14, fontWeight: 600 }}>{money(priceBreakdown(Math.max(featured.current_bid || 0, featured.start_price || 0), lotFees(fees, featured)).total, true)} all-in</span></span>
-                <span><span className="k">Ends in</span><Countdown className="v" endsAt={featured.ends_at} /></span>
+              <div className="stat" data-testid="featured-price">
+                {fWaiting && hasEstimate(featured) && !featured.bid_count ? <>
+                  <span><span className="k">Estimate</span><span className="v">{estimateText(featured)}</span></span>
+                  <span><span className="k">All-in</span><span className="v" data-testid="featured-allin">{estimateAllInText(featured, fFees!)}</span></span>
+                </> : <>
+                  <span><span className="k">{featured.bid_count ? (fWaiting ? "Early bid" : "Current bid") : "Opening bid"}</span><span className="v">{money(fBid)}</span></span>
+                  <span><span className="k">All-in</span><span className="v" data-testid="featured-allin">{allInMoney(priceBreakdown(fBid, fFees!).total)}</span></span>
+                </>}
+                {fWaiting ? <span><span className="k">Live auction</span><span className="v">{dayShort(featured.ends_at)}</span></span>
+                  : <span><span className="k">Ends in</span><Countdown className="v" endsAt={featured.ends_at} /></span>}
               </div>
               <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                 <Link className="btn btn-dark" href={`/lot/${featured.id}`}>View lot</Link>
@@ -102,7 +124,7 @@ export default async function Home() {
 
       <section className="wrap" id="lots">
         <div className="center" style={{ gap: 22, marginBottom: 40 }}>
-          <h2 className="d2">Ending soonest.</h2>
+          <h2 className="d2">{lots.some((l) => l.live_state) ? "Up next at auction." : "Ending soonest."}</h2>
           <div className="seg">
             {[["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["motorbikes", "Bikes"], ["caravans", "Caravans"], ["cheap", "Under $5k"]].map(([k, l]) => (
               <Link key={k} href={`/auctions${k ? `?cat=${k}` : ""}`} style={{ height: 42, padding: "0 20px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600, color: "var(--ink2)" }}>{l}</Link>
@@ -114,7 +136,7 @@ export default async function Home() {
             <div className="empty"><b style={{ fontSize: 22 }}>New auctions are on their way.</b><span className="muted">Join free and we&apos;ll tell you when they go live.</span><Link className="btn btn-blue" href="/join">Join free</Link></div>
           )}
         </div>
-        <div className="center" style={{ marginTop: 40 }}><Link className="more" href="/auctions">See all live auctions ›</Link></div>
+        <div className="center" style={{ marginTop: 40 }}><Link className="more" href="/auctions">{liveOnly ? "See every vehicle in our live auctions ›" : "See all live auctions ›"}</Link></div>
       </section>
 
       <ForYou />
@@ -123,8 +145,8 @@ export default async function Home() {
         <div className="panel">
           <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Bid with <span className="serif">confidence.</span></h2>
           <div className="four">
-            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Checked against the vehicle.">VIN, odometer, transmission, fuel, features and warning lights checked on the vehicle before listing. Any correction is shown on the listing. <Link href="/listing-promise" style={{ fontWeight: 700 }}>How we check ›</Link></Tile>
-            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="Checked for you.">Our walkaround and condition report, the seller&apos;s video, and a mechanical inspection from our partner if you want one. No viewings at anyone&apos;s house.</Tile>
+            <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Checked before it's listed.">VIN, odometer, transmission, fuel, features and warning lights checked against the seller&apos;s photos and video and the official records. Any correction is shown on the listing. <Link href="/listing-promise" style={{ fontWeight: 700 }}>How we check ›</Link></Tile>
+            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="See it before you bid.">The seller&apos;s photos and walkaround video, our condition report, and a mechanical inspection from our partner if you want one. No viewings at anyone&apos;s house.</Tile>
             <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">Every vehicle is searched for finance owing, write-offs and theft before listing.</Tile>
             <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount: the buyer&apos;s premium (with the transport to our depot), GST and fees. No surcharge.</Tile>
           </div>
@@ -164,7 +186,7 @@ export default async function Home() {
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Tyrebiter</span>
             <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your driveway.</span></h2>
-            <p style={{ fontSize: 21, fontWeight: 500 }}>We photograph it and check it against the listing at your place, list it Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
+            <p style={{ fontSize: 21, fontWeight: 500 }}>Send us photos and a short video from your phone. We check them and the papers, put it in our next live auction Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
             <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap" }}>
               <Link className="btn btn-white" href="/sell">Get a free appraisal</Link>
               <Link href="/sell#how-sell" style={{ fontSize: 19, fontWeight: 600 }}>How selling works ›</Link>

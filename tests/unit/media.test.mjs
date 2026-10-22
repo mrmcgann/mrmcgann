@@ -1,6 +1,6 @@
 // The recorded place is blanked in walkaround videos (MP4 and MOV), nothing else changes.
 // node --experimental-strip-types tests/unit/media.test.mjs
-import { findMoov, blankLocation } from '../../src/lib/mediaPrivacy.ts';
+import { findMoov, blankLocation, stripImageMetadata, imageKind } from '../../src/lib/mediaPrivacy.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -70,6 +70,41 @@ ok('fast-start files (movie box first)', f2?.start === ftyp.length && f2.size ==
 const after = Uint8Array.from([...ftyp, ...big('mdat', new Array(50).fill(0)), ...moov]);
 const f3 = await findMoov(reader(after), after.length);
 ok('64-bit box sizes are followed', f3?.start === ftyp.length + 66 && f3.size === moov.length, JSON.stringify(f3));
+
+// Photos the seller sends: only the picture goes on the listing (no EXIF and its GPS, no XMP, IPTC or comments)
+const seg = (marker, bytes) => { const len = bytes.length + 2; return [0xff, marker, (len >> 8) & 255, len & 255, ...bytes]; };
+const has = (b, s) => text(Array.from(b)).includes(s);
+const scan = [0x12, 0x34, 0xff, 0x00, 0x56, 0xff, 0xd0, 0x78, 0x9a]; // picture data with a stuffed byte and a restart marker
+const jpeg = Uint8Array.from([0xff, 0xd8, ...seg(0xe0, enc('JFIF\0\x01\x02')), ...seg(0xe1, enc('Exif\0\0GPS -27.4698 153.0251 Paddington')),
+  ...seg(0xe2, enc('ICC_PROFILE\0colours')), ...seg(0xe1, enc('http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>Brisbane</x:xmpmeta>')),
+  ...seg(0xed, enc('Photoshop 3.0\x008BIM Byline Seller')), ...seg(0xfe, enc('Taken at 1 Sample St')), ...seg(0xdb, [0, 1, 2, 3]),
+  ...seg(0xc0, [8, 0, 16, 0, 16, 1, 1, 0x11, 0]), ...seg(0xc4, [0, 1, 0xff, 0xd9, 2]), ...seg(0xda, [1, 1, 0, 0, 0x3f, 0]), ...scan,
+  ...seg(0xc4, [0x10, 9, 9]), ...seg(0xda, [1, 1, 0, 0, 0x3f, 0]), 0x11, 0x22, 0xff, 0xd9,
+  // a second picture the phone appended (an HDR map), with its own metadata
+  0xff, 0xd8, ...seg(0xe1, enc('Exif\0\0GPS2')), 0xff, 0xd9]);
+const j = stripImageMetadata(jpeg);
+ok('photo: a JPEG keeps its picture', j?.kind === 'jpeg' && has(j.bytes, 'JFIF') && has(j.bytes, 'ICC_PROFILE') && j.bytes[j.bytes.length - 2] === 0xff && j.bytes[j.bytes.length - 1] === 0xd9, j && Array.from(j.bytes).length);
+ok('photo: EXIF, GPS, XMP, IPTC and comments are gone', j && !has(j.bytes, 'Exif') && !has(j.bytes, 'GPS') && !has(j.bytes, 'Brisbane') && !has(j.bytes, 'Seller') && !has(j.bytes, 'Sample St'));
+ok('photo: the picture data is untouched (including a scan after a second table)', j && has(j.bytes, text(scan)) && has(j.bytes, text([0x11, 0x22, 0xff, 0xd9])));
+ok("photo: a picture appended after the first isn't copied", j && j.bytes.length === jpeg.length - (seg(0xe1, enc('Exif\0\0GPS -27.4698 153.0251 Paddington')).length + seg(0xe1, enc('http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>Brisbane</x:xmpmeta>')).length + seg(0xed, enc('Photoshop 3.0\x008BIM Byline Seller')).length + seg(0xfe, enc('Taken at 1 Sample St')).length + 4 + seg(0xe1, enc('Exif\0\0GPS2')).length));
+ok("photo: a broken JPEG is refused, not published as it is", stripImageMetadata(Uint8Array.from([0xff, 0xd8, 0xff, 0xe1, 0, 200, 1, 2])) === null);
+
+const be32 = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+const chunk = (type, data) => [...be32(data.length), ...enc(type), ...data, 0, 0, 0, 0];
+const png = Uint8Array.from([0x89, ...enc('PNG\r\n\x1a\n'), ...chunk('IHDR', new Array(13).fill(1)), ...chunk('tEXt', enc('Location\0Paddington QLD')),
+  ...chunk('eXIf', enc('MM\0*GPS')), ...chunk('iTXt', enc('Author\0\0\0\0\0Sam')), ...chunk('IDAT', [5, 6, 7]), ...chunk('IEND', [])]);
+const pn = stripImageMetadata(png);
+ok('photo: a PNG keeps its picture, without text or EXIF', pn?.kind === 'png' && has(pn.bytes, 'IHDR') && has(pn.bytes, 'IDAT') && has(pn.bytes, 'IEND') && !has(pn.bytes, 'Paddington') && !has(pn.bytes, 'eXIf') && !has(pn.bytes, 'Sam'));
+
+const le = (n) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+const wchunk = (type, data) => [...enc(type), ...le(data.length), ...data, ...(data.length % 2 ? [0] : [])];
+const wbody = [...enc('WEBP'), ...wchunk('VP8X', [0x0c, 0, 0, 0, 9, 0, 0, 9, 0, 0]), ...wchunk('VP8 ', [1, 2, 3, 4]), ...wchunk('EXIF', enc('GPS Paddington')), ...wchunk('XMP ', enc('<x>Seller</x>'))];
+const webp = Uint8Array.from([...enc('RIFF'), ...le(wbody.length), ...wbody]);
+const wp = stripImageMetadata(webp);
+const wsize = wp ? wp.bytes[4] + (wp.bytes[5] << 8) + (wp.bytes[6] << 16) : -1;
+ok('photo: a WebP keeps its picture, without EXIF or XMP', wp?.kind === 'webp' && has(wp.bytes, 'VP8 ') && !has(wp.bytes, 'Paddington') && !has(wp.bytes, 'Seller') && wsize === wp.bytes.length - 8, JSON.stringify({ wsize, len: wp?.bytes.length }));
+ok("photo: the WebP header no longer says there's EXIF or XMP", wp && wp.bytes[20] === 0, wp && wp.bytes[20]);
+ok('photo: anything else (HEIC, a document) is refused', stripImageMetadata(Uint8Array.from([0, 0, 0, 24, ...enc('ftypheic'), 0, 0, 0, 0])) === null && imageKind(Uint8Array.from(enc('%PDF-1.7'))) === null);
 
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

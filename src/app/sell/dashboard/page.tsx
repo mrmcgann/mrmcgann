@@ -11,15 +11,16 @@ import { BlurName } from "@/components/BidPanel";
 import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
 import { rulesFor } from "@/lib/transfer";
 import { SellerTransferDone } from "./SellerTransfer";
+import { SellerReserve } from "./SellerReserve";
 import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
 
 export const metadata: Metadata = { title: "My vehicles for sale", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const STATUS: Record<string, [string, string]> = {
-  draft: ["Getting ready", "var(--panel)"], scheduled: ["Scheduled", "var(--sky)"], live: ["Live now", "var(--mint)"],
+  draft: ["Getting ready", "var(--panel)"], scheduled: ["Scheduled", "var(--sky)"], live: ["In the live auction", "var(--mint)"],
   referred: ["Decision needed", "var(--sun)"], offers: ["Taking offers", "var(--sun)"], sold: ["Sold", "var(--lime)"],
-  passed: ["Didn't sell", "var(--panel)"], cancelled: ["Withdrawn", "var(--panel)"],
+  passed: ["Passed in", "var(--panel)"], cancelled: ["Withdrawn", "var(--panel)"],
 };
 
 type Offer = { id: string; amount: number; status: string; created_at: string };
@@ -87,8 +88,10 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
               <div className="fact"><span className="k">Bids</span><span className="v">{l.bid_count}</span></div>
               <div className="fact"><span className="k">Watching</span><span className="v">{watchers}</span></div>
               <div className="fact"><span className="k">Views</span><span className="v">{(l.views || 0).toLocaleString("en-AU")}</span></div>
-              <div className="fact"><span className="k">{l.status === "live" ? "Ends" : "Reserve"}</span><span className="v">{l.status === "live" ? dateTime(l.ends_at) : l.has_reserve ? (l.reserve_met ? "Met" : "Not met") : "None"}</span></div>
+              <div className="fact"><span className="k">{l.status === "live" ? (l.live_state === "waiting" ? "Offered about" : l.live_state === "open" ? "Selling" : "Ends") : "Reserve"}</span><span className="v">{l.status === "live" ? (l.live_state === "open" ? "Now" : dateTime(l.ends_at)) : l.has_reserve ? (l.reserve_met ? "Met" : "Not met") : "None"}</span></div>
             </div>
+            {["live", "scheduled"].includes(l.status) && l.has_reserve && <SellerReserve lotId={l.id} currentBid={Number(l.current_bid) || 0} bidCount={l.bid_count} upNow={l.live_state === "open"} />}
+            {l.status === "passed" && <span className="muted">{l.bid_count ? `Passed in at ${money(l.current_bid)}, below your reserve: nothing was sold.` : "Nobody bid this time: nothing was sold."} We&apos;ll call you about offering it at a later auction, with or without a lower reserve.</span>}
             {l.status === "draft" && <span className="muted">We&apos;re checking your papers and preparing the listing. We&apos;ll text you when it goes live.</span>}
             {bids.length > 0 && (
               <details open={l.status === "live"}>

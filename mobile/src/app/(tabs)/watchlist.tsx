@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { countdown, money } from "@/lib/format";
+import { countdown, dateTime, money } from "@/lib/format";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { toQueryString, type SearchFilters } from "@/lib/search";
 import { CAT } from "@/lib/vehicles";
@@ -118,6 +119,7 @@ function WatchRow({ row, st: status, fees, myMax, onRemind, onRemove, watchedRow
   // Every price shows the all-in amount beside it (premium, GST and admin fee, as locked on this vehicle).
   const allIn = fees && l.status !== "sold" ? priceBreakdown(Number(price) || 0, lotFees(fees, l)).total : null;
   const live = l.status === "live";
+  const waiting = live && l.live_state === "waiting";
   const now = useNow(live);
   const left = new Date(l.ends_at || 0).getTime() - now;
   const cover = photoUrl(l.cover_path);
@@ -129,20 +131,23 @@ function WatchRow({ row, st: status, fees, myMax, onRemind, onRemove, watchedRow
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <T v="title" numberOfLines={2}>{l.title}</T>
-          <Text style={st.price}>{l.status === "sold" ? `Sold for ${money(price)}` : money(price)}</Text>
-          {allIn != null ? <Text style={st.allin} testID={`wl-allin-${l.id}`}>{money(allIn, true)} all-in with fees</Text> : null}
-          <Text style={st.bids}>{l.bid_count === 1 ? "1 bid" : `${l.bid_count || 0} bids`}{myMax != null && l.status !== "sold" ? ` · your max ${money(myMax)}` : ""}</Text>
+          <View style={st.pair}>
+            <Text style={st.price}>{l.status === "sold" ? `Sold for ${money(price)}` : money(price)}</Text>
+            {allIn != null ? <Text style={st.price} testID={`wl-allin-${l.id}`}>{allInMoney(allIn)} all-in</Text> : null}
+          </View>
+          {l.status !== "sold" && fees && hasEstimate(l) ? <Text style={st.bids} testID={`wl-est-${l.id}`}>Estimate {estimateText(l)} · {estimateAllInText(l, lotFees(fees, l))} all-in</Text> : null}
+          <Text style={st.bids}>{l.bid_count === 1 ? `1 ${waiting ? "early " : ""}bid` : `${l.bid_count || 0} ${waiting ? "early " : ""}bids`}{myMax != null && l.status !== "sold" ? ` · your max ${money(myMax)}` : ""}</Text>
           <Tag label={status.t} color={status.c} />
         </View>
       </Pressable>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <Text style={[st.when, live && left < 3600000 ? { color: C.urgent } : null]}>{live ? `Ends in ${countdown(left)}` : l.status === "sold" ? "Sold" : "Closed"}</Text>
+        <Text style={[st.when, live && !waiting && left < 3600000 ? { color: C.urgent } : null]}>{waiting ? `Live auction · ${dateTime(l.ends_at)}` : live && l.live_state === "open" ? "Up now, live" : live ? `Ends in ${countdown(left)}` : l.status === "sold" ? "Sold" : l.status === "passed" ? "Passed in" : "Closed"}</Text>
         {live ? <Button small kind={status.k === "watch" ? "soft" : "blue"} title={status.k === "outbid" ? "Bid again" : status.k === "winning" ? "Raise max" : "Bid"} onPress={() => router.push(`/lot/${l.id}`)} /> : null}
       </View>
       {watchedRow && live ? (
         <View style={st.remind}>
-          <T v="small" style={{ flex: 1 }}>Remind me before it ends</T>
-          <Switch value={row.remind} onValueChange={onRemind} trackColor={{ true: C.blue, false: C.panel2 }} accessibilityLabel="Remind me before it ends" />
+          <T v="small" style={{ flex: 1 }}>{l.live_state ? "Remind me before it's up" : "Remind me before it ends"}</T>
+          <Switch value={row.remind} onValueChange={onRemind} trackColor={{ true: C.blue, false: C.panel2 }} accessibilityLabel={l.live_state ? "Remind me before it's up" : "Remind me before it ends"} />
           <Text accessibilityRole="button" onPress={onRemove} style={st.remove}>Remove</Text>
         </View>
       ) : null}
@@ -154,7 +159,7 @@ const st = StyleSheet.create({
   row: { borderRadius: 24, borderWidth: 1, borderColor: C.line, padding: 14, gap: 12 },
   thumb: { width: 112, height: 84, borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   price: { fontFamily: F.heavy, fontSize: 20, letterSpacing: -0.4, color: C.ink },
-  allin: { fontFamily: F.bold, fontSize: 13, color: C.ink },
+  pair: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 2, alignItems: "baseline" },
   bids: { fontFamily: F.medium, fontSize: 12, color: C.muted },
   when: { fontFamily: F.bold, fontSize: 14, color: C.ink2, fontVariant: ["tabular-nums"] },
   remind: { flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingTop: 10 },

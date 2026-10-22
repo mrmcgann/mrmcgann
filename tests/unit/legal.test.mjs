@@ -58,7 +58,7 @@ ok('deposit: half of a kept deposit to the seller (both documents)', /half of it
 ok('business day is defined', /“Business day” means/.test(terms));
 ok('no storage before the transfer or when the delay is ours or the seller’s', /none before the registration transfer is complete/.test(terms) && /caused by us or the seller/.test(terms));
 ok('title passes on payment; the transfer is the registration', /Ownership \(title\) passes to you when we receive full payment/.test(terms) && /Registration transfer:/.test(terms));
-ok('help: offers open after the seller declines', /seller declines the highest bid/.test(help));
+ok('help: passed in below the reserve, never sold afterwards', /We don’t sell it to anyone afterwards/.test(help) && /passed in/.test(help));
 ok('help and summary agree on risk', /until your collection window ends/.test(terms) && /from the end of your collection window/.test(help));
 ok('claims: longer window for title-type problems', /within 30 days of handover/.test(terms));
 ok('seller: can pursue a non-paying buyer after 30 days', /you may pursue them yourself/.test(JSON.stringify(SELLER_AGREEMENT)));
@@ -103,19 +103,41 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
   ok('collection is from our depot, with the release code', /Collecting from our depot/.test(terms) && /The depot only hands over the vehicle when given the release code/.test(terms));
   ok('seller kept private: never named to buyers; address only to transport and the mechanic', /We never give buyers the seller’s name, address or phone/.test(terms) && /Buyers never get your name, address or phone/.test(seller) && /A seller’s pickup address goes only to our transport partner/.test(privacy) && !/seller’s address for collection/.test(t));
   ok('buyers must not look for or contact the seller', /Leave the seller alone/.test(terms) && /Don’t try to find out who or where a seller is/.test(JSON.stringify(WEBSITE_TERMS)) && /Can I contact the seller\?/.test(help));
-  ok('statutory warranty stated on each listing', /whether a statutory warranty applies/.test(terms));
-  ok('the seller agrees to a walkaround video and mechanic access', /Walkaround video:/.test(seller) && /give our partner mechanic access/.test(seller));
-  ok('lawyer items are marked', ['contracting for an unnamed seller', 'in Victoria, whether a vehicle consigned by a private seller', 'Queensland’s rules on charging a buyer’s premium', 'transit and depot cover', 'Subdivision 153-B'].every((x) => (terms + seller).includes(x)));
+  ok('statutory warranty stated on each listing and in the live room, state by state', /says whether a statutory warranty \(or a dealer’s duty to repair\) applies/.test(terms) && /none applies in Queensland/.test(terms) && /In the ACT a dealer’s duty to repair can apply/.test(terms));
+  ok('the seller sends the photos and walkaround video, and gives the mechanic access', /Photos and video: send us the photos/.test(seller) && /walkaround video/.test(seller) && /give our partner mechanic access/.test(seller));
+  ok('settled: no lawyer or accountant placeholders left in any document', !/LAWYER|ACCOUNTANT|\[STATE\]|TRUST ACCOUNT|TO CONFIRM/.test(t), (t.match(/.{40}(LAWYER|ACCOUNTANT|\[STATE\]|TO CONFIRM).{40}/) || [''])[0]);
+  ok('settled: Queensland law governs the terms, the agreement and the website terms', /governed by the laws of Queensland/.test(terms) && /governed by the laws of Queensland/.test(seller) && /governed by the laws of Queensland/.test(JSON.stringify(WEBSITE_TERMS)));
+  ok('settled: selling for an unnamed owner, and what we answer for', /the law allows an agent to contract for an owner it doesn’t name/.test(terms) && /If the owner doesn’t complete a sale through no fault of yours, we refund everything you paid/.test(terms));
+  ok('settled: money is held in our trust account (both documents)', /paid into our trust account and held there for the seller/.test(terms) && /Sale money is held in our trust account for you/.test(seller) && /Agents Financial Administration Act 2014/.test(seller));
+  ok('settled: the seller agrees in writing to the buyer’s premium being charged and shown', /you agree in writing to us charging the buyer a buyer’s premium/.test(seller) && /The seller has agreed in writing to us charging it/.test(terms));
+  ok('settled: GST through Subdivision 153-B, so the seller stays unnamed', /Subdivision 153-B of the GST Act applies to the sale/.test(seller) && /we issue the buyer’s tax invoice in our name/.test(seller));
+  ok('settled: a written consignment authority for 90 days', /Your authority lasts 90 days from when you sign/.test(seller) && /consignment agreement the motor dealer laws require/.test(seller));
+  ok('settled: safety and roadworthy certificates, state by state', ['Queensland needs a safety certificate', 'Victoria needs a roadworthy certificate issued less than 30 days before the sale', 'The ACT needs a roadworthy inspection', 'New South Wales, Western Australia and Tasmania don’t need one'].every((x) => terms.includes(x)) && /a Queensland safety certificate, a Victorian roadworthy certificate/.test(seller));
+  ok('settled: uncollected goods laws named', /Disposal of Uncollected Goods Act 1967 in Queensland/.test(terms) && /Uncollected Goods Act 1995 in New South Wales/.test(terms));
   ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
 }
 // live auctions, tenders and BPAY: the wording matches the engine
 ok('live: the terms explain live auctions, with an anchor the room links to', terms.includes('id=\\"t-live\\"') && /auctioneer decides/.test(terms) && /floor bids/.test(terms), '');
 ok('live: the page, not the stream, counts', /The price and countdown on the page are what count, not the video stream/.test(terms));
-ok('live: unoffered vehicles close on their bids when a sale finishes early', /closes on the bids already placed/.test(terms));
-ok('tender: sealed, not extended, highest at its own amount, earliest wins a tie', terms.includes('id=\\"t-tender\\"') && /aren’t extended/.test(terms) && /buys at its own amount \(if two are equal, the one put in first\)/.test(terms));
-ok("tender: not a sale by auction, so the outright rights apply", /Buy Now, a winning tender, an accepted offer/.test(terms) && /A tender isn’t a sale by auction/.test(terms));
+ok('live: a vehicle not offered before the sale finishes is passed in, not sold', /that vehicle is passed in, not sold: its early bids lapse/.test(terms));
+// live auctions only: every sale under the hammer, an estimate on every listing, bids withdrawable until the hammer falls
+{
+  const tt = JSON.stringify(fillLegal({ TERMS, HELP, SELLER_AGREEMENT }, {}));
+  ok('live only: no tenders, Buy Now, offers or referrals anywhere', !/\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid/i.test(tt), (tt.match(/.{40}(\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid).{40}/i) || [''])[0]);
+  ok('live only: every vehicle in a live auction, sold under the hammer', /Every vehicle is sold in a <b>live online auction<\/b>/.test(terms) && /a vehicle is never sold except under the hammer/.test(terms) && /never sell your vehicle by private treaty/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('live only: below the reserve it is passed in, nobody owes anything', /the vehicle is <b>passed in<\/b>: it isn’t sold, and neither you nor the seller owes anything/.test(terms));
+  ok('live only: a bid can be withdrawn until the hammer falls (terms and help)', /You can withdraw a bid until the hammer falls/.test(terms) && /Once the hammer falls on your bid, the sale is made/.test(terms) && /Can I withdraw a bid\?/.test(help) && !/Bids can’t be withdrawn/.test(tt));
+  ok('estimate: what it is, its basis kept, the reserve never above the low end, at most 25% wide', /The auction estimate is our opinion, made with reasonable care/.test(terms) && /we keep a written record of that basis/.test(terms) && /reserve is never above the estimate’s low end/.test(terms) && /never more than 25% wide/.test(terms));
+  ok('estimate: agreed with the seller, reserve no higher than its low end', /we agree an auction estimate with you/.test(JSON.stringify(SELLER_AGREEMENT)) && /it can’t be above the estimate’s low end/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('no vendor bids, ever (terms and agreement)', /we never bid on a seller’s behalf \(there are no vendor bids\)/.test(terms) && /we never bid on your behalf/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('the seller lowers the reserve until the hammer falls, never raises it', /lower or remove the reserve at any time until the hammer falls/.test(JSON.stringify(SELLER_AGREEMENT)) && /The seller may lower or remove the reserve until the hammer falls, never raise it/.test(terms));
+  ok('remote: we’re never at the vehicle; seller content is labelled and passed on', /We’re never at the vehicle/.test(terms) && /We don’t adopt it as our own statement/.test(terms) && /never at your vehicle/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('remote: the seller promises recent, unedited photos and video of this vehicle', /taken by you for this listing in the last 14 days/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('only registered bidders, the auctioneer named for the whole auction', /Only registered bidders can bid/.test(terms) && /The auctioneer’s name is shown in the live room for the whole auction/.test(terms));
+  ok('every sale is a sale by auction under the ACL, whoever the seller is', /“sale by auction” under the Australian Consumer Law/.test(terms) && /sections 51 to 53/.test(terms) && /sections 54 to 59/.test(terms));
+}
 ok('bpay: CRN explained, never cards', /Customer Reference Number \(CRN\)/.test(terms) && /We don’t accept cards, cash or cheques/.test(terms));
-ok('help: live auctions, tenders, calendar, results and BPAY answered', ['How do live auctions work?', 'What is a tender?', 'Where can I see what’s coming up?', 'Can I see what vehicles sold for?', 'Can I pay by BPAY?'].every((q) => JSON.stringify(HELP).includes(q)));
-ok('seller agreement: live auctions and tenders covered', /a live auction \(an auctioneer offers vehicles one at a time/.test(JSON.stringify(SELLER_AGREEMENT)));
+ok('help: live auctions, the estimate, withdrawing, passed in, calendar, results and BPAY answered', ['How do live auctions work?', 'What’s the auction estimate?', 'Can I withdraw a bid?', 'What does “passed in” mean?', 'Where can I see what’s coming up?', 'Can I see what vehicles sold for?', 'Can I pay by BPAY?', 'Can I lower my reserve during the auction?'].every((q) => JSON.stringify(HELP).includes(q)));
+ok('seller agreement: a live online auction by a licensed auctioneer', /sell the vehicle in a live online auction, conducted by a licensed auctioneer/.test(JSON.stringify(SELLER_AGREEMENT)));
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

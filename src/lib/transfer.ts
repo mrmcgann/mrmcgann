@@ -99,3 +99,37 @@ export const TRANSFER_STATUS: Record<string, string> = { waiting: "Waiting for y
 // Files people can upload as proof (photos or a PDF of the receipt or new registration certificate).
 export const PROOF_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "application/pdf": "pdf" };
 export const PROOF_MAX = 10 * 1024 * 1024;
+
+/** The certificate a state needs before a registered vehicle's registration can be transferred to the buyer (null when
+ *  none is needed). Mirrors roadworthy_needed() in the database (migration 20261022000022): an unknown year or weight
+ *  counts as needing one. Before bidding opens, the seller's certificate date is on file (or an exemption is recorded),
+ *  or the vehicle is sold unregistered. */
+export function certNeeded(state: string | null | undefined, year: number | null | undefined, category: string | null | undefined, gvm?: number | null, now = new Date()): string | null {
+  const st = String(state || "").toUpperCase();
+  const c = String(category || "");
+  const age = year ? now.getFullYear() - Number(year) : 99;
+  const light = ["cars", "utes", "vans", "motorbikes"].includes(c);
+  const towed = c === "caravans" || c === "trailers";
+  const heavyType = c === "trucks" || c === "buses";
+  if (c === "boats" || c === "machinery") return null;
+  if (st === "QLD" && (light || (towed && (gvm ?? 750) >= 750 && (gvm ?? 750) <= 4500) || (heavyType && (gvm ?? 4500) <= 4500))) return "safety certificate";
+  if (st === "VIC" && (light || heavyType || (towed && (gvm ?? 0) > 4500))) return "roadworthy certificate";
+  if (st === "ACT" && age >= 6 && (light || towed || (heavyType && (gvm ?? 4500) <= 4500))) return "roadworthy inspection";
+  if (st === "NT" && age >= 7 && (light || (heavyType && (gvm ?? 4500) <= 4500))) return "roadworthy inspection";
+  if (st === "SA" && age >= 3 && (towed || (heavyType && (gvm ?? 4501) > 4500))) return "inspection";
+  return null;
+}
+
+const shortDay = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+
+/** The listing's line about the safety or roadworthy certificate. */
+export function certLine(l: { registration?: string | null; rego_state?: string | null; state?: string | null; year?: number | null; category?: string | null; gvm_kg?: number | null; roadworthy_issued_on?: string | null; roadworthy_note?: string | null }): string {
+  const st = String(l.rego_state || l.state || "").toUpperCase();
+  const note = String(l.roadworthy_note || "").trim();
+  if (l.registration !== "registered") return note || "Not supplied: it's sold unregistered. Registering it is up to you (your state may need an inspection first).";
+  const cert = certNeeded(st, l.year, l.category, l.gvm_kg);
+  if (cert && l.roadworthy_issued_on) return `${cert[0].toUpperCase()}${cert.slice(1)} supplied by the seller, issued ${shortDay(l.roadworthy_issued_on)}. ${st} needs it to transfer the registration.${note && !/^exempt/i.test(note) ? ` ${note}` : ""}`;
+  if (/^exempt/i.test(note)) return note;
+  if (!cert) return note || `Not needed to transfer a ${st || "registration in this state"}${st ? " registration" : ""}.`;
+  return note || `${st} needs a ${cert} to transfer the registration.`;
+}

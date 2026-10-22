@@ -1,6 +1,6 @@
 # Tyrebiter
 
-Online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia.
+Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, like Turners Live: a licensed auctioneer offers each vehicle and it sells under the hammer, with an auction estimate on every listing. Sellers send the photos and a walkaround video; we check them against the records and are never at the vehicle.
 
 Built with **Next.js** (the website), **Supabase** (database, logins, live bid updates, photo storage), **Stripe** (ID checks), **PayID and bank transfer** into your trust account for every dollar (optionally Azupay for single-use PayIDs), **Twilio** (SMS codes and alerts) and **Resend** (email). Hosted on **Vercel**.
 
@@ -13,13 +13,12 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Lot pages with a big photo and four smaller ones, a full-screen viewer, up to 10 photos and videos (one walkaround video, shown second), registered or unregistered (plate, state and expiry, like Grays), visual grade, damage and wear, checks, live countdown and live bid updates
 - Bid history with every bidder's name blurred (a made-up name per bidder per vehicle; real names never leave the database)
 - Auto-bidding with private maximums, bid increments, ties go to the earlier maximum
-- Going, going, gone: bids in the last 10 minutes add 10 minutes
-- Reserve met / not met, referral to the seller, Make an Offer, Buy Now
-- All-in price beside every price (listing cards, the current bid, Buy Now, offers, the newsletter) and a preview as you type (premium, GST, admin fee; no surcharge)
-- Listings checked against the vehicle before they go live (VIN plate, build date, odometer photo, transmission, fuel, features, warning lights, starts and drives, damage photos), shown as "Checked against the vehicle"; private or business seller on every listing; "Starts and drives" filter; EV battery health; plain consumer-rights wording for auction and Buy Now sales (`/listing-promise`, `src/lib/listing.ts`)
-- Corrections in public: any later change to a key fact is shown under "Changes to this listing", sent to bidders and watchers, and bidding gets at least 24 more hours
-- Fleet sales (`/sales`): one seller's vehicles on one page, closing a few minutes apart
-- Offer to the next bidder when a winner doesn't pay (`/offers/[id]`, no obligation, all-in price shown)
+- Live auctions only (migration 22, setting `auction.live_only`): every vehicle is offered by the auctioneer in a live online auction and sold at the fall of the hammer. Early bids (auto-bids) until its turn, which bidders can withdraw until the hammer falls; below the reserve it's passed in (nothing is referred, offered or sold afterwards); no Buy Now or tenders
+- An auction estimate on every listing (`src/lib/estimate.ts`): low and high, with the all-in amounts in the same size, a written basis kept privately, at most 25% wide, and the seller's reserve never above the low end. Sellers can lower their reserve from their dashboard until the hammer falls (or by phone, recorded by the auctioneer)
+- All-in price beside every price and estimate (listing cards, the current bid, the live room, the newsletter) in the same size, and a preview as you type (premium, GST, admin fee; no surcharge)
+- Listings checked before they go live against the seller's photos and video and the records (VIN plate photo, rego and PPSR, build date, odometer photo, transmission, fuel, features, warning lights, starts and drives on video, damage, privacy), shown as "Checked by us", with everything from the seller labelled as the seller's; private or business seller on every listing; "No statutory warranty" beside the price where none applies; "Starts and drives" filter; EV battery health (`/listing-promise`, `src/lib/listing.ts`)
+- Corrections in public: any later change to a key fact (the estimate too) is shown under "Changes to this listing", sent to bidders and watchers, and the vehicle isn't offered until 24 hours after it
+- Fleet sales (`/sales`): one seller's vehicles on one page, offered one after another in the live auction
 - Landing pages for search engines (`/for-sale/utes`, `/for-sale/utes/qld`): real listings and recent results only, not indexed when empty
 - Recently viewed and "For you" (your saved search) on the home page, private notes on watched vehicles, help centre search, and on the Sell page what similar vehicles sold for here (only with 3 or more sales)
 - Transport quotes from a carrier partner (listing and invoice), carrier tracking link on the collection, and warranty and roadside assistance providers (`/warranty`)
@@ -40,7 +39,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 
 **For you (admin at /admin)**
 - Dashboard of everything that needs attention
-- List a vehicle: details, story, condition report, photos, flaws, reserve, Buy Now, timing, private seller details
+- List a vehicle: details, story, condition report, the seller's photos (copied from the sell form with their metadata removed), flaws, reserve, the auction estimate and its basis, the live auction it's in, the safety or roadworthy certificate date, private seller details
 - Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
 - Members: **Ban** (with a reason they see) or suspend; lifting it also forgets the identity codes
 - Deposits (`/admin/deposits`, shown when deposits are on): record a transfer that arrived (it checks the payer's name matches the member), send refunds to the account they came from, correct a balance; totals of what you hold
@@ -49,7 +48,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Rego & VIN check: type a plate and state or a VIN; shows what we know, with one-click links to the state's free rego check and the PPSR
 - Listing checks in the vehicle editor (all needed to publish; who checked is recorded), seller type, EV battery health, and the sale a vehicle belongs to
 - Bidders on a live vehicle, with "Remove their bids" (bid before a material correction and asked out, or shill bidding; the price is worked out again)
-- Didn't sell: relist as a new draft (past bidders and watchers hear when it's back), or offer it to the next bidder
+- Passed in: relist it as a new draft for a later auction (past bidders and watchers hear when it's back)
 - Fleet sales: create a sale page, stagger closing times, end-of-sale report (CSV); Bulk upload a fleet list (CSV) into drafts
 - Listing audits: a sample of live listings to re-check each month, with a record (part of the consumer law compliance program)
 - Newsletter: preview, send now, or weekly on a set day and hour; Licences shown in the footer and Terms (Fees & settings)
@@ -100,7 +99,8 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    19. `supabase/migrations/20261012000019_viewings_dealers.sql` (inspected listings, dealer accounts, price-drop alerts, review requests)
    20. `supabase/migrations/20261021000020_live_tender_bpay.sql` (live auctions, tenders, BPAY, the damage map, the auction calendar)
    21. `supabase/migrations/20261022000021_depot_collection.sql` (no viewings, depots, transport in the buyer's premium, pickups after payment, collection at the depot, the seller kept private)
-   22. `supabase/seed.sql` (optional sample vehicles, sample depots, a sample consultant and sample partners; delete them before launch)
+   22. `supabase/migrations/20261022000022_live_auctions_only.sql` (live auctions only, the auction estimate, withdrawing bids, the seller lowering the reserve, passed in below the reserve, safety and roadworthy certificates)
+   22. `supabase/seed.sql` (optional sample vehicles, waiting in a sample live auction with sample estimates, plus sample depots, a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
    23. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
@@ -159,7 +159,7 @@ Stripe is only used for ID checks (no cards are taken). The ID check is what mak
 Create an account at resend.com, verify `tyrebiter.com.au` (add the SPF, DKIM and DMARC records it gives you, so emails don't land in spam), and add the API key. Resend allows 10 requests a second with up to 100 emails each; the site sends in batches. For around 1 million emails a month you'll need the Scale plan.
 
 ### 7. Taking money: the trust account and PayID
-1. Open a trust account (or the account your lawyer says auction money must sit in) with your bank, with a PayID (an email or ABN PayID such as `pay@tyrebiter.com.au`). Put its details in the `NEXT_PUBLIC_BANK_*` and `NEXT_PUBLIC_PAYID` variables. They show on every deposit and invoice page with copy buttons and a scam warning.
+1. Open a trust account (the motor dealer and agent trust account laws require one for buyers' money: see `docs/legal-basis.md`) with your bank, with a PayID (an email or ABN PayID such as `pay@tyrebiter.com.au`). Put its details in the `NEXT_PUBLIC_BANK_*` and `NEXT_PUBLIC_PAYID` variables. They show on every deposit and invoice page with copy buttons and a scam warning.
 2. Until you add a PayID provider, when a buyer's payment shows on the statement (their invoice number is the reference), press **Admin → Invoices → Balance received**. With bidding deposits switched on, deposits are recorded in **Admin → Deposits** the same way (their BID… reference, the amount, and the payer's name, BSB and account, which is where refunds go; it asks you to check if the name doesn't match the member).
 3. Optional, so deposits record themselves: an **Azupay** account (Australian, PayTo/PayID payments). Set `AZUPAY_CLIENT_ID`, `AZUPAY_SECRET_KEY` and `AZUPAY_API_URL` (their UAT address first). Bidders then get a "Get a PayID for $X" button: a single-use PayID for that exact amount that shows "Tyrebiter" before they pay, and the payment is recorded the moment Azupay tells `/api/payments/azupay`. Check the field names in `src/lib/payid.ts` against your Azupay onboarding pack before switching it on.
 4. Refunds: **Admin → Deposits → Refunds to send** lists each withdrawal with the full BSB and account it came from. Pay it from your bank, then press **Mark sent** (the member is told).
@@ -183,7 +183,7 @@ That's all it takes to bid. (With bidding deposits switched on there's a fifth s
 - [ ] Let it end: the winner's invoice shows the full amount with the bank details and reference; mark it received in Admin → Invoices
 - [ ] Win another one and don't pay: wind its due date back, **Cancel: buyer didn't pay**. The buyer is banned, and a new account with the same name and date of birth is suspended as soon as its ID check passes
 - [ ] Repeat with a bid below the reserve: it shows "Referred to the seller"; decline it in Admin → Referrals & offers, make an offer, accept it
-- [ ] Buy Now on a vehicle: the invoice shows the full amount with the bank details
+- [ ] Win a vehicle in a live auction: the invoice shows the full amount with the bank details and the notice to the buyer
 - [ ] As a fully verified member, order a mobile inspection on a listing: you get a reference, emails go to the partner, the buyer and your team, and it shows in Admin → Leads
 - [ ] On a listing, open "Compare car loans" and send an enquiry to a lender; record a fee against it in Admin → Leads
 - [ ] As the seller, add a video from the seller dashboard; approve it in Admin → Videos; it plays on the listing
@@ -204,7 +204,7 @@ That's all it takes to bid. (With bidding deposits switched on there's a fifth s
 Then add the Stripe keys (test keys first) for ID checks, Twilio, and your bank details, and repeat with a real $500 transfer.
 
 ## Automated tests
-`npm run test:db` runs 806 checks of the auction engine, payment maths, bidding deposits, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it) bidding deposits (the 10%/$500/$5,000 rule, limits, matching a payer's name), the transport in the buyer's premium and the pickup wording, and removing the location a phone records from photos and videos. GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
+`npm run test:db` runs 891 checks of the auction engine, payment maths, bidding deposits, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it) bidding deposits (the 10%/$500/$5,000 rule, limits, matching a payer's name), the transport in the buyer's premium and the pickup wording, removing the location a phone records from photos and videos (and everything but the picture from a seller's photos), the auction estimate rules, the safety and roadworthy certificate each state needs, and the live-only wording. GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -231,16 +231,16 @@ Like carsales and Trade Me, the site earns from finance, insurance and inspectio
 In 2024 the Federal Court ordered Grays to pay $10 million for misdescribing at least 750 cars sold online (wrong year and transmission, features the cars didn't have, damage and warning lights left out). Auctions aren't exempt from the ban on misleading descriptions, so:
 - **Checked before it's live.** A listing can't be published until staff tick each check against the vehicle itself (`LISTING_CHECKS` in `src/lib/listing.ts`, `listing_check_keys()` in the database), record whether it starts and drives, and record the written-off result. A statutory write-off can never be listed as registered. Buyers see what was checked (green) apart from what the seller declared (yellow).
 - **Corrections in public.** Changing a key fact on a live listing logs it in `lot_corrections` (shown on the listing), tells bidders and watchers, and makes sure 24 hours of bidding remain. Staff can remove a bidder's bids if they ask out after a material correction.
-- **Plain consumer rights.** No "no warranty" wording anywhere. Each listing says private or business seller, and the rights for an auction sale and for Buy Now/offers (`consumerRights()`), with `[LAWYER TO CONFIRM]` in the Terms.
+- **Plain consumer rights.** No "no warranty" wording anywhere. Every sale is a sale by auction, so each listing states those rights (`consumerRights()`), and whether a statutory warranty applies. The legal basis for every rule is in `docs/legal-basis.md`.
 - **All-in prices** beside every price; no surcharge (we don't take cards).
 - **Monthly listing audits** in Admin, as a record of the compliance program.
 - **Licence numbers** in the footer and Terms from Admin → Fees & settings (NSW requires the dealer licence number in every advertisement).
 - **Spam Act:** marketing only to members who opt in, with our details and one-click unsubscribe in every email.
 
-## Fleet sales, relisting and the next bidder
+## Fleet sales and relisting
 - **Admin → Fleet sales**: create a sale (title, web address, the seller as shown publicly, about text), publish it, add vehicles from the editor or **Bulk upload**, then stagger closing times (one every few minutes; vehicles with bids keep their time). The sale page is `/sales/<web address>`; the CSV report has every result, fee and payout.
 - **Bulk upload**: download the template, one vehicle per row (make and model required), preview, then add them as drafts.
-- **Didn't sell**: on the vehicle's admin page, relist it as a new draft (re-run the PPSR and the listing checks before publishing), or, when the buyer didn't pay, offer it to the next highest bidder at their highest bid (24 hours, no obligation; below the reserve only with the seller's agreement).
+- **Passed in, or the buyer didn't pay**: on the vehicle's admin page, relist it as a new draft for a later live auction (re-run the PPSR and the listing checks before publishing; the old auction, its place in it and its locked fees don't carry over). With live auctions only, there are no offers to the next bidder: a vehicle is only ever sold under the hammer.
 
 ## Plate and VIN lookups (Sell page): our own, free, Australian only
 Sellers type their plate and state, and the VIN if they have it handy; the form fills in what it can, and they check and correct it. It costs nothing to run and doesn't scrape anyone: the states' free rego checks don't allow automated use (Queensland, Victoria and WA say so in their terms, and Queensland and NSW sit behind reCAPTCHA), and full rego records are only sold through paid channels. Instead, in this order (`src/lib/vinDecode.ts`):
@@ -267,7 +267,7 @@ When an invoice is paid in full, the buyer's invoice shows a **Transfer of owner
 - Collection can only be booked once the transfer is complete and the vehicle is at our depot (and the buyer has answered any change the driver found at pickup); the collection window starts then. The buyer gets the depot's address with the confirmed time. The seller's address never goes to a buyer.
 - Proof files are kept in the private `transfer-docs` storage bucket.
 
-## Terms, payment and liability (version 22 October 2026)
+## Terms, payment and liability (version 23 October 2026)
 Written in our own words after comparing the payment terms and site terms of Grays/Slattery, Pickles and Manheim, keeping what protects buyers, sellers and Tyrebiter and leaving out terms the unfair contract terms laws catch (termination "for any reason", 1%-a-day late fees, one-sided changes, blanket exclusions). `src/content/legal.ts`: Terms of sale (20 sections), Seller agency agreement, Website terms (`/website-terms`), Help.
 - **Paying (sections 6, 8 and 11):** by default (like Turners) nothing before bidding but a verified ID; the winner pays the full amount by PayID or bank transfer within 2 business days (their lender may pay). With bidding deposits switched on, a refundable deposit first and the deposit for the price goes onto the invoice. The Terms, Help and Privacy show the wording for whichever is on (`[[transfer]]`/`[[deposit]]` in `src/content/legal.ts`); after switching, save a new terms version. No cards, cash or cheques; payments only from an account in the buyer's name (others are sent back); refunds only to the account money came from; nothing released until funds clear. Interest on overdue balances at the rate in **Fees & settings** (default 10% a year, capped at 20), no other late fees. Never "non-refundable": the deposit is kept only if the buyer doesn't pay.
 - **Why deposits, not cards:** a card payment can be disputed for months (chargebacks), and a merchant-initiated charge has no fraud liability shift. A PayID or bank transfer can't be charged back: once it has cleared, the buyer can't reverse it through a dispute (a bank can only try to recall a payment for fraud or a mistake, which is why it must come from the buyer's own account). And nobody pays a surcharge. Copart and Manheim take bidding deposits the same way.
@@ -275,8 +275,9 @@ Written in our own words after comparing the payment terms and site terms of Gra
 - **Cancel and refund** (Admin → Invoices) for anything that isn't the buyer's fault (upheld claim, title problem, damage before handover, our mistake): the deposit goes straight back into the buyer's deposit, it lists any balance to pay back, and cancels the seller payout and open collection bookings. (Old card invoices are refunded in Stripe.)
 - **Fees are locked per vehicle** when it goes live (`lots.fees`); a fee change applies only to vehicles listed afterwards. The seller fee comes from the copy saved when the seller signed. Each invoice records the terms version the buyer accepted.
 - **Storage** only starts once the vehicle is at our depot, the registration transfer is complete and the collection window has passed.
-- **No viewings, the pickup and the depot (sections 2, 4, 5, 7, 9, 14, 16 and 18; seller agreement 1, 3, 7 and 15):** no viewings or test drives; an optional mechanical inspection through our partner, paid by the bidder, who never attends or gets the address; the transport to our depot is in the buyer's premium; the seller keeps the vehicle at their risk until our partner picks it up after payment, and we're responsible for it from pickup until handover at the depot (a change found at pickup lets the buyer cancel for a full refund); buyers must never look for or contact the seller; each listing says whether a statutory warranty applies. The `[LAWYER ...]` notes mark what to confirm (selling for an unnamed seller, whether Victoria lets a private seller's vehicle be sold other than at public auction, NSW consignment and trust account rules, Queensland's buyer's premium and statutory warranty rules, transit and depot insurance, states whose transfer form shows the seller's details, GST agent arrangements).
-- **Late bids:** any bid in the closing minutes extends the auction, including a leader raising their maximum to meet the reserve. The reserve can be lowered but never raised once there are bids.
+- **No viewings, the pickup and the depot (sections 2, 4, 5, 7, 9, 14, 16 and 18; seller agreement 1, 3, 7 and 15):** no viewings or test drives; an optional mechanical inspection through our partner, paid by the bidder, who never attends or gets the address; the transport to our depot is in the buyer's premium; the seller keeps the vehicle at their risk until our partner picks it up after payment, and we're responsible for it from pickup until handover at the depot (a change found at pickup lets the buyer cancel for a full refund); buyers must never look for or contact the seller; each listing says whether a statutory warranty applies.
+- **Live auctions only, the estimate and remote checks (sections 1, 3, 4, 6, 7, 8, 10; seller agreement 1, 3, 4, 6, 7, 10, 14):** every sale at the fall of the hammer by a licensed auctioneer; bids withdrawable until then; passed in below the reserve; no vendor bids; the estimate's basis kept on file and the reserve never above its low end; we're never at the vehicle, and the seller's photos, video and answers are labelled as theirs; a written consignment authority for 90 days; money held in our trust account; GST through Subdivision 153-B; safety and roadworthy certificates state by state; Queensland law. Every position is settled in `docs/legal-basis.md`, with its sources: no placeholders are left for a lawyer, who gives the finished set a final read before launch.
+- **Late bids:** any bid near the end of a vehicle's countdown resets it, so the room can answer. The reserve can be lowered but never raised once there are bids.
 - **Corrections** also cover the title, description, the depot you collect from, the statutory warranty statement, the plate and the damage list (damage edits are announced once staff stop editing for 5 minutes).
 - Sellers also declare previous use (taxi, rideshare, hire, driving school, police) and unfixed safety recalls; both show on the listing.
 
@@ -316,7 +317,7 @@ Watches the site's own machinery every minute and tells you when something break
 
 - **Run a live auction** (like PicklesLIVE or Manheim Simulcast): Admin → Sales & live auctions → New sale → "Live auction". Set the start time, how long each vehicle is offered (say 60 seconds) and the reset after a bid (say 20 seconds). Optionally paste a YouTube or Vimeo live link for the video. Add vehicles to the sale from the vehicle editor or the bulk upload. Buyers can bid early on each one straight away.
 - On the day, open **Auctioneer console** for the sale and press Start. You see the vehicle that's up, its reserve, the countdown and the latest bids. Calls ("Fair warning", "Last call", your own words) show to every bidder. You can pause, add 30 seconds, knock it down now, offer the next vehicle (or let it move on by itself 3 seconds after each one closes), take a **floor or phone bid** for a registered member by their bidder number (BID… on their account) or BPAY CRN, reorder what's left, and end the sale. If you close the console, the sale keeps running by itself (one vehicle at a time, checked every minute) unless you untick that option.
-- **Tenders**: in the vehicle editor, "How it's sold" → Tender. Buyers put in one sealed amount each; only the number of tenders shows. It closes on time, and the highest tender buys at its own amount if it meets the reserve.
+- **Live auctions only** (the default, `auction.live_only`): a listing can't be published unless it's in a live auction, sold by auction (not tender), without a Buy Now price, and with an estimate and its basis. Name the auctioneer on each sale (it can't start without one). A vehicle corrected in the last 24 hours is skipped, and anything not offered when the sale ends is passed in. To lower a reserve on the seller's phone instruction, use the console's reserve box while the vehicle is up. (Timed auctions, tenders, Buy Now and offers are still in the engine, switched off.)
 - **BPAY**: get a biller code from your bank and set `NEXT_PUBLIC_BPAY_BILLER`. Each member already has their own CRN. Record a BPAY deposit in Admin → Deposits with the CRN, and find an invoice from a bank statement reference in Admin → Invoices.
 - **Damage map**: in the editor, pick where each flaw is ("Bonnet", "Left rear (passenger side)" and so on). Listings then show a drawing with numbered pins.
 - **Calendar** (`/calendar`, also as a calendar file buyers can subscribe to) and **results** (Auctions → Recently closed) are automatic.
@@ -351,20 +352,20 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 
 ## Before launch
 - [ ] `NEXT_PUBLIC_TEST_MODE=false`
-- [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically. Fill the remaining `[brackets]` in `src/content/legal.ts` (governing state, trust account)
+- [ ] Real fees (including the seller fee) in **Admin → Fees & settings**. The Terms, Help and Seller agreement pick the numbers up automatically
 - [ ] Licence numbers for every state you sell in, in **Admin → Fees & settings → Licences** (shown in the footer and Terms). Don't sell in a state until its licence is in place
-- [ ] Lawyer to confirm the consumer-rights wording (`src/lib/listing.ts` and Terms section 4) for auction, Buy Now, accepted offers and offers to the next bidder, private and business sellers, and whether cooling-off or dealer warranties apply to Buy Now in any state
+- [ ] A licensed chattel auctioneer (your employee, in Queensland) named on every live sale
 - [ ] Transport and warranty partners signed (warranty providers: their AFSL, PDS and TMD), or the sample ones removed
 - [ ] Your real depots in **Admin → Depots** (street address, hours, the email and mobile for handover links) and the sample depots removed; a transport amount on every vehicle before it goes live
 - [ ] A written agreement with your transport partner and each depot: due care, insurance while vehicles are in transit and at the depot, keeping sellers' details confidential, and handing over only for the release code
 - [ ] The newsletter switched on in **Admin → Newsletter** only once you have opted-in members
 - [ ] **Admin → Fees & settings → Selling checks** is ON
 - [ ] Public holidays for next year added to the `public_holidays` table (the business-day maths skips them)
-- [ ] Terms of sale, Seller agency agreement, Website terms and Privacy policy reviewed by an Australian lawyer (send them the `[LAWYER ...]` notes in `src/content/legal.ts`): consumer-law wording for auction vs Buy Now/offer sales and business sellers, state safety-certificate and registration rules, motor dealer and auctioneer licensing in each state, whether sale proceeds and bidding deposits must sit in a trust account (Terms section 8 has a placeholder), unfair contract terms (keeping a 10% deposit on non-payment, withdrawal and cancellation fees, overdue interest, the indemnities), storage and uncollected goods in each state, whether an accepted referred bid is a sale by auction, selling as agent without naming the seller, Victoria's rules on selling private sellers' vehicles on consignment (whether Buy Now, tenders and offers are allowed, or only public auction), New South Wales consignment and trust account rules, Queensland's buyer's premium (seller's written agreement, how it's shown) and statutory warranty statement, your responsibility for vehicles in transit and at the depot, and states whose transfer form shows the seller's name or address
-- [ ] Accountant to confirm GST handling when a GST-registered seller sells through you as agent (including whether to agree that Tyrebiter is treated as the supplier, Subdivision 153-B, so the buyer's tax invoice needn't name the seller)
+- [ ] A final read of the Terms of sale, Seller agency agreement, Website terms and Privacy policy by an Australian lawyer, with `docs/legal-basis.md` (every position and its source) beside them. It's a check of settled wording, not a list of open questions
+- [ ] Check for changes since October 2026 in the sources listed in `docs/legal-basis.md`, including Victoria's July 2026 auction-house reforms
 - [ ] ABN, licence number, phone, email and the trust account details in the environment variables and footer
 - [ ] A real payment by PayID from your own account for a test invoice, marked received (or recorded by Azupay)
-- [ ] Sample vehicles, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
+- [ ] Sample vehicles, the sample live auction, sample photos, the sample consultant and the sample partners deleted (sample partners are hidden automatically once test mode is off)
 - [ ] Signed referral agreements with every partner, and a lawyer's sign-off on `/finance` (credit referrer wording and the comparison rate warning) and `/insurance` (general advice warning, your licence arrangement)
 - [ ] Storage upload limit raised to 250 MB
 - [ ] The Sell page tried with a few real plates and VINs
@@ -373,7 +374,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] Everything in "Your security checklist" under Security
 - [ ] Claude Code set up (Admin → Site health → Set up Claude), the GitHub repository made private with `main` protected (pull request and the `test` check required), a free outside monitor on `/api/health`, and `HEALTH_ALERT_EMAIL` set
 - [ ] Admin → Site health all green on the live site (test mode off, live Stripe key, every service connected, `LINK_SECRET` set)
-- [ ] Transfer steps and links in `src/lib/transfer.ts` checked against each state's transport authority, and the certificate of sale wording checked by your lawyer (including Queensland safety certificate and Victorian roadworthy rules for registered vehicles)
+- [ ] Transfer steps, links and the safety and roadworthy certificate rules in `src/lib/transfer.ts` (and `roadworthy_needed()` in the database) checked again against each state's transport authority
 - [ ] A full test sale paid by PayID: win, payment received, then cancel and refund
 - [ ] Phone apps: the same test sale from the iPhone and Android apps, and a push alert received on each
 

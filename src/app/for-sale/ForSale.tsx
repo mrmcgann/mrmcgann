@@ -37,8 +37,8 @@ export function ForSalePage({ cat, state, data }: { cat: CategoryKey; state: str
         <span className="eyebrow" style={{ color: "var(--urgent)" }}>{state ? <><Link href={`/for-sale/${cat}`}>{c.label}</Link> · {where}</> : "Online auctions · Australia-wide"}</span>
         <h1 className="d2" data-testid="forsale-title">{forSaleTitle(cat, state)}.</h1>
         <p className="lede" style={{ margin: 0 }}>
-          {live.length ? `${live.length}${live.length > 48 ? "+" : ""} ${live.length === 1 ? c.one : c.label.toLowerCase()} up for online auction${state ? ` in ${where}` : " across Australia"} right now.` : `No ${c.label.toLowerCase()} are up for auction${state ? ` in ${where}` : ""} right now. Save a search and we'll tell you when one is listed.`}
-          {" "}Every vehicle is checked against its listing before it goes live, PPSR searched, and shown with its all-in price. Book a free video walkaround, view it by appointment where the seller allows, order a mechanical inspection or call the vehicle&apos;s consultant, bid online, and collect after payment and transfer, or have it delivered.
+          {live.length ? `${live.length}${live.length > 48 ? "+" : ""} ${live.length === 1 ? c.one : c.label.toLowerCase()} up for auction online${state ? ` in ${where}` : " across Australia"} right now.` : `No ${c.label.toLowerCase()} are up for auction${state ? ` in ${where}` : ""} right now. Save a search and we'll tell you when one is listed.`}
+          {" "}Each one has an auction estimate, the seller&apos;s photos and walkaround video (checked by us against the papers and records), a PPSR search and its all-in price. Order a mechanical inspection or call the vehicle&apos;s consultant, bid early or live, and collect from our depot after payment and transfer.
         </p>
         {makes.length > 0 && <div className="pill-row">{makes.map(([m, n]) => <Link key={m} className="pill pill-soft" href={searchHref({ cat, make: m, ...(state ? { state } : {}) })}>{m} ({n})</Link>)}</div>}
       </div>

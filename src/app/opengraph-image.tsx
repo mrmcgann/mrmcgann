@@ -18,7 +18,7 @@ export default function OpenGraphImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <span style={{ fontSize: 76, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.02, color: "#111111" }}>Car, ute and truck auctions, Australia-wide.</span>
-          <span style={{ fontSize: 34, color: "#555555" }}>Checked against the vehicle. PPSR searched. All-in prices shown.</span>
+          <span style={{ fontSize: 34, color: "#555555" }}>Live auctions. An estimate on every listing. All-in prices shown.</span>
         </div>
       </div>
     ),

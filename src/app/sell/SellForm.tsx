@@ -8,7 +8,7 @@ import { useViewer } from "@/components/Viewer";
 import { CarArt } from "@/components/CarArt";
 import { SignaturePad } from "@/components/SignaturePad";
 import { expiryDate, normalizePlate, normalizeVin, REGO_STATES, vehicleLine, type RegoVehicle } from "@/lib/rego";
-import { CONDITIONS, FUELS, OWNER_TYPES, PHOTO_MAX, QUESTIONS, SELL_WHEN, TRANSMISSIONS, WRITE_OFF, needsDetails, photoSlots, validateSell, wholeDollars, type Signature } from "@/lib/sellForm";
+import { CONDITIONS, FUELS, MORE_SHOTS, OWNER_TYPES, PHOTO_MAX, PHOTO_RULES, QUESTIONS, SELL_WHEN, TRANSMISSIONS, WRITE_OFF, needsDetails, photoSlots, validateSell, wholeDollars, type Signature } from "@/lib/sellForm";
 import { money } from "@/lib/format";
 
 type Clause = [string, string, string[]];
@@ -272,7 +272,7 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
         <ol className="sf-next">
           <li><b>We call you within 1 business day</b> with a price guide{done.reserve ? " and to talk through your reserve" : " and to confirm you're happy with no reserve"}.</li>
           <li><b>You verify your ID.</b> We text you a link: about 2 minutes in your browser, plus a photo of the rego papers and the account we pay you into.</li>
-          <li><b>We photograph it at your place</b> and you send us a short walkaround video, then it goes live for 7 days to buyers across Australia.</li>
+          <li><b>You send us a short walkaround video</b> (we tell you exactly what to film) and any photos still missing. We check them and the papers from here: we&apos;re never at your place. Then it goes into our next live auction, with an estimate on the listing.</li>
           <li><b>Buyers never visit</b> or get your details. Once the buyer has paid, our transport partner picks it up from you.</li>
         </ol>
         <div className="pill-row"><Link className="btn btn-dark" href="/auctions">Browse auctions</Link><Link className="btn" style={{ background: "#FFFFFF" }} href="/seller-agreement">Read the agreement again</Link></div>
@@ -448,8 +448,8 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
         </Part>
 
         {/* 3. Photos, laid out exactly like the listing gallery */}
-        <Part n={3} id="sf-photos" title="Add a few photos." colour="lime" done={partDone(PARTS[2].owns)}
-          sub="Phone photos are perfect: they help us give you a sharper price guide. We take the professional photos for the listing when we visit.">
+        <Part n={3} id="sf-photos" title="Add your photos." colour="lime" done={partDone(PARTS[2].owns)}
+          sub="These become your listing's photos: we're never at the vehicle. Phone photos are perfect, in daylight, the whole vehicle in each one.">
           <div className={`sf-shots n${Math.min(5, Math.max(1, slots.length))}${errs.photos ? " sf-miss" : ""}`} aria-label="Your photos, laid out the way your listing shows them">
             {slots.map(([k, label, hint], i) => {
               const s = shots.find((x) => x.slot === k);
@@ -497,6 +497,7 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
             </label>
             <span className="hint" data-testid="sell-photo-count">{shots.length} of {PHOTO_MAX} photos{shots.some((s) => s.status === "up") ? " · uploading" : ""}</span>
           </div>
+          <ul className="sf-rules" data-testid="photo-rules">{PHOTO_RULES.map((r) => <li key={r}>{r}</li>)}<li>Also good: {MORE_SHOTS.join(", ").toLowerCase()}.</li></ul>
           {photoNote && <div className="notice" role="status">{photoNote}</div>}
           {err("photos")}
         </Part>

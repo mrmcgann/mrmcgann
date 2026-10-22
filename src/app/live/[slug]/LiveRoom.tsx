@@ -12,10 +12,11 @@ import { lotFees, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 import { ackPayLine } from "@/lib/deposits";
-import { rightsLine } from "@/lib/listing";
+import { rightsLine, warrantySign } from "@/lib/listing";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, streamEmbed, type LiveLot, type LiveSale } from "@/lib/live";
 import type { Fees, Lot } from "@/lib/types";
-import { ACK_CHECK, feesLine } from "@/lib/transport";
+import { ACK_CHECK, feesLine, premiumLabel } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
 type LotMsg = Partial<LiveLot> & { id: number };
@@ -23,7 +24,7 @@ type LotMsg = Partial<LiveLot> & { id: number };
 // The live auction room: the stream (when there is one), the vehicle that's up, its price and countdown, quick bids,
 // what's coming up and the results so far. Changes arrive by Broadcast on sale:<id> and lot:<id>; the edge-cached
 // /api/sales/[slug]/live endpoint catches up after a reconnect and covers for Realtime if it's down.
-export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
+export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fees; licences?: string }) {
   const v = useViewer();
   const router = useRouter();
   const [room, setRoom] = useState<Room>(initial);
@@ -138,6 +139,18 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
     setMsg(data.status === "leading" ? { kind: "ok", text: `You're in front at ${money(data.current_bid)}.` } : { kind: "bad", text: `Another bidder's maximum is higher: ${money(data.current_bid)}. Bid again?` });
     void load();
   }
+  // withdrawing a bid is allowed until the hammer falls; the countdown then gives the room a moment to answer
+  async function withdraw() {
+    if (!cur || !window.confirm("Withdraw your bid now? The price is worked out again without it.")) return;
+    setBusy(true); setMsg(null);
+    const res = await fetch("/api/bid", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: cur.id }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "Couldn't withdraw your bid." }); return; }
+    setMyMax((m) => { const n = { ...m }; delete n[cur.id]; return n; });
+    setMsg({ kind: "ok", text: "Your bid has been withdrawn." });
+    void load();
+  }
   function tap(amount: number) {
     if (setupNeeded()) return;
     if (agreed) void place(amount); else setAsk(amount);
@@ -154,7 +167,8 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
           <div className="pill-row" style={{ gap: 8 }}>{statusPill}{rt && sale.live_status === "running" && <span className="hint" style={{ margin: 0 }}>Updating live</span>}</div>
           <h1 className="d2" style={{ fontSize: "clamp(34px,5vw,60px)" }} data-testid="live-title">{sale.title}.</h1>
-          <span className="muted">{[sale.seller_label, sale.state, sale.auctioneer ? `Auctioneer: ${sale.auctioneer}` : null].filter(Boolean).join(" · ")}</span>
+          {sale.auctioneer && <span className="lv-pill" style={{ alignSelf: "flex-start" }} data-testid="live-auctioneer">Auctioneer: {sale.auctioneer}</span>}
+          <span className="muted">{[sale.seller_label, sale.state].filter(Boolean).join(" · ")}{licences ? `${sale.seller_label || sale.state ? " · " : ""}${licences}` : ""}</span>
         </div>
         <Link className="btn btn-soft" href={`/calendar`} style={{ height: 44, fontSize: 14 }}>Auction calendar</Link>
       </div>
@@ -172,6 +186,8 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
             <div className="lv-lot" data-testid="live-lot">
               <span className="muted">{cur.sale_order ? `Lot ${cur.sale_order}` : `Lot ${cur.id}`} · {[cur.year, cur.odometer != null ? km(cur.odometer) : cur.hours != null ? `${cur.hours} hrs` : null, [cur.suburb, cur.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</span>
               <b className="lv-lot-t">{cur.title}</b>
+              {hasEstimate(cur) && <span data-testid="live-estimate">Estimate <b>{estimateText(cur)}</b> · all-in <b>{estimateAllInText(cur, lotFeesNow)}</b></span>}
+              <span className="hint" style={{ margin: 0 }} data-testid="live-terms">{warrantySign(cur.statutory_warranty) ? <b>{warrantySign(cur.statutory_warranty)} </b> : null}{premiumLabel(lotFeesNow)}, plus GST and the admin fee, applies.</span>
               <Link className="blue" href={`/lot/${cur.id}`} target="_blank" style={{ fontWeight: 700 }}>Full listing, condition report and photos ›</Link>
             </div>
           ) : sale.live_status === "scheduled" ? (
@@ -186,7 +202,7 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
                 <div className="lv-price">
                   <span className="k">{cur.status === "sold" ? "Sold for" : "Current bid"}</span>
                   <span className="v" data-testid="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</span>
-                  {open && <span className="hint" style={{ margin: 0 }}><b>{money(allIn, true)} all-in</b> with the buyer&apos;s premium, GST and admin fee · {cur.bid_count} bids</span>}
+                  {open && <><span className="k">All-in</span><span className="v" data-testid="live-allin">{allInMoney(allIn)}</span><span className="hint" style={{ margin: 0 }}>With the buyer&apos;s premium, GST and admin fee · {cur.bid_count} bids</span></>}
                 </div>
               ) : (
                 <div className="lv-price"><span className="k">Result</span><span className="v" style={{ fontSize: "clamp(30px,3.4vw,40px)", letterSpacing: "-0.03em" }} data-testid="live-price">{resultLine(cur).replace(/\.$/, "")}</span></div>
@@ -211,6 +227,7 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
                   <button className="linkbtn" onClick={() => { if (!setupNeeded()) { setMaxAmount(String(nextBid(cur) + 1000)); setMaxOpen(true); } }}>Or set a maximum and we&apos;ll bid for you</button>
                 </div>
               )}
+              {open && !paused && userId && (leading || myMax[cur.id]) ? <button className="linkbtn" onClick={withdraw} disabled={busy} data-testid="live-withdraw">Withdraw my bid (allowed until the hammer falls)</button> : null}
               {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={cur.id} />}
               {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
               {!userId && open && <span className="hint" style={{ margin: 0 }}>Sign in (or join free: verify your mobile and ID once) to bid.</span>}
@@ -235,7 +252,7 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
               <Link key={l.id} className="lv-card" href={`/lot/${l.id}`} data-testid="live-next">
                 <span className="lv-thumb">{l.cover_path ? <img src={photoUrl(l.cover_path)} alt="" /> : <CarArt type="car" />}</span>
                 <b>{l.title}</b>
-                <span className="muted" style={{ fontSize: 14 }}>{l.sale_order ? `Lot ${l.sale_order} · ` : ""}{l.bid_count ? `${money(l.current_bid)} early bid` : `From ${money(l.start_price)}`} · about {new Date(l.ends_at || Date.now()).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
+                <span className="muted" style={{ fontSize: 14 }}>{l.sale_order ? `Lot ${l.sale_order} · ` : ""}{hasEstimate(l) ? `Estimate ${estimateText(l)} · ` : ""}{l.bid_count ? `${money(l.current_bid)} early bid` : `From ${money(l.start_price)}`} · about {new Date(l.ends_at || Date.now()).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
                 <span className="blue" style={{ fontSize: 14, fontWeight: 700 }}>Bid early ›</span>
               </Link>
             ))}
@@ -252,7 +269,7 @@ export function LiveRoom({ initial, fees }: { initial: Room; fees: Fees }) {
         </section>
       )}
 
-      <p className="hint lv-small">Bidding here is the same as on the listing: each bid is binding, the price you see is the bid before fees, and the all-in amount is what you&apos;d pay. The auctioneer may also take bids in the room or by phone from registered, verified buyers, and settles any dispute about a bid from the bids recorded here (Terms of Sale, section 6). Vehicles are sold as is, where is: book a video walkaround or an inspection before the sale.</p>
+      <p className="hint lv-small" data-testid="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Tyrebiter as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it&apos;s passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The price shown is the bid before fees; the all-in amount is what you&apos;d pay. The seller can&apos;t bid, and we never bid for the seller. The auctioneer may also take bids by phone from registered bidders, and settles any dispute about a bid from the bids recorded here (Terms of Sale, section 6). Vehicles are sold as is, where is: check the seller&apos;s photos and video, and order a mechanical inspection before the sale if you want one.</p>
 
       {ask != null && cur && (
         <Modal title={`Bid ${money(ask)} on the ${cur.title}?`} onClose={() => setAsk(null)}>

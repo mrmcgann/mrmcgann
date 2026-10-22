@@ -15,6 +15,7 @@ import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
 import { liveError, streamEmbed } from "@/lib/live";
 import { env } from "@/lib/env";
+import { copySellerPhotos } from "@/lib/sellerPhotos";
 export const maxDuration = 120; // the SEO audit and insights refresh can take a minute
 const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
 // Business days the same way the database counts them (Brisbane time, weekends and public holidays skipped).
@@ -475,7 +476,9 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
           ...(disc.finance === "yes" ? { finance_owing: Number(disc.finance_amount) || null, lender_name: (disc.lender_name as string) || null, lender_ref: (disc.lender_ref as string) || null } : {}),
         });
         await db.from("appraisals").update({ lot_id: lot!.id, status: "booked" }).eq("id", b.appraisalId);
-        return json({ ok: true, lotId: lot!.id });
+        // the seller's photos become the draft's photos (we're never at the vehicle), with everything but the picture removed
+        const photos = await copySellerPhotos(db, Array.isArray(ap.photo_paths) ? ap.photo_paths : [], lot!.id);
+        return json({ ok: true, lotId: lot!.id, photos });
       }
       return done();
     }
@@ -557,6 +560,8 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
         end: () => supabase.rpc("admin_live_end", { p_sale: sale }),
         floor: () => supabase.rpc("admin_floor_bid", { p_sale: sale, p_bidder: String(b.bidder || "").slice(0, 24), p_amount: Math.round(Number(String(b.amount || "").replace(/[^0-9]/g, ""))) }),
         order: () => supabase.rpc("admin_sale_order", { p_sale: sale, p_ids: (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n: number) => n > 0).slice(0, 500) }),
+        // the seller's instruction (by phone) to lower or remove the reserve on the vehicle that's up
+        reserve: () => supabase.rpc("admin_live_reserve", { p_sale: sale, p_reserve: b.reserve === null || b.reserve === "" ? null : Math.round(Number(String(b.reserve).replace(/[^0-9]/g, ""))) }),
       };
       const op = String(b.op || "");
       if (!ops[op]) return fail("Unknown step.");

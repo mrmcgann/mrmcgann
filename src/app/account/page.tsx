@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession, missingSteps } from "@/lib/auth";
 import { Tick } from "@/components/CarArt";
 import { NotifySettings } from "@/components/NotifySettings";
+import { getSettingsCached } from "@/lib/cache";
 import { AccountExtras } from "./AccountExtras";
 import { AccountNav } from "./AccountNav";
 import { maskMobile, money, dateLong } from "@/lib/format";
@@ -21,10 +22,12 @@ export default async function Account() {
   const { supabase, user, profile } = await getSession();
   if (!user || !profile) redirect("/signin?next=/account");
   const miss = missingSteps(profile);
-  const [{ data: invoices }, { data: appraisals }] = await Promise.all([
+  const [{ data: invoices }, { data: appraisals }, settings] = await Promise.all([
     supabase.from("invoices").select("*, lots(title)").eq("buyer_id", user.id).order("created_at", { ascending: false }),
     supabase.from("appraisals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+    getSettingsCached().catch(() => ({} as Record<string, Record<string, unknown>>)),
   ]);
+  const liveOnly = settings.auction?.live_only === true;
   const row = (n: number, label: string, ok: boolean, detail: string) => (
     <div className="check" style={{ padding: "18px 0" }} key={n}>
       <span className="tick" style={{ background: ok ? "var(--mint)" : "var(--panel2)" }}>{ok ? <Tick /> : <b style={{ fontSize: 13 }}>{n}</b>}</span>
@@ -79,7 +82,7 @@ export default async function Account() {
             ) : <p className="muted">No invoices yet. When you win or buy a vehicle, the invoice appears here.</p>}
           </div>
 
-          <NotifySettings initial={profile.notify} />
+          <NotifySettings initial={profile.notify} liveOnly={liveOnly} />
 
           <AccountExtras company={profile.company_name || ""} abn={profile.abn || ""} email={user.email} />
 

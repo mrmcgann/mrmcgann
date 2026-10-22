@@ -1,6 +1,6 @@
 # Tyrebiter for iPhone and Android
 
-A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, bid, buy now, offers, alerts, invoices, transfer of ownership, collection, claims, selling (with the plate lookup) and the seller dashboard. It adds push notifications, the phone's own card form (Stripe) and in-app account deletion.
+A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, early bids and the live auction room (every vehicle is sold in a live auction, with an estimate), alerts, invoices (paid by bank transfer, PayID or BPAY), transfer of ownership, collection from our depot, claims, selling (with the plate lookup, the seller's photos and walkaround video) and the seller dashboard. It adds push notifications and in-app account deletion.
 
 - Screens live in `src/app` (one file per screen). Shared pieces are in `src/ui`, plumbing in `src/lib`.
 - Search, vehicle lists, fees and formatting are the website's own code (`../src/lib`), so both stay in step.
@@ -77,11 +77,11 @@ The first iPhone build asks you to sign in to Apple and creates the certificates
 Apple and Google both sign in to check the app. On the website, join as `appreview@tyrebiter.com.au` with a strong password. Stop at the mobile step. Then in the Supabase SQL editor:
 ```sql
 update profiles set details_done = true, first_name = 'App', last_name = 'Review', mobile = '0400000000',
-  mobile_verified = true, id_status = 'verified',
+  mobile_verified = true, id_status = 'none',
   terms_version = (select value->>'buyer_version' from settings where key = 'terms')
 where email = 'appreview@tyrebiter.com.au';
 ```
-It has no card on purpose, so a reviewer can see everything but can't place a real bid.
+Its ID isn't verified on purpose, so a reviewer can see everything (the live auction room too) but can't place a real bid: a bid button leads to the ID check.
 
 ### 10. Send it to Apple
 1. `eas submit -p ios --latest`. The first time, it creates the app in App Store Connect for you.
@@ -132,7 +132,7 @@ How it fits together:
 - **Private lists** (watchlist, bids, invoices, notifications) are read straight from Supabase with row level security.
 - **Live prices** use the same Realtime broadcast (`lot:<id>`) as the website, with `/api/lots/<id>/live` polling as a fallback.
 - **Push**: the app registers its Expo push token at `POST /api/push`. A database trigger on `notifications` queues one 'push' outbox row per alert, and `drainOutbox` sends them in batches of 100 (`src/lib/push.ts` on the website). Dead tokens are switched off automatically.
-- **Payments** use Stripe's PaymentSheet for saving a card (SetupIntent) and paying (PaymentIntent).
+- **Payments**: buyers pay by bank transfer, PayID or BPAY (`PayRows`); the app never takes a card. Stripe is used for the ID check (Stripe Identity); `src/lib/pay.tsx` (the old card sheet) is only for invoices from before cards were switched off.
 - **Account deletion** is `GET/POST /api/account/delete`. It refuses while bids, purchases or listings are in progress, then anonymises the profile, removes the Stripe customer and deletes the sign-in.
 - **Links**: `src/lib/links.ts` maps website links (emails, SMS, shared lots) to app screens. Universal links come from `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` on the website (step 12).
 - **Store images**: `store/` holds the listing copy, screenshots, feature graphic and icon. `assets/` holds the app icon, Android adaptive icon, notification icon and splash, all drawn from the Tyrebiter ring.

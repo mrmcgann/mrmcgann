@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ cat: stri
   const d = await forSaleData(cat, st);
   return {
     title: forSaleTitle(cat, st),
-    description: `${CAT[cat].label} for sale by online auction in ${STATE_NAMES[st]}. Checked against the vehicle, PPSR searched, all-in prices shown.`,
+    description: `${CAT[cat].label} for sale by live online auction in ${STATE_NAMES[st]}. An estimate on every listing, PPSR searched, all-in prices shown.`,
     alternates: { canonical: `/for-sale/${cat}/${state.toLowerCase()}` },
     robots: d.live.length || d.sold.length ? undefined : { index: false },
   };

@@ -3,6 +3,7 @@ import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor,
 import { ENDINGS, HOW_SOLD, WRITE_OFFS, type Facets, type SearchFilters } from "@/lib/search";
 import { GRADES } from "@/lib/grades";
 import { Button, Check, Select, Sheet, T } from "./kit";
+import { useSession } from "~/lib/session";
 import { C, F } from "./theme";
 
 const YEARS = Array.from({ length: 45 }, (_, i) => String(new Date().getFullYear() + 1 - i));
@@ -19,6 +20,8 @@ const $ = (v: number) => "$" + v.toLocaleString("en-AU");
 export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }: {
   visible: boolean; onClose: () => void; f: SearchFilters; facets: Facets | null; set: (patch: SearchFilters) => void; total: number | null; onClear: () => void;
 }) {
+  // every vehicle in a live auction: nothing to choose about how it's sold, no Buy Now, and "ending" is when it's offered
+  const liveOnly = !!useSession().config?.liveOnly;
   const cat = f.cat && f.cat !== "cheap" ? CAT[f.cat] : null;
   const extras = cat ? cat.extras : [];
   const usage = cat ? cat.usage : "km";
@@ -74,11 +77,11 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
       <View style={{ gap: 8 }}><T v="label">Condition</T>{chips("runs", [["drives", "Starts and drives"]])}</View>
       <Check checked={f.inspected === "1"} onChange={(v) => set({ inspected: v ? "1" : "" })}>Inspected by a mechanic</Check>
       <View style={{ gap: 8 }}><T v="label">Write-off history</T>{chips("wo", WRITE_OFFS)}</View>
-      <View style={{ gap: 8 }}><T v="label">How it’s sold</T>{chips("how", HOW_SOLD)}</View>
+      {!liveOnly ? <View style={{ gap: 8 }}><T v="label">How it’s sold</T>{chips("how", HOW_SOLD)}</View> : null}
       <Select label="Visual grade" value={f.grade || ""} placeholder="Any grade" options={GRADES.slice(0, 4).map(([g, l]) => [g, g === "A" ? "A · Excellent" : `${g} · ${l} or better`] as [string, string])} onChange={(v) => set({ grade: v })} />
       <Check checked={f.nores === "1"} onChange={(v) => set({ nores: v ? "1" : "" })}>No reserve, or reserve met</Check>
-      <Check checked={f.buynow === "1"} onChange={(v) => set({ buynow: v ? "1" : "" })}>Buy Now available</Check>
-      <Select label="Ending" value={f.ending || ""} placeholder="Ending any time" options={ENDINGS} onChange={(v) => set({ ending: v })} />
+      {!liveOnly ? <Check checked={f.buynow === "1"} onChange={(v) => set({ buynow: v ? "1" : "" })}>Buy Now available</Check> : null}
+      <Select label={liveOnly ? "Up for auction" : "Ending"} value={f.ending || ""} placeholder={liveOnly ? "Up for auction any time" : "Ending any time"} options={ENDINGS} onChange={(v) => set({ ending: v })} />
     </Sheet>
   );
 }

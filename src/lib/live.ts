@@ -15,6 +15,7 @@ export type LiveLot = {
   current_bid: number; start_price: number; bid_count: number; ends_at: string | null; reserve_met: boolean; has_reserve: boolean;
   leader_id: string | null; sold_price: number | null; cover_path: string | null; category: string; year: number | null;
   odometer: number | null; hours: number | null; suburb: string | null; state: string | null; fees?: Record<string, number | string> | null;
+  estimate_low?: number | null; estimate_high?: number | null; statutory_warranty?: boolean | null;
 };
 
 /** How a vehicle is sold, in a few words. */
@@ -105,7 +106,8 @@ export function liveError(m: string): string | null {
   if (m.includes("not_live_sale")) return "That isn't a live auction.";
   if (m.includes("sale_not_found")) return "We couldn't find that sale.";
   if (m.includes("bad_seconds")) return "Add between 5 seconds and 5 minutes.";
-  for (const code of ["sale_move_bids", "method_locked", "sale_mode_locked", "sale_running", "sale_ended", "sale_hidden", "sale_started", "sale_not_started", "live_lot_open", "lot_not_waiting", "bidder_not_found"]) {
+  for (const code of ["sale_move_bids", "method_locked", "sale_mode_locked", "sale_running", "sale_ended", "sale_hidden", "sale_started", "sale_not_started", "live_lot_open", "lot_not_waiting", "bidder_not_found",
+    "live_only", "corrected_recently", "auctioneer_needed", "reserve_rule", "estimate_rule", "withdraw_closed"]) {
     if (m.includes(`${code}:`)) { const t = m.split(`${code}:`)[1]?.split("\n")[0].trim() || ""; return t ? t[0].toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : null; }
   }
   return null;
