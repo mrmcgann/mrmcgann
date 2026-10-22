@@ -33,7 +33,7 @@ export default function Home() {
   const liveOnly = !!config?.liveOnly;
   // the featured vehicle's price: its estimate (or bid) and the all-in amount, in the same size
   const ff = f && config?.fees ? lotFees(config.fees, f) : null;
-  const fPrice = f ? (f.live_state === "waiting" && hasEstimate(f) && !f.bid_count
+  const fPrice = f ? (f.live_state === "waiting" && hasEstimate(f)
     ? `Estimate ${estimateText(f)}${ff ? ` · All-in ${estimateAllInText(f, ff)}` : ""}`
     : `${f.bid_count ? "Bid" : "Opening bid"} ${money(shownPrice(f))}${ff ? ` · All-in ${allInMoney(priceBreakdown(Number(shownPrice(f)) || 0, ff).total)}` : ""}`) : "";
 

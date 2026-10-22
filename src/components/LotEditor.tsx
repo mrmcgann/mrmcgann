@@ -16,6 +16,7 @@ import { ZONES } from "@/lib/damage";
 import { cleanPhoto } from "@/lib/photoPrep";
 import { money } from "@/lib/format";
 import type { Depot } from "@/lib/types";
+import { useLiveOnly } from "@/components/SiteSettings";
 
 export interface SellerInfo {
   inviteUrl: string | null;
@@ -51,8 +52,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   const [sales, setSales] = useState<{ id: number; title: string; mode: string; starts_at?: string | null; live_status?: string }[]>([]);
   useEffect(() => { db.from("sales").select("id, title, mode, starts_at, live_status").order("created_at", { ascending: false }).limit(50).then(({ data }: { data: { id: number; title: string; mode: string }[] | null }) => setSales(data || [])); }, [db]);
   // Every vehicle is sold in a live auction (settings: auction.live_only): no timed end, Buy Now or tender here.
-  const [liveOnly, setLiveOnly] = useState(false);
-  useEffect(() => { db.from("settings").select("value").eq("key", "auction").maybeSingle().then(({ data }: { data: { value: { live_only?: boolean } } | null }) => setLiveOnly(data?.value?.live_only === true)); }, [db]);
+  // every vehicle in a live auction (from the root layout, so the editor never flashes the timed-auction fields)
+  const liveOnly = useLiveOnly();
   const [f, setF] = useState<Row>({
     status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),

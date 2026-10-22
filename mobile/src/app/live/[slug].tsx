@@ -54,6 +54,19 @@ export default function LiveRoomScreen() {
 
   const saleId = room?.sale.id;
   const curId = room?.current?.id;
+  // the member's own maximums in this sale (early bids left on the listings count), so the room shows they've bid and
+  // can withdraw it until the hammer falls
+  const lotKey = room ? [room.current?.id, ...room.next.map((l) => l.id)].filter(Boolean).join(",") : "";
+  useEffect(() => {
+    if (!userId || !lotKey) return;
+    let stop = false;
+    void supabase.from("max_bids").select("lot_id").eq("bidder_id", userId).in("lot_id", lotKey.split(",").map(Number))
+      .then(({ data }: { data: { lot_id: number }[] | null }) => {
+        if (stop || !data) return;
+        setMineHere((m) => { const n = { ...m }; for (const r of data) n[r.lot_id] = true; return n; });
+      });
+    return () => { stop = true; };
+  }, [userId, lotKey]);
   useEffect(() => {
     if (!saleId) return;
     const ch = supabase.channel(`sale:${saleId}`, { config: { private: false } })

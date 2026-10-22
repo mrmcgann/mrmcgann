@@ -45,6 +45,19 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
   const cur = room.current;
   const curId = cur?.id ?? null;
   const userId = v.user?.id || null;
+  // the member's own maximums in this sale (early bids left on the listings count), so the room shows they've bid and
+  // can withdraw it until the hammer falls
+  const lotKey = [cur?.id, ...room.next.map((l) => l.id)].filter(Boolean).join(",");
+  useEffect(() => {
+    if (!userId || !lotKey) return;
+    let stop = false;
+    void supabaseBrowser().from("max_bids").select("lot_id, max_amount").eq("bidder_id", userId).in("lot_id", lotKey.split(",").map(Number))
+      .then(({ data }: { data: { lot_id: number; max_amount: number }[] | null }) => {
+        if (stop || !data) return;
+        setMyMax((m) => { const n = { ...m }; for (const r of data) n[r.lot_id] = Math.max(n[r.lot_id] || 0, Number(r.max_amount)); return n; });
+      });
+    return () => { stop = true; };
+  }, [userId, lotKey]);
 
   const load = useCallback(async () => {
     try {

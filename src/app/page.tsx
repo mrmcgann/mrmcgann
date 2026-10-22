@@ -93,7 +93,7 @@ export default async function Home() {
               <h2 className="d3" style={{ fontSize: "clamp(40px,5vw,72px)" }}>{featured.short_title || featured.title}.</h2>
               <p style={{ fontSize: 20, fontWeight: 500 }}>{[featured.subtitle, featured.odometer != null ? km(featured.odometer) : null, `${featured.suburb}, ${featured.state}`].filter(Boolean).join(" · ")}</p>
               <div className="stat" data-testid="featured-price">
-                {fWaiting && hasEstimate(featured) && !featured.bid_count ? <>
+                {fWaiting && hasEstimate(featured) ? <>
                   <span><span className="k">Estimate</span><span className="v">{estimateText(featured)}</span></span>
                   <span><span className="k">All-in</span><span className="v" data-testid="featured-allin">{estimateAllInText(featured, fFees!)}</span></span>
                 </> : <>
