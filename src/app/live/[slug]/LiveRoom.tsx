@@ -291,7 +291,7 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
       )}
       {maxStage != null && cur && (
         <BidConfirm lot={{ title: cur.title, seller_type: null }} typed={maxStage} minNext={nextBid(cur)} fees={lotFeesNow} cardLabel={null} busy={busy}
-          onPlace={() => { const n = maxStage; setAgreed(true); setMaxStage(null); void place(n); }} onClose={() => setMaxStage(null)} />
+          onPlace={() => { const n = maxStage; setAgreed(true); setMaxStage(null); void place(n); }} onClose={() => setMaxStage(null)} withdrawable />
       )}
     </div>
   );

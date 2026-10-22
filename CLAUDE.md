@@ -8,7 +8,7 @@ Next.js 15 App Router + TypeScript, Supabase (Postgres, Auth, Realtime, Storage)
 - Search: `src/lib/vehicles.ts` (the 10 categories, sub-types, makes and models), `src/lib/search.ts` (filter names, the plain-English parser, typeahead). The database side is `search_pred()` / `search_lots()` / `lot_facets()` and `queue_search_alerts()` in `20261003000006_search.sql`. A new filter needs all four: `FILTER_KEYS` + `cleanFilters`, `search_pred`, the alert sweep, and `SearchFilterPanel`. `search_pred` builds SQL from fixed text only; values are always read from `$1`.
 - `src/lib/charges.ts` – when an invoice is created: bank invoices (`pay_method` 'bank') just move to `deposit_paid`/`paid` (`finishBankInvoice`); old card invoices are charged off-session.
 - `src/app/api/cron/process` – every-minute clock.
-- `src/content/legal.ts` – Terms, Help and Privacy copy (draft, needs legal review).
+- `src/content/legal.ts` – Terms, Help and Privacy copy (every position settled, with its basis and sources in `docs/legal-basis.md`; a lawyer gives the finished set a final read before launch).
 - Admin UI: `src/app/admin`, vehicle editor `src/components/LotEditor.tsx` (writes directly with the browser Supabase client; RLS allows admins).
 
 ## Rules

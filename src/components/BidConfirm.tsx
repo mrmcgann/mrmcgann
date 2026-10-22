@@ -21,11 +21,12 @@ export function payNoteFor(preview: ReturnType<typeof priceBreakdown>, cardLabel
 /** A maximum this far above the next bid needs a second tick (fat-finger guard). */
 export const isBigJump = (typed: number, minNext: number) => typed >= 50_000 || (typed > minNext * 2 && typed - minNext >= 2_000);
 
-// The confirm step for a bid, shared by the vehicle page and the watchlist: the all-in price at the full maximum,
-// how payment works, the as-is acknowledgement and the consumer-rights line. Nothing is placed until it's confirmed.
-export function BidConfirm({ lot, typed, minNext, fees, cardLabel, busy, onPlace, onClose, changeLabel = "Change amount" }: {
+// The confirm step for a bid, shared by the vehicle page, the watchlist and the live room: the all-in price at the full
+// maximum, how payment works, the as-is acknowledgement and the consumer-rights line. Nothing is placed until it's
+// confirmed. In a live auction a bid can be withdrawn until the hammer falls (withdrawable), and it says so.
+export function BidConfirm({ lot, typed, minNext, fees, cardLabel, busy, onPlace, onClose, changeLabel = "Change amount", withdrawable = false }: {
   lot: Pick<Lot, "title" | "seller_type">; typed: number; minNext: number; fees: Fees; cardLabel: string | null; busy: boolean;
-  onPlace: () => void; onClose: () => void; changeLabel?: string;
+  onPlace: () => void; onClose: () => void; changeLabel?: string; withdrawable?: boolean;
 }) {
   const [sure, setSure] = useState(false);
   const [ack, setAck] = useState(false);
@@ -33,7 +34,7 @@ export function BidConfirm({ lot, typed, minNext, fees, cardLabel, busy, onPlace
   const bigJump = isBigJump(typed, minNext);
   return (
     <Modal title={`Confirm your maximum: ${money(typed)}`} onClose={onClose}>
-      <p className="muted" style={{ fontSize: 16 }}>{lot.title}. We&apos;ll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. <b>Bids can&apos;t be withdrawn.</b></p>
+      <p className="muted" style={{ fontSize: 16 }}>{lot.title}. We&apos;ll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. <b data-testid="confirm-withdraw">{withdrawable ? "It's binding unless you withdraw it before the hammer falls." : "Bids can't be withdrawn."}</b></p>
       <div className="allin" style={{ border: 0, padding: 0 }}>
         <div><span className="muted">If you win at your full maximum</span><span>{money(preview.price)}</span></div>
         <div><span className="muted">{feesLine(preview.transport)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>

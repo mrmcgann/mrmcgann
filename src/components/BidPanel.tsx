@@ -247,7 +247,7 @@ export function BidPanel(props: {
           <div className="hint">No surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</div>
           <div style={{ fontSize: 14, lineHeight: 1.45, padding: "12px 14px", borderRadius: 14, background: "var(--panel)" }}>{payNote}</div>
         </div>
-        {confirm && <BidConfirm lot={lot} typed={typed} minNext={minNext} fees={fees} cardLabel={cardLabel} busy={busy} onPlace={placeBid} onClose={() => setConfirm(false)} />}
+        {confirm && <BidConfirm lot={lot} typed={typed} minNext={minNext} fees={fees} cardLabel={cardLabel} busy={busy} onPlace={placeBid} onClose={() => setConfirm(false)} withdrawable={!!liveSale} />}
         {buyOpen && bn && bnPrev && (
           <Modal title={`Buy it now for ${money(bn)}?`} onClose={() => setBuyOpen(false)}>
             <p className="muted">{lot.title}. The auction ends immediately and the vehicle is yours, as is, where is.</p>

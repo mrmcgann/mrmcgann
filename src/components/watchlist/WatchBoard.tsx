@@ -408,7 +408,7 @@ function QuickBid({ i, fees, cardLabel, deposit, leading, onClose, onPlaced, onT
     onPlaced(i, typed, data);
     onClose();
   }
-  if (stage === "confirm") return <BidConfirm lot={{ title: i.title, seller_type: i.seller_type ?? null }} typed={typed} minNext={min} fees={f} cardLabel={cardLabel} busy={busy} onPlace={place} onClose={() => setStage("amount")} />;
+  if (stage === "confirm") return <BidConfirm lot={{ title: i.title, seller_type: i.seller_type ?? null }} typed={typed} minNext={min} fees={f} cardLabel={cardLabel} busy={busy} onPlace={place} onClose={() => setStage("amount")} withdrawable={i.live_state === "waiting" || i.live_state === "open"} />;
   const preview = priceBreakdown(typed || min, f);
   return (
     <Modal title={raising ? "Raise your maximum" : "Your maximum bid"} onClose={onClose}>
