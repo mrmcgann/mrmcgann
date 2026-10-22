@@ -40,7 +40,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 **For you (admin at /admin)**
 - Dashboard of everything that needs attention
 - List a vehicle: details, story, condition report, the seller's photos (copied from the sell form with their metadata removed), flaws, reserve, the auction estimate and its basis, the live auction it's in, the safety or roadworthy certificate date, private seller details
-- Referrals and offers: record the seller's decision (accepting charges the buyer straight away)
+- Live auctions (**Admin → Live auctions**): create one (date, time, your licensed auctioneer, an optional YouTube or Vimeo stream), set the running order, and run it from the console: offer each vehicle, take floor bids by bidder number, make calls, lower the reserve on the seller's phone instruction, knock it down or pass it in
 - Members: **Ban** (with a reason they see) or suspend; lifting it also forgets the identity codes
 - Deposits (`/admin/deposits`, shown when deposits are on): record a transfer that arrived (it checks the payer's name matches the member), send refunds to the account they came from, correct a balance; totals of what you hold
 - Invoices: mark balances received, mark collected, cancel for non-payment (bans the buyer, keeps any deposit) or cancel and refund
@@ -49,7 +49,7 @@ Built with **Next.js** (the website), **Supabase** (database, logins, live bid u
 - Listing checks in the vehicle editor (all needed to publish; who checked is recorded), seller type, EV battery health, and the sale a vehicle belongs to
 - Bidders on a live vehicle, with "Remove their bids" (bid before a material correction and asked out, or shill bidding; the price is worked out again)
 - Passed in: relist it as a new draft for a later auction (past bidders and watchers hear when it's back)
-- Fleet sales: create a sale page, stagger closing times, end-of-sale report (CSV); Bulk upload a fleet list (CSV) into drafts
+- Fleet sales: a live auction of one seller's vehicles, with its own page and an end-of-sale report (CSV); Bulk upload a fleet list (CSV) into drafts
 - Listing audits: a sample of live listings to re-check each month, with a record (part of the consumer law compliance program)
 - Newsletter: preview, send now, or weekly on a set day and hour; Licences shown in the footer and Terms (Fees & settings)
 - Transfers: check each buyer's transfer confirmation, chase the seller's part, complete it (the buyer can then book collection)
@@ -100,8 +100,8 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    20. `supabase/migrations/20261021000020_live_tender_bpay.sql` (live auctions, tenders, BPAY, the damage map, the auction calendar)
    21. `supabase/migrations/20261022000021_depot_collection.sql` (no viewings, depots, transport in the buyer's premium, pickups after payment, collection at the depot, the seller kept private)
    22. `supabase/migrations/20261022000022_live_auctions_only.sql` (live auctions only, the auction estimate, withdrawing bids, the seller lowering the reserve, passed in below the reserve, safety and roadworthy certificates)
-   22. `supabase/seed.sql` (optional sample vehicles, waiting in a sample live auction with sample estimates, plus sample depots, a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
-   23. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   23. `supabase/seed.sql` (optional sample vehicles, waiting in a sample live auction with sample estimates, plus sample depots, a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
+   24. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -177,13 +177,11 @@ That's all it takes to bid. (With bidding deposits switched on there's a fifth s
 - [ ] Join with a real email address: the 6-digit email code arrives and works
 - [ ] Add details, then SMS code `123456`, then test ID: you can bid straight away
 - [ ] On the Sell page, type a plate you've listed (it fills in from our records), then a VIN you haven't (it fills in the maker and year)
-- [ ] As admin, list a vehicle ending in 15 minutes with a reserve, registered (plate, state, expiry), and publish it; add a video in the editor and see it second in the gallery
-- [ ] From a second account, bid below the reserve; from the first, outbid them (the second gets an outbid email)
-- [ ] Bid in the last 10 minutes: the clock jumps back to 10 minutes on both screens
-- [ ] Let it end: the winner's invoice shows the full amount with the bank details and reference; mark it received in Admin → Invoices
+- [ ] As admin, create a live auction in **Admin → Live auctions** (today, a few minutes from now, with your auctioneer's name), then list a vehicle in it with a reserve, an auction estimate and what it's based on, registered (plate, state, expiry, and the safety or roadworthy certificate date if its state needs one), and publish it; add a video in the editor and see it second in the gallery
+- [ ] From a second account, leave an early bid below the reserve; from the first, outbid them (the second gets an outbid email); then withdraw the second account's bid on the listing: the price is worked out again without it
+- [ ] Start the auction from the console: the vehicle comes up with a short countdown; bid in the live room from both accounts (each bid resets the countdown) and knock it down: the winner's invoice shows the full amount with the bank details, reference and the notice to the buyer; mark it received in Admin → Invoices
 - [ ] Win another one and don't pay: wind its due date back, **Cancel: buyer didn't pay**. The buyer is banned, and a new account with the same name and date of birth is suspended as soon as its ID check passes
-- [ ] Repeat with a bid below the reserve: it shows "Referred to the seller"; decline it in Admin → Referrals & offers, make an offer, accept it
-- [ ] Win a vehicle in a live auction: the invoice shows the full amount with the bank details and the notice to the buyer
+- [ ] Offer a vehicle whose bidding stays below the reserve: it's passed in (not sold, nobody owes anything) and can be relisted for a later auction
 - [ ] As a fully verified member, order a mobile inspection on a listing: you get a reference, emails go to the partner, the buyer and your team, and it shows in Admin → Leads
 - [ ] On a listing, open "Compare car loans" and send an enquiry to a lender; record a fee against it in Admin → Leads
 - [ ] As the seller, add a video from the seller dashboard; approve it in Admin → Videos; it plays on the listing
@@ -192,7 +190,7 @@ That's all it takes to bid. (With bidding deposits switched on there's a fifth s
 - [ ] Seller flow: in Admin, turn the appraisal into a draft listing (the reserve and answers come across), copy the seller link (or "Text + email it"), open it signed in as a third account, verify ID, check the answers (already filled in from the sell form), upload a photo as the rego papers, add bank details, sign in the box
 - [ ] Try to publish before ticking "Papers match" and adding the VIN + PPSR date: it refuses and says why. Then publish
 - [ ] Sign in as the seller and try to bid on your own vehicle: refused
-- [ ] End it below the reserve: the seller gets a text, accepts in their dashboard, the buyer gets the tax invoice PDF by email with the bank details
+- [ ] While their vehicle is up, the seller lowers the reserve from their dashboard (or phones it in and the auctioneer records it in the console): if the bidding has reached it, it sells under the hammer and the buyer gets the tax invoice PDF by email with the bank details
 - [ ] After payment, the buyer's invoice shows the transfer step: upload a photo as the transfer confirmation, complete it in Admin → Transfers; the seller marks their part done from their dashboard
 - [ ] After payment: in Admin → Pickups send the pickup to the transport partner, book the day (the seller gets the TR- reference), mark it picked up and then at the depot. Once it's at the depot and the transfer is complete, the buyer books a time; confirm it in Admin → Collections; the buyer gets the depot's address and release code, the depot gets the handover link; enter the code on the handover page
 - [ ] Mark a pickup "Something isn't in the listing": the buyer is asked on their invoice to go ahead or cancel for a full refund, and can't book a collection until they answer
@@ -204,7 +202,7 @@ That's all it takes to bid. (With bidding deposits switched on there's a fifth s
 Then add the Stripe keys (test keys first) for ID checks, Twilio, and your bank details, and repeat with a real $500 transfer.
 
 ## Automated tests
-`npm run test:db` runs 891 checks of the auction engine, payment maths, bidding deposits, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it) bidding deposits (the 10%/$500/$5,000 rule, limits, matching a payer's name), the transport in the buyer's premium and the pickup wording, removing the location a phone records from photos and videos (and everything but the picture from a seller's photos), the auction estimate rules, the safety and roadworthy certificate each state needs, and the live-only wording. GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
+`npm run test:db` runs 896 checks of the auction engine, payment maths, bidding deposits, seller agreement, publish checks, collection codes, claims, payouts, the message queue, site health and every security rule against a real Postgres database (set `PGHOST`/`PGPORT` to a local Postgres you can create databases on). `npm run test:unit` checks the search parser, the finance maths, the lookup tidying, the VIN decoder, listing and legal wording, the information machine (traffic sources, metrics maths, SEO titles, descriptions, structured data and checks) site health (error cleaning and grouping, every health rule and alert, what's sent to Claude Code and how its progress is read) the sell form (what's required, reserve or no reserve, the signature checks, and filling in the agreement page from it) bidding deposits (the 10%/$500/$5,000 rule, limits, matching a payer's name), the transport in the buyer's premium and the pickup wording, removing the location a phone records from photos and videos (and everything but the picture from a seller's photos), the auction estimate rules, the safety and roadworthy certificate each state needs, and the live-only wording. GitHub runs both, plus the type and lint checks, on every pull request (`.github/workflows/ci.yml`).
 
 ## Stress test
 `tests/load` builds a full-size copy of the database (1,000,000 accounts, 60,000 vehicles, 1.1M bids, 3M watchlist rows, 3M notifications) and hammers it:
@@ -229,8 +227,8 @@ Like carsales and Trade Me, the site earns from finance, insurance and inspectio
 
 ## Listing accuracy and consumer law (ACCC)
 In 2024 the Federal Court ordered Grays to pay $10 million for misdescribing at least 750 cars sold online (wrong year and transmission, features the cars didn't have, damage and warning lights left out). Auctions aren't exempt from the ban on misleading descriptions, so:
-- **Checked before it's live.** A listing can't be published until staff tick each check against the vehicle itself (`LISTING_CHECKS` in `src/lib/listing.ts`, `listing_check_keys()` in the database), record whether it starts and drives, and record the written-off result. A statutory write-off can never be listed as registered. Buyers see what was checked (green) apart from what the seller declared (yellow).
-- **Corrections in public.** Changing a key fact on a live listing logs it in `lot_corrections` (shown on the listing), tells bidders and watchers, and makes sure 24 hours of bidding remain. Staff can remove a bidder's bids if they ask out after a material correction.
+- **Checked before it's live.** A listing can't be published until staff tick each check against the seller's photos, video and the records (`LISTING_CHECKS` in `src/lib/listing.ts`, `listing_check_keys()` in the database), record whether it starts and drives (from the video), and record the written-off result. A statutory write-off can never be listed as registered. Buyers see what was checked (green) apart from what the seller declared (yellow).
+- **Corrections in public.** Changing a key fact on a live listing (the estimate too) logs it in `lot_corrections` (shown on the listing), tells bidders and watchers, and the vehicle isn't offered in the live auction until 24 hours after the change. Staff can remove a bidder's bids if they ask out after a material correction.
 - **Plain consumer rights.** No "no warranty" wording anywhere. Every sale is a sale by auction, so each listing states those rights (`consumerRights()`), and whether a statutory warranty applies. The legal basis for every rule is in `docs/legal-basis.md`.
 - **All-in prices** beside every price; no surcharge (we don't take cards).
 - **Monthly listing audits** in Admin, as a record of the compliance program.

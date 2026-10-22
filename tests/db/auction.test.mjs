@@ -244,7 +244,7 @@ await as('ADM', `update lots set write_off_status='none' where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("roadworthy: a car registered in Queensland needs the seller's safety certificate on file", r.error?.includes('safety certificate'), r.error);
 await as('ADM', `update lots set roadworthy_issued_on = current_date - 100 where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("roadworthy: a Queensland certificate more than 2 months old by the auction won't do", r.error?.includes('2 months'), r.error);
-await as('ADM', `update lots set roadworthy_issued_on = current_date + 1 where id=${SL}`);
+await as('ADM', `update lots set roadworthy_issued_on = (now() at time zone 'Australia/Brisbane')::date + 1 where id=${SL}`);  // tomorrow in Brisbane, whatever the server's time zone
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("roadworthy: the date can't be in the future", r.error?.includes('future'), r.error);
 await as('ADM', `update lots set roadworthy_issued_on = current_date - 3 where id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('publishes once every check is done', !r.error, r.error);
