@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { STATES } from "@/lib/grades";
 import type { Sale } from "@/lib/types";
+import { useLiveOnly } from "@/components/SiteSettings";
 
 async function post(action: string, body: Record<string, unknown>) {
   const res = await fetch(`/api/admin/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -12,9 +13,11 @@ async function post(action: string, body: Record<string, unknown>) {
 
 export function SaleForm({ sale }: { sale?: Sale }) {
   const router = useRouter();
+  // every vehicle in a live auction: a new sale is a live auction (a timed sale couldn't hold a publishable vehicle)
+  const liveOnly = useLiveOnly();
   const local = (iso?: string | null) => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : "");
   const [f, setF] = useState({ title: sale?.title || "", slug: sale?.slug || "", intro: sale?.intro || "", sellerLabel: sale?.seller_label || "", state: sale?.state || "", published: sale?.published || false,
-    mode: sale?.mode || "live", startsAt: local(sale?.starts_at), streamUrl: sale?.stream_url || "", auctioneer: sale?.auctioneer || "",
+    mode: sale?.mode || (liveOnly ? "live" : "timed"), startsAt: local(sale?.starts_at), streamUrl: sale?.stream_url || "", auctioneer: sale?.auctioneer || "",
     lotSeconds: String(sale?.lot_seconds || 60), extendSeconds: String(sale?.extend_seconds || 20), autoAdvance: sale?.auto_advance !== false });
   const [msg, setMsg] = useState("");
   const slugOf = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -36,7 +39,7 @@ export function SaleForm({ sale }: { sale?: Sale }) {
       </div>
       <div className="field"><span>How it&apos;s run</span>
         <div className="chipset">
-          <button type="button" className={f.mode === "timed" ? "on" : ""} aria-pressed={f.mode === "timed"} onClick={() => setF({ ...f, mode: "timed" })}>Timed: each vehicle closes on its own time</button>
+          {(!liveOnly || f.mode === "timed") && <button type="button" className={f.mode === "timed" ? "on" : ""} aria-pressed={f.mode === "timed"} onClick={() => setF({ ...f, mode: "timed" })}>Timed: each vehicle closes on its own time</button>}
           <button type="button" className={f.mode === "live" ? "on" : ""} aria-pressed={f.mode === "live"} onClick={() => setF({ ...f, mode: "live" })} data-testid="sale-mode-live">Live auction: one at a time, with an auctioneer</button>
         </div>
       </div>
