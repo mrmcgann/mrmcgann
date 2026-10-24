@@ -11,7 +11,7 @@ import { CarArt } from "@/components/CarArt";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
-import { ackPayLine } from "@/lib/deposits";
+import { ackPayLine, buyNowPayLine } from "@/lib/deposits";
 import { rightsLine, warrantySign } from "@/lib/listing";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, streamEmbed, type LiveLot, type LiveSale } from "@/lib/live";
@@ -20,6 +20,9 @@ import { ACK_CHECK, feesLine, premiumLabel } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
 type LotMsg = Partial<LiveLot> & { id: number };
+// A note to this bidder about the vehicle that's up. One about the price (in front, outbid) only shows while the price
+// is still that price, so it never goes stale; none shows after the hammer, when the result takes over.
+type Note = { kind: "ok" | "bad"; text: string; lot: number; price?: number };
 
 // The live auction room: the stream (when there is one), the vehicle that's up, its price and countdown, quick bids,
 // what's coming up and the results so far. Changes arrive by Broadcast on sale:<id> and lot:<id>; the edge-cached
@@ -38,7 +41,7 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
   const [maxStage, setMaxStage] = useState<number | null>(null);
   const [maxErr, setMaxErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [msg, setMsg] = useState<Note | null>(null);
   const [short, setShort] = useState<{ need: number; have: number; amount: number } | null>(null);
   const [myMax, setMyMax] = useState<Record<number, number>>({});
   const sale = room.sale;
@@ -131,10 +134,31 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
   const bids = cur && open ? quickBids(cur) : [];
   const allIn = cur ? priceBreakdown(Math.max(Number(cur.current_bid) || 0, Number(cur.start_price) || 0), lotFeesNow).total : 0;
   const stream = streamEmbed(sale.stream_url);
+  const note = msg && cur && open && msg.lot === cur.id && (msg.price == null || Number(cur.current_bid) === msg.price) ? msg : null;
+  // after the hammer: what it means for this bidder (the winner is the leader when it closed, until the room reloads)
+  const closed = !!cur && cur.live_state === "closed";
+  const won = closed && cur!.status === "sold" && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
+  const bidHere = !!cur && !!myMax[cur.id];
+  const soldAllIn = cur && cur.status === "sold" ? priceBreakdown(Number(cur.sold_price) || 0, lotFeesNow).total : 0;
+
+  // on a phone the bid buttons sit below the stream and the vehicle: while they're out of view, a bar at the bottom of
+  // the screen carries the price, the countdown and the next bid
+  const bidsRef = useRef<HTMLDivElement | null>(null);
+  const consoleRef = useRef<HTMLDivElement | null>(null);
+  const [bidsSeen, setBidsSeen] = useState(true);
+  const bidsShown = open && !paused;
+  useEffect(() => {
+    const el = bidsRef.current;
+    if (!bidsShown || !el || typeof IntersectionObserver === "undefined") { setBidsSeen(true); return; }
+    const io = new IntersectionObserver(([e]) => setBidsSeen(e.isIntersecting), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [bidsShown, curId]);
+  const dock = bidsShown && !bidsSeen && bids.length > 0;
 
   function setupNeeded(): boolean {
     if (!userId) { router.push(`/join?next=/live/${sale.slug}`); return true; }
-    if (v.profile?.suspended) { setMsg({ kind: "bad", text: "Your account can't bid at the moment. Call us if you think that's a mistake." }); return true; }
+    if (v.profile?.suspended) { setMsg({ kind: "bad", text: "Your account can't bid at the moment. Call us if you think that's a mistake.", lot: curId ?? 0 }); return true; }
     if (v.missing.length) { router.push(`/join?step=${v.missing[0]}&next=/live/${sale.slug}`); return true; }
     if (v.profile?.terms_current === false) { router.push(`/lot/${curId}#bid`); return true; }
     return false;
@@ -145,11 +169,14 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
     const res = await fetch("/api/bid", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: cur.id, max: amount }) });
     const data = await res.json().catch(() => ({}));
     setBusy(false); setAsk(null); setMaxOpen(false);
-    if (res.status === 402) { setShort({ need: data.need, have: data.have, amount }); return; }
-    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "That bid didn't go through. Try again." }); void load(); return; }
+    // a bid from the phone bar that needs more bidding deposit: bring the details (and the top-up) into view
+    if (res.status === 402) { setShort({ need: data.need, have: data.have, amount }); if (!bidsSeen) consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "That bid didn't go through. Try again.", lot: cur.id }); void load(); return; }
     setMyMax((m) => ({ ...m, [cur.id]: Math.max(m[cur.id] || 0, amount) }));
     applyLot({ id: cur.id, current_bid: data.current_bid, ends_at: data.ends_at, leader_id: data.status === "leading" ? userId : cur.leader_id, bid_count: cur.bid_count + 1 });
-    setMsg(data.status === "leading" ? { kind: "ok", text: `You're in front at ${money(data.current_bid)}.` } : { kind: "bad", text: `Another bidder's maximum is higher: ${money(data.current_bid)}. Bid again?` });
+    const price = Number(data.current_bid);
+    setMsg(data.status === "leading" ? { kind: "ok", text: `Bid placed. You're in front at ${money(price)}.`, lot: cur.id, price }
+      : { kind: "bad", text: `Another bidder's maximum was higher, so the bid is now ${money(price)}. Bid again to get in front.`, lot: cur.id, price });
     void load();
   }
   // withdrawing a bid is allowed until the hammer falls; the countdown then gives the room a moment to answer
@@ -159,9 +186,9 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
     const res = await fetch("/api/bid", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lotId: cur.id }) });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
-    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "Couldn't withdraw your bid." }); return; }
+    if (!res.ok) { setMsg({ kind: "bad", text: data.error || "Couldn't withdraw your bid.", lot: cur.id }); return; }
     setMyMax((m) => { const n = { ...m }; delete n[cur.id]; return n; });
-    setMsg({ kind: "ok", text: "Your bid has been withdrawn." });
+    setMsg({ kind: "ok", text: "Your bid has been withdrawn.", lot: cur.id });
     void load();
   }
   function tap(amount: number) {
@@ -175,7 +202,7 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
     : <span className="lv-pill" data-testid="live-status">Starts {dateTime(sale.starts_at)}</span>;
 
   return (
-    <div className="lv">
+    <div className={`lv${dock ? " docked" : ""}`}>
       <div className="lv-head">
         <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
           <div className="pill-row" style={{ gap: 8 }}>{statusPill}{rt && sale.live_status === "running" && <span className="hint" style={{ margin: 0 }}>Updating live</span>}</div>
@@ -186,7 +213,7 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
         <Link className="btn btn-soft" href={`/calendar`} style={{ height: 44, fontSize: 14 }}>Auction calendar</Link>
       </div>
 
-      {sale.live_message && sale.live_status !== "scheduled" && <div className={`lv-call${paused ? " paused" : ""}`} role="status" aria-live="assertive" data-testid="live-message">{sale.live_message}</div>}
+      {sale.live_message && sale.live_status !== "scheduled" && <div className={`lv-call${paused ? " paused" : closed && cur?.status === "sold" ? " sold" : ""}`} role="status" aria-live="assertive" data-testid="live-message">{sale.live_message}</div>}
 
       <div className="lv-grid">
         <div className="lv-stage">
@@ -208,17 +235,19 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
           ) : null}
         </div>
 
-        <div className="lv-console bidbox" data-testid="live-console">
+        <div className="lv-console bidbox" data-testid="live-console" ref={consoleRef}>
           {cur ? (
             <>
               {open || cur.status === "sold" ? (
                 <div className="lv-price">
                   <span className="k">{cur.status === "sold" ? "Sold for" : "Current bid"}</span>
                   <span className="v" data-testid="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</span>
-                  {open && <><span className="k">All-in</span><span className="v" data-testid="live-allin">{allInMoney(allIn)}</span><span className="hint" style={{ margin: 0 }}>With the buyer&apos;s premium, GST and admin fee · {cur.bid_count} bids</span></>}
+                  <span className="k">All-in</span><span className="v" data-testid="live-allin">{allInMoney(cur.status === "sold" ? soldAllIn : allIn)}</span>
+                  <span className="hint" style={{ margin: 0 }}>With the buyer&apos;s premium, GST and admin fee · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</span>
                 </div>
               ) : (
-                <div className="lv-price"><span className="k">Result</span><span className="v" style={{ fontSize: "clamp(30px,3.4vw,40px)", letterSpacing: "-0.03em" }} data-testid="live-price">{resultLine(cur).replace(/\.$/, "")}</span></div>
+                <div className="lv-price"><span className="k">Result</span><span className="v" style={{ fontSize: "clamp(30px,3.4vw,40px)", letterSpacing: "-0.03em" }} data-testid="live-price">{resultLine(cur).replace(/\.$/, "")}</span>
+                  {cur.status === "passed" && <span className="hint" style={{ margin: "6px 0 0" }} data-testid="live-passed">{cur.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "Nobody bid, so it wasn't sold."} It may be offered at a later auction.</span>}</div>
               )}
               {open && (
                 <div className="lv-clock" aria-label={`${left} seconds left`}>
@@ -226,15 +255,28 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
                   <span className={`lv-secs${left <= 5 ? " hot" : ""}`} data-testid="live-seconds">{paused ? "Paused" : left > 0 ? `${left}s` : "Closing…"}</span>
                 </div>
               )}
-              {(open || cur.status === "sold") && <span className="lv-line" data-testid="live-line">{liveLine(sale, cur)}</span>}
-              {open && userId && (cur.leader_id || myMax[cur.id]) ? (
-                <span className={`tag ${leading ? "lv-win" : "lv-out"}`} data-testid="live-you">{leading ? "You're the highest bidder" : myMax[cur.id] ? "You've been outbid" : ""}</span>
+              {open && <span className="lv-line" data-testid="live-line">{liveLine(sale, cur)}</span>}
+              {open && userId && (leading || bidHere) ? (
+                <span className={`tag ${leading ? "lv-win" : "lv-out"}`} data-testid="live-you">{leading ? "You're the highest bidder" : "You've been outbid"}</span>
               ) : null}
+              {won ? (
+                <div className="lv-result won" role="status" data-testid="live-won">
+                  <b>You won it at {money(cur.sold_price)}.</b>
+                  <span>{buyNowPayLine(priceBreakdown(Number(cur.sold_price) || 0, lotFeesNow)) || "Your invoice is in your account."}</span>
+                  <Link className="btn btn-dark" href="/account#invoices" style={{ height: 48, fontSize: 15, alignSelf: "flex-start" }}>See your invoice</Link>
+                </div>
+              ) : closed && cur.status === "sold" && userId && bidHere ? (
+                <div className="lv-result" role="status" data-testid="live-lost">
+                  <b>Sold to another bidder.</b>
+                  <span className="muted">Thanks for bidding. There&apos;s more coming up.</span>
+                </div>
+              ) : null}
+              {note && <div className={`notice ${note.kind}`} role="status" data-testid="live-note">{note.text}</div>}
               {open && !paused && (
-                <div className="lv-bids">
+                <div className="lv-bids" ref={bidsRef}>
                   {bids.map((b, i) => (
                     <button key={b} className={`btn ${i === 0 ? "btn-blue" : "btn-soft"}`} onClick={() => tap(b)} disabled={busy || leading} data-testid={i === 0 ? "live-bid" : undefined}>
-                      <span>Bid {money(b)}</span><small>{money(priceBreakdown(b, lotFeesNow).total, true)} all-in</small>
+                      <span>Bid {money(b)}</span><small>{allInMoney(priceBreakdown(b, lotFeesNow).total)} all-in</small>
                     </button>
                   ))}
                   <button className="linkbtn" onClick={() => { if (!setupNeeded()) { setMaxAmount(String(nextBid(cur) + 1000)); setMaxOpen(true); } }}>Or set a maximum and we&apos;ll bid for you</button>
@@ -242,7 +284,6 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
               )}
               {open && !paused && userId && (leading || myMax[cur.id]) ? <button className="linkbtn" onClick={withdraw} disabled={busy} data-testid="live-withdraw">Withdraw my bid (allowed until the hammer falls)</button> : null}
               {short && <DepositShort need={short.need} have={short.have} amount={short.amount} lotId={cur.id} />}
-              {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
               {!userId && open && <span className="hint" style={{ margin: 0 }}>Sign in (or join free: verify your mobile and ID once) to bid.</span>}
             </>
           ) : (
@@ -284,6 +325,27 @@ export function LiveRoom({ initial, fees, licences }: { initial: Room; fees: Fee
 
       <p className="hint lv-small" data-testid="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Tyrebiter as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it&apos;s passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The price shown is the bid before fees; the all-in amount is what you&apos;d pay. The seller can&apos;t bid, and we never bid for the seller. The auctioneer may also take bids by phone from registered bidders, and settles any dispute about a bid from the bids recorded here (Terms of Sale, section 6). Vehicles are sold as is, where is: check the seller&apos;s photos and video, and order a mechanical inspection before the sale if you want one.</p>
 
+      {dock && cur && (
+        <div className="lv-dock" role="region" aria-label="Bid on the vehicle that's up" data-testid="live-dock">
+          <div className="lv-dock-top">
+            {bidHere && !leading ? <span className="tag lv-out">You&apos;ve been outbid</span> : null}
+            <div className="lv-bar"><i style={{ width: `${Math.min(100, (left / windowSecs) * 100)}%` }} className={left <= 5 ? "hot" : ""} /></div>
+            <span className={`lv-dock-secs${left <= 5 ? " hot" : ""}`}>{left > 0 ? `${left}s` : "Closing"}</span>
+          </div>
+          <div className="lv-dock-row">
+            <div className="lv-dock-price">
+              <span><b>{money(cur.current_bid)}</b> {cur.bid_count ? "bid" : "to start"}</span>
+              <span><b>{allInMoney(allIn)}</b> all-in</span>
+            </div>
+            {leading ? <span className="lv-dock-lead" data-testid="live-dock-lead">You&apos;re in front</span> : (
+              <button className="btn btn-blue" onClick={() => tap(bids[0])} disabled={busy} data-testid="live-dock-bid">
+                <span>Bid {money(bids[0])}</span><small>{allInMoney(priceBreakdown(bids[0], lotFeesNow).total)} all-in</small>
+              </button>
+            )}
+          </div>
+          {note && note.kind === "bad" && note.price == null ? <span className="lv-dock-err" role="alert">{note.text}</span> : null}
+        </div>
+      )}
       {ask != null && cur && (
         <Modal title={`Bid ${money(ask)} on the ${cur.title}?`} onClose={() => setAsk(null)}>
           <AgreeOnce lot={cur} amount={ask} fees={lotFeesNow} busy={busy} onAgree={() => { setAgreed(true); void place(ask); }} onClose={() => setAsk(null)} />
@@ -324,7 +386,7 @@ function AgreeOnce({ lot, amount, fees, busy, onAgree, onClose }: { lot: LiveLot
       </div>
       <label style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, padding: "14px 16px", borderRadius: 16, background: "var(--panel)" }}>
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 20, height: 20, margin: "1px 0 0", flexShrink: 0 }} data-testid="live-ack" />
-        <span>For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold <b>as is, where is</b>: {ACK_CHECK}. And {ackPayLine(p.payMode)}, under the <Link className="blue" href="/terms#t-live" target="_blank" style={{ fontWeight: 700 }}>terms of sale</Link>.</span>
+        <span>For this sale, each tap of a bid button is a bid, binding unless I withdraw it before the hammer falls. I understand vehicles are sold <b>as is, where is</b>: {ACK_CHECK}. And {ackPayLine(p.payMode)}, under the <Link className="blue" href="/terms#t-live" target="_blank" style={{ fontWeight: 700 }}>terms of sale</Link>.</span>
       </label>
       <p className="hint" style={{ margin: 0 }}>{rightsLine("auction", null)}.</p>
       <button className="btn btn-blue" onClick={onAgree} disabled={busy || !ack} data-testid="live-agree">{busy ? "Bidding…" : `Bid ${money(amount)}`}</button>

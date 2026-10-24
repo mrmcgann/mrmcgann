@@ -58,12 +58,36 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
   const waiting = (st?.lots || []).filter((l) => l.live_state === "waiting" && l.status === "live");
   const reserveMet = cur ? !cur.has_reserve || cur.reserve_met : false;
 
-  // when the countdown runs out, close it and (if chosen) offer the next vehicle a few seconds later (once per vehicle)
-  const autoFor = useRef<number | null>(null);
+  // the hammer: when the countdown runs out, knock it down. The database checks it really has run out, so a bid in the
+  // last second (which resets the countdown) keeps it open for everyone to answer; then this looks again at the new end.
+  const dueFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!autoNext || !open || paused || left > 0 || !cur || autoFor.current === cur.id) return;
-    autoFor.current = cur.id;
-    setTimeout(() => void run("next", {}, (r) => (r ? "Next vehicle is up." : "That was the last vehicle: the sale has ended.")), 3000);
+    if (!open || paused || left > 0 || !cur) return;
+    const key = `${cur.id}:${cur.ends_at}`;
+    if (dueFor.current === key) return;
+    dueFor.current = key;
+    setTimeout(() => {
+      void step(saleId, "due").then((r) => {
+        if (r.ok && r.result) setNote({ kind: "ok", text: r.result === "sold" ? "Sold." : "Passed in." });
+        else setTimeout(() => { if (dueFor.current === key) dueFor.current = null; }, 1000);
+        void load();
+      });
+    }, 600);
+  });
+  // then, if chosen, the next vehicle a few seconds later, once the room has seen the result (once per vehicle, and not
+  // if someone has already moved the sale on)
+  const latest = useRef({ autoNext, st });
+  useEffect(() => { latest.current = { autoNext, st }; });
+  const nextFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (!autoNext || !cur || open || sale?.live_status !== "running" || cur.live_state !== "closed" || nextFor.current === cur.id) return;
+    nextFor.current = cur.id;
+    const id = cur.id;
+    setTimeout(() => {
+      const now = latest.current;
+      if (!now.autoNext || now.st?.sale.current_lot_id !== id || now.st?.sale.live_status !== "running") return;
+      void run("next", {}, (r) => (r ? "Next vehicle is up." : "That was the last vehicle: the sale has ended."));
+    }, 5000);
   });
 
   if (!st || !sale) return <p className="muted">Loading the console…</p>;
@@ -88,7 +112,8 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
         <div className="admin-card" style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
           <b style={{ fontSize: 20 }}>Ready when you are.</b>
           <button className="btn btn-blue" disabled={busy || !waiting.length} onClick={() => run("start", {}, () => "The sale has started. First vehicle is up.")} data-testid="console-start">Start the sale</button>
-          {!waiting.length && <span className="hint">Add vehicles to this sale (and publish them) first.</span>}
+          {!waiting.length ? <span className="hint">Add vehicles to this sale (and publish them) first.</span>
+            : <span className="hint" style={{ margin: 0 }}>From {dateTime(sale.starts_at)}, its published start time (never earlier).</span>}
         </div>
       )}
 
@@ -111,7 +136,7 @@ export function LiveConsole({ saleId, slug, title }: { saleId: number; slug: str
               {paused && <button className="btn btn-blue" disabled={busy} onClick={() => run("resume")} data-testid="console-resume">Resume</button>}
               {!open && sale.live_status !== "ended" && sale.live_status !== "scheduled" && <button className="btn btn-blue" disabled={busy} onClick={() => run("next", {}, (r) => (r ? "Next vehicle is up." : "That was the last vehicle: the sale has ended."))} data-testid="console-next">Next vehicle</button>}
             </div>
-            <label className="checkrow"><input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /> Offer the next vehicle 3 seconds after each one closes</label>
+            <label className="checkrow"><input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /> Offer the next vehicle 5 seconds after each one closes</label>
             {open && cur.reserve_price ? (
               <form className="pill-row" onSubmit={(e) => { e.preventDefault(); const n = Math.round(Number(newReserve.replace(/[^0-9]/g, ""))); if (!(n > 0)) return; if (!confirm(`The seller has told you to lower the reserve to ${money(n)}?`)) return; void run("reserve", { reserve: n }, (r) => { const x = r as { reserve_met: boolean }; return x.reserve_met ? `Reserve lowered to ${money(n)}: it's on the market.` : `Reserve lowered to ${money(n)}.`; }).then((ok) => ok && setNewReserve("")); }} data-testid="console-reserve">
                 <input className="input" inputMode="numeric" value={newReserve} onChange={(e) => setNewReserve(e.target.value)} placeholder="Seller's new reserve" aria-label="Seller's new reserve" style={{ width: 180 }} />

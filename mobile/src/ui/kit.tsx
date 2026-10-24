@@ -150,18 +150,26 @@ export function Select<K extends string>({ label, value, options, onChange, plac
 }
 
 // ---------- layout ----------
-export function Screen({ children, refreshing, onRefresh, style, contentStyle, keyboard, testID }: {
+// onView: where the page is scrolled to and how tall the visible part is (on scroll and on layout); footer: a bar
+// fixed to the bottom of the screen, over the page (give the page room for it with contentStyle's paddingBottom).
+export function Screen({ children, refreshing, onRefresh, style, contentStyle, keyboard, testID, onView, footer }: {
   children: ReactNode; refreshing?: boolean; onRefresh?: () => void; style?: StyleProp<ViewStyle>; contentStyle?: StyleProp<ViewStyle>; keyboard?: boolean; testID?: string;
+  onView?: (y: number, height: number) => void; footer?: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const at = useRef({ y: 0, h: 0 });
   const body = (
     <ScrollView testID={testID} style={[{ flex: 1, backgroundColor: C.bg }, style]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       contentContainerStyle={[{ padding: PAD, paddingBottom: 40 + insets.bottom, gap: 20 }, contentStyle]}
+      onScroll={onView ? (e) => { at.current = { y: e.nativeEvent.contentOffset.y, h: e.nativeEvent.layoutMeasurement.height }; onView(at.current.y, at.current.h); } : undefined}
+      onLayout={onView ? (e) => { at.current = { ...at.current, h: e.nativeEvent.layout.height }; onView(at.current.y, at.current.h); } : undefined}
+      scrollEventThrottle={onView ? 32 : undefined}
       refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.muted} /> : undefined}>
       {children}
     </ScrollView>
   );
-  return keyboard ? <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>{body}</KeyboardAvoidingView> : body;
+  const page = footer ? <View style={{ flex: 1, backgroundColor: C.bg }}>{body}{footer}</View> : body;
+  return keyboard ? <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>{page}</KeyboardAvoidingView> : page;
 }
 export function Row({ title, sub, onPress, right, badge, testID }: { title: string; sub?: string; onPress?: () => void; right?: ReactNode; badge?: number; testID?: string }) {
   return (

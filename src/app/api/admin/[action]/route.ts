@@ -557,6 +557,8 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
         resume: () => supabase.rpc("admin_live_resume", { p_sale: sale }),
         time: () => supabase.rpc("admin_live_time", { p_sale: sale, p_seconds: Math.round(Number(b.seconds) || 30) }),
         close: () => supabase.rpc("admin_live_close", { p_sale: sale }),
+        // the countdown has run out: knocked down only if it really has (a last-second bid keeps it open)
+        due: () => supabase.rpc("admin_live_due", { p_sale: sale }),
         end: () => supabase.rpc("admin_live_end", { p_sale: sale }),
         floor: () => supabase.rpc("admin_floor_bid", { p_sale: sale, p_bidder: String(b.bidder || "").slice(0, 24), p_amount: Math.round(Number(String(b.amount || "").replace(/[^0-9]/g, ""))) }),
         order: () => supabase.rpc("admin_sale_order", { p_sale: sale, p_ids: (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n: number) => n > 0).slice(0, 500) }),
@@ -567,7 +569,7 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (!ops[op]) return fail("Unknown step.");
       const { data, error } = await ops[op]();
       if (error) return fail(friendly(error.message));
-      if (["start", "next", "close", "end", "order"].includes(op)) { revalidateTag("lots"); revalidateTag("sales"); }
+      if (["start", "next", "close", "end", "order"].includes(op) || (op === "due" && data)) { revalidateTag("lots"); revalidateTag("sales"); }
       return done({ result: data });
     }
     case "stagger": {

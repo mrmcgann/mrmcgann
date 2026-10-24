@@ -1410,10 +1410,15 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select admin_live_next(${SA})`); ok('live: start before the next vehicle', r.error?.includes('sale_not_started'), r.error);
   r = await as('ADM', `select admin_live_start(${SA})`); ok("live: a live auction can't start until the auctioneer is named (shown for the whole auction)", r.error?.includes('auctioneer_needed'), r.error);
   await as('ADM', `update sales set auctioneer = 'Pat Gavel' where id = ${SA}`);
+  r = await as('ADM', `select admin_live_start(${SA})`); ok('live: never before its published start time', r.error?.includes('sale_early') && r.error.includes('(Brisbane time)'), r.error);
+  await c.query(`update sales set starts_at = now() - interval '1 second' where id = ${SA}`);
   r = await as('ADM', `select admin_live_start(${SA}) id`); ok('live: the sale starts with the first vehicle', Number(r.rows?.[0]?.id) === order[0], JSON.stringify(r));
   r = await as('service', `select l.live_state, l.extend_seconds, l.ends_at < now() + interval '31 seconds' soon, s.live_status, s.current_lot_id from lots l join sales s on s.id = l.sale_id where l.id = ${order[0]}`);
   ok('live: the vehicle is up with a short countdown', r.rows?.[0]?.live_state === 'open' && r.rows[0].soon && r.rows[0].extend_seconds === 15 && r.rows[0].live_status === 'running' && Number(r.rows[0].current_lot_id) === order[0], JSON.stringify(r.rows));
   r = await as('ADM', `select admin_live_start(${SA})`); ok("live: can't start twice", r.error?.includes('sale_started'), r.error);
+  await c.query(`update sales set starts_at = now() + interval '1 hour' where id = ${SA}`);
+  r = await as('service', `select bool_and(ends_at < now() + interval '10 minutes') x, count(*)::int n from lots where sale_id = ${SA} and live_state = 'waiting'`);
+  ok('live: once it has started, the times for the vehicles still to come count from now', r.rows?.[0]?.x === true && r.rows[0].n === 2, JSON.stringify(r.rows));
   r = await as('ADM', `update sales set mode = 'timed' where id = ${SA}`); ok("live: can't switch to timed while it runs", r.error?.includes('sale_running'), r.error);
   await c.query(`update lots set buy_now_price = 900000 where id = ${order[0]}`);
   r = await as('B', `select buy_now(${order[0]})`); ok('live: no Buy Now while the vehicle is up', r.error?.includes('buy_now_unavailable'), r.error);
@@ -1436,6 +1441,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select admin_live_next(${SA})`); ok("live: can't skip a vehicle that's still up", r.error?.includes('live_lot_open'), r.error);
   r = await as('ADM', `select admin_live_time(${SA}, 30) t`); ok('live: more time on the vehicle', !!r.rows?.[0]?.t, r.error);
   r = await as('ADM', `select admin_live_close(${SA}) s`); ok('live: knock it down on the bids it has', r.rows?.[0]?.s === 'sold', JSON.stringify(r));
+  r = await as('anon', `select live_message from sales where id = ${SA}`); ok('live: the hammer replaces the last call with the result', r.rows?.[0]?.live_message === 'Sold!', JSON.stringify(r.rows));
   r = await as('service', `select status, live_state, sold_price, winner_id from lots where id = ${order[0]}`);
   ok('live: sold to the highest bidder', r.rows?.[0]?.status === 'sold' && r.rows[0].live_state === 'closed' && Number(r.rows[0].sold_price) === 3100 && r.rows[0].winner_id === U.A, JSON.stringify(r.rows));
   r = await as('ADM', `select admin_sale_order(${SA}, array[${order[2]}, ${order[1]}]::bigint[]) n`); ok('live: staff reorder what is left', r.rows?.[0]?.n === 2, r.error);
@@ -1447,6 +1453,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   const st = Object.fromEntries((r.rows || []).map((x) => [Number(x.id), x]));
   ok('live: a vehicle whose countdown ran out is closed by the clock', st[order[2]]?.status === 'passed' && st[order[2]].live_state === 'closed', JSON.stringify(r.rows));
   ok("live: a vehicle waiting its turn isn't closed, even past its estimate", st[order[1]]?.status === 'live' && st[order[1]].live_state === 'waiting', JSON.stringify(r.rows));
+  r = await as('anon', `select live_message from sales where id = ${SA}`); ok('live: closed by the clock, the room still hears the result', r.rows?.[0]?.live_message === 'Passed in: no bids.', JSON.stringify(r.rows));
   r = await as('B', `select place_bid(${order[1]}, 1200) r`); ok('live: early bids still work while it waits', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
   r = await as('service', `select live_sweep() n`); ok('live: the clock keeps the sale moving if the console is closed', r.rows?.[0]?.n === 1, JSON.stringify(r));
   r = await as('service', `select live_state, ends_at > now() x from lots where id = ${order[1]}`); ok('live: the last vehicle is up', r.rows?.[0]?.live_state === 'open' && r.rows[0].x, JSON.stringify(r.rows));
@@ -1454,7 +1461,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select l.status, s.live_status from lots l join sales s on s.id = l.sale_id where l.id = ${order[1]}`);
   ok('live: what was left closes on its bids, and the sale ends', r.rows?.[0]?.status === 'sold' && r.rows[0].live_status === 'ended', JSON.stringify(r.rows));
   r = await as('ADM', `select admin_live_next(${SA})`); ok("live: nothing more once it's ended", r.error?.includes('sale_ended'), r.error);
-  for (const fn of [`place_bid_for('${U.A}', ${L4}, 5000, 'online')`, `close_one_lot(${L4})`, `live_advance(${SA}, null)`, `reveal_tenders(10)`, `live_sweep()`]) {
+  for (const fn of [`place_bid_for('${U.A}', ${L4}, 5000, 'online')`, `close_one_lot(${L4})`, `live_advance(${SA}, null)`, `reveal_tenders(10)`, `live_sweep()`, `live_estimates(${SA})`, `admin_live_due(${SA})`]) {
     r = await as('A', `select ${fn}`); ok(`live: members can't call ${fn.split('(')[0]}`, !!r.error, r.error);
   }
 }
@@ -1635,7 +1642,9 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('B', `select buy_now(${E3})`); ok('live only: Buy Now refused', r.error?.includes('buy_now_unavailable'), r.error);
   await c.query(`update lots set buy_now_price = null where id = ${E3}`);
 
-  // the auction
+  // the auction, at its published start time
+  r = await as('ADM', `select admin_live_start(${LS})`); ok('auction: never before its published start time', r.error?.includes('sale_early'), r.error);
+  await c.query(`update sales set starts_at = now() - interval '1 second' where id = ${LS}`);
   r = await as('ADM', `select admin_live_start(${LS}) id`); ok('auction: starts with the first vehicle', Number(r.rows?.[0]?.id) === E1, JSON.stringify(r));
   r = await as('X', `select place_bid(${E1}, 10000) r`); ok('auction: a live bid', r.rows?.[0]?.r?.status === 'leading' && Number(r.rows[0].r.current_bid) === 9850, JSON.stringify(r));
   await c.query(`update lots set ends_at = now() + interval '2 seconds' where id = ${E1}`);
@@ -1643,17 +1652,25 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select leader_id, ends_at > now() + interval '13 seconds' x from lots where id = ${E1}`); ok('auction: the previous bidder is back in front, and the room gets time to answer', r.rows?.[0]?.leader_id === U.B && r.rows[0].x === true, JSON.stringify(r.rows));
   r = await as('service', `select count(*)::int n from notifications where user_id = '${U.B}' and title like 'You''re the highest bidder again on the Live only ute'`); ok('auction: and is told', r.rows?.[0]?.n === 1);
   r = await as('ADM', `select admin_live_close(${LS}) s`); ok('auction: sold under the hammer', r.rows?.[0]?.s === 'sold', JSON.stringify(r));
+  r = await as('anon', `select live_message from sales where id = ${LS}`); ok('hammer: the room is told "Sold!"', r.rows?.[0]?.live_message === 'Sold!', JSON.stringify(r.rows));
   r = await as('service', `select status, sold_price, winner_id, sold_via from lots where id = ${E1}`); ok('auction: to the highest bidder, at their bid', r.rows?.[0]?.status === 'sold' && Number(r.rows[0].sold_price) === 9500 && r.rows[0].winner_id === U.B && r.rows[0].sold_via === 'auction', JSON.stringify(r.rows));
   r = await as('B', `select withdraw_bid(${E1})`); ok("withdraw: not once the hammer has fallen", r.error?.includes('withdraw_closed'), r.error);
 
   r = await as('ADM', `select admin_live_next(${LS}) id`); ok('auction: the next vehicle', Number(r.rows?.[0]?.id) === E4, JSON.stringify(r));
+  r = await as('anon', `select live_message from sales where id = ${LS}`); ok('hammer: the call clears when the next vehicle is up', r.rows?.[0]?.live_message === null, JSON.stringify(r.rows));
   r = await as('A', `select admin_live_reserve(${LS}, 8900)`); ok('auctioneer: only staff record the seller\'s instruction', r.error?.includes('forbidden'), r.error);
   r = await as('ADM', `select admin_live_reserve(${LS}, 8900) j`); ok("auctioneer: records the seller's instruction to lower the reserve; the leader's max covers it", Number(r.rows?.[0]?.j?.current_bid) === 8900 && r.rows[0].j.reserve_met === true, JSON.stringify(r));
   r = await as('service', `select via from seller_decisions where lot_id = ${E4} order by created_at desc limit 1`); ok('auctioneer: recorded as given through us', r.rows?.[0]?.via === 'admin', JSON.stringify(r.rows));
-  r = await as('ADM', `select admin_live_close(${LS}) s`); ok('auction: sold once the reserve was lowered', r.rows?.[0]?.s === 'sold', JSON.stringify(r));
+  r = await as('A', `select admin_live_due(${LS})`); ok('hammer: only staff knock a vehicle down', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_live_due(${LS}) s`); ok('hammer: not while the countdown is still running', !r.error && r.rows?.[0]?.s === null, JSON.stringify(r));
+  r = await as('service', `select status, live_state from lots where id = ${E4}`); ok('hammer: so it stays open', r.rows?.[0]?.status === 'live' && r.rows[0].live_state === 'open', JSON.stringify(r.rows));
+  await c.query(`update lots set ends_at = now() - interval '1 second' where id = ${E4}`);
+  r = await as('ADM', `select admin_live_due(${LS}) s`); ok('auction: sold once the reserve was lowered, when its countdown ran out', r.rows?.[0]?.s === 'sold', JSON.stringify(r));
+  r = await as('ADM', `select admin_live_due(${LS}) s`); ok('hammer: only once', !r.error && r.rows?.[0]?.s === null, JSON.stringify(r));
 
   r = await as('ADM', `select admin_live_next(${LS}) id`); ok('auction: the third vehicle', Number(r.rows?.[0]?.id) === E2, JSON.stringify(r));
   r = await as('ADM', `select admin_live_close(${LS}) s`); ok('auction: below the reserve it is passed in, never referred to the seller', r.rows?.[0]?.s === 'passed', JSON.stringify(r));
+  r = await as('anon', `select live_message from sales where id = ${LS}`); ok('hammer: the room is told it was passed in', r.rows?.[0]?.live_message === 'Passed in: below the reserve.', JSON.stringify(r.rows));
   r = await as('service', `select status, decision_by, (select count(*)::int from invoices where lot_id = ${E2}) inv from lots where id = ${E2}`);
   ok('passed in: no sale, no decision window, no invoice', r.rows?.[0]?.status === 'passed' && r.rows[0].decision_by === null && r.rows[0].inv === 0, JSON.stringify(r.rows));
   await as('service', `select queue_status_notices()`);

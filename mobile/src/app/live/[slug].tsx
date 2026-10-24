@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
-import { ackPayLine } from "@/lib/deposits";
+import { ackPayLine, buyNowPayLine } from "@/lib/deposits";
 import { rightsLine, warrantySign } from "@/lib/listing";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, quickBids, resultLine, secondsLeft, type LiveLot, type LiveSale } from "@/lib/live";
@@ -21,6 +22,8 @@ import { C, F } from "~/ui/theme";
 import { ACK_CHECK, feesLine, premiumLabel } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; server_time: string };
+// a note to this bidder about the vehicle that's up: one about the price only shows while the price is still that price
+type Note = { kind: "ok" | "bad"; text: string; lot: number; price?: number };
 
 // The live auction room in the app (the website's /live/[slug]): the vehicle that's up, its price and countdown,
 // one-tap bids, what's next and the results so far. Broadcast on sale:<id> and lot:<id>, with the edge-cached
@@ -39,8 +42,20 @@ export default function LiveRoomScreen() {
   const [ask, setAsk] = useState<number | null>(null);
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [msg, setMsg] = useState<Note | null>(null);
   const [mineHere, setMineHere] = useState<Record<number, boolean>>({});
+  const insets = useSafeAreaInsets();
+  // the bar at the bottom of the screen shows while the bid buttons are scrolled out of view
+  const view = useRef({ y: 0, h: 0 });
+  const boxY = useRef(0);
+  const bidsAt = useRef<{ y: number; h: number } | null>(null);
+  const [bidsSeen, setBidsSeen] = useState(true);
+  const seenCheck = useCallback(() => {
+    const b = bidsAt.current, v = view.current;
+    if (!b || !v.h) return;
+    const top = boxY.current + b.y, seen = top + 40 < v.y + v.h - 120 && top + b.h > v.y + 20;
+    setBidsSeen((was) => (was === seen ? was : seen));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -109,9 +124,11 @@ export default function LiveRoomScreen() {
       const d = await api<{ status: string; current_bid: number; ends_at: string }>("/api/bid", { body: { lotId: cur.id, max: amount } });
       setRoom((r) => (r?.current ? { ...r, current: { ...r.current, current_bid: d.current_bid, ends_at: d.ends_at, leader_id: d.status === "leading" ? userId : r.current.leader_id, bid_count: r.current.bid_count + 1 } } : r));
       if (Platform.OS !== "web") Haptics.notificationAsync(d.status === "leading" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
-      setMsg(d.status === "leading" ? { kind: "ok", text: `You're in front at ${money(d.current_bid)}.` } : { kind: "bad", text: `Another bidder's maximum is higher: ${money(d.current_bid)}.` });
+      const price = Number(d.current_bid);
+      setMsg(d.status === "leading" ? { kind: "ok", text: `Bid placed. You're in front at ${money(price)}.`, lot: cur.id, price }
+        : { kind: "bad", text: `Another bidder's maximum was higher, so the bid is now ${money(price)}. Bid again to get in front.`, lot: cur.id, price });
       setMineHere((m) => ({ ...m, [cur.id]: true }));
-    } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
+    } catch (e) { setMsg({ kind: "bad", text: errText(e), lot: cur.id }); }
     setBusy(false); setAsk(null);
     void load();
   }
@@ -122,8 +139,8 @@ export default function LiveRoomScreen() {
     try {
       await api("/api/bid", { method: "DELETE", body: { lotId: cur.id } });
       setMineHere((m) => { const n = { ...m }; delete n[cur.id]; return n; });
-      setMsg({ kind: "ok", text: "Your bid has been withdrawn." });
-    } catch (e) { setMsg({ kind: "bad", text: errText(e) }); }
+      setMsg({ kind: "ok", text: "Your bid has been withdrawn.", lot: cur.id });
+    } catch (e) { setMsg({ kind: "bad", text: errText(e), lot: cur.id }); }
     setBusy(false);
     void load();
   }
@@ -139,11 +156,44 @@ export default function LiveRoomScreen() {
   if (!room || !sale) return <>{head}<Loading /></>;
   const windowSecs = Math.max(sale.lot_seconds, sale.extend_seconds);
   const preview = ask != null && f ? priceBreakdown(ask, f) : null;
+  const note = msg && cur && open && msg.lot === cur.id && (msg.price == null || Number(cur.current_bid) === msg.price) ? msg : null;
+  const closed = !!cur && cur.live_state === "closed";
+  const won = closed && cur!.status === "sold" && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
+  const mine = !!cur && !!mineHere[cur.id];
+  const bids = cur && open && !paused ? quickBids(cur) : [];
+  const allIn = cur && f ? priceBreakdown(Math.max(Number(cur.current_bid) || 0, Number(cur.start_price) || 0), f).total : 0;
+  const soldAllIn = cur && f && cur.status === "sold" ? priceBreakdown(Number(cur.sold_price) || 0, f).total : 0;
+  const dock = bids.length > 0 && !bidsSeen && !!f;
+  const pct = `${Math.min(100, (left / windowSecs) * 100)}%` as const;
 
   return (
     <>
       {head}
-      <Screen testID="live-room" contentStyle={{ gap: 18 }}>
+      <Screen testID="live-room" contentStyle={{ gap: 18, paddingBottom: (dock ? 150 : 40) + insets.bottom }}
+        onView={(y, h) => { view.current = { y, h }; seenCheck(); }}
+        footer={dock && cur && f ? (
+          <View style={[s.dock, { paddingBottom: 12 + insets.bottom }]} testID="live-dock">
+            <View style={s.dockTop}>
+              {mine && !leading ? <Tag label="You've been outbid" color={C.berry} /> : null}
+              <View style={[s.bar, { height: 6 }]}><View style={[s.fill, { height: 6, width: pct }, left <= 5 && { backgroundColor: C.urgent }]} /></View>
+              <Text style={[s.dockSecs, left <= 5 && { color: C.urgent }]}>{left > 0 ? `${left}s` : "Closing"}</Text>
+            </View>
+            <View style={s.dockRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={s.dockK}><Text style={s.dockV}>{money(cur.current_bid)}</Text> {cur.bid_count ? "bid" : "to start"}</Text>
+                <Text style={s.dockK}><Text style={s.dockV}>{allInMoney(allIn)}</Text> all-in</Text>
+              </View>
+              {leading ? <View style={s.dockLead} testID="live-dock-lead"><Text style={s.dockLeadText}>You're in front</Text></View> : (
+                <Pressable testID="live-dock-bid" accessibilityRole="button" accessibilityLabel={`Bid ${money(bids[0])}`} disabled={busy} onPress={() => tap(bids[0])}
+                  style={({ pressed }) => [s.dockBtn, { opacity: busy ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
+                  <Text style={s.dockBtnText}>Bid {money(bids[0])}</Text>
+                  <Text style={s.dockBtnSmall}>{allInMoney(priceBreakdown(bids[0], f).total)} all-in</Text>
+                </Pressable>
+              )}
+            </View>
+            {note && note.kind === "bad" && note.price == null ? <Text style={s.dockErr} accessibilityRole="alert">{note.text}</Text> : null}
+          </View>
+        ) : null}>
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Tag label={sale.live_status === "running" ? "Live now" : paused ? "Paused" : sale.live_status === "ended" ? "Finished" : `Starts ${dateTime(sale.starts_at)}`} color={sale.live_status === "running" ? C.ink : paused ? C.sun : C.panel} ink={sale.live_status === "running" ? "#FFFFFF" : C.ink} />
@@ -152,10 +202,10 @@ export default function LiveRoomScreen() {
           {sale.auctioneer ? <View testID="live-auctioneer" style={{ alignSelf: "flex-start" }}><Tag label={`Auctioneer: ${sale.auctioneer}`} /></View> : null}
           {sale.stream_url && sale.live_status !== "ended" ? <Button small kind="soft" title="Watch the stream" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/live/${sale.slug}`)} /> : null}
         </View>
-        {sale.live_message && sale.live_status !== "scheduled" ? <View style={[s.call, paused && { backgroundColor: C.panel }]} testID="live-message"><Text style={s.callText}>{sale.live_message}</Text></View> : null}
+        {sale.live_message && sale.live_status !== "scheduled" ? <View style={[s.call, paused ? { backgroundColor: C.panel } : closed && cur?.status === "sold" ? { backgroundColor: C.mint } : null]} testID="live-message"><Text style={s.callText}>{sale.live_message}</Text></View> : null}
 
         {cur ? (
-          <View style={s.box} testID="live-console">
+          <View style={s.box} testID="live-console" onLayout={(e) => { boxY.current = e.nativeEvent.layout.y; seenCheck(); }}>
             <View style={s.photo}>{cur.cover_path ? <Image source={{ uri: photoUrl(cur.cover_path) || undefined }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={{ alignItems: "center", paddingTop: 30 }}><CarArt type="car" width={220} /></View>}</View>
             <T v="small">{cur.sale_order ? `Lot ${cur.sale_order}` : `Lot ${cur.id}`} · {[cur.year, cur.odometer != null ? km(cur.odometer) : null, [cur.suburb, cur.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</T>
             <T v="title" style={{ fontSize: 22, lineHeight: 27 }}>{cur.title}</T>
@@ -166,23 +216,40 @@ export default function LiveRoomScreen() {
               <View>
                 <Text style={s.k}>{cur.status === "sold" ? "Sold for" : "Current bid"}</Text>
                 <Text style={s.price} testID="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</Text>
-                {open && f ? <><Text style={s.k}>All-in</Text><Text style={s.price} testID="live-allin">{allInMoney(priceBreakdown(Math.max(Number(cur.current_bid) || 0, Number(cur.start_price) || 0), f).total)}</Text><T v="small">With the buyer's premium, GST and admin fee · {cur.bid_count} bids</T></> : null}
+                {f ? <><Text style={s.k}>All-in</Text><Text style={s.price} testID="live-allin">{allInMoney(cur.status === "sold" ? soldAllIn : allIn)}</Text><T v="small">With the buyer's premium, GST and admin fee · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</T></> : null}
               </View>
-            ) : <View><Text style={s.k}>Result</Text><Text style={[s.price, { fontSize: 30 }]} testID="live-price">{resultLine(cur).replace(/\.$/, "")}</Text></View>}
+            ) : <View><Text style={s.k}>Result</Text><Text style={[s.price, { fontSize: 30 }]} testID="live-price">{resultLine(cur).replace(/\.$/, "")}</Text>
+              {cur.status === "passed" ? <T v="small" testID="live-passed">{cur.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "Nobody bid, so it wasn't sold."} It may be offered at a later auction.</T> : null}</View>}
             {open ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <View style={s.bar}><View style={[s.fill, { width: `${Math.min(100, (left / windowSecs) * 100)}%` }, left <= 5 && { backgroundColor: C.urgent }]} /></View>
                 <Text style={[s.secs, left <= 5 && { color: C.urgent }]} testID="live-seconds">{paused ? "Paused" : left > 0 ? `${left}s` : "Closing…"}</Text>
               </View>
             ) : null}
-            {open || cur.status === "sold" ? <T v="strong">{liveLine(sale, cur)}</T> : null}
-            {open && userId && cur.leader_id ? <Tag label={leading ? "You're the highest bidder" : "Bid to get in front"} color={leading ? C.mint : C.panel} /> : null}
-            {open && !paused ? quickBids(cur).map((b, i) => (
-              <Button key={b} testID={i === 0 ? "live-bid" : undefined} kind={i === 0 ? "blue" : "soft"} disabled={busy || leading} busy={busy && i === 0}
-                title={`Bid ${money(b)}${f ? ` · ${money(priceBreakdown(b, f).total, true)} all-in` : ""}`} onPress={() => tap(b)} />
-            )) : null}
+            {open ? <T v="strong">{liveLine(sale, cur)}</T> : null}
+            {open && userId && (leading || mine) ? <View testID="live-you"><Tag label={leading ? "You're the highest bidder" : "You've been outbid"} color={leading ? C.mint : C.berry} /></View> : null}
+            {won ? (
+              <Soft bg={C.mint} testID="live-won" style={{ gap: 8 }}>
+                <T v="strong" style={{ fontSize: 19 }}>You won it at {money(cur.sold_price)}.</T>
+                <T v="body" style={{ fontSize: 15 }}>{(f && buyNowPayLine(priceBreakdown(Number(cur.sold_price) || 0, f))) || "Your invoice is in your account."}</T>
+                <Button small kind="dark" title="See your invoice" onPress={() => router.push("/account")} style={{ alignSelf: "flex-start" }} />
+              </Soft>
+            ) : closed && cur.status === "sold" && userId && mine ? (
+              <Soft testID="live-lost" style={{ gap: 6 }}>
+                <T v="strong" style={{ fontSize: 19 }}>Sold to another bidder.</T>
+                <T v="muted">Thanks for bidding. There's more coming up.</T>
+              </Soft>
+            ) : null}
+            {note ? <Notice kind={note.kind} testID="live-note">{note.text}</Notice> : null}
+            {bids.length ? (
+              <View style={{ gap: 12 }} onLayout={(e) => { bidsAt.current = { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height }; seenCheck(); }}>
+                {bids.map((b, i) => (
+                  <Button key={b} testID={i === 0 ? "live-bid" : undefined} kind={i === 0 ? "blue" : "soft"} disabled={busy || leading} busy={busy && i === 0}
+                    title={`Bid ${money(b)}${f ? ` · ${allInMoney(priceBreakdown(b, f).total)} all-in` : ""}`} onPress={() => tap(b)} />
+                ))}
+              </View>
+            ) : null}
             {open && !paused && userId && (leading || mineHere[cur.id]) ? <Button testID="live-withdraw" small kind="soft" title="Withdraw my bid" busy={busy} onPress={withdraw} /> : null}
-            {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
           </View>
         ) : (
           <Soft><T v="strong">{sale.live_status === "ended" ? "The sale has finished." : sale.live_status === "scheduled" ? `Starts ${dateTime(sale.starts_at)}.` : "Next vehicle coming up."}</T>
@@ -225,7 +292,7 @@ export default function LiveRoomScreen() {
           <LineItem k="All-in if you win at this bid" v={money(preview.total, true)} bold />
         </View> : null}
         <Soft style={{ padding: 14 }}>
-          <Check testID="live-ack" checked={ack} onChange={setAck}>{`For this sale, each tap of a bid button is a binding bid. I understand vehicles are sold as is, where is: ${ACK_CHECK}. And ${ackPayLine(preview?.payMode || "transfer")}, under the terms of sale.`}</Check>
+          <Check testID="live-ack" checked={ack} onChange={setAck}>{`For this sale, each tap of a bid button is a bid, binding unless I withdraw it before the hammer falls. I understand vehicles are sold as is, where is: ${ACK_CHECK}. And ${ackPayLine(preview?.payMode || "transfer")}, under the terms of sale.`}</Check>
           <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-live`)}>How live auctions work ›</Text>
         </Soft>
         <T v="small">{rightsLine("auction", null)}.</T>
@@ -248,4 +315,17 @@ const s = StyleSheet.create({
   card: { width: 200, gap: 4 },
   thumb: { height: 130, borderRadius: 18, overflow: "hidden", backgroundColor: C.panel },
   result: { flexDirection: "row", gap: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  dock: { position: "absolute", left: 0, right: 0, bottom: 0, gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: C.bg,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: -6 }, elevation: 12 },
+  dockTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  dockSecs: { fontFamily: F.heavy, fontSize: 17, color: C.ink, minWidth: 52, textAlign: "right", fontVariant: ["tabular-nums"] },
+  dockRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  dockK: { fontFamily: F.semibold, fontSize: 14, color: C.muted },
+  dockV: { fontFamily: F.heavy, fontSize: 19, color: C.ink, letterSpacing: -0.3, fontVariant: ["tabular-nums"] },
+  dockBtn: { minHeight: 56, borderRadius: 28, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: C.blue, alignItems: "center", justifyContent: "center" },
+  dockBtnText: { fontFamily: F.bold, fontSize: 17, color: "#FFFFFF" },
+  dockBtnSmall: { fontFamily: F.semibold, fontSize: 12, color: "#FFFFFF", opacity: 0.85 },
+  dockLead: { minHeight: 56, borderRadius: 28, paddingHorizontal: 18, backgroundColor: C.mint, alignItems: "center", justifyContent: "center" },
+  dockLeadText: { fontFamily: F.heavy, fontSize: 16, color: C.ink },
+  dockErr: { fontFamily: F.semibold, fontSize: 14, lineHeight: 19, color: C.urgent },
 });

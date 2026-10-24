@@ -30,11 +30,12 @@ transport partner takes the vehicle to a depot, where the buyer collects it.
 
 | Position | Built in | Source |
 | --- | --- | --- |
-| Each lot is a separate contract, made at the fall of the hammer. | `close_one_lot` (sold only when the countdown ends or the auctioneer knocks it down) | Sale of Goods Act 1923 (NSW) s 60(1)(a)-(b); Sale of Goods Act 1896 (Qld) s 59 and the other states' equivalents |
+| Each lot is a separate contract, made at the fall of the hammer. | `close_one_lot` (sold only when the countdown ends or the auctioneer knocks it down); `admin_live_due` knocks it down only once the countdown has really run out, so a bid in the last seconds keeps it open | Sale of Goods Act 1923 (NSW) s 60(1)(a)-(b); Sale of Goods Act 1896 (Qld) s 59 and the other states' equivalents |
 | A bidder may retract a bid until the hammer falls: early bids can be withdrawn until the vehicle is offered, live bids until the countdown ends; the price is recalculated as if the bid was never made. | `withdraw_bid()`, `remove_bids_core()`; BidPanel and live room buttons; Terms s 6 | SGA (NSW) s 60(1)(b) ("any bidder may retract his or her bid") |
 | No seller bids, and the auctioneer never bids for the seller (no vendor bids at all). | `bid_guard` (seller and their mobile blocked); no vendor-bid function exists; Terms s 6, agreement s 5 | SGA (NSW) s 60(1)(c)-(d); MDCA Regulation 2014 (Qld) s 29; CAV guidance (owner can't bid; dummy bidding banned) |
 | Only registered (verified) bidders can bid, and bidders are told so. | `bid_gate`; live room rules text | MDCA Regulation 2014 (Qld) s 28(2) |
 | The auctioneer's name is displayed for the whole auction; a live auction can't start without it. | `admin_live_start`, `live_sweep` (auctioneer required); live room pill | MDCA Regulation 2014 (Qld) s 12 |
+| The auction never starts before its published start time: bidders plan around it, and the Terms promise it. | `admin_live_start` refuses before `starts_at`; the clock (`live_sweep`) starts it then; Terms s 6 | Terms s 6 (the contract with registered bidders); ACL s 18 (misleading or deceptive conduct) |
 | The buyer's premium is agreed by the seller in writing, stated in every written advertisement for the auction, displayed to each person bidding online during the auction. | Seller agreement s 3; LotCard terms line, listing notice, live room terms line; Terms s 7 | MDCA Regulation 2014 (Qld) s 6; Qld "Buying at auction" |
 | The reserve is recorded (the store book); the seller's instructions (lowering it) are followed and recorded. | `lot_private.reserve_price`, `seller_decisions` (lower_reserve/remove_reserve, via portal or admin) | MDCA Regulation 2014 (Qld) ss 14(2)(c), 24(1) |
 
