@@ -2,7 +2,8 @@
 // node --experimental-strip-types tests/unit/live.test.mjs
 import { bpayCheckDigit, isCrn, formatCrn, cleanCrn, isBillerCode } from '../../src/lib/bpay.ts';
 import { ZONES, ZONE_LABEL, PANELS, OFF_DIAGRAM, flawPins, hasDiagram, isZone } from '../../src/lib/damage.ts';
-import { streamEmbed, nextBid, quickBids, secondsLeft, liveLine, resultLine, liveError, howSold, CALLS } from '../../src/lib/live.ts';
+import { nextBid, quickBids, secondsLeft, liveLine, resultLine, liveError, howSold, CALLS } from '../../src/lib/live.ts';
+import { auctionConditions, CONDITIONS_ACK } from '../../src/lib/conditions.ts';
 import { icsCalendar, icsText, saleEvents, calDay } from '../../src/lib/calendar.ts';
 import { cleanFilters, parseQuery, describe } from '../../src/lib/search.ts';
 import { readFileSync } from 'node:fs';
@@ -35,15 +36,24 @@ ok('damage: drawn for cars, utes, vans and trucks only', hasDiagram('cars') && h
 ok('damage: unknown parts refused', !isZone('wing') && isZone('roof'));
 
 // ---- live auctions ----
-ok('stream: a YouTube watch link becomes the privacy-enhanced player', streamEmbed('https://www.youtube.com/watch?v=abcDEF12345') === 'https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1&mute=1&playsinline=1');
-ok('stream: youtu.be and /live/ links too', streamEmbed('https://youtu.be/abcDEF12345')?.includes('/embed/abcDEF12345') && streamEmbed('https://youtube.com/live/abcDEF12345?si=x')?.includes('/embed/abcDEF12345'));
-ok('stream: Vimeo', streamEmbed('https://vimeo.com/123456789') === 'https://player.vimeo.com/video/123456789?autoplay=1&muted=1');
-ok('stream: anything else refused', streamEmbed('https://evil.example/embed/x') === null && streamEmbed('http://www.youtube.com/watch?v=abc') === null && streamEmbed('javascript:alert(1)') === null && streamEmbed('https://www.youtube.com/watch?v=<script>') === null);
-const allowed = /stream_url ~ '([^']+)'/.exec(sql)[1];
-const re = new RegExp(allowed.replace(/\\\./g, '\\.'));
-ok('stream: what the website makes, the database accepts', re.test(streamEmbed('https://www.youtube.com/watch?v=abcDEF12345')) && re.test(streamEmbed('https://vimeo.com/123456789')), allowed);
+// no video stream: the room shows the listing's photos and the seller's video (migration 24)
+const m24 = readFileSync(new URL('../../supabase/migrations/20261024000024_room_photos_entry.sql', import.meta.url), 'utf8');
+ok('room: no video stream, kept empty by the database', /add constraint sales_no_stream check \(stream_url is null\)/.test(m24));
 const csp = readFileSync(new URL('../../next.config.ts', import.meta.url), 'utf8');
-ok('stream: the content rules allow only those players to be framed', /frame-src[^"]*https:\/\/www\.youtube-nocookie\.com[^"]*https:\/\/player\.vimeo\.com/.test(csp));
+ok('room: the content rules frame no video players', /frame-src/.test(csp) && !/youtube|vimeo/i.test(csp));
+// the auction's conditions, accepted on entering the room
+const terms = readFileSync(new URL('../../src/content/legal.ts', import.meta.url), 'utf8');
+for (const mode of ['transfer', 'deposit']) {
+  const cs = auctionConditions({ payMode: mode, payDays: 2 });
+  const all = cs.map((c) => c.head + ' ' + c.text).join(' ');
+  ok(`conditions (${mode}): every point names the section of the Terms it comes from`, cs.every((c) => terms.includes(`'${c.terms}'`) || terms.includes(`id="${c.terms}"`)), cs.map((c) => c.terms).join());
+  ok(`conditions (${mode}): as is, where is; never at the vehicle; each tap a bid; withdraw until the hammer; passed in; consultant; pay on time; consumer rights`,
+    /As is, where is/.test(all) && /no viewings or test drives/.test(all) && /each tap of a bid button is a binding bid/.test(all) && /withdraw a bid until the hammer falls/.test(all)
+    && /passed in: it isn't sold and nobody owes anything/.test(all) && /one of our consultants will be in touch/.test(all) && /within 2 business days/.test(all) && /Australian Consumer Law/.test(all), all);
+  ok(`conditions (${mode}): never "no warranty" or "non-refundable"`, !/no warranty|non-refundable/i.test(all));
+}
+ok('conditions: the deposit wording only with deposits', /deposit/.test(auctionConditions({ payMode: 'deposit' }).map((c) => c.text).join()) && !/deposit/.test(auctionConditions({ payMode: 'transfer' }).map((c) => c.text).join()));
+ok('conditions: the box they tick includes the Terms of Sale', /Terms of Sale/.test(CONDITIONS_ACK));
 ok('next bid: the starting price when nobody has bid', nextBid({ current_bid: 0, bid_count: 0, start_price: 1000 }) === 1000);
 ok('next bid: one increment above the current bid', nextBid({ current_bid: 4900, bid_count: 3, start_price: 1000 }) === 5000 && nextBid({ current_bid: 5000, bid_count: 4, start_price: 1000 }) === 5250);
 ok('quick bids: three steps, each a valid increment', JSON.stringify(quickBids({ current_bid: 4800, bid_count: 2, start_price: 0 })) === JSON.stringify([4900, 5000, 5250]));
@@ -57,6 +67,7 @@ ok('calls: "On the market" only once the reserve is met', CALLS.find((c) => c.te
 ok('errors: paused bidding in plain words', /paused/.test(liveError('live_paused')));
 ok('errors: the engine\'s own explanation is used', liveError('ERROR: live_lot_open:knock down the current vehicle first') === 'Knock down the current vehicle first.');
 ok('errors: anything else is not ours', liveError('something_else') === null);
+ok('errors: a bid in the room before the conditions', liveError('ERROR: enter_first:read and accept the auction conditions in the live room before you bid there') === 'Read and accept the auction conditions in the live room before you bid there.');
 
 // ---- calendar (.ics) ----
 ok('ics: commas, semicolons and new lines escaped', icsText('a,b;c\nd\\e') === 'a\\,b\\;c\\nd\\\\e');

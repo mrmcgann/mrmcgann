@@ -118,7 +118,9 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
 }
 // live auctions, tenders and BPAY: the wording matches the engine
 ok('live: the terms explain live auctions, with an anchor the room links to', terms.includes('id=\\"t-live\\"') && /auctioneer decides/.test(terms) && /floor bids/.test(terms), '');
-ok('live: the page, not the stream, counts', /The price and countdown on the page are what count, not the video stream/.test(terms));
+ok('live: the page counts; the room shows the photos and the seller’s video, no stream', /The price and countdown on the page are what count; delays in your own connection are your risk/.test(terms) && /the room shows its photos and the seller’s walkaround video/.test(terms) && !/stream/i.test(terms));
+ok('live: the auction’s conditions are read and accepted on entering the room, and recorded', /you read the auction’s conditions \(the key points of these terms\) and accept them once, on entering; we record that you did/.test(terms));
+ok('live: the passed-in highest bidder hears from a consultant, and nothing is sold afterwards', /If you were the highest bidder, one of our consultants will be in touch/.test(terms) && /a vehicle is never sold except under the hammer/.test(terms));
 ok('live: a vehicle not offered before the sale finishes is passed in, not sold', /that vehicle is passed in, not sold: its early bids lapse/.test(terms));
 // live auctions only: every sale under the hammer, an estimate on every listing, bids withdrawable until the hammer falls
 {

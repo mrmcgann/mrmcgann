@@ -20,8 +20,7 @@ const csp = [
   `media-src 'self' blob: ${supabase}`,
   "font-src 'self' data:",
   `connect-src 'self'${local} ${supabase} ${supabaseWs} https://api.stripe.com https://m.stripe.network https://challenges.cloudflare.com`,
-  // live auction streams: YouTube (privacy-enhanced) and Vimeo players only (sales.stream_url is checked to match)
-  "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",

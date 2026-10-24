@@ -22,6 +22,8 @@ export async function GET() {
     stores: { ios: process.env.NEXT_PUBLIC_APP_STORE_URL || null, android: process.env.NEXT_PUBLIC_PLAY_STORE_URL || null },
     // every vehicle is sold in a live auction (no timed auctions, Buy Now, tenders or offers)
     liveOnly: (settings.auction as { live_only?: boolean } | undefined)?.live_only === true,
+    // business days to pay for a vehicle won (the live room's conditions say it)
+    payDays: Number((settings.auction as { payment_days?: number } | undefined)?.payment_days) || 2,
   }, {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600", "CDN-Cache-Control": "public, s-maxage=300" },
   });

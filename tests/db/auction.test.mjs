@@ -32,7 +32,7 @@ const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-22
   C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-23' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-24' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -185,14 +185,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-10-23' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-10-24' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-23', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-24', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -796,7 +796,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-23', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-24', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
   await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
@@ -1042,8 +1042,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-23' where id = '${U.C}'`);
-  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-23' where id = '${U.D}'`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-24' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-24' where id = '${U.D}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
     (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
@@ -1142,8 +1142,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
   await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-23' where id='${U.E}'`);
-  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-23' where id='${U.F}'`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-24' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-24' where id='${U.F}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
     (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
@@ -1174,13 +1174,13 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // ... and can't come back with a new account
   await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-23' where id='${U.G}'`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-24' where id='${U.G}'`);
   r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
   r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
   ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
   r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
-  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-23' where id='${U.H}'`);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-24' where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
@@ -1393,8 +1393,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `insert into sales (slug, title, published, mode) values ('live-nostart', 'No start', true, 'live')`); ok('live: a live sale needs a start time', !!r.error);
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds) values ('live-test-sale', 'Live test', true, 'live', now() + interval '1 hour', 30, 15) returning id`);
   const SA = r.rows?.[0]?.id; ok('live: staff create a live sale', !!SA, r.error);
-  r = await as('ADM', `update sales set stream_url = 'https://evil.example/embed/x' where id = ${SA}`); ok('live: only YouTube or Vimeo streams', !!r.error);
-  r = await as('ADM', `update sales set stream_url = 'https://www.youtube.com/embed/abcDEF123_-' where id = ${SA}`); ok('live: a YouTube stream is fine', !r.error, r.error);
+  r = await as('ADM', `update sales set stream_url = 'https://www.youtube.com/embed/abcDEF123_-' where id = ${SA}`); ok("live: no video stream (the room shows the listing's photos and the seller's video)", r.error?.includes('sales_no_stream'), r.error);
   await as('B', `select place_bid(${L4}, 1500)`);
   r = await as('ADM', `update lots set sale_id = ${SA} where id = ${L4}`); ok("live: a timed auction with bids can't move into a live sale", r.error?.includes('sale_move_bids'), r.error);
   r = await as('ADM', `update lots set sale_id = ${SA} where id in (${L1}, ${L2}, ${L3})`); ok('live: vehicles join the sale', !r.error, r.error);
@@ -1423,6 +1422,12 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   await c.query(`update lots set buy_now_price = 900000 where id = ${order[0]}`);
   r = await as('B', `select buy_now(${order[0]})`); ok('live: no Buy Now while the vehicle is up', r.error?.includes('buy_now_unavailable'), r.error);
   await c.query(`update lots set ends_at = now() + interval '5 seconds' where id = ${order[0]}`);
+  r = await as('B', `select place_bid(${order[0]}, 3000)`); ok("live: no bid in the room until the auction's conditions are accepted", r.error?.includes('enter_first'), r.error);
+  r = await as('anon', `select enter_sale(${SA})`); ok('live: only members accept the conditions', !!r.error);
+  r = await as('B', `select enter_sale(${SA}) t`); ok('live: B accepts the conditions on entering the room', !!r.rows?.[0]?.t, r.error);
+  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-10-24', JSON.stringify(r.rows));
+  r = await as('A', `select count(*)::int n from sale_entries`); ok("live: members see only their own entries", r.rows?.[0]?.n === 0, JSON.stringify(r.rows));
+  r = await as('B', `insert into sale_entries (sale_id, user_id) values (${SA}, '${U.A}')`); ok('live: entries are written only by enter_sale', !!r.error);
   r = await as('B', `select place_bid(${order[0]}, 3000) r`); ok('live: an online bid in the last seconds', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
   r = await as('service', `select ends_at > now() + interval '13 seconds' and ends_at < now() + interval '16 seconds' x from lots where id = ${order[0]}`); ok("live: the countdown resets to the sale's short window", r.rows?.[0]?.x === true, JSON.stringify(r.rows));
   r = await as('A', `select admin_floor_bid(${SA}, '${crnA.deposit_ref}', 5000)`); ok('live: only staff take floor bids', r.error?.includes('forbidden'), r.error);
@@ -1557,7 +1562,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select live_only() x`); ok('live only: the switch is on, and anyone can read it', r.rows?.[0]?.x === true, r.error);
   U.X = '7e7e7e7e-0000-4000-8000-00000000007e';
   await c.query(`insert into auth.users (id, email) values ('${U.X}', 'xan@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-10-23' where id='${U.X}'`);
+  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-10-24' where id='${U.X}'`);
   await c.query(`update settings set value = value || '{"require_checks": false}' where key = 'selling'`);
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('lo-thursday', 'Thursday night live', true, 'live', now() + interval '2 days', 30, 15, 'Pat Gavel') returning id`);
   const LS = r.rows?.[0]?.id; ok('live only: staff create a live auction', !!LS, r.error);
@@ -1646,6 +1651,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select admin_live_start(${LS})`); ok('auction: never before its published start time', r.error?.includes('sale_early'), r.error);
   await c.query(`update sales set starts_at = now() - interval '1 second' where id = ${LS}`);
   r = await as('ADM', `select admin_live_start(${LS}) id`); ok('auction: starts with the first vehicle', Number(r.rows?.[0]?.id) === E1, JSON.stringify(r));
+  r = await as('X', `select place_bid(${E1}, 10000)`); ok('auction: the conditions come first', r.error?.includes('enter_first'), r.error);
+  await as('X', `select enter_sale(${LS})`);
   r = await as('X', `select place_bid(${E1}, 10000) r`); ok('auction: a live bid', r.rows?.[0]?.r?.status === 'leading' && Number(r.rows[0].r.current_bid) === 9850, JSON.stringify(r));
   await c.query(`update lots set ends_at = now() + interval '2 seconds' where id = ${E1}`);
   r = await as('X', `select withdraw_bid(${E1}) j`); ok('auction: a live bid withdrawn before the hammer', r.rows?.[0]?.j?.leader_changed === true && Number(r.rows[0].j.current_bid) === 9500, JSON.stringify(r));
@@ -1674,7 +1681,11 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select status, decision_by, (select count(*)::int from invoices where lot_id = ${E2}) inv from lots where id = ${E2}`);
   ok('passed in: no sale, no decision window, no invoice', r.rows?.[0]?.status === 'passed' && r.rows[0].decision_by === null && r.rows[0].inv === 0, JSON.stringify(r.rows));
   await as('service', `select queue_status_notices()`);
-  r = await as('service', `select count(*)::int n from notifications where user_id in ('${U.A}', '${U.B}') and title = 'The Live only van was passed in'`); ok('passed in: its bidders are told nobody owes anything', r.rows?.[0]?.n === 2);
+  r = await as('service', `select title, body from notifications where user_id = '${U.A}' and title = 'You were the highest bidder on the Live only van'`);
+  ok('passed in: the highest bidder is told a consultant will be in touch', r.rows?.length === 1 && /One of our consultants will be in touch/.test(r.rows[0].body) && /don't owe anything/.test(r.rows[0].body), JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from notifications where user_id in ('${U.A}', '${U.B}') and title = 'The Live only van was passed in'`); ok('passed in: the other bidders are told nobody owes anything', r.rows?.[0]?.n === 1);
+  r = await as('service', `select to_addr, title, body from outbox where dedupe_key like 'passed-followup:${E2}%' and kind = 'staff'`);
+  ok("passed in: the consultant (or the admins) gets the highest bidder's details to follow up", (r.rows || []).length >= 1 && r.rows.every((x) => /0411111111/.test(x.body) && /below the seller's reserve of \$9,500/.test(x.body) && /Nothing can be sold after the auction/.test(x.body)), JSON.stringify(r.rows));
   r = await as('A', `select make_offer(${E2}, 9400)`); ok('live only: no offers after the auction', r.error?.includes('offers_closed'), r.error);
   r = await as('ADM', `select admin_accept(${E2}, null)`); ok("live only: staff can't accept a bid after the auction", r.error?.includes('live_only'), r.error);
   r = await as('S', `select seller_decide(${E4}, 'accept_referral', null)`); ok("live only: sellers can't accept a bid after the auction", r.error?.includes('live_only'), r.error);
@@ -1705,7 +1716,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   for (const fn of [`buy_now_core(${E3})`, `make_offer_core(${E2}, 1)`, `seller_decide_core(${E4}, 'accept_referral', null)`, `admin_accept_core(${E2}, null)`,
     `admin_offer_next_bidder_core(${E2}, 24, false)`, `respond_second_chance_core(gen_random_uuid(), true)`, `remove_bids_core(${E3}, '${U.A}', 'x', '${U.A}', false)`,
-    `set_reserve_core(${E3}, 1, 'portal')`, `live_pass_unoffered(${LS})`]) {
+    `set_reserve_core(${E3}, 1, 'portal')`, `live_pass_unoffered(${LS})`, `queue_passed_followup(${E2})`]) {
     r = await as('A', `select ${fn}`); ok(`live only: members can't call ${fn.split('(')[0]}`, !!r.error, r.error);
   }
   await c.query(`update settings set value = value || '{"require_checks": true}' where key = 'selling'`);

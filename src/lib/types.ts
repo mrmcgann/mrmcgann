@@ -303,7 +303,6 @@ export interface Sale {
   published: boolean;
   mode?: "timed" | "live";
   starts_at?: string | null;
-  stream_url?: string | null;
   auctioneer?: string | null;
   live_status?: "scheduled" | "running" | "paused" | "ended";
   current_lot_id?: number | null;

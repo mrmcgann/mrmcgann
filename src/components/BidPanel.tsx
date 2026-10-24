@@ -224,6 +224,15 @@ export function BidPanel(props: {
             <button className="btn btn-dark" style={{ height: 48, fontSize: 15 }} onClick={() => { if (!needsSetup()) setBuyOpen(true); }}>Buy now</button>
           </div>
         )}
+        {liveSale && upNow ? (
+          // the vehicle is up: bids are placed in the live room, after the auction's conditions
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="bid-in-room">
+            <Link className="btn btn-blue" href={`/live/${liveSale.slug}`} style={{ height: 60, fontSize: 18 }}>Bid in the live room</Link>
+            {msg && <div className={`notice ${msg.kind}`} role="status">{msg.text}</div>}
+            {myMax != null && <button type="button" className="linkbtn" onClick={withdraw} disabled={busy} data-testid="withdraw-bid">Withdraw my bid</button>}
+            <span className="hint">It&apos;s up now: bids are taken in the live room until the hammer falls.</span>
+          </div>
+        ) : (
         <form onSubmit={review} style={{ display: "flex", flexDirection: "column", gap: 14 }} noValidate>
           <label className="field"><span>Your maximum bid</span>
             <span className="moneyin"><span className="muted">$</span><input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} aria-describedby="bidhelp" /></span>
@@ -236,6 +245,7 @@ export function BidPanel(props: {
           {myMax != null && (waiting || upNow) && <button type="button" className="linkbtn" onClick={withdraw} disabled={busy} data-testid="withdraw-bid">{waiting ? "Withdraw my early bid" : "Withdraw my bid"}</button>}
           {liveSale && <span className="hint">You can withdraw a bid until the hammer falls. When the vehicle sells, the highest bid buys it.</span>}
         </form>
+        )}
         <div className="allin">
           <b style={{ fontSize: 16 }}>If you win at {money(preview.price)}, you pay</b>
           <div><span className="muted">Winning bid</span><span>{money(preview.price)}</span></div>

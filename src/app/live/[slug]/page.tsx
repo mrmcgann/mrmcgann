@@ -19,8 +19,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-// A live auction event: one vehicle at a time, a short countdown that resets on every bid, the auctioneer's calls
-// and (when there is one) a video stream. The rules are the database's (live_advance, admin_live_*, place_bid).
+// A live auction event: the auction's conditions first, then one vehicle at a time (its photos and the seller's video),
+// a short countdown that resets on every bid and the auctioneer's calls. The rules are the database's (enter_sale,
+// live_advance, admin_live_*, place_bid).
 export default async function LivePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [room, fees, settings] = await Promise.all([liveRoom(slug), getFeesCached(), getSettingsCached()]);
@@ -34,7 +35,8 @@ export default async function LivePage({ params }: { params: Promise<{ slug: str
   return (
     <div className="wrap" style={{ paddingBlock: "clamp(28px,5vw,56px)" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(event).replace(/</g, "\\u003c") }} />
-      <LiveRoom initial={room} fees={fees} licences={licenceLine(settings.business, process.env.NEXT_PUBLIC_DEALER_LICENCE)} />
+      <LiveRoom initial={room} fees={fees} licences={licenceLine(settings.business, process.env.NEXT_PUBLIC_DEALER_LICENCE)}
+        payDays={Number((settings.auction as { payment_days?: number } | undefined)?.payment_days) || 2} />
     </div>
   );
 }

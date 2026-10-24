@@ -2,11 +2,12 @@
 // live_advance, admin_live_*, reveal_tenders, migration 20261021000020); this file only helps pages show it.
 // Pure: website, server and phone app.
 import { bidIncrement, money } from "./format.ts";
+import type { LotPhoto, LotVideo } from "./types.ts";
 
 export type LiveStatus = "scheduled" | "running" | "paused" | "ended";
 export type LiveSale = {
   id: number; slug: string; title: string; intro: string | null; state: string | null; seller_label: string | null;
-  mode: "timed" | "live"; starts_at: string | null; stream_url: string | null; auctioneer: string | null;
+  mode: "timed" | "live"; starts_at: string | null; auctioneer: string | null;
   live_status: LiveStatus; current_lot_id: number | null; live_message: string | null; live_message_at: string | null;
   lot_seconds: number; extend_seconds: number;
 };
@@ -17,6 +18,10 @@ export type LiveLot = {
   odometer: number | null; hours: number | null; suburb: string | null; state: string | null; fees?: Record<string, number | string> | null;
   estimate_low?: number | null; estimate_high?: number | null; statutory_warranty?: boolean | null; winner_id?: string | null;
 };
+
+/** The live room's photos and video of the vehicle that's up (or, before the start, the first one): its own listing's,
+ *  with full addresses for the app. There's no video of the auction itself. */
+export type LiveMedia = { lot_id: number; photos: (LotPhoto & { url: string })[]; videos: (LotVideo & { url: string })[]; video_url: string | null };
 
 /** How a vehicle is sold, in a few words. */
 export function howSold(l: { method?: string | null; live_state?: string | null }): "tender" | "live" | "timed" {
@@ -39,30 +44,6 @@ export function quickBids(l: { current_bid: number; bid_count: number; start_pri
 export const CALLS: { text: string; needsReserve?: boolean }[] = [
   { text: "Any advance?" }, { text: "On the market", needsReserve: true }, { text: "Fair warning" }, { text: "Last call" }, { text: "Selling now" },
 ];
-
-/** YouTube or Vimeo link (watch, live, short or share links) → the player address the site allows. Anything else: null. */
-export function streamEmbed(raw: string | null | undefined): string | null {
-  const s = String(raw || "").trim();
-  if (!s) return null;
-  let u: URL;
-  try { u = new URL(s); } catch { return null; }
-  if (u.protocol !== "https:") return null;
-  const host = u.hostname.replace(/^www\.|^m\./, "");
-  const ok = (id: string | null | undefined) => (id && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null);
-  let yt: string | null = null;
-  if (host === "youtu.be") yt = ok(u.pathname.slice(1).split("/")[0]);
-  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
-    const parts = u.pathname.split("/").filter(Boolean);
-    yt = parts[0] === "watch" ? ok(u.searchParams.get("v")) : ["embed", "live", "shorts"].includes(parts[0]) ? ok(parts[1]) : null;
-  }
-  if (yt) return `https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&mute=1&playsinline=1`;
-  if (host === "vimeo.com" || host === "player.vimeo.com") {
-    const parts = u.pathname.split("/").filter(Boolean);
-    const id = ok(host === "vimeo.com" ? parts.find((p) => /^\d+$/.test(p)) : parts[0] === "video" ? parts[1] : null);
-    if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}?autoplay=1&muted=1`;
-  }
-  return null;
-}
 
 /** Seconds left on the countdown, using the server's clock (offset = server time − this device's time). */
 export const secondsLeft = (endsAt: string | null | undefined, offsetMs = 0, now = Date.now()) =>
@@ -107,7 +88,7 @@ export function liveError(m: string): string | null {
   if (m.includes("sale_not_found")) return "We couldn't find that sale.";
   if (m.includes("bad_seconds")) return "Add between 5 seconds and 5 minutes.";
   for (const code of ["sale_move_bids", "method_locked", "sale_mode_locked", "sale_running", "sale_ended", "sale_hidden", "sale_started", "sale_not_started", "live_lot_open", "lot_not_waiting", "bidder_not_found",
-    "live_only", "corrected_recently", "auctioneer_needed", "reserve_rule", "estimate_rule", "withdraw_closed", "sale_early"]) {
+    "live_only", "corrected_recently", "auctioneer_needed", "reserve_rule", "estimate_rule", "withdraw_closed", "sale_early", "enter_first"]) {
     if (m.includes(`${code}:`)) { const t = m.split(`${code}:`)[1]?.split("\n")[0].trim() || ""; return t ? t[0].toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : null; }
   }
   return null;

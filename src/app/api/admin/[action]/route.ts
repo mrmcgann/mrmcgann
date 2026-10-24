@@ -13,7 +13,7 @@ import { sendSms } from "@/lib/sms";
 import { sendEmail, mailHtml } from "@/lib/email";
 import { getStripe, cents } from "@/lib/stripe";
 import { money } from "@/lib/format";
-import { liveError, streamEmbed } from "@/lib/live";
+import { liveError } from "@/lib/live";
 import { env } from "@/lib/env";
 import { copySellerPhotos } from "@/lib/sellerPhotos";
 export const maxDuration = 120; // the SEO audit and insights refresh can take a minute
@@ -527,17 +527,15 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (slug.length < 3 || title.length < 3) return fail("Add a title and a web address (at least 3 letters).");
       const row = { slug, title, intro: String(b.intro || "").trim().slice(0, 2000) || null, seller_label: String(b.sellerLabel || "").trim().slice(0, 120) || null,
         state: ["QLD", "NSW", "VIC", "WA", "SA", "TAS", "ACT", "NT"].includes(b.state) ? b.state : null, published: b.published === true, updated_at: new Date().toISOString() };
-      // a live auction event: a start time, how long each vehicle is offered, the reset window, an optional stream
+      // a live auction event: a start time, how long each vehicle is offered and the reset window (there's no video
+      // stream: the room shows each vehicle's photos and the seller's video)
       const live = b.mode === "live";
       const startsAt = b.startsAt ? new Date(String(b.startsAt)) : null;
       if (live && (!startsAt || Number.isNaN(startsAt.getTime()))) return fail("Choose when the live auction starts.");
-      const stream = String(b.streamUrl || "").trim();
-      const embed = stream ? streamEmbed(stream) : null;
-      if (stream && !embed) return fail("Paste a YouTube or Vimeo link for the stream (or leave it empty).");
       const lotSeconds = Math.round(Number(b.lotSeconds) || 60), extendSeconds = Math.round(Number(b.extendSeconds) || 20);
       if (live && (lotSeconds < 20 || lotSeconds > 600)) return fail("Offer each vehicle for 20 seconds to 10 minutes.");
       if (live && (extendSeconds < 5 || extendSeconds > 120)) return fail("The reset after a bid must be 5 to 120 seconds.");
-      Object.assign(row, { mode: live ? "live" : "timed", starts_at: live && startsAt ? startsAt.toISOString() : null, stream_url: live ? embed : null,
+      Object.assign(row, { mode: live ? "live" : "timed", starts_at: live && startsAt ? startsAt.toISOString() : null,
         auctioneer: live ? String(b.auctioneer || "").trim().slice(0, 120) || null : null, lot_seconds: live ? lotSeconds : 60, extend_seconds: live ? extendSeconds : 20,
         auto_advance: b.autoAdvance !== false });
       const q = b.id ? db.from("sales").update(row).eq("id", Number(b.id)).select("id").single() : db.from("sales").insert(row).select("id").single();

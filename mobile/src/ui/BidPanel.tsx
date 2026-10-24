@@ -165,12 +165,22 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
             <Button small kind="dark" title="Buy now" onPress={() => { if (!needsSetup()) { setAck(false); setSheet("buy"); } }} />
           </View>
         ) : null}
+        {liveSale && upNow ? (
+          // the vehicle is up: bids are placed in the live room, after the auction's conditions
+          <View style={{ gap: 10 }} testID="bid-in-room">
+            <Button title="Bid in the live room" onPress={() => router.push(`/live/${liveSale.slug}`)} />
+            {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
+            {myMax != null ? <Button testID="withdraw-bid" small kind="soft" title="Withdraw my bid" busy={busy} onPress={withdraw} /> : null}
+            <T v="small">It's up now: bids are taken in the live room until the hammer falls.</T>
+          </View>
+        ) : (<>
         <MoneyField testID="bid-amount" label="Your maximum bid" value={amount} onChange={setAmount} hint={`Minimum ${money(minNext)}. We bid for you, one increment at a time, up to your max. ${liveSale ? "When the auctioneer offers it, each bid resets the countdown." : "Bids in the last 10 minutes add 10 minutes."}`} />
         {short ? <DepositShortBox need={short.need} have={short.have} amount={short.amount} lotId={lot.id} />
           : signedIn && !missing.length ? <DepositHint fees={fees} deposit={me?.profile?.deposit} amount={typed} holdingHere={leading && myMax ? depositFor(myMax, fees) : 0} lotId={lot.id} /> : null}
         {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : null}
         <Button testID="review-bid" title={leading ? "Raise my max" : waiting ? "Review early bid" : "Review bid"} onPress={review} busy={busy} />
-        {myMax != null && (waiting || upNow) ? <Button testID="withdraw-bid" small kind="soft" title={waiting ? "Withdraw my early bid" : "Withdraw my bid"} busy={busy} onPress={withdraw} /> : null}
+        {myMax != null && waiting ? <Button testID="withdraw-bid" small kind="soft" title="Withdraw my early bid" busy={busy} onPress={withdraw} /> : null}
+        </>)}
         {liveSale ? <T v="small">You can withdraw a bid until the hammer falls. When the vehicle sells, the highest bid buys it.</T> : null}
         <View style={s.allin}>
           <T v="strong">If you win at {money(preview.price)}, you pay</T>

@@ -29,7 +29,7 @@ export interface AppConfig {
   sms: boolean;
   stores?: { ios: string | null; android: string | null };
   /** every vehicle is sold in a live auction (no timed auctions, Buy Now, tenders or offers) */
-  liveOnly?: boolean;
+  liveOnly?: boolean; payDays?: number;
 }
 
 // bidder_mask is a made-up, name-shaped string (never the real name), shown blurred.

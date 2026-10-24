@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View,
   type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
@@ -152,14 +152,14 @@ export function Select<K extends string>({ label, value, options, onChange, plac
 // ---------- layout ----------
 // onView: where the page is scrolled to and how tall the visible part is (on scroll and on layout); footer: a bar
 // fixed to the bottom of the screen, over the page (give the page room for it with contentStyle's paddingBottom).
-export function Screen({ children, refreshing, onRefresh, style, contentStyle, keyboard, testID, onView, footer }: {
+export function Screen({ children, refreshing, onRefresh, style, contentStyle, keyboard, testID, onView, footer, scrollRef }: {
   children: ReactNode; refreshing?: boolean; onRefresh?: () => void; style?: StyleProp<ViewStyle>; contentStyle?: StyleProp<ViewStyle>; keyboard?: boolean; testID?: string;
-  onView?: (y: number, height: number) => void; footer?: ReactNode;
+  onView?: (y: number, height: number) => void; footer?: ReactNode; scrollRef?: RefObject<ScrollView | null>;
 }) {
   const insets = useSafeAreaInsets();
   const at = useRef({ y: 0, h: 0 });
   const body = (
-    <ScrollView testID={testID} style={[{ flex: 1, backgroundColor: C.bg }, style]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+    <ScrollView ref={scrollRef} testID={testID} style={[{ flex: 1, backgroundColor: C.bg }, style]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       contentContainerStyle={[{ padding: PAD, paddingBottom: 40 + insets.bottom, gap: 20 }, contentStyle]}
       onScroll={onView ? (e) => { at.current = { y: e.nativeEvent.contentOffset.y, h: e.nativeEvent.layoutMeasurement.height }; onView(at.current.y, at.current.h); } : undefined}
       onLayout={onView ? (e) => { at.current = { ...at.current, h: e.nativeEvent.layout.height }; onView(at.current.y, at.current.h); } : undefined}

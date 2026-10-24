@@ -1026,13 +1026,15 @@ a.dep-row:hover b:first-child{color:var(--blue)}
 .lv-call.sold{background:var(--mint)}
 .lv-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
 .lv-stage{display:flex;flex-direction:column;gap:16px;min-width:0}
-.lv-video,.lv-photo{position:relative;aspect-ratio:16/9;border-radius:28px;overflow:hidden;background:var(--panel)}
-.lv-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.lv-photo{position:relative;aspect-ratio:3/2;border-radius:28px;overflow:hidden;background:var(--panel)}
 .lv-photo img{width:100%;height:100%;object-fit:cover}
 .lv-photo svg{position:absolute;inset:18% 12%;width:76%;height:64%}
 .lv-lot{display:flex;flex-direction:column;gap:6px}
+.lv-lot-k{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--muted)}
+.lv-upnow{height:24px;padding:0 10px;border-radius:12px;background:var(--mint);color:var(--ink);font-size:12px;font-weight:800;display:inline-flex;align-items:center}
 .lv-lot-t{font-size:clamp(24px,3vw,34px);font-weight:800;letter-spacing:-0.03em;line-height:1.15}
 .lv-console{position:sticky;top:88px;gap:16px}
+.lv-est{display:flex;flex-direction:column;gap:4px;padding-bottom:14px;border-bottom:1px solid var(--line);font-size:15px;line-height:1.45}
 .lv-price{display:flex;flex-direction:column;gap:2px}
 .lv-price .k{font-size:14px;font-weight:600;color:var(--muted)}
 .lv-price .v{font-size:clamp(48px,6vw,68px);font-weight:800;letter-spacing:-0.05em;line-height:1}
@@ -1052,10 +1054,39 @@ a.dep-row:hover b:first-child{color:var(--blue)}
 .lv-result{display:flex;flex-direction:column;gap:8px;padding:16px 18px;border-radius:20px;background:var(--panel);font-size:15px;line-height:1.5}
 .lv-result b{font-size:19px;letter-spacing:-0.02em}
 .lv-result.won{background:var(--mint)}
+.lv-result.top{background:var(--sun)}
+/* the auction's conditions, read and accepted before entering the room */
+.lv-gate{display:flex;flex-direction:column;gap:22px;padding:clamp(22px,4vw,40px);border-radius:32px;background:var(--panel);max-width:940px}
+.lv-gate-top{display:flex;flex-direction:column;gap:8px}
+.lv-conds{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 32px}
+.lv-conds li{font-size:15px;line-height:1.55;color:var(--ink2);padding-top:12px;border-top:1px solid var(--line);min-width:0}
+.lv-conds li b{display:block;color:var(--ink);font-size:16px;margin-bottom:2px}
+.lv-conds li a{font-weight:700;font-size:14px;white-space:nowrap}
+.lv-ack{display:flex;gap:12px;align-items:flex-start;font-size:15px;font-weight:600;line-height:1.5;padding:16px 18px;border-radius:18px;background:#FFFFFF;cursor:pointer}
+.lv-ack input{width:20px;height:20px;margin:1px 0 0;flex-shrink:0}
+@media (max-width:700px){.lv-conds{grid-template-columns:1fr}.lv-cal{display:none}}
+/* the stage: the vehicle's photos and the seller's walkaround video (there's no video of the auction) */
+.lv-media{display:flex;flex-direction:column;gap:10px;min-width:0}
+.lv-frame{position:relative;aspect-ratio:3/2;border-radius:28px;overflow:hidden;background:var(--panel)}
+.lv-frame img{width:100%;height:100%;object-fit:cover;display:block}
+.lv-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000000}
+.lv-frame.lv-empty svg{position:absolute;inset:18% 12%;width:76%;height:64%}
+.lv-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:22px;border:0;background:rgba(255,255,255,.92);color:var(--ink);font-size:26px;line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.lv-nav.prev{left:12px}
+.lv-nav.next{right:12px}
+.lv-count{position:absolute;left:14px;top:14px;height:28px;padding:0 11px;border-radius:14px;background:rgba(29,29,31,.72);color:#FFFFFF;font-size:13px;font-weight:700;display:inline-flex;align-items:center}
+.lv-playv{position:absolute;right:14px;bottom:14px;height:40px;padding:0 16px;border-radius:20px;border:0;background:var(--ink);color:#FFFFFF;font:inherit;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.lv-thumbs{display:flex;gap:8px;overflow-x:auto;padding:3px 3px 6px;scroll-snap-type:x proximity}
+.lv-thumbs button{flex:0 0 auto;width:88px;aspect-ratio:4/3;border-radius:12px;overflow:hidden;border:0;padding:0;background:var(--panel);cursor:pointer;scroll-snap-align:start;opacity:.72}
+.lv-thumbs button.on{opacity:1;outline:3px solid var(--ink);outline-offset:1px}
+.lv-thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.lv-vthumb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%;background:var(--ink);color:#FFFFFF;font-size:12px;font-weight:700}
+.lv-vthumb b{font-size:16px}
 /* the phone bar: price, all-in, countdown and the next bid while the room's own bid buttons are out of view */
 .lv-dock{display:none}
 .lv-dock-top{display:flex;align-items:center;gap:10px}
-.lv-dock-top .lv-bar{height:6px;border-radius:3px}
+.lv-dock > .lv-bar{flex:none;height:6px;border-radius:3px}
+.lv-dock-name{flex:1;min-width:0;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-dock-top .tag{height:26px;font-size:12px;padding:0 10px}
 .lv-dock-secs{font-size:17px;font-weight:800;letter-spacing:-0.02em;min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
 .lv-dock-secs.hot{color:var(--urgent)}

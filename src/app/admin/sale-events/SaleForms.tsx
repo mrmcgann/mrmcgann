@@ -17,7 +17,7 @@ export function SaleForm({ sale }: { sale?: Sale }) {
   const liveOnly = useLiveOnly();
   const local = (iso?: string | null) => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : "");
   const [f, setF] = useState({ title: sale?.title || "", slug: sale?.slug || "", intro: sale?.intro || "", sellerLabel: sale?.seller_label || "", state: sale?.state || "", published: sale?.published || false,
-    mode: sale?.mode || (liveOnly ? "live" : "timed"), startsAt: local(sale?.starts_at), streamUrl: sale?.stream_url || "", auctioneer: sale?.auctioneer || "",
+    mode: sale?.mode || (liveOnly ? "live" : "timed"), startsAt: local(sale?.starts_at), auctioneer: sale?.auctioneer || "",
     lotSeconds: String(sale?.lot_seconds || 60), extendSeconds: String(sale?.extend_seconds || 20), autoAdvance: sale?.auto_advance !== false });
   const [msg, setMsg] = useState("");
   const slugOf = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -53,9 +53,8 @@ export function SaleForm({ sale }: { sale?: Sale }) {
             <label className="field"><span>Each vehicle offered for (seconds)</span><input className="input" inputMode="numeric" value={f.lotSeconds} onChange={(e) => setF({ ...f, lotSeconds: e.target.value.replace(/\D/g, "") })} /></label>
             <label className="field"><span>A bid near the end resets it to (seconds)</span><input className="input" inputMode="numeric" value={f.extendSeconds} onChange={(e) => setF({ ...f, extendSeconds: e.target.value.replace(/\D/g, "") })} /></label>
           </div>
-          <label className="field"><span>Video stream (YouTube or Vimeo link, optional)</span><input className="input" value={f.streamUrl} onChange={(e) => setF({ ...f, streamUrl: e.target.value })} placeholder="https://www.youtube.com/live/…" /></label>
           <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontWeight: 600 }}><input type="checkbox" checked={f.autoAdvance} onChange={(e) => setF({ ...f, autoAdvance: e.target.checked })} /> <span>Keep it running by itself if the console is closed (starts on time and offers the next vehicle within a minute)</span></label>
-          <span className="hint">Vehicles in a live sale take early bids (which bidders can withdraw) until their turn. Each is sold under the hammer or passed in: nothing is referred to the seller or sold afterwards. Add them from the vehicle editor or the bulk upload, then put them in order in the console.</span>
+          <span className="hint">There&apos;s no video of the auction: the room shows each vehicle&apos;s photos and the seller&apos;s walkaround video. Vehicles in a live sale take early bids (which bidders can withdraw) until their turn. Each is sold under the hammer or passed in: nothing is referred to the seller or sold afterwards. Add them from the vehicle editor or the bulk upload, then put them in order in the console.</span>
         </div>
       )}
       <label className="field"><span>About the sale</span><textarea className="input" value={f.intro} onChange={(e) => setF({ ...f, intro: e.target.value })} placeholder="Plain facts: what's in it, where the vehicles are, how they were used and serviced. No claims we can't back up." /></label>

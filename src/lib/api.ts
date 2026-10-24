@@ -86,5 +86,7 @@ export function depositShort(message?: string): { need: number; have: number } |
 export function failBid(message: string) {
   const d = depositShort(message);
   if (d) return NextResponse.json({ error: friendly(message), code: "deposit_short", need: d.need, have: d.have, topUp: Math.max(0, Math.ceil(d.need - d.have)) }, { status: 402 });
+  // a bid in the live room before its conditions were accepted: the room shows them again
+  if (message.includes("enter_first")) return NextResponse.json({ error: friendly(message), code: "enter_first" }, { status: 403 });
   return fail(friendly(message), message.includes("terms_outdated") ? 409 : 400);
 }

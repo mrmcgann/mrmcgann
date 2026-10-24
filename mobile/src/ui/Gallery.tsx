@@ -18,10 +18,11 @@ const keyOf = (it: Item) => (it.kind === "photo" ? it.p.id : `video-${it.v.id}`)
 /**
  * The listing's photos and video (the website's Gallery): up to 10 in total, one of them a video,
  * placed second. One big photo with four smaller tiles below, "Show all", and a full-screen viewer
- * you swipe through (the video plays in the same viewer).
+ * you swipe through (the video plays in the same viewer). `compact` (the live room) leaves out "Show all" and the
+ * video button when the tiles already lead to them: tapping the photo opens the viewer, the video tile plays it.
  */
-export function Gallery({ photos, videos, externalVideo, backdropKey, vehicleType, title }: {
-  photos: Photo[]; videos: AppVideo[]; externalVideo: string | null | undefined; backdropKey: string | null | undefined; vehicleType: string | null | undefined; title: string;
+export function Gallery({ photos, videos, externalVideo, backdropKey, vehicleType, title, compact = false }: {
+  photos: Photo[]; videos: AppVideo[]; externalVideo: string | null | undefined; backdropKey: string | null | undefined; vehicleType: string | null | undefined; title: string; compact?: boolean;
 }) {
   const { width } = useWindowDimensions();
   const [viewer, setViewer] = useState<number | null>(null);
@@ -74,10 +75,12 @@ export function Gallery({ photos, videos, externalVideo, backdropKey, vehicleTyp
               })}
             </View>
           ) : null}
-          <View style={s.actions}>
-            <Button testID="show-all-photos" small kind="soft" title={showAll} onPress={() => setViewer(0)} />
-            {videoButton}
-          </View>
+          {!compact ? (
+            <View style={s.actions}>
+              <Button testID="show-all-photos" small kind="soft" title={showAll} onPress={() => setViewer(0)} />
+              {videoButton}
+            </View>
+          ) : !video && externalVideo ? <View style={s.actions}>{videoButton}</View> : null}
           {credits.length ? <T v="small" style={{ textAlign: "right" }}>Photos: {credits.join(" · ")}</T> : null}
         </>
       ) : (
