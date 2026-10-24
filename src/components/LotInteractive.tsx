@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { Fees, Lot, Partner } from "@/lib/types";
 import { useViewer } from "@/components/Viewer";
-import { BidPanel, type LotSale } from "@/components/BidPanel";
+import { BidPanel, type LotRelist, type LotSale } from "@/components/BidPanel";
 import { TenderPanel } from "@/components/TenderPanel";
 import { DeliveryBox, ReportButton } from "@/components/LotExtras";
 import { QuestionBox } from "@/components/LotBits";
@@ -29,7 +29,7 @@ function useLotMe(lotId: number, userId: string | null) {
   return { state, loaded };
 }
 
-export function LotInteractive({ lot, fees, history, phone, sale = null }: { lot: Lot; fees: Fees; history: Hist; phone: string; sale?: LotSale }) {
+export function LotInteractive({ lot, fees, history, phone, sale = null, relist = null }: { lot: Lot; fees: Fees; history: Hist; phone: string; sale?: LotSale; relist?: LotRelist }) {
   const v = useViewer();
   const userId = v.user?.id || null;
   const { state: me, loaded } = useLotMe(lot.id, userId);
@@ -41,7 +41,7 @@ export function LotInteractive({ lot, fees, history, phone, sale = null }: { lot
         <TenderPanel key={`${userId || "anon"}-${loaded ? "me" : "wait"}`} lot={lot} fees={fees} userId={userId} missing={missing} cardLabel={cardLabel} deposit={v.profile?.deposit ?? null}
           termsCurrent={v.profile?.terms_current !== false} myTender={me?.my_max ?? null} watched={me?.watched ?? v.watched.has(lot.id)} isSeller={!!me?.is_seller} suspended={!!v.profile?.suspended} />
       ) : (
-      <BidPanel key={`${userId || "anon"}-${loaded ? "me" : "wait"}`} sale={sale} lot={lot} fees={fees} userId={userId} missing={missing} cardLabel={cardLabel} deposit={v.profile?.deposit ?? null}
+      <BidPanel key={`${userId || "anon"}-${loaded ? "me" : "wait"}`} sale={sale} relist={relist} lot={lot} fees={fees} userId={userId} missing={missing} cardLabel={cardLabel} deposit={v.profile?.deposit ?? null}
         termsCurrent={v.profile?.terms_current !== false} myMax={me?.my_max ?? null} watched={me?.watched ?? v.watched.has(lot.id)}
         invoiceId={me?.invoice_id ?? null} lastOffer={me?.last_offer ?? null} isSeller={!!me?.is_seller} history={history} suspended={!!v.profile?.suspended} />
       )}

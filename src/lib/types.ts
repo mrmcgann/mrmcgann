@@ -82,6 +82,8 @@ export interface Lot {
   inspected_by?: string | null;
   inspection_summary?: string | null;
   relisted_from?: number | null;
+  /** passed in because the auction finished before it was offered (its early bids lapsed) */
+  not_offered?: boolean;
   corrected_at?: string | null;
   sale_id?: number | null;
   /** "auction" (timed or live) or "tender" (sealed, revealed at close) */

@@ -39,6 +39,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     corrections: bundle.corrections,
     sale: bundle.sale,
     depot: bundle.depot || null,
+    // a vehicle that didn't sell, once it's back in an auction: its new listing
+    relist: bundle.relist ?? null,
     questions: bundle.questions,
     watchers: bundle.watchers,
     similar: similar.map(withUrl),

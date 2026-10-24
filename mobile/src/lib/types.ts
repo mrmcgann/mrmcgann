@@ -57,6 +57,8 @@ export interface LotBundle {
   sale?: { id: number; slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
   /** the depot the buyer collects from */
   depot?: { id: string; name: string; suburb: string; state: string; postcode: string; hours: string | null } | null;
+  /** a vehicle that didn't sell, once it's back in an auction: its new listing */
+  relist?: { id: number; sale: { slug: string; title: string; starts_at: string | null } | null } | null;
   questions: { question: string; answer: string; answered_at: string }[];
   watchers: number;
   similar: AppLot[];

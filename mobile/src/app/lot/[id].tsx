@@ -153,7 +153,7 @@ export default function LotScreen() {
         <View style={s.pad}>
           {lot.method === "tender" && lot.status === "live"
             ? <TenderPanel lot={lot} fees={fees} mine={mine} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />
-            : <BidPanel lot={lot} fees={fees} mine={mine} history={history} sale={sale} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />}
+            : <BidPanel lot={lot} fees={fees} mine={mine} history={history} sale={sale} relist={b.relist ?? null} onStatusChange={() => { void load(); void loadMine(); }} onMineChange={loadMine} />}
           {["live", "scheduled"].includes(lot.status) ? (
             <Soft testID="auction-notice" style={{ gap: 4, marginTop: 12 }}>
               {warrantySign(lot.statutory_warranty) ? <T v="strong" testID="warranty-sign">{warrantySign(lot.statutory_warranty)}</T> : null}

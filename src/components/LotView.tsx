@@ -266,7 +266,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
           </div>
 
           <aside className="bidcard" id="bid">
-            <LotInteractive lot={lot} fees={fees} history={history} phone={env.phone} sale={sale} />
+            <LotInteractive lot={lot} fees={fees} history={history} phone={env.phone} sale={sale} relist={bundle.relist ?? null} />
             {["live", "scheduled"].includes(lot.status) && (
               <div className="noticebar" data-testid="auction-notice">
                 {warrantySign(lot.statutory_warranty) && <b style={{ fontSize: 16 }} data-testid="warranty-sign">{warrantySign(lot.statutory_warranty)}</b>}

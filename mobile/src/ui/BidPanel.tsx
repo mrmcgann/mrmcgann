@@ -19,13 +19,16 @@ import { DepositHint, DepositShortBox, shortFrom } from "./Deposit";
 import { ackPayLine, buyNowPayLine, winPayLine } from "@/lib/deposits";
 import { ACK_CHECK, premiumLabel, feesLine } from "@/lib/transport";
 import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
+import { relistBackLine } from "@/lib/relist";
 
 type Msg = { kind: "ok" | "bad"; text: string } | null;
 
 /** Live price, bidding, Buy Now and offers for one vehicle (the website's BidPanel). */
-export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, onStatusChange, onMineChange, sale }: {
+export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, onStatusChange, onMineChange, sale, relist = null }: {
   lot: AppLot; fees: Fees; mine: MyLotState | null; history: BidRow[]; onStatusChange: () => void; onMineChange: () => void;
   sale?: { slug: string; title: string; mode?: string; starts_at?: string | null } | null;
+  /** a vehicle that didn't sell, once it's back in an auction: its new listing */
+  relist?: { id: number; sale: { slug: string; title: string; starts_at: string | null } | null } | null;
 }) {
   const fees = useMemo(() => lotFees(allFees, lot), [allFees, lot]);
   const { me, signedIn, refresh } = useSession();
@@ -216,7 +219,14 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   } else if (L.status === "offers") {
     body = <OfferBox lotId={lot.id} current={Number(L.current_bid)} decisionBy={L.decision_by} lastOffer={mine?.last_offer || null} needsSetup={needsSetup} onSent={onMineChange} fees={fees} sellerType={lot.seller_type} />;
   } else if (L.status === "passed") {
-    body = <Soft testID="passed-in"><T v="strong">Passed in.</T><T v="muted">{L.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."} It may be offered at a later auction: watch it to hear when.</T></Soft>;
+    body = (
+      <Soft testID="passed-in" bg={relist ? C.sun : undefined} style={{ gap: 6 }}>
+        <T v="strong">Passed in.</T>
+        <T v="muted">{lot.not_offered ? "The auction finished before it was offered, so it wasn't sold and nobody owes anything." : L.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."}{relist ? "" : " It may be offered at a later auction: watch it to hear when."}</T>
+        {relist ? <><T v="strong" testID="relisted">{relistBackLine(relist.sale?.starts_at)}</T>
+          <Button small kind="dark" title="See the new listing" onPress={() => router.push(`/lot/${relist.id}`)} style={{ alignSelf: "flex-start" }} /></> : null}
+      </Soft>
+    );
   } else if (L.status === "live") {
     body = <Soft><T v="strong">Bidding has closed.</T><T v="muted">Working out the result…</T></Soft>;
   } else {

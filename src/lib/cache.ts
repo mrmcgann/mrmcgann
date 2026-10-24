@@ -35,6 +35,8 @@ export interface LotBundle {
   sale: Pick<Sale, "id" | "slug" | "title" | "mode" | "starts_at" | "live_status"> | null;
   /** the depot the buyer collects from (public parts only) */
   depot?: Pick<Depot, "id" | "name" | "suburb" | "state" | "postcode" | "hours"> | null;
+  /** a vehicle that didn't sell, once it's back in an auction: its new listing (relisted drafts aren't public) */
+  relist?: { id: number; sale: Pick<Sale, "slug" | "title" | "starts_at"> | null } | null;
 }
 
 const CONSULTANT_COLS = "id, name, title, phone, email, photo_path, is_default";
@@ -60,8 +62,16 @@ export function getLotCached(id: number) {
     ]);
     const cs = (consultants || []) as Consultant[];
     const consultant = cs.find((c) => c.id === lot.consultant_id) || cs.find((c) => c.is_default) || null;
+    let relist: LotBundle["relist"] = null;
+    if (["passed", "cancelled"].includes(lot.status)) {
+      const { data: again } = await db.from("lots").select("id, sale_id").eq("relisted_from", id).in("status", ["live", "scheduled"]).order("id", { ascending: false }).limit(1).maybeSingle();
+      if (again) {
+        const { data: s2 } = again.sale_id ? await db.from("sales").select("slug, title, starts_at").eq("id", again.sale_id).maybeSingle() : { data: null };
+        relist = { id: Number(again.id), sale: (s2 as NonNullable<LotBundle["relist"]>["sale"]) || null };
+      }
+    }
     return { lot: lot as Lot, photos: (photos || []) as LotPhoto[], flaws: (flaws || []) as LotFlaw[], questions: questions || [], watchers: Number(watchers || 0), videos: (videos || []) as LotVideo[], consultant,
-      corrections: (corrections || []) as Correction[], sale: (sale as LotBundle["sale"]) || null, depot: (depot as LotBundle["depot"]) || null };
+      corrections: (corrections || []) as Correction[], sale: (sale as LotBundle["sale"]) || null, depot: (depot as LotBundle["depot"]) || null, relist };
   }, ["lot", String(id)], { revalidate: 20, tags: [`lot-${id}`] })();
 }
 

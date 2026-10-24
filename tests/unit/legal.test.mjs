@@ -1,5 +1,5 @@
 // Terms of sale, seller agreement, website terms and help: node --experimental-strip-types tests/unit/legal.test.mjs
-import { TERMS, SELLER_AGREEMENT, WEBSITE_TERMS, HELP, PRIVACY, fillLegal, legalValues } from '../../src/content/legal.ts';
+import { TERMS, SELLER_AGREEMENT, WEBSITE_TERMS, HELP, PRIVACY, fillLegal, legalValues, SELLER_AGREEMENT_VERSION_LABEL } from '../../src/content/legal.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -140,6 +140,16 @@ ok('live: a vehicle not offered before the sale finishes is passed in, not sold'
 }
 ok('bpay: CRN explained, never cards', /Customer Reference Number \(CRN\)/.test(terms) && /We don’t accept cards, cash or cheques/.test(terms));
 ok('help: live auctions, the estimate, withdrawing, passed in, calendar, results and BPAY answered', ['How do live auctions work?', 'What’s the auction estimate?', 'Can I withdraw a bid?', 'What does “passed in” mean?', 'Where can I see what’s coming up?', 'Can I see what vehicles sold for?', 'Can I pay by BPAY?', 'Can I lower my reserve during the auction?'].every((q) => JSON.stringify(HELP).includes(q)));
+ok('seller agreement: its last line carries its version (the label on the signed copy)', JSON.stringify(SELLER_AGREEMENT).includes(`${SELLER_AGREEMENT_VERSION_LABEL}.`), SELLER_AGREEMENT_VERSION_LABEL);
 ok('seller agreement: a live online auction by a licensed auctioneer', /sell the vehicle in a live online auction, conducted by a licensed auctioneer/.test(JSON.stringify(SELLER_AGREEMENT)));
+{
+  // a vehicle that didn't sell goes into the next live auction for its state (never sold afterwards, in any state), unless
+  // the seller says no: free until it's listed; the state's rules and the 90-day authority checked for the new auction
+  const sa = JSON.stringify(SELLER_AGREEMENT);
+  ok('relist: offered again at the next live auction, unless the seller says no', /we offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /We never sell it after the auction, in any state/.test(sa) && /offer it again at our next live auction for your state, while your authority lasts/.test(sa));
+  ok('relist: saying no is free until it is listed; after that it is a withdrawal', /tell us before it’s listed, from your seller dashboard or by calling us. There’s no fee, and the vehicle stays yours/.test(sa) && /taking it out is a withdrawal \(section 8\)/.test(sa));
+  ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /Victorian roadworthy certificate must be less than 30 days old/.test(sa) && /Queensland safety certificate no more than 2 months old/.test(sa) && /you sign this agreement again for it/.test(sa));
+  ok('relist: help for sellers and buyers says the same', /We don’t sell it to anyone afterwards, in any state: we offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
+}
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

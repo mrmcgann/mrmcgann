@@ -148,8 +148,10 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       // A buyer who doesn't pay can't bid again (Terms of sale, section 11): banned, and their live bids come off.
       await db.rpc("ban_member", { p_user: inv.buyer_id, p_reason: `Didn't pay for ${inv.ref}` });
       await notify(inv.buyer_id, "account", `Sale cancelled: ${inv.ref}`, `We've cancelled this sale because payment wasn't received.${feeNote} Your account has been closed for bidding, as our Terms of sale (section 11) say. Call us if you think this is a mistake.`, `/account/invoices/${b.invoiceId}`);
+      const { data: auctionSet } = await db.from("settings").select("value").eq("key", "auction").maybeSingle();
+      const liveOnly = (auctionSet?.value as { live_only?: boolean } | null)?.live_only === true;
       await notifySeller(inv.lot_id, "The buyer didn't pay, so the sale is cancelled",
-        `We'll call you about offering it to the next bidder or relisting at no extra cost.${half > 0 ? ` We'll also pay you ${money(half, true)}, half of what the buyer forfeited.` : ""}`, "/sell/dashboard", `cancelled:${inv.id}`);
+        `${liveOnly ? "We'll call you about offering it again at our next live auction, at no extra cost." : "We'll call you about offering it to the next bidder or relisting at no extra cost."}${half > 0 ? ` We'll also pay you ${money(half, true)}, half of what the buyer forfeited.` : ""}`, "/sell/dashboard", `cancelled:${inv.id}`);
       revalidateTag(`lot-${inv.lot_id}`);
       return done();
     }
@@ -505,6 +507,12 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
     }
     case "relist": {
       const { data, error } = await supabase.rpc("admin_relist", { p_lot: Number(b.lotId) });
+      if (error) return fail(friendly(error.message));
+      return done({ id: data });
+    }
+    case "relist-decline": {
+      // the seller told us they don't want it offered again: the relist draft is cancelled and the decision recorded
+      const { data, error } = await supabase.rpc("admin_decline_relist", { p_lot: Number(b.lotId) });
       if (error) return fail(friendly(error.message));
       return done({ id: data });
     }

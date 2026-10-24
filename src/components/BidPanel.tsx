@@ -15,9 +15,12 @@ import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
 import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
+import { relistBackLine } from "@/lib/relist";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state">;
 export type LotSale = { slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
+/** a vehicle that didn't sell, once it's back in an auction */
+export type LotRelist = { id: number; sale: { slug: string; title: string; starts_at?: string | null } | null } | null;
 type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mask?: string; is_auto: boolean }[];
 
 const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Bidding deposit (refundable)", 5: "Verify your ID" };
@@ -36,7 +39,7 @@ const pick = (x: Partial<Live>): Partial<Live> => {
 export function BidPanel(props: {
   lot: Lot; fees: Fees; userId: string | null; missing: number[]; cardLabel: string | null; termsCurrent: boolean; deposit?: DepositSummary | null;
   myMax: number | null; watched: boolean; invoiceId: string | null; lastOffer: { amount: number; status: string } | null;
-  isSeller: boolean; history: Hist; suspended?: boolean; sale?: LotSale;
+  isSeller: boolean; history: Hist; suspended?: boolean; sale?: LotSale; relist?: LotRelist;
 }) {
   const { lot, userId, missing, cardLabel } = props;
   const fees = useMemo(() => lotFees(props.fees, lot), [props.fees, lot]);
@@ -300,9 +303,15 @@ export function BidPanel(props: {
     body = <OfferForm lotId={lot.id} current={live.current_bid} decisionBy={live.decision_by} lastOffer={props.lastOffer} onNeedSetup={needsSetup} fees={fees} sellerType={lot.seller_type} />;
   } else if (live.status === "passed") {
     body = (
-      <div className="soft" style={{ background: "var(--panel)" }} data-testid="passed-in">
+      <div className="soft" style={{ background: props.relist ? "var(--sun)" : "var(--panel)" }} data-testid="passed-in">
         <b>Passed in.</b>
-        <span className="muted">{live.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."} It may be offered at a later auction: watch it, or save a search, to hear when.</span>
+        <span className="muted">{lot.not_offered ? "The auction finished before it was offered, so it wasn't sold and nobody owes anything." : live.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."}{props.relist ? "" : " It may be offered at a later auction: watch it, or save a search, to hear when."}</span>
+        {props.relist && (
+          <>
+            <span style={{ fontWeight: 700 }} data-testid="relisted">{relistBackLine(props.relist.sale?.starts_at)}</span>
+            <Link className="btn btn-dark" href={`/lot/${props.relist.id}`} style={{ height: 48, fontSize: 15, alignSelf: "flex-start" }}>See the new listing</Link>
+          </>
+        )}
       </div>
     );
   } else if (live.status === "live") {

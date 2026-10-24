@@ -12,6 +12,8 @@ import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
 import { rulesFor } from "@/lib/transfer";
 import { SellerTransferDone } from "./SellerTransfer";
 import { SellerReserve } from "./SellerReserve";
+import { SellerRelist } from "./SellerRelist";
+import { relistSellerLine } from "@/lib/relist";
 import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
 
 export const metadata: Metadata = { title: "My vehicles for sale", robots: { index: false } };
@@ -38,7 +40,16 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
   const { supabase, user } = await getSession();
   if (!user) redirect("/signin?next=/sell/dashboard");
   const { data: rows } = await supabase.from("lots").select("*").eq("seller_id", user.id).order("created_at", { ascending: false }).limit(50);
-  const all = (rows || []) as Lot[];
+  // a relist the seller said no to isn't a listing of theirs any more: the vehicle that didn't sell says so instead
+  const all = ((rows || []) as Lot[]).filter((l) => !(l.status === "cancelled" && l.relisted_from));
+  // a vehicle that didn't sell goes into the next live auction (migration 25): its relist, that auction, or the seller's no
+  const relistOf = (id: number) => all.find((x) => x.relisted_from === id && x.status !== "cancelled") || null;
+  const saleIds = [...new Set(all.filter((l) => l.relisted_from && l.sale_id).map((l) => Number(l.sale_id)))];
+  const { data: saleRows } = saleIds.length ? await supabase.from("sales").select("id, title, starts_at").in("id", saleIds) : { data: [] };
+  const saleOf = (l: Lot | null) => (l?.sale_id ? ((saleRows || []) as { id: number; title: string; starts_at: string | null }[]).find((x) => Number(x.id) === Number(l.sale_id)) || null : null);
+  const unsoldIds = all.filter((l) => ["passed", "cancelled"].includes(l.status)).map((l) => l.id);
+  const { data: noes } = unsoldIds.length ? await supabase.from("seller_decisions").select("lot_id").eq("action", "decline_relist").in("lot_id", unsoldIds) : { data: [] };
+  const saidNo = (id: number) => ((noes || []) as { lot_id: number }[]).some((d) => Number(d.lot_id) === id);
   const count = (st: string[]) => all.filter((l) => st.includes(l.status)).length;
   const { tab: asked } = await searchParams;
   const tab = TABS.find(([k]) => k === asked)?.[0] || (count(["referred", "offers"]) ? "referred" : count(["live"]) ? "active" : count(["sold"]) ? "sold" : count(["draft", "scheduled"]) ? "pending" : "active");
@@ -91,8 +102,24 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
               <div className="fact"><span className="k">{l.status === "live" ? (l.live_state === "waiting" ? "Offered about" : l.live_state === "open" ? "Selling" : "Ends") : "Reserve"}</span><span className="v">{l.status === "live" ? (l.live_state === "open" ? "Now" : dateTime(l.ends_at)) : l.has_reserve ? (l.reserve_met ? "Met" : "Not met") : "None"}</span></div>
             </div>
             {["live", "scheduled"].includes(l.status) && l.has_reserve && <SellerReserve lotId={l.id} currentBid={Number(l.current_bid) || 0} bidCount={l.bid_count} upNow={l.live_state === "open"} />}
-            {l.status === "passed" && <span className="muted">{l.bid_count ? `Passed in at ${money(l.current_bid)}, below your reserve: nothing was sold.` : "Nobody bid this time: nothing was sold."} We&apos;ll call you about offering it at a later auction, with or without a lower reserve.</span>}
-            {l.status === "draft" && <span className="muted">We&apos;re checking your papers and preparing the listing. We&apos;ll text you when it goes live.</span>}
+            {l.status === "passed" && (() => {
+              const again = relistOf(l.id);
+              return (
+                <span className="muted" data-testid="passed-next">{l.not_offered ? "The auction finished before it was offered: nothing was sold." : l.bid_count ? `Passed in at ${money(l.current_bid)}, below your reserve: nothing was sold.` : "Nobody bid this time: nothing was sold."}{" "}
+                  {again && again.status === "draft" ? <>It&apos;s going into the next auction: see <Link className="blue" href="/sell/dashboard?tab=pending">Pending</Link>.</>
+                    : again ? <>It&apos;s back in the live auction: <Link className="blue" href={`/lot/${again.id}`}>see the listing</Link>.</>
+                    : saidNo(l.id) ? "You asked us not to offer it again. It stays yours."
+                    : "We'll call you about offering it at a later auction, with or without a lower reserve."}</span>
+              );
+            })()}
+            {l.status === "draft" && l.relisted_from ? (
+              <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="relist-plan">
+                <b>Going back into auction.</b>
+                <span>It didn&apos;t sell last time, so {relistSellerLine(saleOf(l)?.starts_at).replace(/^We're/, "we're")} Your consultant will call you to agree the reserve: you can lower it. We&apos;ll check your papers, run a fresh PPSR search and set a fresh estimate before it&apos;s listed, and text you when it goes live.</span>
+                <span className="hint" style={{ margin: 0 }}>Don&apos;t want it offered again? Tell us before it&apos;s listed: there&apos;s no fee, and it stays yours.</span>
+                <SellerRelist lotId={l.id} />
+              </div>
+            ) : l.status === "draft" && <span className="muted">We&apos;re checking your papers and preparing the listing. We&apos;ll text you when it goes live.</span>}
             {bids.length > 0 && (
               <details open={l.status === "live"}>
                 <summary style={{ cursor: "pointer", fontWeight: 700 }}>Bids ({bids.length})</summary>

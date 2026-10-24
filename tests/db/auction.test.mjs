@@ -1675,6 +1675,14 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select admin_live_due(${LS}) s`); ok('auction: sold once the reserve was lowered, when its countdown ran out', r.rows?.[0]?.s === 'sold', JSON.stringify(r));
   r = await as('ADM', `select admin_live_due(${LS}) s`); ok('hammer: only once', !r.error && r.rows?.[0]?.s === null, JSON.stringify(r));
 
+  // the auctions after this one: tomorrow's is too soon to relist into, an unpublished one doesn't count
+  r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values
+    ('lo-next', 'Next Thursday live', true, 'live', now() + interval '9 days', 30, 15, 'Pat Gavel'),
+    ('lo-soon', 'Tomorrow live', true, 'live', now() + interval '1 day', 30, 15, 'Pat Gavel'),
+    ('lo-hidden', 'Not published yet', false, 'live', now() + interval '5 days', 30, 15, 'Pat Gavel') returning id, slug`);
+  const NEXT = Number(r.rows?.find((x) => x.slug === 'lo-next')?.id); ok('relist: later live auctions to relist into', NEXT > 0, r.error);
+  await c.query(`update lots set seller_id = '${U.S}' where id in (${E2}, ${E3})`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${E3}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}')`);
   r = await as('ADM', `select admin_live_next(${LS}) id`); ok('auction: the third vehicle', Number(r.rows?.[0]?.id) === E2, JSON.stringify(r));
   r = await as('ADM', `select admin_live_close(${LS}) s`); ok('auction: below the reserve it is passed in, never referred to the seller', r.rows?.[0]?.s === 'passed', JSON.stringify(r));
   r = await as('anon', `select live_message from sales where id = ${LS}`); ok('hammer: the room is told it was passed in', r.rows?.[0]?.live_message === 'Passed in: below the reserve.', JSON.stringify(r.rows));
@@ -1684,8 +1692,15 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select title, body from notifications where user_id = '${U.A}' and title = 'You were the highest bidder on the Live only van'`);
   ok('passed in: the highest bidder is told a consultant will be in touch', r.rows?.length === 1 && /One of our consultants will be in touch/.test(r.rows[0].body) && /don't owe anything/.test(r.rows[0].body), JSON.stringify(r.rows));
   r = await as('service', `select count(*)::int n from notifications where user_id in ('${U.A}', '${U.B}') and title = 'The Live only van was passed in'`); ok('passed in: the other bidders are told nobody owes anything', r.rows?.[0]?.n === 1);
-  r = await as('service', `select to_addr, title, body from outbox where dedupe_key like 'passed-followup:${E2}%' and kind = 'staff'`);
+  r = await as('service', `select id, status, sale_id, live_state, fees, estimate_low, estimate_high, bid_count, p.estimate_basis, p.reserve_price from lots left join lot_private p on p.lot_id = lots.id where relisted_from = ${E2}`);
+  const RL = Number(r.rows?.[0]?.id);
+  ok('relist: passed in, it goes straight into the next live auction far enough ahead (not tomorrow\'s, not an unpublished one), as a draft', r.rows?.length === 1 && r.rows[0].status === 'draft' && Number(r.rows[0].sale_id) === NEXT && r.rows[0].live_state === 'waiting', JSON.stringify(r.rows));
+  ok("relist: it doesn't carry the old auction's fees, bids or estimate (a fresh one, with fresh grounds), but keeps the reserve", r.rows?.[0]?.fees === null && r.rows[0].estimate_low === null && r.rows[0].estimate_high === null && r.rows[0].estimate_basis === null && Number(r.rows[0].reserve_price) === 9500 && r.rows[0].bid_count === 0, JSON.stringify(r.rows));
+  r = await as('service', `select to_addr, title, body, link from outbox where dedupe_key like 'passed-followup:${E2}%' and kind = 'staff'`);
   ok("passed in: the consultant (or the admins) gets the highest bidder's details to follow up", (r.rows || []).length >= 1 && r.rows.every((x) => /0411111111/.test(x.body) && /below the seller's reserve of \$9,500/.test(x.body) && /Nothing can be sold after the auction/.test(x.body)), JSON.stringify(r.rows));
+  ok('relist: and the relist, with what to do before it goes live', (r.rows || []).length >= 1 && r.rows.every((x) => x.body.includes(`relisted as lot ${RL} (a draft) for Next Thursday live`) && /fresh estimate/.test(x.body) && /fresh PPSR search/.test(x.body) && x.link === `/admin/lots/${RL}`), JSON.stringify(r.rows));
+  r = await as('service', `select body from outbox where dedupe_key like 'seller-passed:${E2}%' limit 1`);
+  ok("relist: the seller hears it's going into the next live auction, and that they can say no for free", /It was passed in at \$\d/.test(r.rows?.[0]?.body || '') && /We're offering it again in our live auction on/.test(r.rows[0].body) && /there's no fee/.test(r.rows[0].body), r.rows?.[0]?.body);
   r = await as('A', `select make_offer(${E2}, 9400)`); ok('live only: no offers after the auction', r.error?.includes('offers_closed'), r.error);
   r = await as('ADM', `select admin_accept(${E2}, null)`); ok("live only: staff can't accept a bid after the auction", r.error?.includes('live_only'), r.error);
   r = await as('S', `select seller_decide(${E4}, 'accept_referral', null)`); ok("live only: sellers can't accept a bid after the auction", r.error?.includes('live_only'), r.error);
@@ -1697,13 +1712,39 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select l.status, l.live_state, s.live_status from lots l join sales s on s.id = l.sale_id where l.id = ${E3}`);
   ok("auction: what wasn't offered is passed in, not sold on its early bids", r.rows?.[0]?.status === 'passed' && r.rows[0].live_state === 'closed' && r.rows[0].live_status === 'ended', JSON.stringify(r.rows));
   r = await as('service', `select count(*)::int n from notifications where user_id = '${U.A}' and title = 'The Live only hatch wasn''t offered'`); ok("auction: its early bidders are told", r.rows?.[0]?.n === 1);
+  r = await as('service', `select status, sale_id, not_offered, (select not_offered from lots where id = ${E3}) was from lots where relisted_from = ${E3}`);
+  ok("relist: what wasn't offered is relisted too, but not into an auction after the seller's authority ends", r.rows?.length === 1 && r.rows[0].status === 'draft' && r.rows[0].sale_id === null, JSON.stringify(r.rows));
+  ok("passed in: a vehicle not offered says so (and its relist starts afresh)", r.rows?.[0]?.was === true && r.rows[0].not_offered === false, JSON.stringify(r.rows));
+  r = await as('service', `select body from outbox where dedupe_key like 'passed-followup:${E3}%' limit 1`);
+  ok("relist: the consultant hears it wasn't offered, and when the seller's authority ends", /wasn't offered before the auction finished/.test(r.rows?.[0]?.body || '') && /not yet in an auction/.test(r.rows[0].body) && /authority to sell ends on/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select body from outbox where dedupe_key like 'seller-not-offered:${E3}%' limit 1`);
+  ok("relist: and the seller that it's going into the next auction (date to come)", /we'll tell you the date/.test(r.rows?.[0]?.body || ''), r.rows?.[0]?.body);
   await as('service', `select queue_status_notices()`);
   r = await as('service', `select count(*)::int n from notifications where user_id = '${U.A}' and title = 'The Live only hatch was passed in'`); ok("auction: and aren't told twice", r.rows?.[0]?.n === 0);
 
-  // relisting a vehicle that was passed in, for a later auction
-  r = await as('ADM', `select admin_relist(${E2}) id`); const RL = Number(r.rows?.[0]?.id); ok('relist: a fresh draft', RL > 0, r.error);
-  r = await as('service', `select status, sale_id, live_state, fees, estimate_low, estimate_high, bid_count, p.estimate_basis, p.reserve_price from lots left join lot_private p on p.lot_id = lots.id where id = ${RL}`);
-  ok("relist: it doesn't carry the old auction, its place in it, its fees or its estimate (a fresh one, with fresh grounds)", r.rows?.[0]?.status === 'draft' && r.rows[0].sale_id === null && r.rows[0].live_state === null && r.rows[0].fees === null && r.rows[0].estimate_low === null && r.rows[0].estimate_high === null && r.rows[0].estimate_basis === null && Number(r.rows[0].reserve_price) === 9500 && r.rows[0].bid_count === 0, JSON.stringify(r.rows));
+  // the seller doesn't want it offered again: free while the relist is a draft
+  r = await as('A', `select seller_decline_relist(${RL})`); ok("relist: only the seller can say no", r.error?.includes('forbidden'), r.error);
+  r = await as('anon', `select seller_decline_relist(${RL})`); ok("relist: not without signing in", !!r.error);
+  r = await as('S', `select seller_decline_relist(${RL}) id`); ok('relist: the seller says no', Number(r.rows?.[0]?.id) === E2, r.error);
+  r = await as('service', `select (select status from lots where id = ${RL}) st, (select string_agg(action || '/' || via, ',') from seller_decisions where lot_id = ${E2}) d,
+    (select count(*)::int from outbox where dedupe_key like 'relist-declined:${E2}%') m`);
+  ok('relist: the draft is cancelled, the decision recorded and the consultant told', r.rows?.[0]?.st === 'cancelled' && r.rows[0].d === 'decline_relist/portal' && r.rows[0].m >= 1, JSON.stringify(r.rows));
+  r = await as('service', `select relist_auto(${E2}) p`); ok('relist: never again by itself once the seller has said no', r.rows?.[0]?.p === null, JSON.stringify(r.rows));
+  // the seller changes their mind: staff relist it by hand, and the copy is a fresh draft for a later auction
+  r = await as('A', `select admin_relist(${E2})`); ok('relist: only staff relist by hand', r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_relist(${E2}) id`); const RL2 = Number(r.rows?.[0]?.id); ok('relist: a fresh draft', RL2 > 0 && RL2 !== RL, r.error);
+  r = await as('ADM', `select admin_relist(${E2})`); ok('relist: only one at a time', r.error?.includes('already_relisted'), r.error);
+  r = await as('service', `select status, sale_id, live_state, fees, estimate_low, bid_count from lots where id = ${RL2}`);
+  ok("relist: by hand, it isn't in an auction until staff choose one", r.rows?.[0]?.status === 'draft' && r.rows[0].sale_id === null && r.rows[0].live_state === null && r.rows[0].fees === null && r.rows[0].estimate_low === null && r.rows[0].bid_count === 0, JSON.stringify(r.rows));
+  r = await as('A', `select admin_decline_relist(${RL2})`); ok('relist: only staff record a no on the seller\'s behalf', r.error?.includes('forbidden'), r.error);
+  // listed again: everyone who bid or watched hears when, and its watchers keep watching it
+  await as('ADM', `update lots set sale_id = ${NEXT}, estimate_low = 9500, estimate_high = 11000 where id = ${RL2}`);
+  await as('ADM', `update lot_private set estimate_basis = 'Passed in at $9,000 with a $9,500 reserve; two similar vans sold for $9,800 and $10,400' where lot_id = ${RL2}`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${RL2}`); ok('relist: listed in the next auction', !r.error, r.error);
+  r = await as('service', `select user_id, body from notifications where title = 'Back for auction: Live only van' order by user_id`);
+  ok('relist: its bidders and watchers hear it\'s back, with the live auction\'s day', r.rows?.length === 3 && [U.A, U.B, U.X].every((u) => r.rows.some((x) => x.user_id === u)) && r.rows.every((x) => /back, in our live auction on/.test(x.body) && /Leave an early bid now/.test(x.body)), JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from watchlist where user_id = '${U.X}' and lot_id = ${RL2}`); ok('relist: its watchers keep watching the new listing', r.rows?.[0]?.n === 1);
+  r = await as('S', `select seller_decline_relist(${E2})`); ok("relist: once it's listed, saying no is a withdrawal (call us)", r.error?.includes('relist_listed'), r.error);
 
   // the certificate a state needs to transfer a registered vehicle
   r = await as('service', `select roadworthy_needed('QLD', 2015, 'cars', null) q, roadworthy_needed('NSW', 2005, 'cars', null) n, roadworthy_needed('VIC', 2020, 'trailers', 2000) vt,
@@ -1716,10 +1757,21 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   for (const fn of [`buy_now_core(${E3})`, `make_offer_core(${E2}, 1)`, `seller_decide_core(${E4}, 'accept_referral', null)`, `admin_accept_core(${E2}, null)`,
     `admin_offer_next_bidder_core(${E2}, 24, false)`, `respond_second_chance_core(gen_random_uuid(), true)`, `remove_bids_core(${E3}, '${U.A}', 'x', '${U.A}', false)`,
-    `set_reserve_core(${E3}, 1, 'portal')`, `live_pass_unoffered(${LS})`, `queue_passed_followup(${E2})`]) {
+    `set_reserve_core(${E3}, 1, 'portal')`, `live_pass_unoffered(${LS})`, `queue_passed_followup(${E2})`, `relist_core(${E2})`, `relist_auto(${E2})`,
+    `relist_decline_core(${E2}, 'portal')`, `relist_seller_text(null)`, `queue_staff_email(${E2}, 'x', 'x', 'x', 'x')`]) {
     r = await as('A', `select ${fn}`); ok(`live only: members can't call ${fn.split('(')[0]}`, !!r.error, r.error);
   }
   await c.query(`update settings set value = value || '{"require_checks": true}' where key = 'selling'`);
+  const E5 = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
+  await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, estimate_low, estimate_high) values (${E5}, 'draft', 'Live only sedan', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', 5000, 6000)`);
+  await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis) values (${E5}, 4000, 'Recent sales of the same model and year on our results page')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${E5}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}')`);
+  await as('ADM', `update lots set sale_id = ${NEXT} where id = ${E5}`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${E5}`);
+  ok("authority: a vehicle can't go into an auction after the seller's 90-day authority ends", r.error?.includes('authority to sell ends on') && r.error?.includes('sign the agreement again'), r.error);
+  await c.query(`update seller_agreements set signed_at = now() - interval '10 days' where lot_id = ${E5}`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${E5}`);
+  ok('authority: inside it, the other checks carry on', !!r.error && !r.error.includes('authority to sell'), r.error);
 }
 
 // ---------- the seed as it really runs (live-only on): its sample vehicles wait in a sample live auction ----------

@@ -4,7 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { LotEditor, type SellerInfo } from "@/components/LotEditor";
 import { AdminAction } from "@/components/AdminAction";
-import { money } from "@/lib/format";
+import { dateTime, money } from "@/lib/format";
+import { relistSteps } from "@/lib/relist";
 import { env } from "@/lib/env";
 
 export default async function EditLot({ params }: { params: Promise<{ id: string }> }) {
@@ -27,13 +28,24 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
   const sellingSet = settingRows.find((r) => r.key === "selling") || null;
   // every vehicle is sold under the hammer: no offers to the next bidder (the database refuses them too)
   const liveOnly = settingRows.find((r) => r.key === "auction")?.value?.live_only === true;
-  const [{ data: corrections }, { data: maxes }, { data: cancelled }, { data: offers }, { data: relisted }] = await Promise.all([
+  const [{ data: corrections }, { data: maxes }, { data: cancelled }, { data: offers }, { data: relisted }, { data: saidNo }, { data: from }] = await Promise.all([
     db.from("lot_corrections").select("label, before, after, created_at").eq("lot_id", lotId).order("created_at", { ascending: false }).limit(50),
     lot.status === "live" ? db.from("max_bids").select("bidder_id, max_amount, first_set_at, profiles(first_name, last_name, mobile)").eq("lot_id", lotId).order("max_amount", { ascending: false }) : Promise.resolve({ data: [] }),
     db.from("invoices").select("id, ref").eq("lot_id", lotId).eq("status", "cancelled").limit(1),
     db.from("second_chance_offers").select("id, amount, status, expires_at, created_at, profiles!second_chance_offers_user_id_fkey(first_name, last_name)").eq("lot_id", lotId).order("created_at", { ascending: false }),
-    db.from("lots").select("id, status").eq("relisted_from", lotId).neq("status", "cancelled").limit(1),
+    db.from("lots").select("id, status, sale_id").eq("relisted_from", lotId).neq("status", "cancelled").order("created_at", { ascending: false }).limit(1),
+    db.from("seller_decisions").select("via, created_at").eq("lot_id", lotId).eq("action", "decline_relist").limit(1),
+    // a relist draft: the vehicle it came from (where bidding stopped, its reserve) and the auction it's going into
+    lot.relisted_from ? db.from("lots").select("id, title, current_bid, bid_count, not_offered").eq("id", lot.relisted_from).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+  const { data: relistSale } = lot.relisted_from && lot.sale_id ? await db.from("sales").select("title, starts_at").eq("id", lot.sale_id).maybeSingle() : { data: null };
+  // (lots and sales are linked both ways, so each is read on its own rather than embedded)
+  const again = (relisted || [])[0] as { id: number; status: string; sale_id: number | null } | undefined;
+  const { data: againSale } = again?.sale_id ? await db.from("sales").select("title, starts_at").eq("id", again.sale_id).maybeSingle() : { data: null };
+  const no = (saidNo || [])[0] as { via: string; created_at: string } | undefined;
+  const origin = from as { id: number; title: string; current_bid: number; bid_count: number; not_offered: boolean } | null;
+  const { data: originPriv } = origin ? await db.from("lot_private").select("reserve_price").eq("lot_id", origin.id).maybeSingle() : { data: null };
+  const originReserve = (originPriv as { reserve_price: number | null } | null)?.reserve_price ?? null;
   type Who = { first_name: string | null; last_name: string | null; mobile?: string | null } | null;
   const name = (p: Who) => (p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() : "Member");
   const agreement = agreements?.[0] || null;
@@ -57,6 +69,20 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
   };
   return (
     <>
+      {lot.relisted_from && lot.status === "draft" && (
+        <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="admin-relist">
+          <h2 style={{ fontSize: 22, fontWeight: 800 }}>Going back into auction</h2>
+          <p className="hint" style={{ margin: 0 }}>Relisted from <Link className="blue" href={`/admin/lots/${lot.relisted_from}`}>lot {lot.relisted_from}</Link>
+            {origin ? <>, which {origin.not_offered ? "wasn't offered before the auction finished" : origin.bid_count ? `was passed in at ${money(origin.current_bid)}` : "had no bids"}{originReserve != null ? ` (reserve ${money(originReserve)})` : ""}</> : null}.
+            Nothing is sold after an auction, in any state, so it goes into the next one. Before it can go live:</p>
+          <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 15 }}>
+            {relistSteps({ state: lot.state, regoState: lot.rego_state, registration: lot.registration, year: lot.year, category: lot.category, gvm: lot.gvm_kg,
+              saleTitle: relistSale?.title ?? null, saleAt: relistSale?.starts_at ?? null, signedAt: agreement?.signed_at ?? null, passedAt: origin?.bid_count && !origin.not_offered ? Number(origin.current_bid) : null, notOffered: !!origin?.not_offered })
+              .map((st, i) => <li key={i} style={st.warn ? { color: "var(--urgent)", fontWeight: 600 } : undefined}>{st.text}</li>)}
+          </ul>
+          <span className="pill-row"><AdminAction action="relist-decline" payload={{ lotId }} label="The seller doesn't want it offered again" confirmText="Cancel this relist? The seller keeps the vehicle; there's no fee while it's a draft." tone="soft" /></span>
+        </div>
+      )}
       <LotEditor lot={lot} priv={priv} photos={photos || []} flaws={flaws || []} seller={seller} videos={videos || []} />
       {(lot.status === "live" && (maxes || []).length > 0) && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="admin-bidders">
@@ -90,8 +116,21 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
             const p = (Array.isArray(o.profiles) ? o.profiles[0] : o.profiles) as Who;
             return <span key={o.id}>Offer to {name(p)} at {money(o.amount)}: <b>{o.status === "pending" && new Date(o.expires_at) < new Date() ? "expired" : o.status}</b> <span className="muted">(until {new Date(o.expires_at).toLocaleString("en-AU")})</span></span>;
           })}
-          {(relisted || []).length ? <span>Relisted as <Link className="blue" href={`/admin/lots/${relisted![0].id}`}>lot {relisted![0].id}</Link> ({relisted![0].status}).</span>
-            : <span className="pill-row"><AdminAction action="relist" payload={{ lotId }} label="Relist as a new draft" confirmText="Copy it to a new draft? Re-run the PPSR and the listing checks before publishing." tone="dark" /></span>}
+          {again ? (
+            <>
+              <span data-testid="admin-relisted">Relisted as <Link className="blue" href={`/admin/lots/${again.id}`}>lot {again.id}</Link> ({again.status === "draft" ? "a draft" : again.status}){againSale ? <> for {againSale.title} on {dateTime(againSale.starts_at)}</> : again.status === "draft" ? ", not in an auction yet" : ""}.</span>
+              {again.status === "draft" && <span className="pill-row"><AdminAction action="relist-decline" payload={{ lotId }} label="The seller doesn't want it offered again" confirmText="Cancel the relist? The seller keeps the vehicle; there's no fee while it's a draft." tone="soft" /></span>}
+            </>
+          ) : (
+            <>
+              {no ? <span data-testid="admin-relist-no">The seller doesn&apos;t want it offered again ({no.via === "admin" ? "recorded by staff" : "from their seller dashboard"}, {dateTime(no.created_at)}). If they change their mind, relist it.</span>
+                : <span className="hint" style={{ margin: 0 }}>Nothing is sold after the auction. Relist it for the next one once you&apos;ve spoken to the seller.</span>}
+              <span className="pill-row">
+                <AdminAction action="relist" payload={{ lotId }} label="Relist as a new draft" confirmText="Copy it to a new draft? Re-run the PPSR and the listing checks before publishing." tone="dark" />
+                {!no && <AdminAction action="relist-decline" payload={{ lotId }} label="The seller doesn't want it offered again" confirmText="Record that the seller doesn't want it offered again?" tone="soft" />}
+              </span>
+            </>
+          )}
         </div>
       )}
       {(corrections || []).length > 0 && (
