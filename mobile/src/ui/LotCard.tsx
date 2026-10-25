@@ -6,6 +6,7 @@ import { countdown, dayShort, money } from "@/lib/format";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { premiumLabel } from "@/lib/transport";
+import { coolingOffAd } from "@/lib/afterAuction";
 import { useSession } from "~/lib/session";
 import { CAT, specLine } from "@/lib/vehicles";
 import type { AppLot } from "~/lib/types";
@@ -35,7 +36,8 @@ export const LotCard = memo(function LotCard({ lot, watched, onWatch, compact }:
   const upNow = lot.status === "live" && lot.live_state === "open";
   const showEstimate = hasEstimate(lot) && lot.status !== "sold" && !upNow;
   const tender = lot.method === "tender" && lot.status === "live";
-  const terms = [lot.status !== "sold" && fees ? premiumLabel(fees) : null, lot.statutory_warranty === false ? "No statutory warranty" : lot.statutory_warranty ? "Statutory warranty applies" : null].filter(Boolean).join(" · ");
+  const terms = [lot.status !== "sold" && fees ? premiumLabel(fees) : null, lot.statutory_warranty === false ? "No statutory warranty" : lot.statutory_warranty ? "Statutory warranty applies" : null,
+    lot.status !== "sold" ? coolingOffAd(lot.state) : null].filter(Boolean).join(" · ");
   const open = () => router.push(`/lot/${lot.id}`);
   return (
     <Pressable testID={`lot-${lot.id}`} accessibilityRole="button" accessibilityLabel={`${lot.title}, ${lot.bid_count ? "current bid" : "starting at"} ${money(price)}`} onPress={open} style={{ gap: 12 }}>
@@ -74,7 +76,7 @@ export const LotCard = memo(function LotCard({ lot, watched, onWatch, compact }:
           </View>
         )}
         {!tender && lot.status !== "sold" ? <T v="small">{lot.bid_count ? `${lot.bid_count} ${lot.live_state === "waiting" ? "early " : ""}bid${lot.bid_count === 1 ? "" : "s"}` : lot.live_state === "waiting" ? "Leave an early bid" : "No bids yet"}</T> : null}
-        {terms ? <T v="small" style={{ fontSize: 12, lineHeight: 16 }}>{terms}</T> : null}
+        {terms ? <T v="small" style={{ fontSize: 12, lineHeight: 16 }} testID={`card-terms-${lot.id}`}>{terms}</T> : null}
       </View>
     </Pressable>
   );

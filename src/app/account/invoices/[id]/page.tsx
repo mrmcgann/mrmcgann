@@ -34,6 +34,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     getPartnersCached(),
     supabase.rpc("invoice_transport", { p_invoice: inv.id }),
   ]);
+  // bought after the auction (migration 26): the signed contract that goes with this invoice
+  const { data: afterOffer } = inv.sold_via === "after_auction"
+    ? await supabase.from("second_chance_offers").select("id").eq("invoice_id", inv.id).maybeSingle() : { data: null };
   const job = ((jobRows || []) as BuyerTransport[])[0] || null;
   const transporter = partners.find((p) => p.kind === "transport" && p.accepts_leads) || null;
   const hasWarranty = partners.some((p) => p.kind === "warranty");
@@ -56,7 +59,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const canClaim = paidCard && !claimOpen && (!inv.collected_at || (inv.claim_until && new Date(inv.claim_until).getTime() > Date.now()));
   const gstTotal = Number(inv.gst) + Math.round((Number(inv.admin_fee) / 11) * 100) / 100 + Number(inv.vehicle_gst || 0);
   const rows: [string, number][] = [
-    [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : "Winning bid", inv.price],
+    [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : inv.sold_via === "after_auction" ? "Agreed price (after the auction)" : "Winning bid", inv.price],
     [Number(inv.transport) > 0 ? `Buyer's premium (includes ${money(Number(inv.transport))} transport to our depot)` : "Buyer's premium", inv.premium], ["GST on premium", inv.gst], ["Admin fee (incl. GST)", inv.admin_fee],
     ...(Number(inv.surcharge) > 0 ? [["Card surcharge", inv.surcharge] as [string, number]] : []),
     ...(Number(inv.storage_fee) > 0 ? [["Storage", Number(inv.storage_fee)] as [string, number]] : []),
@@ -81,7 +84,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <div className="tot"><span>Total</span><span>{money(Number(inv.total) + Number(inv.storage_fee || 0), true)}</span></div>
             <div><span className="muted">Includes GST of</span><span>{money(gstTotal, true)}</span></div>
           </div>
-          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No surcharge.</span>
+          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller{inv.sold_via === "after_auction" ? ", after the auction, by agreement" : ""}. No surcharge.</span>
+          {afterOffer?.id && <a className="blue no-print" href={`/api/offers/${afterOffer.id}/contract`} target="_blank" rel="noreferrer" style={{ fontWeight: 700, fontSize: 15 }} data-testid="invoice-contract">Your signed contract of sale ›</a>}
         </div>
 
         {["pending_charge", "charging"].includes(inv.status) && <div className="notice">We&apos;re taking payment now. This page updates within a minute.</div>}

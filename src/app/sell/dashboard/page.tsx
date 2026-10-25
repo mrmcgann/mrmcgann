@@ -13,6 +13,7 @@ import { rulesFor } from "@/lib/transfer";
 import { SellerTransferDone } from "./SellerTransfer";
 import { SellerReserve } from "./SellerReserve";
 import { SellerRelist } from "./SellerRelist";
+import { SellerAfter, type SellerAfterView } from "./SellerAfter";
 import { relistSellerLine } from "@/lib/relist";
 import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
 
@@ -57,15 +58,17 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
   const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at, kind").eq("seller_id", user.id);
   const { data: vids } = lots.length ? await supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : { data: [] };
   const extra = await Promise.all(lots.map(async (l) => {
-    const [offers, coll, watchers, bids, tr, pk] = await Promise.all([
+    const [offers, coll, watchers, bids, tr, pk, af] = await Promise.all([
       ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       supabase.rpc("lot_watchers", { p_lot: l.id }),
       HAS_BIDS.includes(l.status) && l.bid_count > 0 ? supabase.rpc("seller_lot_bids", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       l.status === "sold" ? supabase.rpc("seller_lot_transfer", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       l.status === "sold" ? supabase.rpc("seller_lot_transport", { p_lot: l.id }) : Promise.resolve({ data: [] }),
+      // selling it after the auction, where its state allows it (migration 26)
+      l.status === "passed" ? supabase.rpc("seller_lot_after", { p_lot: l.id }) : Promise.resolve({ data: null }),
     ]);
-    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as Transfer[])[0] || null, pickup: ((pk.data || []) as SellerTransport[])[0] || null };
+    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as Transfer[])[0] || null, pickup: ((pk.data || []) as SellerTransport[])[0] || null, after: (af.data || null) as SellerAfterView | null };
   }));
   const payoutFor = (id: number) => ((payouts || []) as Payout[]).find((p) => p.lot_id === id && p.kind !== "forfeit");
   // A buyer who didn't pay forfeits their deposit or a cancellation fee; the seller gets half (seller agreement, section 9).
@@ -83,7 +86,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
       {all.length > 0 && lots.length === 0 && <div className="empty"><b>No {TABS.find(([k]) => k === tab)![1].toLowerCase()} listings.</b></div>}
       {all.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>Nothing listed yet.</b><span className="muted">Request a free appraisal and we&apos;ll send you a link to set up your listing.</span><Link className="btn btn-blue" href="/sell">Sell a vehicle</Link></div>}
       {lots.map((l, i) => {
-        const { offers, coll, watchers, bids, videos, transfer, pickup } = extra[i];
+        const { offers, coll, watchers, bids, videos, transfer, pickup, after } = extra[i];
         const rules = rulesFor(transfer?.rego_state || l.rego_state || l.state);
         const p = payoutFor(l.id);
         const [label, colour] = STATUS[l.status] || [l.status, "var(--panel)"];
@@ -112,6 +115,8 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                     : "We'll call you about offering it at a later auction, with or without a lower reserve."}</span>
               );
             })()}
+            {l.status === "passed" && after && (after.open || after.offer?.status === "cooling_off") && <SellerAfter lotId={l.id} view={after} />}
+            {l.status === "sold" && l.sold_via === "after_auction" && <span className="muted" data-testid="sold-after">Sold after the auction, at the price you agreed.</span>}
             {l.status === "draft" && l.relisted_from ? (
               <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="relist-plan">
                 <b>Going back into auction.</b>

@@ -58,7 +58,7 @@ ok('deposit: half of a kept deposit to the seller (both documents)', /half of it
 ok('business day is defined', /“Business day” means/.test(terms));
 ok('no storage before the transfer or when the delay is ours or the seller’s', /none before the registration transfer is complete/.test(terms) && /caused by us or the seller/.test(terms));
 ok('title passes on payment; the transfer is the registration', /Ownership \(title\) passes to you when we receive full payment/.test(terms) && /Registration transfer:/.test(terms));
-ok('help: passed in below the reserve, never sold afterwards', /We don’t sell it to anyone afterwards/.test(help) && /passed in/.test(help));
+ok('help: passed in below the reserve; sold afterwards only by agreement, where the state allows it', /the seller may agree to sell it after the auction, and we may send you a written offer to sign, with no obligation/.test(help) && /passed in/.test(help));
 ok('help and summary agree on risk', /until your collection window ends/.test(terms) && /from the end of your collection window/.test(help));
 ok('claims: longer window for title-type problems', /within 30 days of handover/.test(terms));
 ok('seller: can pursue a non-paying buyer after 30 days', /you may pursue them yourself/.test(JSON.stringify(SELLER_AGREEMENT)));
@@ -120,13 +120,13 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
 ok('live: the terms explain live auctions, with an anchor the room links to', terms.includes('id=\\"t-live\\"') && /auctioneer decides/.test(terms) && /floor bids/.test(terms), '');
 ok('live: the page counts; the room shows the photos and the seller’s video, no stream', /The price and countdown on the page are what count; delays in your own connection are your risk/.test(terms) && /the room shows its photos and the seller’s walkaround video/.test(terms) && !/stream/i.test(terms));
 ok('live: the auction’s conditions are read and accepted on entering the room, and recorded', /you read the auction’s conditions \(the key points of these terms\) and accept them once, on entering; we record that you did/.test(terms));
-ok('live: the passed-in highest bidder hears from a consultant, and nothing is sold afterwards', /If you were the highest bidder, one of our consultants will be in touch/.test(terms) && /a vehicle is never sold except under the hammer/.test(terms));
+ok('live: the passed-in highest bidder hears from a consultant; in the auction, only the hammer sells', /If you were the highest bidder, one of our consultants will be in touch/.test(terms) && /a vehicle offered in the live auction is sold only under the hammer, or not at all/.test(terms));
 ok('live: a vehicle not offered before the sale finishes is passed in, not sold', /that vehicle is passed in, not sold: its early bids lapse/.test(terms));
 // live auctions only: every sale under the hammer, an estimate on every listing, bids withdrawable until the hammer falls
 {
   const tt = JSON.stringify(fillLegal({ TERMS, HELP, SELLER_AGREEMENT }, {}));
   ok('live only: no tenders, Buy Now, offers or referrals anywhere', !/\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid/i.test(tt), (tt.match(/.{40}(\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid).{40}/i) || [''])[0]);
-  ok('live only: every vehicle in a live auction, sold under the hammer', /Every vehicle is sold in a <b>live online auction<\/b>/.test(terms) && /a vehicle is never sold except under the hammer/.test(terms) && /never sell your vehicle by private treaty/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('live only: every vehicle in a live auction, sold under the hammer (after it, only by the seller\'s written agreement)', /Every vehicle is sold in a <b>live online auction<\/b>/.test(terms) && /a vehicle offered in the live auction is sold only under the hammer, or not at all/.test(terms) && /only at a price you agree to in writing at the time/.test(JSON.stringify(SELLER_AGREEMENT)));
   ok('live only: below the reserve it is passed in, nobody owes anything', /the vehicle is <b>passed in<\/b>: it isn’t sold, and neither you nor the seller owes anything/.test(terms));
   ok('live only: a bid can be withdrawn until the hammer falls (terms and help)', /You can withdraw a bid until the hammer falls/.test(terms) && /Once the hammer falls on your bid, the sale is made/.test(terms) && /Can I withdraw a bid\?/.test(help) && !/Bids can’t be withdrawn/.test(tt));
   ok('estimate: what it is, its basis kept, the reserve never above the low end, at most 25% wide', /The auction estimate is our opinion, made with reasonable care/.test(terms) && /we keep a written record of that basis/.test(terms) && /reserve is never above the estimate’s low end/.test(terms) && /never more than 25% wide/.test(terms));
@@ -146,10 +146,26 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   // a vehicle that didn't sell goes into the next live auction for its state (never sold afterwards, in any state), unless
   // the seller says no: free until it's listed; the state's rules and the 90-day authority checked for the new auction
   const sa = JSON.stringify(SELLER_AGREEMENT);
-  ok('relist: offered again at the next live auction, unless the seller says no', /we offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /We never sell it after the auction, in any state/.test(sa) && /offer it again at our next live auction for your state, while your authority lasts/.test(sa));
+  ok('relist: offered again at the next live auction, unless the seller says no', /we offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /If it isn’t sold, we offer it again at our next live auction for your state, while your authority lasts/.test(sa));
   ok('relist: saying no is free until it is listed; after that it is a withdrawal', /tell us before it’s listed, from your seller dashboard or by calling us. There’s no fee, and the vehicle stays yours/.test(sa) && /taking it out is a withdrawal \(section 8\)/.test(sa));
   ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /Victorian roadworthy certificate must be less than 30 days old/.test(sa) && /Queensland safety certificate no more than 2 months old/.test(sa) && /you sign this agreement again for it/.test(sa));
-  ok('relist: help for sellers and buyers says the same', /We don’t sell it to anyone afterwards, in any state: we offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
+  ok('relist: help for sellers and buyers says the same', /Otherwise we offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
+}
+{
+  // selling after the auction (migration 26): by the seller's written agreement, a written offer the buyer signs, the
+  // state's cooling-off (longer) and warranty, never in Victoria; the seller's price is the floor and we carry the warranty
+  const sa = JSON.stringify(SELLER_AGREEMENT);
+  ok('after: the terms explain it, with an anchor the offer page and Help link to', terms.includes('id=\\"t-after\\"') && /it isn’t a sale by auction/.test(terms) && /You accept it by signing on the offer page/.test(terms));
+  ok('after: the cooling-off a business day longer than the law, free, nothing taken until it ends', /a business day longer than the law gives/.test(terms) && /New South Wales until the end of the second business day after you sign, South Australia the third, the ACT the fourth/.test(terms) && /Nothing is invoiced or taken until it ends/.test(terms));
+  ok('after: never in Victoria; Tasmania and the NT only once licensed', /We never sell a vehicle after the auction in Victoria/.test(terms) && /in Tasmania and the Northern Territory only once we hold the licence that covers it/.test(terms) && /never in Victoria/.test(sa));
+  ok('after: consumer rights: title always; quality can apply (business), may not (private); never excluded', /A vehicle sold after the auction<\/b> \(section 6\) isn’t sold by auction/.test(terms) && /they may not apply to a private owner’s. Any guarantee that does apply can’t be excluded/.test(terms));
+  ok('after: the statutory warranty is stated before signing, and we meet it', /the offer and the contract say so, with its period, before you sign, and we meet it for you as the dealer/.test(terms));
+  ok('after: the seller agrees the price in writing, never less, can change their mind; repairs never charged to them', /only at a price you agree to in writing at the time/.test(sa) && /we never sell it for less/.test(sa) && /you can change your mind until a buyer signs/.test(sa) && /never charge you for those repairs/.test(sa));
+  ok('after: the relist waits while an offer is open', /It can’t be listed again while an offer to sell it after the auction is open/.test(sa));
+  ok('after: Western Australia\'s prescribed consignment contract', /Schedule 4 terms of the Motor Vehicle Dealers \(Sales\) Regulations 1974/.test(sa));
+  ok('after: Help answers buyers and sellers', /Can I buy a vehicle after the auction\?/.test(help) && /cancel free on the offer page/.test(help) && /accept the highest bid, or name the lowest price you’d take, on your seller dashboard/.test(help));
+  ok('after: the short version and the cooling-off line agree', /we may send you a written offer to sign \(section 6\)/.test(terms) && /A vehicle bought after the auction gets the cooling-off period your state gives a buyer from a dealer/.test(terms));
+  ok('after: new versions of both documents', /This version: 26 October 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 26 October 2026');
 }
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

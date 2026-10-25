@@ -15,7 +15,7 @@ const projectId = process.env.EAS_PROJECT_ID || EAS_PROJECT_ID || undefined;
 const version = "1.0.0";
 
 // Website paths the app opens instead of the browser (universal links / app links).
-const APP_PATHS = ["/lot", "/live", "/auctions", "/watchlist", "/account", "/sell/dashboard", "/handover", "/join", "/signin"];
+const APP_PATHS = ["/lot", "/live", "/auctions", "/watchlist", "/account", "/sell/dashboard", "/handover", "/offers", "/join", "/signin"];
 
 const config: ExpoConfig = {
   name: "Tyrebiter",

@@ -34,7 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   const body = await req.clone().json().catch(() => ({}));
   const res = await run(req, action, s);
   const t = body as Record<string, unknown>;
-  const target = ["userId", "invoiceId", "lotId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId", "jobId"]
+  const target = ["userId", "invoiceId", "lotId", "offerId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId", "jobId"]
     .map((k) => (t[k] !== undefined && t[k] !== null ? `${k}:${String(t[k]).slice(0, 80)}` : null)).find(Boolean) || null;
   await audit(s.user?.id, action, target, body, res.ok ? "ok" : String(res.status));
   return res;
@@ -521,6 +521,27 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (error) return fail(friendly(error.message));
       return done({ offer: data });
     }
+    // ---- Selling after the auction (migration 26): the seller's written agreement, the offer, withdrawing it ----
+    case "after-seller-agreed": {
+      const { data, error } = await supabase.rpc("admin_seller_agreed", { p_lot: Number(b.lotId), p_amount: Math.round(Number(b.amount)), p_note: String(b.note || "").slice(0, 500) });
+      if (error) return fail(friendly(error.message));
+      return done({ id: data });
+    }
+    case "after-offer": {
+      const docs = (Array.isArray(b.docs) ? b.docs : []).slice(0, 10).map((d: { name?: unknown; path?: unknown }) => ({ name: String(d?.name || "").slice(0, 160), path: String(d?.path || "") }));
+      const { data, error } = await supabase.rpc("admin_after_offer", {
+        p_lot: Number(b.lotId), p_user: String(b.userId || ""), p_amount: Math.round(Number(b.amount)), p_hours: Math.round(Number(b.hours)) || 24,
+        p_warranty: b.warranty === true ? true : b.warranty === false ? false : null, p_warranty_text: String(b.warrantyText || "").slice(0, 400) || null,
+        p_docs: docs, p_consultant: String(b.consultant || `${profile.first_name || ""} ${profile.last_name || ""}`).trim().slice(0, 120),
+      });
+      if (error) return fail(friendly(error.message));
+      return done({ offer: data });
+    }
+    case "after-withdraw": {
+      const { error } = await supabase.rpc("admin_after_withdraw", { p_offer: String(b.offerId || ""), p_reason: String(b.reason || "").slice(0, 300) });
+      if (error) return fail(friendly(error.message));
+      return done();
+    }
     case "audit": {
       const checks = (b.checks && typeof b.checks === "object" ? b.checks : {}) as Record<string, boolean>;
       const okAll = Object.values(checks).every(Boolean);
@@ -699,6 +720,11 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (b.key === "fees" && b.value?.deposit_rate !== undefined && !(Number(b.value.deposit_rate) >= 0.02 && Number(b.value.deposit_rate) <= 0.5)) return fail("Keep the bidding deposit between 0.02 (2%) and 0.5 (50%) of the bid limit.");
       if (b.key === "fees" && b.value?.deposit_min !== undefined && !(Number(b.value.deposit_min) >= 50)) return fail("The minimum bidding deposit must be at least $50.");
       if (b.key === "fees" && b.value?.deposit_cap !== undefined && Number(b.value.deposit_cap) !== 0 && !(Number(b.value.deposit_cap) >= Number(b.value.deposit_min ?? 0))) return fail("The no-limit deposit must be 0 (no cap) or at least the minimum deposit.");
+      // selling after the auction: never Victoria (a consigned vehicle can only be sold there at auction)
+      if (b.key === "selling" && b.value?.after_auction_states !== undefined) {
+        const states = b.value.after_auction_states;
+        if (!Array.isArray(states) || states.some((x: unknown) => !["QLD", "NSW", "WA", "SA", "TAS", "ACT", "NT"].includes(String(x)))) return fail("Choose from QLD, NSW, WA, SA, TAS, ACT and NT. Victoria can't be switched on: a consigned vehicle can only be sold there at auction.");
+      }
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");
       return done();

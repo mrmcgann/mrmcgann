@@ -10,6 +10,7 @@ import { photoUrl } from "@/lib/photos";
 import { specLine } from "@/lib/vehicles";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { premiumLabel } from "@/lib/transport";
+import { coolingOffAd } from "@/lib/afterAuction";
 
 // Every price on a card has its all-in amount beside it, in the same size (the single price must be at least as
 // prominent as any part of it). Like any advertisement for the auction, a card says the buyer's premium applies and
@@ -24,7 +25,8 @@ export function LotCard({ lot, watched, cover, fees }: { lot: Lot; watched?: boo
   const upNow = lot.status === "live" && lot.live_state === "open";
   const showEstimate = hasEstimate(lot) && lot.status !== "sold" && !upNow;
   const bid = Math.max(lot.current_bid || 0, lot.start_price || 0);
-  const terms = [lot.status !== "sold" && fl ? premiumLabel(fl) : null, lot.statutory_warranty === false ? "No statutory warranty" : lot.statutory_warranty ? "Statutory warranty applies" : null].filter(Boolean).join(" · ");
+  const terms = [lot.status !== "sold" && fl ? premiumLabel(fl) : null, lot.statutory_warranty === false ? "No statutory warranty" : lot.statutory_warranty ? "Statutory warranty applies" : null,
+    lot.status !== "sold" ? coolingOffAd(lot.state) : null].filter(Boolean).join(" · ");
   return (
     <article className="card">
       <Link href={`/lot/${lot.id}`} className={`stage bg-${lot.backdrop}`} aria-label={lot.title} style={{ display: "block" }}>

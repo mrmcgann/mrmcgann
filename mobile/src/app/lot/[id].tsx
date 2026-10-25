@@ -26,6 +26,7 @@ import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
 import { LISTING_CHECKS, PHOTO_CHECK, REMOTE_REPORT, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine, warrantySign } from "@/lib/listing";
 import { CHECK_IT, NO_VIEWINGS, depotPlace, premiumLabel } from "@/lib/transport";
+import { coolingOffSign } from "@/lib/afterAuction";
 import { certLine } from "@/lib/transfer";
 import { lotFees } from "@/lib/fees";
 
@@ -157,6 +158,7 @@ export default function LotScreen() {
           {["live", "scheduled"].includes(lot.status) ? (
             <Soft testID="auction-notice" style={{ gap: 4, marginTop: 12 }}>
               {warrantySign(lot.statutory_warranty) ? <T v="strong" testID="warranty-sign">{warrantySign(lot.statutory_warranty)}</T> : null}
+              {coolingOffSign(lot.state) ? <T v="strong" testID="cooling-sign">{coolingOffSign(lot.state)}</T> : null}
               <T v="small">{premiumLabel(lotFees(fees, lot))}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</T>
               <T v="small">Sold in a live auction, under the hammer, by Tyrebiter as agent for the owner. Only registered, verified bidders can bid.</T>
             </Soft>

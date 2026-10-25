@@ -40,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const claimOpen = (claims || []).some((x: { status: string }) => x.status === "open");
   const canClaim = paidCard && !claimOpen && (!inv.collected_at || (!!inv.claim_until && new Date(inv.claim_until).getTime() > Date.now()));
   const lines: [string, number][] = [
-    [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : "Winning bid", Number(inv.price)],
+    [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : inv.sold_via === "after_auction" ? "Agreed price (after the auction)" : "Winning bid", Number(inv.price)],
     [Number(inv.transport) > 0 ? `Buyer's premium (includes $${Number(inv.transport).toLocaleString("en-AU")} transport to our depot)` : "Buyer's premium", Number(inv.premium)], ["GST on premium", Number(inv.gst)], ["Admin fee (incl. GST)", Number(inv.admin_fee)],
     ...(Number(inv.surcharge) > 0 ? [["Card surcharge", Number(inv.surcharge)] as [string, number]] : []),
     ...(Number(inv.storage_fee) > 0 ? [["Storage", Number(inv.storage_fee)] as [string, number]] : []),

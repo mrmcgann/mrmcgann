@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { AFTER_DEFAULT, AFTER_STATES, STATE_NAMES } from "@/lib/afterAuction";
 
 const FEE_FIELDS: [string, string, string][] = [
   ["premium_rate", "Buyer's premium rate", "0.10 = 10%"], ["admin_fee", "Admin fee ($, incl. GST)", ""], ["storage_per_day", "Storage after the collection window ($/day)", "Grays: $50"],
@@ -14,6 +15,8 @@ const AUCTION_FIELDS: [string, string][] = [["extend_minutes", "Late-bid extensi
 export function SettingsForm({ fees, auction, selling, terms }: { fees: Record<string, number | string>; auction: Record<string, number>; selling: Record<string, unknown>; terms: Record<string, unknown> }) {
   const [checks, setChecks] = useState(selling?.require_checks !== false);
   const [inspFee, setInspFee] = useState(String(selling?.pre_inspection_fee ?? 220));
+  // selling after the auction, state by state (migration 26): never Victoria; Tasmania and the NT once licensed
+  const [after, setAfter] = useState<string[]>(Array.isArray(selling?.after_auction_states) ? (selling.after_auction_states as string[]) : AFTER_DEFAULT);
   const [version, setVersion] = useState(String(terms?.buyer_version || ""));
   async function saveRaw(key: string, value: Record<string, unknown>) {
     const res = await fetch("/api/admin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) });
@@ -58,7 +61,18 @@ export function SettingsForm({ fees, auction, selling, terms }: { fees: Record<s
         <label style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 600 }}><input type="checkbox" checked={checks} onChange={(e) => setChecks(e.target.checked)} /> Require a signed seller agreement, seller ID, ownership check, VIN and PPSR before a vehicle can go live</label>
         <span className="hint">Leave this on in production. Turn it off only to demo the site with sample vehicles.</span>
         <label className="field" style={{ maxWidth: 360 }}><span>Inspection before listing ($ including GST)</span><input className="input" inputMode="numeric" value={inspFee} onChange={(e) => setInspFee(e.target.value)} data-testid="pre-inspection-fee" /><span className="hint">What sellers pay (from the proceeds, only if it sells) to have a mechanic inspect the vehicle before it lists. 0 hides the option. The amount is locked into each agreement when it&apos;s signed.</span></label>
-        <button className="btn btn-dark" style={{ alignSelf: "flex-start" }} onClick={() => saveRaw("selling", { ...selling, require_checks: checks, pre_inspection_fee: Math.max(0, Math.round(Number(inspFee) || 0)) })}>Save</button>
+        <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }} data-testid="after-states">
+          <legend style={{ fontWeight: 700, marginBottom: 6 }}>Selling after the auction, by agreement</legend>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            {AFTER_STATES.map((st) => (
+              <label key={st} style={{ display: "flex", gap: 6, alignItems: "center", fontWeight: 600 }}>
+                <input type="checkbox" checked={after.includes(st)} onChange={(e) => setAfter(e.target.checked ? [...after, st] : after.filter((x) => x !== st))} /> {st}
+              </label>
+            ))}
+          </div>
+          <span className="hint">Where it&apos;s ticked, a vehicle passed in can be sold afterwards at a price the seller agrees in writing, by a written offer the buyer signs, with that state&apos;s cooling-off period and statutory warranty. Victoria is never on: a consigned vehicle can only be sold there at auction. Tick {STATE_NAMES.TAS.replace(/^the /, "")} only once we hold a motor vehicle trader licence there, and {STATE_NAMES.NT} only once we hold a motor vehicle dealer licence.</span>
+        </fieldset>
+        <button className="btn btn-dark" style={{ alignSelf: "flex-start" }} onClick={() => saveRaw("selling", { ...selling, require_checks: checks, pre_inspection_fee: Math.max(0, Math.round(Number(inspFee) || 0)), after_auction_states: AFTER_STATES.filter((st) => after.includes(st)) })}>Save</button>
       </div>
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Terms version</h2>

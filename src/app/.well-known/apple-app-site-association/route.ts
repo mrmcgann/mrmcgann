@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const BUNDLE_ID = "au.com.tyrebiter.app";
 // Keep in step with APP_PATHS in mobile/app.config.ts.
-const PATHS = ["/lot/*", "/live/*", "/auctions", "/auctions/*", "/watchlist", "/account", "/account/*", "/sell/dashboard", "/sell/dashboard/*", "/handover/*", "/join", "/signin"];
+const PATHS = ["/lot/*", "/live/*", "/auctions", "/auctions/*", "/watchlist", "/account", "/account/*", "/sell/dashboard", "/sell/dashboard/*", "/handover/*", "/offers/*", "/join", "/signin"];
 
 export function GET() {
   const team = (process.env.APPLE_TEAM_ID || "").trim();

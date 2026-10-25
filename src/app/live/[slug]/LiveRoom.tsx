@@ -14,6 +14,7 @@ import { dateTime, km, money } from "@/lib/format";
 import { photoUrl } from "@/lib/photos";
 import { buyNowPayLine } from "@/lib/deposits";
 import { warrantySign } from "@/lib/listing";
+import { coolingOffSign } from "@/lib/afterAuction";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, type LiveLot, type LiveMedia as Media, type LiveSale } from "@/lib/live";
 import { auctionConditions, CONDITIONS_ACK } from "@/lib/conditions";
@@ -177,8 +178,11 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
   const note = msg && cur && open && msg.lot === cur.id && (msg.price == null || Number(cur.current_bid) === msg.price) ? msg : null;
   // after the hammer: what it means for this bidder (the winner is the leader when it closed, until the room reloads)
   const closed = !!cur && cur.live_state === "closed";
-  const won = closed && cur!.status === "sold" && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
-  // passed in below the reserve: its highest bidder is told a consultant will be in touch (nothing is sold afterwards)
+  // passed in under the hammer and sold later by agreement (migration 26): the room still shows the auction's result
+  const afterSold = !!cur && cur.status === "sold" && cur.sold_via === "after_auction";
+  const won = closed && cur!.status === "sold" && !afterSold && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
+  // passed in below the reserve: its highest bidder is told a consultant will be in touch (where its state allows,
+  // about buying it after the auction; otherwise about the next one)
   const topPassed = closed && cur!.status === "passed" && !!userId && cur!.bid_count > 0 && cur!.leader_id === userId;
   const bidHere = !!cur && !!myMax[cur.id];
   const soldAllIn = cur && cur.status === "sold" ? priceBreakdown(Number(cur.sold_price) || 0, lotFeesNow).total : 0;
@@ -307,9 +311,9 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
             <>
               <div className="lv-est">
                 {hasEstimate(cur) && <span data-testid="live-estimate">Estimate <b>{estimateText(cur)}</b> · all-in <b>{estimateAllInText(cur, lotFeesNow)}</b></span>}
-                <span className="hint" style={{ margin: 0 }} data-testid="live-terms">{warrantySign(cur.statutory_warranty) ? <b>{warrantySign(cur.statutory_warranty)} </b> : null}{premiumLabel(lotFeesNow)}, plus GST and the admin fee, applies.</span>
+                <span className="hint" style={{ margin: 0 }} data-testid="live-terms">{warrantySign(cur.statutory_warranty) ? <b>{warrantySign(cur.statutory_warranty)} </b> : null}{coolingOffSign(cur.state) ? <b>{coolingOffSign(cur.state)} </b> : null}{premiumLabel(lotFeesNow)}, plus GST and the admin fee, applies.</span>
               </div>
-              {open || cur.status === "sold" ? (
+              {open || (cur.status === "sold" && !afterSold) ? (
                 <div className="lv-price">
                   <span className="k">{cur.status === "sold" ? "Sold for" : "Current bid"}</span>
                   <span className="v" data-testid="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</span>
@@ -336,7 +340,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
                   <span>{buyNowPayLine(priceBreakdown(Number(cur.sold_price) || 0, lotFeesNow)) || "Your invoice is in your account."}</span>
                   <Link className="btn btn-dark" href="/account#invoices" style={{ height: 48, fontSize: 15, alignSelf: "flex-start" }}>See your invoice</Link>
                 </div>
-              ) : closed && cur.status === "sold" && userId && bidHere ? (
+              ) : closed && cur.status === "sold" && !afterSold && userId && bidHere ? (
                 <div className="lv-result" role="status" data-testid="live-lost">
                   <b>Sold to another bidder.</b>
                   <span className="muted">Thanks for bidding. There&apos;s more coming up.</span>

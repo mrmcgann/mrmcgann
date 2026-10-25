@@ -50,6 +50,7 @@ for (const mode of ['transfer', 'deposit']) {
   ok(`conditions (${mode}): as is, where is; never at the vehicle; each tap a bid; withdraw until the hammer; passed in; consultant; pay on time; consumer rights`,
     /As is, where is/.test(all) && /no viewings or test drives/.test(all) && /each tap of a bid button is a binding bid/.test(all) && /withdraw a bid until the hammer falls/.test(all)
     && /passed in: it isn't sold and nobody owes anything/.test(all) && /one of our consultants will be in touch/.test(all) && /within 2 business days/.test(all) && /Australian Consumer Law/.test(all), all);
+  ok(`conditions (${mode}): a sale after the auction is by a written offer, isn't by auction, never in Victoria`, /the seller may then agree to sell it after the auction, by a written offer you'd sign: that isn't a sale by auction/.test(all) && /never in Victoria/.test(all), all);
   ok(`conditions (${mode}): never "no warranty" or "non-refundable"`, !/no warranty|non-refundable/i.test(all));
 }
 ok('conditions: the deposit wording only with deposits', /deposit/.test(auctionConditions({ payMode: 'deposit' }).map((c) => c.text).join()) && !/deposit/.test(auctionConditions({ payMode: 'transfer' }).map((c) => c.text).join()));
@@ -62,6 +63,7 @@ ok('room line: reserve met says on the market', /on the market/.test(liveLine({ 
 ok('room line: paused', /Paused/.test(liveLine({ live_status: 'paused' }, { live_state: 'open', status: 'live', reserve_met: false, has_reserve: true, sold_price: null, bid_count: 3 })));
 ok('results: sold shows the price, passed in does not', resultLine({ status: 'sold', sold_price: 12500 }) === 'Sold for $12,500.' && resultLine({ status: 'offers', sold_price: null }).startsWith('Passed in'));
 ok('results: below reserve goes to the seller', /referred to the seller/.test(resultLine({ status: 'referred', sold_price: null })));
+ok('results: passed in and sold after the auction says so (not an auction result)', resultLine({ status: 'sold', sold_price: 9000, sold_via: 'after_auction' }) === 'Passed in, then sold after the auction for $9,000.' && resultLine({ status: 'sold', sold_price: 9000, sold_via: 'auction' }) === 'Sold for $9,000.');
 ok('how sold', howSold({ method: 'tender' }) === 'tender' && howSold({ method: 'auction', live_state: 'waiting' }) === 'live' && howSold({ method: 'auction', live_state: null }) === 'timed');
 ok('calls: "On the market" only once the reserve is met', CALLS.find((c) => c.text === 'On the market').needsReserve === true);
 ok('errors: paused bidding in plain words', /paused/.test(liveError('live_paused')));

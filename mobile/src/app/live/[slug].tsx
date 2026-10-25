@@ -9,6 +9,7 @@ import { lotFees, payMode, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
 import { buyNowPayLine } from "@/lib/deposits";
 import { warrantySign } from "@/lib/listing";
+import { coolingOffSign } from "@/lib/afterAuction";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { liveLine, quickBids, resultLine, secondsLeft, type LiveLot, type LiveMedia, type LiveSale } from "@/lib/live";
 import { auctionConditions, CONDITIONS_ACK } from "@/lib/conditions";
@@ -193,8 +194,10 @@ export default function LiveRoomScreen() {
   const conditions = auctionConditions({ payMode: fees ? payMode(fees) : "transfer", payDays });
   const note = msg && cur && open && msg.lot === cur.id && (msg.price == null || Number(cur.current_bid) === msg.price) ? msg : null;
   const closed = !!cur && cur.live_state === "closed";
-  const won = closed && cur!.status === "sold" && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
-  // passed in below the reserve: its highest bidder is told a consultant will be in touch (nothing is sold afterwards)
+  // passed in under the hammer and sold later by agreement (migration 26): the room still shows the auction's result
+  const afterSold = !!cur && cur.status === "sold" && cur.sold_via === "after_auction";
+  const won = closed && cur!.status === "sold" && !afterSold && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
+  // passed in below the reserve: its highest bidder is told a consultant will be in touch
   const topPassed = closed && cur!.status === "passed" && !!userId && cur!.bid_count > 0 && cur!.leader_id === userId;
   const shown = cur ?? (sale.live_status === "scheduled" ? room.next[0] ?? null : null);
   const media = room.media && shown && room.media.lot_id === shown.id ? room.media : null;
@@ -275,9 +278,9 @@ export default function LiveRoomScreen() {
         {cur ? (
           <View style={s.box} testID="live-console" onLayout={(e) => { boxY.current = e.nativeEvent.layout.y; seenCheck(); }}>
             {hasEstimate(cur) && f ? <T v="body" testID="live-estimate" style={{ fontSize: 15 }}>Estimate <Text style={{ fontFamily: F.bold }}>{estimateText(cur)}</Text> · all-in <Text style={{ fontFamily: F.bold }}>{estimateAllInText(cur, f)}</Text></T> : null}
-            {f ? <T v="small" testID="live-terms">{warrantySign(cur.statutory_warranty) ? `${warrantySign(cur.statutory_warranty)} ` : ""}{premiumLabel(f)}, plus GST and the admin fee, applies.</T> : null}
+            {f ? <T v="small" testID="live-terms">{warrantySign(cur.statutory_warranty) ? `${warrantySign(cur.statutory_warranty)} ` : ""}{coolingOffSign(cur.state) ? `${coolingOffSign(cur.state)} ` : ""}{premiumLabel(f)}, plus GST and the admin fee, applies.</T> : null}
             <Pressable onPress={() => router.push(`/lot/${cur.id}`)}><Text style={s.link}>Full listing and condition report ›</Text></Pressable>
-            {open || cur.status === "sold" ? (
+            {open || (cur.status === "sold" && !afterSold) ? (
               <View>
                 <Text style={s.k}>{cur.status === "sold" ? "Sold for" : "Current bid"}</Text>
                 <Text style={s.price} testID="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</Text>
@@ -299,7 +302,7 @@ export default function LiveRoomScreen() {
                 <T v="body" style={{ fontSize: 15 }}>{(f && buyNowPayLine(priceBreakdown(Number(cur.sold_price) || 0, f))) || "Your invoice is in your account."}</T>
                 <Button small kind="dark" title="See your invoice" onPress={() => router.push("/account")} style={{ alignSelf: "flex-start" }} />
               </Soft>
-            ) : closed && cur.status === "sold" && userId && mine ? (
+            ) : closed && cur.status === "sold" && !afterSold && userId && mine ? (
               <Soft testID="live-lost" style={{ gap: 6 }}>
                 <T v="strong" style={{ fontSize: 19 }}>Sold to another bidder.</T>
                 <T v="muted">Thanks for bidding. There's more coming up.</T>

@@ -14,7 +14,7 @@ ok('runs: four states', Object.keys(RUNS).join(',') === 'drives,starts,no_start,
 ok('write-off: inspected and statutory explained', WRITE_OFF.inspected.includes('Inspected') && WRITE_OFF.statutory.includes('never be registered'));
 
 // Consumer rights wording never says "no warranty", and keeps misdescription rights
-for (const [path, seller] of [['auction', 'private'], ['auction', 'business'], ['outright', 'private'], ['outright', 'business'], ['outright', null]]) {
+for (const [path, seller] of [['auction', 'private'], ['auction', 'business'], ['after', 'private'], ['after', 'business'], ['after', null], ['outright', 'private'], ['outright', 'business'], ['outright', null]]) {
   const t = consumerRights(path, seller);
   ok(`rights ${path}/${seller}: no "no warranty"`, !/no warranty/i.test(t), t);
   ok(`rights ${path}/${seller}: misleading-description rights kept`, /misleading descriptions aren't affected/.test(t), t);
@@ -22,6 +22,9 @@ for (const [path, seller] of [['auction', 'private'], ['auction', 'business'], [
 ok('rights: auction keeps title guarantees, excludes quality', /clear title/.test(consumerRights('auction', 'private')) && /acceptable quality.*don't apply/.test(consumerRights('auction', 'business')));
 ok('rights: outright from a business may include acceptable quality', /may apply/.test(consumerRights('outright', 'business')) && /acceptable quality/.test(consumerRights('outright', 'business')));
 ok('rights: outright from a private seller', /private seller/.test(consumerRights('outright', 'private')) && /generally don't apply/.test(consumerRights('outright', 'private')));
+ok('rights: after the auction from a private seller: title guarantees; quality may not apply, never excluded', /after the auction \(not at auction\) from a private seller/.test(consumerRights('after', 'private')) && /clear title/.test(consumerRights('after', 'private')) && /may not apply to a private owner's sale; any that does apply can't be excluded/.test(consumerRights('after', 'private')) && !/don't apply/.test(consumerRights('after', 'private')));
+ok('rights: after the auction from a business seller: acceptable quality may apply', /may apply/.test(consumerRights('after', 'business')) && /acceptable quality/.test(consumerRights('after', 'business')));
+ok('rights line: after the auction', rightsLine('after', 'private') === "Private seller · sold after the auction · your consumer law rights aren't affected");
 ok('rights line: auction', rightsLine('auction', 'private').startsWith('Auction sale'));
 ok('rights line: outright business', rightsLine('outright', 'business').startsWith('Business seller'));
 ok('electrified: EV and hybrid, not diesel', isElectrified('Electric') && isElectrified('Hybrid') && !isElectrified('Diesel') && !isElectrified(null));

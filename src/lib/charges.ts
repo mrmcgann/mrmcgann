@@ -132,7 +132,9 @@ async function finishBankInvoice(inv: Invoice & { lots?: { title: string } }) {
   const body = full
     ? `You've bought the ${title}. It's paid in full from your bidding deposit, and your tax invoice is attached. Next, transfer the ownership into your name (the steps are on your invoice) while our transport partner brings it to our depot. Then you book a time to collect it there with your release code.`
     : `You've bought the ${title}. ${dep > 0 ? `${money(dep, true)} of your bidding deposit has gone towards it. ` : ""}Pay the ${money(inv.balance_due, true)}${dep > 0 ? " balance" : ""} by PayID or bank transfer ${inv.due_at ? `by ${dateLong(inv.due_at)}` : "within 2 business days"}, reference ${inv.ref}, to the account on your invoice page, from an account in your name (or your lender can pay us). We release the vehicle once it has cleared. If it isn't paid, the sale is cancelled and your account closed. We never change our bank details by email or text.`;
-  await notify(inv.buyer_id, "won", `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
+  // bought after the auction by agreement (migration 26): nobody "won" it
+  const after = (inv as { sold_via?: string }).sold_via === "after_auction";
+  await notify(inv.buyer_id, "won", after ? `You've bought the ${title}` : `You won the ${title}`, body, `/account/invoices/${inv.id}`, { dedupe: `won:${inv.id}`, invoiceId: inv.id });
   return "paid";
 }
 

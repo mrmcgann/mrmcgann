@@ -50,6 +50,10 @@ export async function GET(req: Request) {
   // 1b. Live auctions: start sales that run themselves, keep them moving if the console is closed, keep estimates fresh
   await guard("live auctions", async () => { s.live = Number((await call("live_sweep")) || 0); });
 
+  // 1c. Sales after the auction: offers nobody answered expire; a cooling-off period that has ended makes the sale
+  //     (its invoice is charged in step 2)
+  await guard("after-auction sales", async () => { s.afterSales = Number((await call("finish_after_offers", { p_limit: 200 })) || 0); });
+
   // 2. Take payment for new invoices straight away
   await guard("charge winners", async () => { s.charged = await processCharges(Math.min(90_000, left() - 150_000)); });
 

@@ -17,7 +17,7 @@ import { consumerRights } from "@/lib/listing";
 import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { relistBackLine } from "@/lib/relist";
 
-type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state">;
+type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "sold_via" | "buy_now_price" | "live_state">;
 export type LotSale = { slug: string; title: string; mode?: string; starts_at?: string | null; live_status?: string } | null;
 /** a vehicle that didn't sell, once it's back in an auction */
 export type LotRelist = { id: number; sale: { slug: string; title: string; starts_at?: string | null } | null } | null;
@@ -26,7 +26,7 @@ type Hist = { amount: number; created_at: string; bidder_tag: string; bidder_mas
 const STEP_NAMES: Record<number, string> = { 2: "Your details", 3: "Verify mobile", 4: "Bidding deposit (refundable)", 5: "Verify your ID" };
 const pick = (x: Partial<Live>): Partial<Live> => {
   const o: Partial<Live> = {};
-  for (const k of ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "buy_now_price", "live_state"] as const) {
+  for (const k of ["status", "current_bid", "bid_count", "ends_at", "reserve_met", "leader_id", "decision_by", "winner_id", "sold_price", "sold_via", "buy_now_price", "live_state"] as const) {
     if (x[k] !== undefined) (o as Record<string, unknown>)[k] = x[k];
   }
   return o;
@@ -286,7 +286,7 @@ export function BidPanel(props: {
     const mine = !!userId && (live.winner_id === userId || !!props.invoiceId);
     body = (
       <div className="soft" style={{ background: mine ? "var(--mint)" : "var(--panel)" }}>
-        <b>{mine ? "You bought this vehicle." : `Sold for ${money(live.sold_price)}.`}</b>
+        <b data-testid="sold-box">{mine ? "You bought this vehicle." : live.sold_via === "after_auction" ? `Passed in, then sold after the auction for ${money(live.sold_price)}.` : `Sold for ${money(live.sold_price)}.`}</b>
         {mine && props.invoiceId && <Link className="btn btn-dark" href={`/account/invoices/${props.invoiceId}`} style={{ height: 48, fontSize: 15, alignSelf: "flex-start" }}>View invoice and collection</Link>}
       </div>
     );
@@ -361,7 +361,7 @@ export function BidPanel(props: {
         )}
         {termsOpen && (
           <Modal title="We've updated our terms." onClose={() => setTermsOpen(false)}>
-            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change: every vehicle is now sold in a live auction, under the hammer, with an auction estimate, and you can withdraw a bid until the hammer falls.</p>
+            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change: a vehicle that&apos;s passed in can now be sold after the auction, by a written offer you sign, with the cooling-off period and statutory warranty your state gives (never in Victoria).</p>
             <button className="btn btn-blue" onClick={acceptTerms} disabled={busy}>{busy ? "Saving…" : "I accept the terms"}</button>
             <button className="btn btn-soft" onClick={() => setTermsOpen(false)}>Not now</button>
           </Modal>

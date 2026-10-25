@@ -203,7 +203,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
     const won = !!userId && (L.winner_id === userId || !!mine?.invoice_id);
     body = (
       <Soft bg={won ? C.mint : C.panel}>
-        <T v="strong">{won ? "You bought this vehicle." : `Sold for ${money(L.sold_price)}.`}</T>
+        <T v="strong" testID="sold-box">{won ? "You bought this vehicle." : L.sold_via === "after_auction" ? `Passed in, then sold after the auction for ${money(L.sold_price)}.` : `Sold for ${money(L.sold_price)}.`}</T>
         {won && mine?.invoice_id ? <Button small kind="dark" title="View invoice and collection" onPress={() => router.push(`/invoice/${mine.invoice_id}`)} /> : null}
       </Soft>
     );
@@ -321,7 +321,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
 
       <Sheet visible={sheet === "terms"} onClose={() => setSheet(null)} title="We've updated our terms."
         footer={<><Button title="I accept the terms" busy={busy} onPress={acceptTerms} /><Button kind="soft" title="Not now" onPress={() => setSheet(null)} /></>}>
-        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy. The main change: every vehicle is now sold in a live auction, under the hammer, with an auction estimate, and you can withdraw a bid until the hammer falls.</T>
+        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy. The main change: a vehicle that's passed in can now be sold after the auction, by a written offer you sign, with the cooling-off period and statutory warranty your state gives (never in Victoria).</T>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the Terms of Sale ›</Text>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy`)}>Read the Privacy Policy ›</Text>
       </Sheet>

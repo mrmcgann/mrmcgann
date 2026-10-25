@@ -17,6 +17,8 @@ import { SellerBids, SellerVideos } from "~/ui/SellerTools";
 import { SellerTransfer } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
 import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
+import type { SellerAfterView } from "@/lib/afterAuction";
+import { SellerAfter } from "~/ui/SellerAfter";
 
 const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
 const STATUS: Record<string, [string, string]> = {
@@ -26,7 +28,7 @@ const STATUS: Record<string, [string, string]> = {
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = { status: string; collected_at: string | null };
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
-type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null; pickup: SellerTransport | null };
+type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null; pickup: SellerTransport | null; after: SellerAfterView | null };
 // Grouped like the website's seller dashboard: Pending, Active, Referred, Sold, Unsold.
 type TabKey = "pending" | "active" | "referred" | "sold" | "unsold";
 const TABS: [TabKey, string, string[]][] = [["pending", "Pending", ["draft", "scheduled"]], ["active", "Active", ["live"]], ["referred", "Referred", ["referred", "offers"]], ["sold", "Sold", ["sold"]], ["unsold", "Unsold", ["passed", "cancelled"]]];
@@ -54,7 +56,7 @@ export default function Sell() {
       lots.length ? supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at, public_path").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : Promise.resolve({ data: [] }),
     ]);
     const extra = await Promise.all(lots.map(async (l) => {
-      const [offers, coll, watchers, bids, tr, pk] = await Promise.all([
+      const [offers, coll, watchers, bids, tr, pk, af] = await Promise.all([
         ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         supabase.rpc("lot_watchers", { p_lot: l.id }),
@@ -63,11 +65,13 @@ export default function Sell() {
         l.status === "sold" ? supabase.rpc("seller_lot_transfer", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         // The pickup to our depot, once it's paid for (never the buyer's details).
         l.status === "sold" ? supabase.rpc("seller_lot_transport", { p_lot: l.id }) : Promise.resolve({ data: [] }),
+        // Selling it now, after the auction, where its state allows it (never who the buyer is).
+        l.status === "passed" ? supabase.rpc("seller_lot_after", { p_lot: l.id }) : Promise.resolve({ data: null }),
       ]);
       return {
         lot: l, offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), payout: ((payouts || []) as Payout[]).find((p) => p.lot_id === l.id),
         bids: (bids.data || []) as SellerBid[], videos: ((vids || []) as SellerVideo[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as SellerTransferRow[])[0] || null,
-        pickup: ((pk.data || []) as SellerTransport[])[0] || null,
+        pickup: ((pk.data || []) as SellerTransport[])[0] || null, after: (af.data || null) as SellerAfterView | null,
       };
     }));
     setItems(extra);
@@ -121,7 +125,7 @@ export default function Sell() {
           </ScrollView>
           {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
           {shown.length === 0 ? <Empty title={`No ${cur[1].toLowerCase()} listings.`} /> : null}
-          {shown.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos, transfer, pickup }) => {
+          {shown.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos, transfer, pickup, after }) => {
             const [label, colour] = STATUS[l.status] || [l.status, C.panel];
             const pending = offers.filter((o) => o.status === "pending");
             return (
@@ -162,6 +166,8 @@ export default function Sell() {
                     ))}
                   </Notice>
                 ) : null}
+                {l.status === "passed" && after && (after.open || after.offer?.status === "cooling_off") ? <SellerAfter lotId={l.id} view={after} onChange={load} /> : null}
+                {l.status === "sold" && l.sold_via === "after_auction" ? <T v="muted" testID="sold-after">Sold after the auction, at the price you agreed.</T> : null}
                 {l.status === "sold" ? (
                   <View style={{ gap: 8 }}>
                     {!transfer && !coll ? <T v="body">We're taking payment from the buyer. We'll text you once it's paid.</T> : null}

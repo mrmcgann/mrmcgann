@@ -17,6 +17,7 @@ export type LiveLot = {
   leader_id: string | null; sold_price: number | null; cover_path: string | null; category: string; year: number | null;
   odometer: number | null; hours: number | null; suburb: string | null; state: string | null; fees?: Record<string, number | string> | null;
   estimate_low?: number | null; estimate_high?: number | null; statutory_warranty?: boolean | null; winner_id?: string | null;
+  sold_via?: string | null;
 };
 
 /** The live room's photos and video of the vehicle that's up (or, before the start, the first one): its own listing's,
@@ -61,7 +62,9 @@ export function liveLine(sale: Pick<LiveSale, "live_status">, lot: Pick<LiveLot,
   return resultLine(lot);
 }
 /** A closed vehicle's result, in words (the price only when it sold). */
-export function resultLine(lot: Pick<LiveLot, "status" | "sold_price">): string {
+export function resultLine(lot: Pick<LiveLot, "status" | "sold_price"> & { sold_via?: string | null }): string {
+  // passed in under the hammer, then sold by agreement after the auction (migration 26): not an auction result
+  if (lot.status === "sold" && lot.sold_via === "after_auction") return `Passed in, then sold after the auction${lot.sold_price ? ` for ${money(Number(lot.sold_price))}` : ""}.`;
   if (lot.status === "sold") return `Sold${lot.sold_price ? ` for ${money(Number(lot.sold_price))}` : ""}.`;
   if (lot.status === "referred") return "Highest bid referred to the seller.";
   if (lot.status === "offers") return "Passed in: open to offers.";

@@ -90,6 +90,7 @@ function Shell() {
         <Stack.Screen name="live/[slug]" options={{ title: "Live auction" }} />
         <Stack.Screen name="invoice/[id]" options={{ title: "Invoice" }} />
         <Stack.Screen name="handover/[token]" options={{ title: "Handover" }} />
+        <Stack.Screen name="offers/[id]" options={{ title: "Your offer" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         <Stack.Screen name="alerts" options={{ title: "Alerts" }} />
         <Stack.Screen name="settings" options={{ title: "Account settings" }} />

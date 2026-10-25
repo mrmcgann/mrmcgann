@@ -76,7 +76,7 @@ export interface MyLotState {
   questions: { question: string; answer: string | null; status: string }[];
 }
 
-export type LiveState = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "buy_now_price" | "live_state" | "tender_count"> & { server_time?: string };
+export type LiveState = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "sold_via" | "buy_now_price" | "live_state" | "tender_count"> & { server_time?: string };
 
 export interface HomeData { ending: AppLot[]; featured: AppLot | null; fresh: AppLot[]; cats: Record<string, number>; cheap: number; total: number;
   /** live auctions on now or starting in the next week (newer servers only) */

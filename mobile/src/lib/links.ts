@@ -15,6 +15,8 @@ export function appPath(link: string | null | undefined): string {
   if ((m = /^\/account\/invoices\/([0-9a-f-]{36})\/?$/i.exec(p))) return `/invoice/${m[1]}`;
   if ((m = /^\/invoice\/([0-9a-f-]{36})\/?$/i.exec(p))) return `/invoice/${m[1]}`;
   if ((m = /^\/handover\/([0-9a-f]{32})\/?$/.exec(p))) return `/handover/${m[1]}`;
+  // an offer to buy a vehicle after the auction: read it, sign it, or cancel in the cooling-off period
+  if ((m = /^\/offers\/([0-9a-f-]{36})\/?$/i.exec(p))) return `/offers/${m[1].toLowerCase()}`;
   if (/^\/sell(\/dashboard)?\/?$/.test(p)) return "/sell";
   if (/^\/watchlist\/?$/.test(p)) return "/watchlist";
   if (/^\/(account\/)?notifications\/?$/.test(p)) return "/notifications";

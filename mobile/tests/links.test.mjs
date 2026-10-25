@@ -21,6 +21,8 @@ eq("scheme link", appPath("tyrebiter://lot/10500"), "/lot/10500");
 eq("not a lot number", appPath("/lot/abc"), "/");
 eq("live auction room", appPath("https://tyrebiter.com.au/live/ex-council-fleet"), "/live/ex-council-fleet");
 eq("live: bad name goes home", appPath("/live/../etc"), "/");
+eq("an offer after the auction", appPath("https://tyrebiter.com.au/offers/0F8FAD5B-D9CB-469F-A165-70867728950E"), "/offers/0f8fad5b-d9cb-469f-a165-70867728950e");
+eq("offer: not an id goes home", appPath("/offers/../../account"), "/");
 eq("query", queryToObject("?cat=utes&q=hilux+sr5&max=30000"), { cat: "utes", q: "hilux sr5", max: "30000" });
 
 console.log(`${pass} passed, ${fail} failed`);

@@ -61,16 +61,24 @@ export const SELLER_TYPE_HINT: Record<SellerType, string> = {
   business: "A business selling a vehicle it owns (for example a fleet or company vehicle). The price includes GST if the seller is GST-registered.",
 };
 
-/** How you're buying: at auction (a bid, including a referred bid the seller accepts) or outright (Buy Now or an accepted offer). */
-export type SalePath = "auction" | "outright";
+/** How you're buying: at auction (a bid, including a referred bid the seller accepts), after the auction (a written
+ *  offer the seller agreed to, migration 26) or outright (Buy Now or an accepted offer, from before live-only). */
+export type SalePath = "auction" | "after" | "outright";
 
 /** Plain-English consumer rights for this sale (ACL ss 51-53 apply to every sale; ss 54-59 don't apply to a sale by
- *  auction by the seller's agent, ACL s 2; a private seller isn't in trade, so quality guarantees don't apply to an
- *  outright private sale either). Every vehicle is now sold by auction; "outright" stays for sales made before. */
+ *  auction by the seller's agent, ACL s 2, and apply otherwise only to a supply in trade or commerce: a private owner's
+ *  sale isn't one just because an agent makes it, Williams v Pisano [2015] NSWCA 177, so for a private seller after the
+ *  auction we say they may not apply, never that they're excluded). "outright" stays for sales made before live-only. */
 export function consumerRights(path: SalePath, seller: SellerType | null | undefined): string {
   const misdescribed = "If the vehicle isn't as described you can still make a claim, and your rights under the Australian Consumer Law against misleading descriptions aren't affected.";
   if (path === "auction") {
     return "Sold by auction, with Tyrebiter acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description don't apply to auction sales. " + misdescribed;
+  }
+  if (path === "after") {
+    if (seller === "business") {
+      return "Bought after the auction (not at auction) from a business seller, with Tyrebiter acting as the seller's agent, so the consumer guarantees under the Australian Consumer Law, including acceptable quality, may apply as well as our claims process. " + misdescribed;
+    }
+    return "Bought after the auction (not at auction) from a private seller, with Tyrebiter acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description apply to sales in trade or commerce, so they may not apply to a private owner's sale; any that does apply can't be excluded. " + misdescribed;
   }
   if (seller === "business") {
     return "Bought outright (not at auction) from a business seller, so the consumer guarantees under the Australian Consumer Law, including acceptable quality, may apply as well as our claims process. " + misdescribed;
@@ -81,6 +89,7 @@ export function consumerRights(path: SalePath, seller: SellerType | null | undef
 /** One line for the confirm step. */
 export function rightsLine(path: SalePath, seller: SellerType | null | undefined) {
   if (path === "auction") return "Auction sale · as is, where is · your consumer law rights aren't affected";
+  if (path === "after") return `${seller === "business" ? "Business seller" : "Private seller"} · sold after the auction · your consumer law rights aren't affected`;
   return `${seller === "business" ? "Business seller" : "Private seller"} · as is, where is · your consumer law rights aren't affected`;
 }
 
