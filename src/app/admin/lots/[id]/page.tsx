@@ -7,7 +7,7 @@ import { AdminAction } from "@/components/AdminAction";
 import { dateTime, money } from "@/lib/format";
 import { relistSteps } from "@/lib/relist";
 import { env } from "@/lib/env";
-import { afterStatusLabel, type AfterRule } from "@/lib/afterAuction";
+import { afterStatusLabel, type AfterRule, type WarrantyFree } from "@/lib/afterAuction";
 import { AfterSale, type AfterPerson } from "./AfterSale";
 
 export default async function EditLot({ params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +61,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     db.from("seller_decisions").select("action, amount, via, note, created_at").eq("lot_id", lotId).in("action", ["accept_after", "withdraw_after"]).order("created_at", { ascending: false }).limit(5),
   ]) : [];
   const [chk, maxRows, bidRows, watchRows, decs] = [0, 1, 2, 3, 4].map((i) => afterRows[i]?.data ?? null);
-  const check = chk as { ok: boolean; why: string | null; state: string | null; rule: AfterRule } | null;
+  const check = chk as { ok: boolean; why: string | null; state: string | null; rule: AfterRule; warranty: WarrantyFree | null } | null;
   const lastDec = ((decs || []) as { action: string; amount: number | null; via: string; note: string | null; created_at: string }[])[0];
   const sellerPrice = lastDec?.action === "accept_after" ? Number(lastDec.amount) : null;
   const people: AfterPerson[] = [];
@@ -159,7 +159,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
               <h3 style={{ fontSize: 19, fontWeight: 800 }}>Sell it after the auction</h3>
               {check?.ok
                 ? <AfterSale key={`price-${sellerPrice ?? "none"}`} lotId={lotId} rule={check.rule} sellerPrice={sellerPrice} people={people} consultant={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} offerOpen={afterOpen}
-                    facts={{ state: check.state, year: lot.year ?? null, odometer: lot.odometer ?? null, category: lot.category ?? null, gvm: lot.gvm_kg ?? null }} />
+                    warranty={check.warranty ?? null} />
                 : <span className="hint" style={{ margin: 0 }} data-testid="admin-after-closed">It can&apos;t be sold after the auction: {check?.why || "it isn't available"}</span>}
               {lastDec && <span className="muted" style={{ fontSize: 14 }}>The seller {lastDec.action === "accept_after" ? `agreed to ${money(lastDec.amount)} or more` : "withdrew their price"} ({lastDec.via === "admin" ? `recorded by staff: ${lastDec.note || ""}` : "from their seller dashboard"}, {dateTime(lastDec.created_at)}).</span>}
             </div>

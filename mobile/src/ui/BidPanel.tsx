@@ -321,7 +321,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
 
       <Sheet visible={sheet === "terms"} onClose={() => setSheet(null)} title="We've updated our terms."
         footer={<><Button title="I accept the terms" busy={busy} onPress={acceptTerms} /><Button kind="soft" title="Not now" onPress={() => setSheet(null)} /></>}>
-        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy. The main change: a vehicle that's passed in can now be sold after the auction, by a written offer you sign, with the cooling-off period and statutory warranty your state gives (never in Victoria).</T>
+        <T v="muted">Before you bid again, please read and accept the current Terms of Sale and Privacy Policy. The main changes: a vehicle that's passed in can be sold after the auction, by a written offer you sign, with the cooling-off period your state gives (never in Victoria); and we never give a statutory warranty, so we only sell where none applies.</T>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms`)}>Read the Terms of Sale ›</Text>
         <Text style={s.link} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy`)}>Read the Privacy Policy ›</Text>
       </Sheet>

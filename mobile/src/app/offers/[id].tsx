@@ -18,7 +18,7 @@ import { C } from "~/ui/theme";
 type OfferLot = { id: number; title: string; suburb: string | null; state: string | null; seller_type: "private" | "business" | null; fees: Record<string, number | string> | null };
 
 /** An offer to buy a vehicle after the auction (migration 26), as the website's /offers/[id] shows it: the price and
- *  its all-in amount, the state's cooling-off and statutory warranty, the contract and the state's forms. Signing is
+ *  its all-in amount, the state's cooling-off (and that no statutory warranty applies), the contract and the state's forms. Signing is
  *  typing the name on the account; in a cooling-off period the buyer can cancel here, free. Never the seller's name. */
 export default function OfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

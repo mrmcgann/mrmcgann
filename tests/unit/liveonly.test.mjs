@@ -47,8 +47,8 @@ ok('certificate: unregistered', /sold unregistered/.test(certLine({ registration
 // The statutory warranty: the sign beside the price, and what usually applies
 ok('warranty: the sign', warrantySign(false) === 'No statutory warranty.' && /applies/.test(warrantySign(true) || '') && warrantySign(null) === null);
 ok('warranty: none for a private owner\'s vehicle at auction (QLD)', /none applies to a private owner's vehicle sold at auction/.test(warrantyGuide('QLD', 'private', 'cars')));
-ok('warranty: the ACT can apply one', /ACT: the dealer's obligation to repair can apply/.test(warrantyGuide('ACT', 'private', 'cars')) && !/obligation to repair/.test(warrantyGuide('ACT', 'private', 'motorbikes')));
-ok("warranty: a dealer's vehicle may carry one", /Class A or B/.test(warrantyGuide('NSW', 'business', 'cars')));
+ok("warranty: the ACT's duty to repair applies at auction, so we don't list a vehicle it could cover", /ACT: the dealer's duty to repair applies even at auction/.test(warrantyGuide('ACT', 'private', 'cars')) && /we don't list a vehicle it could cover/.test(warrantyGuide('ACT', 'private', 'cars')) && !/duty to repair/.test(warrantyGuide('ACT', 'private', 'motorbikes')));
+ok("warranty: a motor dealer's own vehicle may carry one, so we don't list it", /Class A or B/.test(warrantyGuide('NSW', 'business', 'cars')) && /don't list it/.test(warrantyGuide('NSW', 'business', 'cars')));
 
 // We're never at the vehicle: every check and word says so
 ok('remote: the checks are of the seller\'s photos, video and the records', LISTING_CHECKS.length === 11 && LISTING_CHECKS.every(([, staff]) => !/on the vehicle itself|walkaround and visual|at the walkaround/i.test(staff)) && LISTING_CHECKS.filter(([, staff]) => /seller's (photo|video)|photos|video/.test(staff)).length >= 8);

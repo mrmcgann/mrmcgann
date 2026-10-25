@@ -1,7 +1,7 @@
 // Selling a vehicle after the auction, by agreement (migration 26): the words buyers, sellers and staff see, and the
-// statutory warranty guide for staff. Pure, shared by the website, the server and the app. The database decides what's
-// allowed (after_auction_check, after_auction_rule); docs/legal-basis.md, section 5, has the law state by state.
-import { money } from "./format.ts";
+// statutory warranty check (we never give one, migration 27). Pure, shared by the website, the server and the app. The
+// database decides what's allowed (after_auction_check, after_auction_rule, warranty_free_for); docs/legal-basis.md,
+// section 5, has the law state by state.
 
 /** A state's rules for a sale after the auction, as after_auction_rule() returns them (and each offer keeps a copy). */
 export type AfterRule = {
@@ -84,64 +84,39 @@ export function afterStatusLabel(o: Pick<AfterOffer, "status" | "expires_at">, n
   return ({ cooling_off: "agreed, in the cooling-off period", accepted: "sold", declined: "declined", expired: "expired", withdrawn: "withdrawn", cancelled: "cancelled" } as Record<string, string>)[o.status] || o.status;
 }
 
-export type WarrantyFacts = { year?: number | null; odometer?: number | null; category?: string | null; price?: number | null; gvm?: number | null; now?: Date };
-export type WarrantyGuess = { applies: boolean | null; text: string };
+export type WarrantyFacts = { year?: number | null; odometer?: number | null; category?: string | null; gvm?: number | null; now?: Date };
+export type WarrantyFree = { free: boolean | null; why: string };
 
-/** A starting point for staff: does a statutory warranty (or a dealer's duty to repair) apply to this vehicle if we
- *  sell it after the auction, for its private owner? Age is worked out from the year, so staff check the dates the law
- *  uses (build, compliance or first registration) before they send the offer. */
-export function afterWarrantyGuide(state: string | null | undefined, f: WarrantyFacts): WarrantyGuess {
+const LAW_NAMES: Record<string, string> = { NSW: "New South Wales", WA: "Western Australia", SA: "South Australia", ACT: "The ACT", TAS: "Tasmania", NT: "The Northern Territory" };
+
+/** We never give a statutory warranty. Is this vehicle clearly outside every statutory warranty or dealer's duty to repair
+ *  in its state (for a sale after the auction; in the ACT for any sale, auctions included)? Only well past the limits:
+ *  two years past the age (the law counts from build, compliance or first registration, which can come after the model
+ *  year), over the distance, or a kind the law doesn't cover. `free: null` means we can't tell (no year). Mirrors
+ *  warranty_free_for() in migration 27, word for word. */
+export function warrantyFree(state: string | null | undefined, f: WarrantyFacts): WarrantyFree {
   const st = upper(state);
-  const year = Number(f.year) || null;
-  const age = year ? (f.now ?? new Date()).getFullYear() - year : null;
-  const km = f.odometer == null ? null : Number(f.odometer);
   const cat = String(f.category || "");
   const bike = cat === "motorbikes";
-  const heavy = cat === "trucks" || cat === "buses" || (Number(f.gvm) || 0) > 4500;
   const towed = cat === "trailers" || cat === "caravans";
-  const within = (y: number, k: number) => age != null && km != null && age <= y && km <= k;
-  const none = (why: string): WarrantyGuess => ({ applies: false, text: why });
-  const yes = (what: string): WarrantyGuess => ({ applies: true, text: what });
-  const unknown = (what: string): WarrantyGuess => ({ applies: null, text: what });
-  if (age == null || (km == null && !towed)) return unknown("Add the year and odometer to work out whether a statutory warranty applies.");
-  switch (st) {
-    case "QLD":
-      return none("Queensland: none, because it's sold on consignment for an owner who isn't a licensee.");
-    case "NSW":
-      if (heavy) return none("New South Wales: the dealer guarantee doesn't cover vehicles over 4.5 tonnes GVM.");
-      if (towed) return age <= 10 ? yes("Dealer guarantee: 3 months.") : none("New South Wales: a trailer or caravan over 10 years old has no dealer guarantee.");
-      if (bike) return within(5, 30000) ? yes("Dealer guarantee: 3 months or 3,000 km, whichever comes first.") : none("New South Wales: no dealer guarantee for a motorcycle over 5 years old or 30,000 km.");
-      return within(10, 160000) ? yes("Dealer guarantee: 3 months or 5,000 km, whichever comes first.") : none("New South Wales: no dealer guarantee for a vehicle over 10 years old or 160,000 km.");
-    case "WA": {
-      if (towed) return unknown("Western Australia: check whether the duty to repair covers this trailer or caravan.");
-      const cash = Number(f.price) || 0;
-      if (cash && cash < (bike ? 3500 : 4000)) return none(`Western Australia: no duty to repair under ${money(bike ? 3500 : 4000)}.`);
-      if (bike) return within(8, 80000) ? yes("Duty to repair: 3 months or 5,000 km, whichever comes first.") : none("Western Australia: no duty to repair for a motorcycle over 8 years old or 80,000 km.");
-      if (within(10, 150000)) return yes("Duty to repair: 3 months or 5,000 km, whichever comes first.");
-      if (within(12, 180000)) return yes("Duty to repair: 1 month or 1,500 km, whichever comes first.");
-      return none("Western Australia: no duty to repair for a vehicle over 12 years old or 180,000 km.");
-    }
-    case "SA": {
-      if (bike || towed) return none("South Australia: the duty to repair covers cars only.");
-      const cash = Number(f.price) || 0;
-      if (cash && cash <= 3000) return none("South Australia: no duty to repair at $3,000 or less.");
-      if (!within(15, 200000)) return none("South Australia: no duty to repair for a car first registered more than 15 years ago or driven over 200,000 km.");
-      return cash > 0 && cash <= 6000 ? yes("Duty to repair: 2 months or 3,000 km, whichever comes first.") : yes("Duty to repair: 3 months or 5,000 km, whichever comes first.");
-    }
-    case "ACT":
-      if (heavy) return none("ACT: no duty to repair for a commercial vehicle.");
-      if (bike) return none("ACT: the duty to repair covers new and demonstrator motorcycles only.");
-      return within(10, 160000) ? yes("Duty to repair: 3 months or 5,000 km, whichever comes first (check Schedule 1 of the Act).") : unknown("ACT: check Schedule 1 of the Act for an older or higher-kilometre vehicle.");
-    case "TAS":
-      if (heavy) return none("Tasmania: no statutory warranty for a commercial vehicle.");
-      if (bike) return within(3, 15000) ? yes("Statutory warranty: 3 months or 3,000 km, whichever comes first.") : none("Tasmania: no statutory warranty for a motorcycle over 3 years old or 15,000 km.");
-      return age < 7 && km != null && km < 120000 ? yes("Statutory warranty: 3 months or 3,000 km, whichever comes first.") : none("Tasmania: no statutory warranty from 7 years (compliance plate) or 120,000 km.");
-    case "NT":
-      if (bike) return within(5, 30000) ? yes("Statutory warranty: 3 months or 5,000 km, whichever comes first.") : none("Northern Territory: no statutory warranty for a motorcycle over 5 years old or 30,000 km.");
-      return age < 10 && km != null && km < 160000 ? yes("Statutory warranty: 3 months or 5,000 km, whichever comes first.") : none("Northern Territory: no statutory warranty from 10 years old or 160,000 km.");
-    case "VIC":
-      return none("Victoria: it can't be sold after the auction.");
-    default:
-      return unknown("Record the vehicle's state first.");
-  }
+  const heavy = (Number(f.gvm) || 0) > 4500;
+  const year = f.year == null ? null : Number(f.year);
+  const age = year == null ? null : (f.now ?? new Date()).getFullYear() - year;
+  const km = f.odometer == null ? null : Number(f.odometer);
+  if (st === "QLD") return { free: true, why: "Queensland: no statutory warranty on a sale on consignment for an owner who isn't a motor dealer" };
+  if (st === "VIC") return { free: false, why: "Victoria: it can't be sold after the auction" };
+  const nm = LAW_NAMES[st];
+  if (!nm) return { free: null, why: "Record the vehicle's state first" };
+  const law = st === "NSW" ? "the dealer guarantee" : st === "TAS" || st === "NT" ? "the statutory warranty" : "the dealer's duty to repair";
+  const kind = bike ? "motorcycle" : towed ? "trailer or caravan" : "vehicle";
+  if (cat === "boats") return { free: true, why: `${nm}: ${law} doesn't cover boats` };
+  if (heavy && ["NSW", "ACT", "TAS"].includes(st)) return { free: true, why: `${nm}: ${law} doesn't cover a vehicle over 4.5 tonnes GVM` };
+  if (bike && ["SA", "ACT"].includes(st)) return { free: true, why: `${nm}: ${law} doesn't cover a second-hand motorcycle` };
+  const y = ({ NSW: bike ? 5 : 10, WA: bike ? 8 : 12, SA: 15, ACT: 10, TAS: bike ? 3 : 7, NT: bike ? 5 : 10 } as Record<string, number>)[st];
+  const k = towed ? null : ({ NSW: bike ? 30000 : 160000, WA: bike ? 80000 : 180000, SA: 200000, ACT: 160000, TAS: bike ? 15000 : 120000, NT: bike ? 30000 : 160000 } as Record<string, number>)[st];
+  const n = (v: number) => v.toLocaleString("en-AU");
+  if (k != null && km != null && km > k) return { free: true, why: `${nm}: ${law} doesn't cover a ${kind} over ${n(k)} km` };
+  if (age == null) return { free: null, why: `${nm}: add its year and odometer to check that ${law} doesn't cover it` };
+  if (age >= y + 2) return { free: true, why: `${nm}: ${law} doesn't cover a ${kind} more than ${y} years old (this one is from ${year})` };
+  return { free: false, why: `${nm}: ${law} covers a ${kind} sold by a dealer, even for its owner, up to ${y} years old${k != null ? ` and ${n(k)} km` : ""}, and this one may be within it (${year}${km != null ? `, ${n(km)} km` : ""})` };
 }

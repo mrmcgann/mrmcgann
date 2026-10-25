@@ -70,7 +70,7 @@ export function SettingsForm({ fees, auction, selling, terms }: { fees: Record<s
               </label>
             ))}
           </div>
-          <span className="hint">Where it&apos;s ticked, a vehicle passed in can be sold afterwards at a price the seller agrees in writing, by a written offer the buyer signs, with that state&apos;s cooling-off period and statutory warranty. Victoria is never on: a consigned vehicle can only be sold there at auction. Tick {STATE_NAMES.TAS.replace(/^the /, "")} only once we hold a motor vehicle trader licence there, and {STATE_NAMES.NT} only once we hold a motor vehicle dealer licence.</span>
+          <span className="hint">Where it&apos;s ticked, a vehicle passed in can be sold afterwards at a price the seller agrees in writing, by a written offer the buyer signs, with that state&apos;s cooling-off period, and only where no statutory warranty or dealer&apos;s duty to repair would apply (we never give one). Victoria is never on: a consigned vehicle can only be sold there at auction. Tick {STATE_NAMES.TAS.replace(/^the /, "")} only once we hold a motor vehicle trader licence there, and {STATE_NAMES.NT} only once we hold a motor vehicle dealer licence.</span>
         </fieldset>
         <button className="btn btn-dark" style={{ alignSelf: "flex-start" }} onClick={() => saveRaw("selling", { ...selling, require_checks: checks, pre_inspection_fee: Math.max(0, Math.round(Number(inspFee) || 0)), after_auction_states: AFTER_STATES.filter((st) => after.includes(st)) })}>Save</button>
       </div>

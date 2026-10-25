@@ -361,7 +361,7 @@ export function BidPanel(props: {
         )}
         {termsOpen && (
           <Modal title="We've updated our terms." onClose={() => setTermsOpen(false)}>
-            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main change: a vehicle that&apos;s passed in can now be sold after the auction, by a written offer you sign, with the cooling-off period and statutory warranty your state gives (never in Victoria).</p>
+            <p className="muted" style={{ fontSize: 16 }}>Before you bid again, please read and accept the current <Link className="blue" href="/terms" target="_blank">Terms of Sale</Link> and <Link className="blue" href="/privacy" target="_blank">Privacy Policy</Link>. The main changes: a vehicle that&apos;s passed in can be sold after the auction, by a written offer you sign, with the cooling-off period your state gives (never in Victoria); and we never give a statutory warranty, so we only sell where none applies.</p>
             <button className="btn btn-blue" onClick={acceptTerms} disabled={busy}>{busy ? "Saving…" : "I accept the terms"}</button>
             <button className="btn btn-soft" onClick={() => setTermsOpen(false)}>Not now</button>
           </Modal>

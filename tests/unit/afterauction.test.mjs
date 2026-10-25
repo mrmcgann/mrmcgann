@@ -1,7 +1,7 @@
-// Selling after the auction (migration 26): the words buyers, sellers and staff see, the statutory warranty guide, and
+// Selling after the auction (migrations 26 and 27): the words buyers, sellers and staff see, the statutory warranty check, and
 // the state rules in step with the database.
 import fs from 'fs';
-import { AFTER_DEFAULT, afterStatusLabel, afterWarrantyGuide, afterWarrantyLine, coolingLine, coolingOffAd, coolingOffSign, sellerAfterIntro, stateTime } from '../../src/lib/afterAuction.ts';
+import { AFTER_DEFAULT, afterStatusLabel, afterWarrantyLine, coolingLine, coolingOffAd, coolingOffSign, sellerAfterIntro, stateTime, warrantyFree } from '../../src/lib/afterAuction.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail) => { if (cond) pass++; else { fail++; console.log('FAIL', name, detail ?? ''); } };
@@ -24,23 +24,29 @@ ok('warranty: none applies', afterWarrantyLine({ warranty: false }) === 'No stat
 const words = JSON.stringify([afterWarrantyLine({ warranty: false }), afterWarrantyLine({ warranty: true, warranty_text: 'x' })]);
 ok('warranty: never "no warranty" or "non-refundable"', !/no warranty|non-refundable/i.test(words), words);
 
-// the guide for staff, state by state (a private owner's vehicle, sold after the auction)
-const g = (st, f) => afterWarrantyGuide(st, { now, ...f });
-const car = { year: 2019, odometer: 80000, category: 'cars' };
-ok('guide: Queensland: none (a consignment for a private seller)', g('QLD', car).applies === false);
-ok('guide: NSW dealer guarantee for a car up to 10 years and 160,000 km', g('NSW', car).applies === true && /3 months or 5,000 km/.test(g('NSW', car).text));
-ok('guide: NSW none for an older car, a heavy vehicle', g('NSW', { ...car, year: 2010 }).applies === false && g('NSW', { ...car, category: 'trucks' }).applies === false);
-ok('guide: NSW motorcycles 3 months or 3,000 km', /3,000 km/.test(g('NSW', { year: 2023, odometer: 9000, category: 'motorbikes' }).text));
-ok('guide: WA 3 months or 5,000 km up to 10 years and 150,000 km', g('WA', { ...car, price: 9000 }).applies === true && /3 months or 5,000 km/.test(g('WA', { ...car, price: 9000 }).text));
-ok('guide: WA 1 month or 1,500 km up to 12 years and 180,000 km', /1 month or 1,500 km/.test(g('WA', { year: 2015, odometer: 170000, category: 'cars', price: 9000 }).text));
-ok('guide: WA none under $4,000', g('WA', { ...car, price: 3500 }).applies === false);
-ok('guide: SA 2 months or 3,000 km at $3,001 to $6,000; 3 months or 5,000 km over', /2 months or 3,000 km/.test(g('SA', { ...car, price: 5000 }).text) && /3 months or 5,000 km/.test(g('SA', { ...car, price: 9000 }).text));
-ok('guide: SA none for motorcycles, or over 15 years', g('SA', { year: 2023, odometer: 9000, category: 'motorbikes' }).applies === false && g('SA', { year: 2009, odometer: 100000, category: 'cars', price: 9000 }).applies === false);
-ok('guide: ACT duty to repair (check Schedule 1)', g('ACT', car).applies === true && /Schedule 1/.test(g('ACT', car).text));
-ok('guide: Tasmania 3 months or 3,000 km under 7 years and 120,000 km', g('TAS', { year: 2022, odometer: 50000, category: 'cars' }).applies === true && g('TAS', { year: 2017, odometer: 50000, category: 'cars' }).applies === false);
-ok('guide: NT 3 months or 5,000 km under 10 years and 160,000 km', g('NT', car).applies === true);
-ok("guide: Victoria can't be sold after the auction", g('VIC', car).applies === false && /Victoria/.test(g('VIC', car).text));
-ok('guide: nothing to go on', g('NSW', { category: 'cars' }).applies === null && g('', car).applies === null);
+// we never give a statutory warranty: clear of them only well past the limits (the same cases and words as the DB test)
+const YR = now.getFullYear();
+const wf = (st, year, odometer, category, gvm = null) => warrantyFree(st, { year, odometer, category, gvm, now });
+const W = [
+  [wf('NSW', YR - 3, 60000, 'cars'), false, `New South Wales: the dealer guarantee covers a vehicle sold by a dealer, even for its owner, up to 10 years old and 160,000 km, and this one may be within it (${YR - 3}, 60,000 km)`],
+  [wf('NSW', YR - 10, 90000, 'cars'), false], [wf('NSW', YR - 11, 90000, 'cars'), false],
+  [wf('NSW', YR - 12, 90000, 'cars'), true, `New South Wales: the dealer guarantee doesn't cover a vehicle more than 10 years old (this one is from ${YR - 12})`],
+  [wf('NSW', YR - 3, 160001, 'cars'), true, "New South Wales: the dealer guarantee doesn't cover a vehicle over 160,000 km"],
+  [wf('NSW', YR - 2, 20000, 'trucks', 8000), true, "New South Wales: the dealer guarantee doesn't cover a vehicle over 4.5 tonnes GVM"],
+  [wf('SA', YR - 2, 5000, 'motorbikes'), true, "South Australia: the dealer's duty to repair doesn't cover a second-hand motorcycle"],
+  [wf('WA', YR - 13, 150000, 'utes'), false], [wf('WA', YR - 14, 150000, 'utes'), true],
+  [wf('ACT', YR - 1, 1000, 'motorbikes'), true, "The ACT: the dealer's duty to repair doesn't cover a second-hand motorcycle"],
+  [wf('QLD', YR - 1, 1000, 'cars'), true, "Queensland: no statutory warranty on a sale on consignment for an owner who isn't a motor dealer"],
+  [wf('NSW', null, 50000, 'cars'), null, "New South Wales: add its year and odometer to check that the dealer guarantee doesn't cover it"],
+  [wf('SA', YR - 5, null, 'boats'), true, "South Australia: the dealer's duty to repair doesn't cover boats"],
+  [wf('NSW', YR - 8, null, 'caravans'), false, `New South Wales: the dealer guarantee covers a trailer or caravan sold by a dealer, even for its owner, up to 10 years old, and this one may be within it (${YR - 8})`],
+  [wf('TAS', YR - 9, 60000, 'cars'), true, `Tasmania: the statutory warranty doesn't cover a vehicle more than 7 years old (this one is from ${YR - 9})`],
+  [wf('NT', YR - 2, 31000, 'motorbikes'), true, "The Northern Territory: the statutory warranty doesn't cover a motorcycle over 30,000 km"],
+];
+const wbad = W.filter(([g, free, why]) => g.free !== free || (why !== undefined && g.why !== why)).map(([g]) => JSON.stringify(g));
+ok('warranty: clear of every statutory warranty only well past the limits, state by state', wbad.length === 0, wbad.join(' | '));
+ok("warranty: Victoria never; no state, can't tell", wf('VIC', YR - 20, 300000, 'cars').free === false && wf('', YR - 20, 300000, 'cars').free === null);
+ok('warranty: the words never say "no warranty"', !W.some(([g]) => /no warranty/i.test(g.why)));
 
 // the seller's dashboard, before they agree a price (in step with the pass-in notice, after_seller_text)
 const intro = (v) => sellerAfterIntro({ not_offered: false, highest: null, defaulted: false, interested: 2, ...v });
@@ -62,6 +68,9 @@ ok('database: cooling-off a business day longer (NSW 2, SA 3, ACT 4), none elsew
   && /when 'ACT' then jsonb_build_object\('allowed', v_on, 'cooling_days', 4/.test(sql) && /when 'QLD' then jsonb_build_object\('allowed', v_on, 'cooling_days', 0/.test(sql) && /when 'WA' then jsonb_build_object\('allowed', v_on, 'cooling_days', 0/.test(sql));
 ok('database: never Victoria', /when 'VIC' then jsonb_build_object\('allowed', false/.test(sql) && sql.includes("where upper(trim(x)) in ('QLD','NSW','WA','SA','TAS','ACT','NT')"));
 ok('database: the Queensland words match the sign', sql.includes("'No cooling-off period—sale on consignment."));
+const sql27 = fs.readFileSync(new URL('../../supabase/migrations/20261027000027_never_a_warranty.sql', import.meta.url), 'utf8');
+ok('database: the same check and words (migration 27)', sql27.includes("' covers a ' || kind || ' sold by a dealer, even for its owner, up to '") && sql27.includes("'Queensland: no statutory warranty on a sale on consignment for an owner who isn''t a motor dealer'")
+  && sql27.includes("if age >= y + 2 then") && sql27.includes("raise exception 'warranty_applies:"));
 ok('database: the forms each state needs', /Form 5: the motor dealer''s notice/.test(sql) && /Form 12: the cooling-off period notice/.test(sql) && /section 18C/.test(sql) && /Form 4: vehicle particulars/.test(sql) && /Schedule 5 terms/.test(sql) && /section 20\), endorsed and signed for the sale/.test(sql));
 const reg = fs.readFileSync(new URL('../../docs/legal-basis.md', import.meta.url), 'utf8');
 ok('register: selling after the auction, state by state', /### Selling after the auction, state by state/.test(reg) && /Williams v Pisano \[2015\] NSWCA 177/.test(reg) && /Sch 4 cl 9/.test(reg));

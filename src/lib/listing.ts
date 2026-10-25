@@ -102,14 +102,15 @@ export function warrantyLine(v: boolean | null | undefined): string | null {
   return null;
 }
 
-/** What usually applies, for staff setting the statutory warranty on a listing. A private owner's vehicle sold at
- *  auction has none in QLD (consignments for private sellers are excluded), NSW (auction with the dealer's notice), VIC,
- *  WA, SA, TAS and NT (auction sales are excluded). The ACT's obligation to repair isn't lifted for auctions (only
- *  motorcycles are), and a dealer's own vehicle can carry one (QLD Class A or B, NSW dealer guarantee). */
+/** What applies, for staff setting the statutory warranty on a listing. We never give one (migration 27): a listing
+ *  that would carry one isn't published. A private owner's vehicle sold at auction has none in QLD (consignments for
+ *  private sellers are excluded), NSW (auction with the dealer's notice), VIC, WA, SA, TAS and NT (auction sales are
+ *  excluded). The ACT's duty to repair isn't lifted for auctions (only motorcycles are), so we don't list a vehicle it
+ *  could cover; and a motor dealer's own vehicle can carry one (QLD Class A or B, NSW dealer guarantee). */
 export function warrantyGuide(state: string | null | undefined, seller: SellerType | null | undefined, category?: string | null): string {
   const st = String(state || "").toUpperCase();
-  if (st === "ACT" && category !== "motorbikes") return "ACT: the dealer's obligation to repair can apply to a vehicle sold at auction (not motorbikes or commercial vehicles). Check its age and odometer against the ACT rules before choosing.";
-  if (seller === "business") return "A dealer's or business's vehicle can carry one (Queensland Class A or B, the NSW dealer guarantee). Check with the seller.";
+  if (st === "ACT" && category !== "motorbikes") return "ACT: the dealer's duty to repair applies even at auction to a vehicle under 10 years old and 160,000 km (not motorbikes or vehicles over 4.5 tonnes GVM). We never give one, so we don't list a vehicle it could cover: publishing refuses it.";
+  if (seller === "business") return "A motor dealer's own vehicle can carry a statutory warranty (Queensland Class A or B, the NSW dealer guarantee). We never give one: if the seller is a motor dealer and one would apply, don't list it. Check with the seller.";
   return `${st || "This state"}: none applies to a private owner's vehicle sold at auction.`;
 }
 

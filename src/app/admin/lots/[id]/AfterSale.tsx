@@ -1,18 +1,18 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { money } from "@/lib/format";
 import { env } from "@/lib/env";
-import { afterWarrantyGuide, type AfterRule } from "@/lib/afterAuction";
+import type { AfterRule, WarrantyFree } from "@/lib/afterAuction";
 
 export type AfterPerson = { id: string; name: string; mobile: string | null; bid: number | null; watcher: boolean; leader: boolean };
 
 // Staff: sell a vehicle after the auction (migration 26). First the seller's written agreement to a price (from their
 // dashboard, or recorded here with how they confirmed it in writing), then the offer: who it goes to, the price (never
-// below the seller's), whether a statutory warranty applies, the state's forms, and who signs it for us.
-export function AfterSale({ lotId, rule, sellerPrice, people, facts, consultant, offerOpen }: {
-  lotId: number; rule: AfterRule; sellerPrice: number | null; people: AfterPerson[];
-  facts: { state: string | null; year: number | null; odometer: number | null; category: string | null; gvm: number | null };
+// below the seller's), the check that no statutory warranty applies (we never give one, migration 27: the database has
+// already refused a vehicle one would clearly cover), the state's forms, and who signs it for us.
+export function AfterSale({ lotId, rule, sellerPrice, people, warranty, consultant, offerOpen }: {
+  lotId: number; rule: AfterRule; sellerPrice: number | null; people: AfterPerson[]; warranty: WarrantyFree | null;
   consultant: string; offerOpen: boolean;
 }) {
   const router = useRouter();
@@ -23,9 +23,7 @@ export function AfterSale({ lotId, rule, sellerPrice, people, facts, consultant,
   const [amount, setAmount] = useState(sellerPrice != null ? String(sellerPrice) : "");
   const [hours, setHours] = useState("24");
   const [who, setWho] = useState(consultant);
-  const guess = useMemo(() => afterWarrantyGuide(facts.state, { ...facts, price: Number(amount) || null }), [facts, amount]);
-  const [warranty, setWarranty] = useState<"" | "yes" | "no">("");
-  const [wText, setWText] = useState("");
+  const [noWarranty, setNoWarranty] = useState(false);
   const [docs, setDocs] = useState<{ name: string; path: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -53,14 +51,13 @@ export function AfterSale({ lotId, rule, sellerPrice, people, facts, consultant,
   }
 
   const missing = rule.forms.filter((f) => !docs.some((d) => d.name === f));
-  const pick = (v: "yes" | "no") => { setWarranty(v); if (v === "yes" && !wText && guess.applies) setWText(guess.text); };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="after-panel">
       <div className="soft" style={{ background: "var(--panel)", gap: 6 }}>
         <b>{rule.state} rules for a sale after the auction</b>
         <span style={{ fontSize: 14 }}>{rule.cooling_law}</span>
-        {rule.warranty_hint && <span style={{ fontSize: 14 }}>{rule.warranty_hint} We carry it as the dealer.</span>}
+        {rule.warranty_hint && <span style={{ fontSize: 14 }}>{rule.warranty_hint} We never give one, so we only sell after the auction where none applies.</span>}
         {rule.forms.length > 0 && <span style={{ fontSize: 14 }}>Paperwork with the offer: {rule.forms.join("; ")}. Use the regulator&apos;s own template, filled in for this vehicle.</span>}
         {rule.staff_note && <span style={{ fontSize: 14, fontWeight: 600 }}>{rule.staff_note}</span>}
       </div>
@@ -94,13 +91,12 @@ export function AfterSale({ lotId, rule, sellerPrice, people, facts, consultant,
               <input className="input" value={who} onChange={(e) => setWho(e.target.value)} data-testid="after-consultant" /></label>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>Statutory warranty for this sale</span>
-            <span className="hint" style={{ margin: 0 }} data-testid="after-guess">Guide: {guess.text}</span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className={`btn ${warranty === "yes" ? "btn-dark" : "btn-soft"}`} onClick={() => pick("yes")} data-testid="after-warranty-yes">One applies</button>
-              <button className={`btn ${warranty === "no" ? "btn-dark" : "btn-soft"}`} onClick={() => pick("no")} data-testid="after-warranty-no">None applies</button>
-            </div>
-            {warranty === "yes" && <input className="input" placeholder="What it is, e.g. Dealer guarantee: 3 months or 5,000 km, whichever comes first" value={wText} onChange={(e) => setWText(e.target.value)} data-testid="after-warranty-text" />}
+            <span style={{ fontWeight: 700 }}>No statutory warranty</span>
+            {warranty?.why && <span className="hint" style={{ margin: 0 }} data-testid="after-guess">{warranty.why}.</span>}
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5 }}>
+              <input type="checkbox" checked={noWarranty} onChange={(e) => setNoWarranty(e.target.checked)} style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2 }} data-testid="after-nowarranty" />
+              <span>I&apos;ve checked its papers: the owner isn&apos;t a motor dealer, and its build, compliance and first registration dates and its odometer put it outside the state&apos;s statutory warranty. If one could apply, don&apos;t send an offer: it goes into the next auction.</span>
+            </label>
           </div>
           {rule.forms.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -113,8 +109,8 @@ export function AfterSale({ lotId, rule, sellerPrice, people, facts, consultant,
               ))}
             </div>
           )}
-          <button className="btn btn-blue" disabled={busy || !buyer || !amount || !warranty || missing.length > 0} style={{ alignSelf: "flex-start" }} data-testid="after-send"
-            onClick={() => post("after-offer", { lotId, userId: buyer, amount: Number(amount), hours: Number(hours), warranty: warranty === "yes", warrantyText: wText, docs, consultant: who })}>
+          <button className="btn btn-blue" disabled={busy || !buyer || !amount || !noWarranty || missing.length > 0} style={{ alignSelf: "flex-start" }} data-testid="after-send"
+            onClick={() => post("after-offer", { lotId, userId: buyer, amount: Number(amount), hours: Number(hours), warranty: false, docs, consultant: who })}>
             {busy ? "…" : "Send the offer"}
           </button>
           {missing.length > 0 && <span className="hint" style={{ margin: 0 }}>Attach: {missing.join("; ")}.</span>}

@@ -32,7 +32,7 @@ const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-22
   C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-26' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-27' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -185,14 +185,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-10-26' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-10-27' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-26', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-27', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -796,7 +796,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-26', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-27', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
   await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
@@ -1042,8 +1042,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-26' where id = '${U.C}'`);
-  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-26' where id = '${U.D}'`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id = '${U.D}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
     (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
@@ -1142,8 +1142,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
   await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-26' where id='${U.E}'`);
-  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-26' where id='${U.F}'`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.F}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
     (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
@@ -1174,13 +1174,13 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // ... and can't come back with a new account
   await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-26' where id='${U.G}'`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-27' where id='${U.G}'`);
   r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
   r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
   ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
   r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
-  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-26' where id='${U.H}'`);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-27' where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
@@ -1425,7 +1425,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('B', `select place_bid(${order[0]}, 3000)`); ok("live: no bid in the room until the auction's conditions are accepted", r.error?.includes('enter_first'), r.error);
   r = await as('anon', `select enter_sale(${SA})`); ok('live: only members accept the conditions', !!r.error);
   r = await as('B', `select enter_sale(${SA}) t`); ok('live: B accepts the conditions on entering the room', !!r.rows?.[0]?.t, r.error);
-  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-10-26', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-10-27', JSON.stringify(r.rows));
   r = await as('A', `select count(*)::int n from sale_entries`); ok("live: members see only their own entries", r.rows?.[0]?.n === 0, JSON.stringify(r.rows));
   r = await as('B', `insert into sale_entries (sale_id, user_id) values (${SA}, '${U.A}')`); ok('live: entries are written only by enter_sale', !!r.error);
   r = await as('B', `select place_bid(${order[0]}, 3000) r`); ok('live: an online bid in the last seconds', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
@@ -1562,7 +1562,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select live_only() x`); ok('live only: the switch is on, and anyone can read it', r.rows?.[0]?.x === true, r.error);
   U.X = '7e7e7e7e-0000-4000-8000-00000000007e';
   await c.query(`insert into auth.users (id, email) values ('${U.X}', 'xan@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-10-26' where id='${U.X}'`);
+  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.X}'`);
   await c.query(`update settings set value = value || '{"require_checks": false}' where key = 'selling'`);
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('lo-thursday', 'Thursday night live', true, 'live', now() + interval '2 days', 30, 15, 'Pat Gavel') returning id`);
   const LS = r.rows?.[0]?.id; ok('live only: staff create a live auction', !!LS, r.error);
@@ -1780,11 +1780,14 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('aa-friday', 'Friday live', true, 'live', now() + interval '1 hour', 30, 15, 'Pat Gavel') returning id`);
   const AS = Number(r.rows?.[0]?.id);
   const AA = {};
+  const YR = Number((await c.query(`select extract(year from now() at time zone 'Australia/Brisbane')::int y`)).rows[0].y);
   for (const [st, t] of [['QLD', 'Brisbane ute'], ['SA', 'Adelaide wagon'], ['NSW', 'Sydney hatch'], ['VIC', 'Melbourne van'], ['TAS', 'Hobart sedan']]) {
     const id = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
     AA[st] = id;
+    // Queensland's is recent (no statutory warranty on a consignment there); elsewhere we only sell after the auction where
+    // none applies, so those are older, higher-kilometre cars
     await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, estimate_low, estimate_high, year, odometer)
-      values (${id}, 'draft', '${t}', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', '${st}', 9000, 11000, 2019, 80000)`);
+      values (${id}, 'draft', '${t}', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', '${st}', 9000, 11000, ${st === 'QLD' ? '2019, 80000' : `${YR - 18}, 250000`})`);
     await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis) values (${id}, 9000, 'Two of the same model and year sold for $9,800 and $10,400')`);
     await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}')`);
     await as('ADM', `update lots set sale_id = ${AS} where id = ${id}`);
@@ -1831,6 +1834,56 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('S', `select seller_lot_after(${AQ2}) j`); const sv2 = r.rows?.[0]?.j || {};
   ok("after: the seller's view of it: one person, no bid to accept, wasn't offered", sv2.open === true && sv2.interested === 1 && sv2.highest === null && sv2.defaulted === false && sv2.not_offered === true, JSON.stringify(sv2));
 
+  // we never give a statutory warranty: state by state, a vehicle is clear of them only well past the limits (two years past
+  // the age, because the law counts from build, compliance or first registration; or over the distance; or a kind not covered)
+  r = await as('service', `select warranty_free_for('NSW', ${YR - 3}, 60000, 'cars', null) a, warranty_free_for('NSW', ${YR - 10}, 90000, 'cars', null) b,
+    warranty_free_for('NSW', ${YR - 11}, 90000, 'cars', null) c, warranty_free_for('NSW', ${YR - 12}, 90000, 'cars', null) d, warranty_free_for('NSW', ${YR - 3}, 160001, 'cars', null) e,
+    warranty_free_for('NSW', ${YR - 2}, 20000, 'trucks', 8000) f, warranty_free_for('SA', ${YR - 2}, 5000, 'motorbikes', null) g, warranty_free_for('WA', ${YR - 13}, 150000, 'utes', null) h,
+    warranty_free_for('WA', ${YR - 14}, 150000, 'utes', null) i, warranty_free_for('ACT', ${YR - 1}, 1000, 'motorbikes', null) j, warranty_free_for('QLD', ${YR - 1}, 1000, 'cars', null) k,
+    warranty_free_for('NSW', null, 50000, 'cars', null) l, warranty_free_for('SA', ${YR - 5}, null, 'boats', null) m, warranty_free_for('NSW', ${YR - 8}, null, 'caravans', null) n,
+    warranty_free_for('TAS', ${YR - 9}, 60000, 'cars', null) o, warranty_free_for('NT', ${YR - 2}, 31000, 'motorbikes', null) q`);
+  const wf = r.rows?.[0] || {};
+  const WF = {
+    a: [false, `New South Wales: the dealer guarantee covers a vehicle sold by a dealer, even for its owner, up to 10 years old and 160,000 km, and this one may be within it (${YR - 3}, 60,000 km)`],
+    b: [false, null], c: [false, null],
+    d: [true, `New South Wales: the dealer guarantee doesn't cover a vehicle more than 10 years old (this one is from ${YR - 12})`],
+    e: [true, "New South Wales: the dealer guarantee doesn't cover a vehicle over 160,000 km"],
+    f: [true, "New South Wales: the dealer guarantee doesn't cover a vehicle over 4.5 tonnes GVM"],
+    g: [true, "South Australia: the dealer's duty to repair doesn't cover a second-hand motorcycle"],
+    h: [false, null], i: [true, null], j: [true, "The ACT: the dealer's duty to repair doesn't cover a second-hand motorcycle"],
+    k: [true, "Queensland: no statutory warranty on a sale on consignment for an owner who isn't a motor dealer"],
+    l: [null, "New South Wales: add its year and odometer to check that the dealer guarantee doesn't cover it"],
+    m: [true, "South Australia: the dealer's duty to repair doesn't cover boats"],
+    n: [false, `New South Wales: the dealer guarantee covers a trailer or caravan sold by a dealer, even for its owner, up to 10 years old, and this one may be within it (${YR - 8})`],
+    o: [true, `Tasmania: the statutory warranty doesn't cover a vehicle more than 7 years old (this one is from ${YR - 9})`],
+    q: [true, "The Northern Territory: the statutory warranty doesn't cover a motorcycle over 30,000 km"],
+  };
+  const wbad = Object.entries(WF).filter(([k, [free, why]]) => (wf[k]?.free ?? null) !== free || (why !== null && wf[k]?.why !== why)).map(([k]) => `${k}: ${JSON.stringify(wf[k])}`);
+  ok('warranty: clear of every statutory warranty only well past the limits, state by state (same words as warrantyFree())', wbad.length === 0, wbad.join(' | '));
+  // a recent car in New South Wales: the dealer guarantee would cover it, so it can't be sold after the auction
+  const ANSW = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
+  await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, year, odometer, current_bid, bid_count, leader_id)
+    values (${ANSW}, 'passed', 'Sydney SUV', 'cars', 1000, now() - interval '1 hour', 'unregistered', 'auction', '${U.S}', 'NSW', ${YR - 3}, 60000, 9000, 1, '${U.A}')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${ANSW}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}')`);
+  await c.query(`insert into watchlist (user_id, lot_id) values ('${U.X}', ${ANSW})`);
+  r = await as('service', `select after_auction_check(${ANSW}) j, after_seller_text(${ANSW}) t`);
+  ok("warranty: a recent NSW car the dealer guarantee would cover can't be sold after the auction (and the seller isn't told it can)", r.rows?.[0]?.j?.code === 'warranty'
+    && /^New South Wales: the dealer guarantee covers a vehicle sold by a dealer, even for its owner/.test(r.rows[0].j.why) && /We never give a statutory warranty, so it can't be sold after the auction\.$/.test(r.rows[0].j.why) && r.rows[0].t === '', JSON.stringify(r.rows));
+  r = await as('S', `select seller_accept_after(${ANSW}, 9000)`); ok('warranty: so the seller can\'t agree a price for it', r.error?.includes('after_closed') && r.error?.includes('dealer guarantee'), r.error);
+  r = await as('ADM', `select admin_after_offer(${ANSW}, '${U.X}', 9000, 24, false, null, '[]', 'Pat Consultant')`); ok('warranty: and staff can\'t offer it', r.error?.includes('after_closed'), r.error);
+  await c.query(`update lots set year = null where id = ${ANSW}`);
+  r = await as('service', `select after_auction_check(${ANSW}) j`); ok('warranty: without its year, we can\'t tell, so it can\'t be sold after the auction either', r.rows?.[0]?.j?.code === 'warranty_unknown', JSON.stringify(r.rows));
+  // never a listing with a statutory warranty; in the ACT never a vehicle its duty to repair could cover (it applies at auction too)
+  const ACTL = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
+  await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, estimate_low, estimate_high, year, odometer)
+    values (${ACTL}, 'draft', 'Canberra hatch', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', 'ACT', 9000, 11000, ${YR - 3}, 40000)`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${ACTL}`);
+  ok("ACT: a vehicle its dealer's duty to repair could cover can't be listed, even for auction", r.error?.includes('In the ACT it applies even at auction') && r.error?.includes('up to 10 years old and 160,000 km'), r.error);
+  await c.query(`update lots set year = ${YR - 13}, odometer = 170000 where id = ${ACTL}`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${ACTL}`); ok('ACT: one clearly outside it goes on to the other checks', !!r.error && !r.error.includes('ACT') && !r.error.includes('statutory warranty'), r.error);
+  await c.query(`update lots set statutory_warranty = true where id = ${ACTL}`);
+  r = await as('ADM', `update lots set status = 'live' where id = ${ACTL}`); ok('never a listing with a statutory warranty', r.error?.includes('we never give a statutory warranty'), r.error);
+
   // Queensland: the seller accepts the highest bid from their dashboard; the consultant offers it; the buyer signs; sold
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, false, null, '[]', 'Pat Consultant')`); ok("after: no offer before the seller's written agreement", r.error?.includes('seller_not_agreed'), r.error);
   r = await as('A', `select seller_accept_after(${AA.QLD}, 8000)`); ok('after: only the seller agrees a price', r.error?.includes('forbidden'), r.error);
@@ -1844,8 +1897,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.ADM}', 8000, 24, false, null, '[]', 'Pat Consultant')`); ok('after: only to someone who bid on it or watched it', r.error?.includes('not_interested'), r.error);
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.NEW}', 8000, 24, false, null, '[]', 'Pat Consultant')`); ok('after: never to a suspended account', r.error?.includes('account_suspended'), r.error);
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.S}', 8000, 24, false, null, '[]', 'Pat Consultant')`); ok('after: never to the seller', r.error?.includes('own_vehicle'), r.error);
-  r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, null, null, '[]', 'Pat Consultant')`); ok('after: the offer says whether a statutory warranty applies', r.error?.includes('warranty_needed'), r.error);
-  r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, true, 'yes', '[]', 'Pat Consultant')`); ok('after: and describes it if one does', r.error?.includes('warranty_needed'), r.error);
+  r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, null, null, '[]', 'Pat Consultant')`); ok('after: staff confirm no statutory warranty applies', r.error?.includes('warranty_needed'), r.error);
+  r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, true, 'Dealer guarantee: 3 months', '[]', 'Pat Consultant')`); ok('after: never with a statutory warranty', r.error?.includes('warranty_applies'), r.error);
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8000, 24, false, null, '[]', '')`); ok('after: someone signs it for us', r.error?.includes('consultant_needed'), r.error);
   r = await as('ADM', `select admin_after_offer(${AA.QLD}, '${U.A}', 8250, 24, false, null, '[]', 'Pat Consultant') j`); const OQ = r.rows?.[0]?.j?.id;
   ok('after: Queensland needs no forms beyond our contract: the offer goes to the highest bidder (above the seller\'s price is fine)', !!OQ && Number(r.rows[0].j.total) > 8250, JSON.stringify(r));
@@ -1861,7 +1914,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select l.status, l.sold_via, l.winner_id, l.sold_price, i.sold_via iv, i.price, o.status os, o.signed_name, o.terms_version, o.invoice_id = i.id same
     from lots l join invoices i on i.lot_id = l.id join second_chance_offers o on o.lot_id = l.id where l.id = ${AA.QLD}`);
   ok('after: the vehicle is sold after the auction, the invoice made, the signature and terms version kept', r.rows?.[0]?.status === 'sold' && r.rows[0].sold_via === 'after_auction' && r.rows[0].winner_id === U.A
-    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-10-26' && r.rows[0].same, JSON.stringify(r.rows));
+    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-10-27' && r.rows[0].same, JSON.stringify(r.rows));
   r = await as('service', `select status from lots where relisted_from = ${AA.QLD}`); ok('after: its relist for the next auction is cancelled', r.rows?.length === 1 && r.rows[0].status === 'cancelled', JSON.stringify(r.rows));
   await as('service', `select queue_status_notices()`);
   r = await as('service', `select (select body from outbox where dedupe_key like 'seller-sold:${AA.QLD}%' limit 1) s, (select body from notifications where user_id = '${U.B}' and title = 'The Brisbane ute has sold') b`);
@@ -1872,12 +1925,12 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('A', `select admin_seller_agreed(${AA.SA}, 7800, 'Email from the seller, 26 Oct 10:15 am')`); ok('after: only staff record it', r.error?.includes('forbidden'), r.error);
   r = await as('ADM', `select admin_seller_agreed(${AA.SA}, 7800, 'Email from the seller, 26 Oct 10:15 am') id`); ok('after: recorded', !!r.rows?.[0]?.id, r.error);
   r = await as('service', `select body from outbox where dedupe_key like 'after-agreed-seller:%' and body like '%$7,800 or more%' limit 1`); ok('after: and confirmed to the seller in writing', /If that isn't right, tell us straight away/.test(r.rows?.[0]?.body || ''), JSON.stringify(r.rows));
-  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, true, 'Duty to repair: 3 months or 5,000 km, whichever comes first', '[]', 'Pat Consultant')`);
+  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, false, null, '[]', 'Pat Consultant')`);
   ok("after: South Australia needs the state's forms with the offer", r.error?.includes('forms_needed') && r.error?.includes('section 18C'), r.error);
-  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, true, 'Duty to repair: 3 months or 5,000 km, whichever comes first', $1::jsonb, 'Pat Consultant')`, [JSON.stringify([{ name: 'Form', path: '999/x.pdf' }])]);
+  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, false, null, $1::jsonb, 'Pat Consultant')`, [JSON.stringify([{ name: 'Form', path: '999/x.pdf' }])]);
   ok('after: only documents uploaded for this vehicle', r.error?.includes('bad_docs'), r.error);
   const docs = [1, 2, 3].map((n) => ({ name: `SA form ${n}`, path: `${AA.SA}/${'0'.repeat(8)}-0000-4000-8000-00000000000${n}.pdf` }));
-  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, true, 'Duty to repair: 3 months or 5,000 km, whichever comes first', $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docs)]);
+  r = await as('ADM', `select admin_after_offer(${AA.SA}, '${U.B}', 7800, 24, false, null, $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docs)]);
   const OS = r.rows?.[0]?.j?.id; ok('after: with the forms, the offer goes', !!OS, r.error);
   r = await as('B', `select respond_after_offer('${OS}', true, 'Amy Ash') j`); const ansS = r.rows?.[0]?.j || {};
   ok('after: South Australia: signed, then a cooling-off period of 3 business days (the law gives 2)', ansS.status === 'cooling_off' && new Date(ansS.cooling_off_until) > new Date(Date.now() + 2 * 86400_000), JSON.stringify(r));
@@ -1902,7 +1955,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   // New South Wales: the buyer changes their mind in the cooling-off period (free)
   r = await as('S', `select seller_accept_after(${AA.NSW}, 7600) id`); ok('after: NSW seller agrees', !!r.rows?.[0]?.id, r.error);
   const docsN = [1, 2].map((n) => ({ name: `NSW Form ${n}`, path: `${AA.NSW}/${'0'.repeat(8)}-0000-4000-8000-00000000001${n}.pdf` }));
-  r = await as('ADM', `select admin_after_offer(${AA.NSW}, '${U.A}', 7600, 24, true, 'Dealer guarantee: 3 months or 5,000 km, whichever comes first', $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docsN)]);
+  r = await as('ADM', `select admin_after_offer(${AA.NSW}, '${U.A}', 7600, 24, false, null, $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docsN)]);
   const ON = r.rows?.[0]?.j?.id; ok('after: NSW offer with Forms 5 and 12', !!ON, r.error);
   r = await as('A', `select respond_after_offer('${ON}', true, 'Amy Ash') j`); ok('after: NSW buyer signs: cooling-off', r.rows?.[0]?.j?.status === 'cooling_off', JSON.stringify(r));
   r = await as('B', `select cancel_after_offer('${ON}')`); ok('after: only the buyer cancels', r.error?.includes('offer_not_found'), r.error);
@@ -1912,7 +1965,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok("after: free: nothing invoiced, still the seller's, and the seller is told", r.rows?.[0]?.status === 'cancelled' && r.rows[0].cancel_reason === 'cooling_off' && r.rows[0].ls === 'passed' && r.rows[0].inv === 0 && r.rows[0].s >= 1, JSON.stringify(r.rows));
   r = await as('A', `select cancel_after_offer('${ON}')`); ok('after: only once', r.error?.includes('offer_closed'), r.error);
   // a new offer to B, which nobody answers in time; then the seller changes their mind
-  r = await as('ADM', `select admin_after_offer(${AA.NSW}, '${U.B}', 7600, 4, true, 'Dealer guarantee: 3 months or 5,000 km, whichever comes first', $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docsN)]);
+  r = await as('ADM', `select admin_after_offer(${AA.NSW}, '${U.B}', 7600, 4, false, null, $1::jsonb, 'Pat Consultant') j`, [JSON.stringify(docsN)]);
   const ON2 = r.rows?.[0]?.j?.id; ok('after: a fresh offer to another bidder', !!ON2, r.error);
   await c.query(`update second_chance_offers set expires_at = now() - interval '1 second' where id = '${ON2}'`);
   r = await as('B', `select respond_after_offer('${ON2}', true, 'Amy Ash')`); ok("after: an offer can't be accepted once it has expired", r.error?.includes('offer_expired'), r.error);
