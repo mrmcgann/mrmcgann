@@ -158,7 +158,7 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
             <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }} data-testid="admin-after-sale">
               <h3 style={{ fontSize: 19, fontWeight: 800 }}>Sell it after the auction</h3>
               {check?.ok
-                ? <AfterSale lotId={lotId} rule={check.rule} sellerPrice={sellerPrice} people={people} consultant={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} offerOpen={afterOpen}
+                ? <AfterSale key={`price-${sellerPrice ?? "none"}`} lotId={lotId} rule={check.rule} sellerPrice={sellerPrice} people={people} consultant={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} offerOpen={afterOpen}
                     facts={{ state: check.state, year: lot.year ?? null, odometer: lot.odometer ?? null, category: lot.category ?? null, gvm: lot.gvm_kg ?? null }} />
                 : <span className="hint" style={{ margin: 0 }} data-testid="admin-after-closed">It can&apos;t be sold after the auction: {check?.why || "it isn't available"}</span>}
               {lastDec && <span className="muted" style={{ fontSize: 14 }}>The seller {lastDec.action === "accept_after" ? `agreed to ${money(lastDec.amount)} or more` : "withdrew their price"} ({lastDec.via === "admin" ? `recorded by staff: ${lastDec.note || ""}` : "from their seller dashboard"}, {dateTime(lastDec.created_at)}).</span>}
