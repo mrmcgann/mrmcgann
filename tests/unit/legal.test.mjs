@@ -1,5 +1,6 @@
 // Terms of sale, seller agreement, website terms and help: node --experimental-strip-types tests/unit/legal.test.mjs
 import { TERMS, SELLER_AGREEMENT, WEBSITE_TERMS, HELP, PRIVACY, fillLegal, legalValues, SELLER_AGREEMENT_VERSION_LABEL } from '../../src/content/legal.ts';
+import { COMPARISON_WARNING } from '../../src/lib/finance.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -169,6 +170,37 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   ok('after: the short version and the cooling-off line agree', /we may send you a written offer to sign \(section 6\)/.test(terms) && /A vehicle bought after the auction gets the cooling-off period your state gives a buyer from a dealer/.test(terms));
   ok('seller: told up front we never give a statutory warranty (the ACT; a motor dealer\'s own vehicle)', /We never give a statutory warranty: we don’t list a vehicle that would carry one \(in the ACT a dealer’s duty to repair applies even at auction/.test(sa) && /if you’re a motor dealer, tell us/.test(sa));
   ok('after: new versions of both documents', /This version: 27 October 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 27 October 2026');
+}
+
+{
+  // No "[LAWYER ...]" placeholders anywhere: every position is settled from the primary source and recorded in
+  // docs/legal-basis.md, which the lawyer reads beside the finished wording. A placeholder means a position we never
+  // settled, and it would ship to members as a square-bracketed note.
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const root = new URL('../../', import.meta.url).pathname;
+  const skip = new Set(['node_modules', '.next', '.git', 'dist', 'ios', 'android', 'coverage']);
+  const found = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(e.name)) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(ts|tsx|sql|md)$/.test(e.name)) continue;
+      const text = fs.readFileSync(p, 'utf8');
+      // the test's own description of the rule doesn't count
+      if (p.endsWith('tests/unit/legal.test.mjs')) continue;
+      if (/\[LAWYER/i.test(text)) found.push(p.slice(root.length));
+    }
+  };
+  for (const d of ['src', 'supabase', 'docs', 'mobile/src', 'mobile/store']) {
+    const full = path.join(root, d);
+    if (fs.existsSync(full)) walk(full);
+  }
+  ok('no "[LAWYER ...]" placeholders: every position is settled and in docs/legal-basis.md', found.length === 0, found.join(', '));
+  const reg = fs.readFileSync(path.join(root, 'docs/legal-basis.md'), 'utf8');
+  ok('register: the comparison rate warning is prescribed, with its regulation', /reg 99 \("Warnings about comparison rate"\)/.test(reg) && /National Consumer Credit Protection Regulations 2010/.test(reg));
+  ok('the comparison rate warning is the prescribed words, unchanged', COMPARISON_WARNING === 'WARNING: This comparison rate is true only for the examples given and may not include all fees and charges. Different terms, fees or other loan amounts might result in a different comparison rate.');
 }
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

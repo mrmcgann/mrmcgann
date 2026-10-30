@@ -51,7 +51,10 @@ export function fillReferral(template: string, v: Record<string, string | number
   return template.replace(/\{(\w+)\}/g, (_, k: string) => encodeURIComponent(v[k] == null ? "" : String(v[k])));
 }
 
-// The warning the National Credit Code requires wherever a comparison rate is shown. [LAWYER TO CONFIRM CURRENT WORDING]
+// The comparison rate warning, in the short form prescribed by reg 99 of the National Consumer Credit Protection
+// Regulations 2010 (Cth) (carried over unchanged from reg 33C of the old Consumer Credit Regulations). It is a
+// prescribed form of words: reproduce it exactly, never reword or abbreviate it. It must sit with the rate wherever
+// one is advertised, which is why listingEstimate() and the /finance page both carry it. See docs/legal-basis.md s 11.
 export const COMPARISON_WARNING = "WARNING: This comparison rate is true only for the examples given and may not include all fees and charges. Different terms, fees or other loan amounts might result in a different comparison rate.";
 
 // Insurance features shown side by side. Facts from each insurer, never a rating or recommendation.

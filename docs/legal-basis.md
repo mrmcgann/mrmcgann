@@ -171,6 +171,23 @@ loss. Sources: ACL Part 2-3 (ss 23-28); ACCC "Unfair contract terms"; Paciocco v
 (penalties: a sum is a penalty only if out of all proportion to the legitimate interest protected). `tests/unit/legal.test.mjs`
 checks these protections stay in.
 
+## 11. Credit and insurance referrals (advertising a rate)
+
+Tyrebiter holds no credit licence and no AFSL. It refers to licensed partners, discloses that it is paid a fee, and
+never recommends one or advises on credit or insurance, which is what keeps it inside the referrer exemption.
+
+| Position | Where it lives | Basis |
+|---|---|---|
+| Wherever a rate is advertised, a comparison rate sits beside it with the prescribed warning, word for word. | `COMPARISON_WARNING`, `listingEstimate()` (`src/lib/finance.ts`); `/finance` | National Consumer Credit Protection Regulations 2010 (Cth) reg 99 ("Warnings about comparison rate"), carried over from reg 33C of the Consumer Credit Regulations; National Credit Code s 160 |
+| Listing repayment figures are lender-neutral estimates on the all-in price, labelled an estimate and not an offer of credit. | `listingEstimate()`; the listing's finance box | ASIC RG 234 (advertising financial products and credit); NCCP Act s 29 (engaging in credit activity) |
+| The referrer note names the arrangement: no credit licence, the partner decides, commissions disclosed. | `REFERRER_NOTE` (`src/lib/partners.ts`) | NCCP Regulations reg 25 (referrer exemption); ASIC INFO 149 |
+| Insurance pages carry the general advice warning and never a rating, "best", or a recommendation. | `src/lib/partners.ts`; `/insurance` | Corporations Act 2001 (Cth) s 949A (general advice warning); ASIC RG 234 |
+| `/api/leads` sends exactly the fields the consent text lists, and stores the consent text shown. | `consentText`/`FIELDS`, `/api/leads` | Privacy Act 1988 APP 6 (use and disclosure); Spam Act 2003 s 16 (consent) |
+
+For the lawyer's final read: check reg 99's current compilation on the Federal Register of Legislation for any change
+to the prescribed wording (we use the short form; reg 99 also allows a longer one), and check each partner's referral
+agreement against the exemption relied on.
+
 ## Governing law
 
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document

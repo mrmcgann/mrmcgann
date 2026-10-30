@@ -58,7 +58,7 @@ PAY, THEN COLLECT FROM OUR DEPOT
 When you win, your tax invoice is in the app. Pay by bank transfer, PayID or BPAY. Our transport partner brings the vehicle to our depot; book a collection time and show your release code when you pick it up.
 
 SELLING WITH TYREBITER
-Type your rego plate and we fill in the vehicle; add the kilometres, your photos and a walkaround video from your phone. We check them against your papers and the records, agree an auction estimate and reserve with you, and offer it in our next live auction to buyers Australia-wide. Nobody visits: buyers never come to your place and never get your name or address. You can lower your reserve until the hammer falls, and follow every bid and watcher in the app.
+Type your rego plate and we fill in the vehicle; add the kilometres, your photos and a walkaround video from your phone. We check them against your papers and the records, agree an auction estimate and reserve with you, and offer it in our next live auction to buyers Australia-wide. Nobody visits: buyers never come to your place and never get your name or address. You can lower your reserve until the hammer falls, and follow every bid and watcher in the app. If it doesn't reach your reserve it goes into the next auction automatically, and where the law allows it your consultant can offer it to someone who bid or watched, at a price you agree first.
 
 SAFE BY DESIGN
 Every bidder verifies their mobile and ID before bidding. We never ask you to pay a seller directly, and our bank details never change by email or SMS.
@@ -87,7 +87,9 @@ Don't put other companies' names (Grays, Pickles, Trade Me, Carsales) in the key
 Answer "None" or "No" to everything (violence, gambling, contests, unrestricted web access, user-generated content you'd need to rate, and so on). Auctions for physical goods are not gambling. Bidders must be 18+, which the app enforces with ID checks. Listing questions and seller videos only appear after our team approves them.
 
 ### App Privacy ("nutrition label")
-"Do you or your third-party partners collect data from this app?" **Yes.** Tracking: **No** (no advertising, no data brokers, no cross-app tracking). For each type below: **Linked to the user: Yes. Used for tracking: No.**
+"Do you or your third-party partners collect data from this app?" **Yes.** Tracking: **No** (no advertising, no data brokers, no cross-app tracking). Nothing below is used for tracking.
+
+**Linked to the user** — tied to the account:
 
 | Data type | Purposes |
 |---|---|
@@ -103,7 +105,23 @@ Answer "None" or "No" to everything (violence, gambling, contests, unrestricted 
 | Identifiers: Device ID | App Functionality (the push notification token) |
 | Other data types: Date of birth and identity document check | App Functionality (ID verification before bidding) |
 
-Not collected: location, contacts, browsing or search history, health, diagnostics, usage analytics, advertising data.
+**Not linked to the user** — the app's own first-party counter (`POST /api/t` → `web_events`) and crash reports
+(`POST /api/errors`). Neither carries a sign-in token or an account id: a visit is counted under an anonymous code
+rebuilt from the connection and the day, which changes daily, and the only thing said about the person is whether they
+were signed in (a yes/no, never which account). Detailed rows are deleted after 90 days. Declare each of these as
+**Linked to the user: No. Used for tracking: No.**
+
+| Data type | Purposes |
+|---|---|
+| Usage Data: Product Interaction | Analytics (which screens are opened, and which vehicle) |
+| Usage Data: Other Usage Data | Analytics (the search *filters* applied and how many vehicles matched — never the words typed into the search box, which the app strips before sending) |
+| Diagnostics: Crash Data | App Functionality (an unhandled error's type, message, stack and screen, with personal details removed before anything is stored) |
+| Diagnostics: Other Diagnostic Data | App Functionality (the app version an error came from) |
+| Location: Coarse Location | Analytics (country and state only, worked out by our host from the connection; the app never asks for or reads the device's location) |
+
+Not collected: precise location, contacts, calendar, messages, audio, files, health, fitness, browsing history, search
+terms typed by the user, purchase advertising data, or any advertising or third-party analytics identifier. No
+advertising SDK, no third-party analytics SDK, and no cross-app or cross-site tracking of any kind.
 
 Partner enquiries: when someone orders a mobile inspection, the app sends their name, email, phone and (optional) postcode to the named inspection company, only after they tick the consent box. Finance and insurance enquiries are made on the website pages the app opens. Apple counts this under the contact info types already declared above (App Functionality), so nothing extra is ticked. Tracking stays **No**: the details aren't used for advertising or passed to data brokers.
 
@@ -123,6 +141,16 @@ Demo account: [email] / [password]. Its mobile is verified so you can browse, se
 - There are no in-person viewings. "Order a mechanical inspection" on a listing sends a real enquiry to an independent inspection company, so it's only open to fully verified members (mobile and ID). The demo account hasn't verified its ID, so it will be asked to finish verifying; that's expected.
 - "Compare car loans" and "Compare insurance" open our website in an in-app browser. Tyrebiter doesn't lend money or sell insurance in the app.
 - Bidder names in the bid history are blurred on purpose, for privacy. It isn't a display fault.
+- If a vehicle doesn't reach its reserve, we may later offer it to someone who bid on or watched it, at a price its
+  owner has agreed in writing. That offer opens on the Offers screen: it shows the price, the all-in total, the state's
+  cooling-off period, a contract PDF and the state's own forms, and it's signed by typing your verified name. It's a
+  contract to buy a physical vehicle, paid by bank transfer outside the app, so in-app purchase doesn't apply here
+  either. The demo account has no such offer, so the screen will be empty for you.
+- Some listings show "No cooling-off period applies" or "No cooling-off period—sale on consignment" near the price.
+  That is wording Queensland law requires us to publish for a vehicle sold on consignment for its owner (Motor Dealers
+  and Chattel Auctioneers Regulation 2014 (Qld) s 9); it isn't a term we chose.
+- Analytics are our own: the app counts screens opened and the search filters used, and reports crashes, to our own
+  server. There is no advertising or third-party analytics SDK in the app.
 - No sign-in with third-party accounts is offered, so Sign in with Apple doesn't apply.
 ```
 
@@ -167,7 +195,20 @@ Demo account: [email] / [password]. Its mobile is verified so you can browse, se
 | Photos and videos: Videos (sellers' listing videos) | Yes | No | Optional | App functionality |
 | App activity: Other user-generated content (questions, claims) | Yes | No | Optional | App functionality |
 | Device or other IDs (push token) | Yes | No | Optional | App functionality |
+| App activity: App interactions (screens opened, and which vehicle) | Yes | No | Required | Analytics |
+| App activity: In-app search history (the *filters* applied and how many vehicles matched; the words typed into the search box are stripped before sending and never stored) | Yes | No | Required | Analytics |
+| App info and performance: Crash logs (an unhandled error's type, message, stack and screen, with personal details removed before storage) | Yes | No | Required | Analytics, App functionality |
+| App info and performance: Other app performance data (the app version an error came from) | Yes | No | Required | App functionality |
+| Location: Approximate location (country and state only, worked out by our host from the connection; the app never asks for or reads the device's location) | Yes | No | Required | Analytics |
 
 For the "Shared" rows, the sharing purpose is **App functionality** (the partner contacts the person about the inspection, loan or policy they asked about).
 
-Not collected: location, contacts, calendar, messages, audio, files, web history, health, app interactions or analytics, crash logs.
+The last five rows are Tyrebiter's own first-party counter (`POST /api/t` → `web_events`) and crash reporting
+(`POST /api/errors`). They are marked **Required** because the app sends them without a toggle, and **not** processed
+ephemerally (rows are kept for 90 days, then deleted; only daily totals remain). No account id or sign-in token goes
+with them: a visit is counted under an anonymous code rebuilt from the connection and the day, and the only thing said
+about the person is whether they were signed in. There is no advertising SDK and no third-party analytics SDK, so
+"Data is encrypted in transit: Yes" and "Users can request data deletion: Yes" both stay as they are.
+
+Not collected: precise location, contacts, calendar, messages, audio, music, files or documents, web browsing history,
+health and fitness, SMS or call logs, installed apps, or any advertising ID.

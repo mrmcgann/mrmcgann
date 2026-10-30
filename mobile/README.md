@@ -36,12 +36,19 @@ eas init
 `eas init` prints a project ID and your Expo username. Paste them into `EAS_PROJECT_ID` and `EAS_OWNER` near the top of `app.config.ts` (or ask Claude Code to).
 
 ### 4. Put the website live first
-The app talks to the live website, so these go first:
-- Run `supabase/migrations/20261003000007_app.sql` in the Supabase SQL editor (push devices, push alerts, account deletion).
-- Then run `supabase/migrations/20261003000008_media_partners.sql` (listing videos, consultants, mobile inspections, finance and insurance partners, blurred bidder names).
-- Then run `supabase/migrations/20261004000009_rego_transfer.sql` (registered/unregistered on listings, one video in 10 photos and videos, plate lookups, transfer of ownership before collection).
-- Then run `supabase/migrations/20261004000010_free_lookup.sql` (our own free plate and VIN lookup) and `supabase/migrations/20261004000011_lookup_australia_only.sql`.
-- Deploy the website (it has the new `/api` routes the app uses).
+The app has no database or rules of its own: it calls the live website's `/api` and reads Supabase directly. So the
+website goes first, in this order:
+
+1. Every migration in `supabase/migrations/`, in order (there are 27; the main `README.md`, step 1, lists them with
+   what each one does, or run `supabase db push` with the CLI). Don't cherry-pick: the app's screens call functions
+   added as late as migration 27.
+2. Deploy the website with `NEXT_PUBLIC_TEST_MODE=false` and the real environment variables (main `README.md`,
+   "Before launch").
+3. Check **Admin → Site health** is all green on the live site. The app shows whatever the website says, so a red
+   check here is a red check in the app.
+
+The app's `eas.json` points at `https://tyrebiter.com.au`. If you launch on a different domain, change it there before
+building, or every build talks to the wrong site.
 
 ### 5. Tell Expo the app's settings
 On expo.dev, open the project, then **Environment variables**. Add each of these for **production** and **preview** (visibility "Plain text" is fine, they're public keys):
@@ -82,6 +89,13 @@ update profiles set details_done = true, first_name = 'App', last_name = 'Review
 where email = 'appreview@tyrebiter.com.au';
 ```
 Its ID isn't verified on purpose, so a reviewer can see everything (the live auction room too) but can't place a real bid: a bid button leads to the ID check.
+
+**Have something for them to look at.** Every vehicle is sold in a live auction, so if no auction is scheduled when the
+reviewer signs in, the home page, the calendar and the room are all empty and the app looks broken. Before you submit,
+make sure there's a published live auction with vehicles in it, starting a few days out and still unfinished — and keep
+one scheduled for as long as the app is in review, including any resubmission. Add it to the review notes: "The live
+auction room fills with the auctioneer's calls and a countdown once a sale starts; between sales it shows the next
+auction's date."
 
 ### 10. Send it to Apple
 1. `eas submit -p ios --latest`. The first time, it creates the app in App Store Connect for you.
