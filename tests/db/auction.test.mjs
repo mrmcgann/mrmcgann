@@ -1991,10 +1991,56 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   await c.query(`update settings set value = value || '{"after_auction_states": ["QLD","NSW","WA","SA","ACT"]}' where key = 'selling'`);
 
   // the cooling-off period: business days after the day of signing, in the state's own time
-  r = await as('service', `select cooling_off_end('2026-10-23 10:00+10', 3, 'Australia/Adelaide') = ('2026-10-28 23:59:59'::timestamp at time zone 'Australia/Adelaide') sa,
-    cooling_off_end('2026-12-24 12:00+10', 2, 'Australia/Sydney') = ('2026-12-30 23:59:59'::timestamp at time zone 'Australia/Sydney') xmas,
-    cooling_off_end(now(), 0, 'Australia/Sydney') is null none`);
+  r = await as('service', `select cooling_off_end('2026-10-23 10:00+10', 3, 'Australia/Adelaide', 'SA') = ('2026-10-28 23:59:59'::timestamp at time zone 'Australia/Adelaide') sa,
+    cooling_off_end('2026-12-24 12:00+10', 2, 'Australia/Sydney', 'NSW') = ('2026-12-30 23:59:59'::timestamp at time zone 'Australia/Sydney') xmas,
+    cooling_off_end(now(), 0, 'Australia/Sydney', 'NSW') is null none`);
   ok('cooling-off: counts business days in the state\'s time, skipping weekends and public holidays', r.rows?.[0]?.sa === true && r.rows[0].xmas === true && r.rows[0].none === true, JSON.stringify(r.rows));
+
+  // migration 28: the holidays are per state, so a cooling-off period ends on the right day where the buyer lives.
+  // The old version asked for the day with no state filter against a table of Queensland's holidays, which both
+  // added days a buyer's state doesn't observe and -- the dangerous way round -- missed the ones it does.
+  const co = (from, days, tz, st) => `cooling_off_end(('${from}'::timestamp at time zone '${tz}'), ${days}, '${tz}', '${st}')`;
+  const endOf = (day, tz) => `('${day} 23:59:59'::timestamp at time zone '${tz}')`;
+  const SYD = 'Australia/Sydney';
+  r = await as('service', `select
+    ${co('2027-08-09 10:00', 2, SYD, 'NSW')} = ${endOf('2027-08-11', SYD)} qld_show_ignored,
+    ${co('2027-10-01 10:00', 2, SYD, 'NSW')} = ${endOf('2027-10-06', SYD)} nsw_labour_counted,
+    ${co('2027-05-28 10:00', 4, SYD, 'ACT')} = ${endOf('2027-06-04', SYD)} act_reconciliation,
+    ${co('2027-05-28 10:00', 4, SYD, 'NSW')} = ${endOf('2027-06-03', SYD)} nsw_same_week,
+    ${co('2027-03-25 10:00', 1, 'Australia/Perth', 'WA')} = ${endOf('2027-03-30', 'Australia/Perth')} national_easter,
+    ${co('2027-06-11 10:00', 1, SYD, 'NSW')} = ${endOf('2027-06-15', SYD)} nsw_kings_birthday`);
+  const co2 = r.rows?.[0] || {};
+  ok('cooling-off: a Queensland-only holiday never lengthens a New South Wales buyer\'s period (the Ekka is ignored)', co2.qld_show_ignored === true, JSON.stringify(co2));
+  ok('cooling-off: the buyer\'s own state\'s holiday does lengthen it (NSW Labour Day, NSW King\'s Birthday)', co2.nsw_labour_counted === true && co2.nsw_kings_birthday === true, JSON.stringify(co2));
+  ok('cooling-off: the ACT\'s Reconciliation Day counts in the ACT and not in New South Wales', co2.act_reconciliation === true && co2.nsw_same_week === true, JSON.stringify(co2));
+  ok('cooling-off: a national holiday counts in every state (Good Friday and Easter Monday in WA)', co2.national_easter === true, JSON.stringify(co2));
+
+  // Our own business days stay Brisbane's: national holidays and Queensland's, never another state's.
+  r = await as('service', `select
+    (business_days_from(('2027-06-11 10:00'::timestamp at time zone '${SYD}'), 1) at time zone 'Australia/Brisbane')::date = date '2027-06-14' kings_birthday_is_a_work_day,
+    (business_days_from(('2027-08-09 10:00'::timestamp at time zone '${SYD}'), 2) at time zone 'Australia/Brisbane')::date = date '2027-08-12' ekka_skipped`);
+  ok('business days: Brisbane\'s -- King\'s Birthday elsewhere is a working day here, the Ekka is not', r.rows?.[0]?.kings_birthday_is_a_work_day === true && r.rows[0].ekka_skipped === true, JSON.stringify(r.rows));
+
+  // the old unfiltered signature is gone, so nothing can quietly count the wrong state's holidays
+  r = await as('service', `select count(*)::int n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'cooling_off_end' and pg_get_function_identity_arguments(p.oid) = 'timestamp with time zone, integer, text'`);
+  ok('cooling-off: the three-argument version is dropped, not left as a quiet fallback', r.rows?.[0]?.n === 0, JSON.stringify(r.rows));
+
+  r = await as('service', `select
+    (select count(*)::int from public_holidays where day between '2027-01-01' and '2027-12-31') y2027,
+    (select count(*)::int from public_holidays where day between '2027-01-01' and '2027-12-31' and state = '') national,
+    (select count(*)::int from public_holidays where extract(isodow from day) >= 6) weekend_rows,
+    (select count(*)::int from public_holidays where day = '2027-08-11' and state = 'QLD') ekka,
+    (select count(*)::int from public_holidays where name like '%(Qld)%' and state <> 'QLD') legacy_qld_unmoved`);
+  const ph = r.rows?.[0] || {};
+  ok('holidays: 2027 is seeded per state, with the national ones shared', ph.y2027 === 42 && ph.national === 6, JSON.stringify(ph));
+  ok('holidays: no weekend rows (they could never change a business-day count)', ph.weekend_rows === 0, JSON.stringify(ph));
+  ok('holidays: the legacy Queensland rows moved to QLD', ph.ekka === 1 && ph.legacy_qld_unmoved === 0, JSON.stringify(ph));
+
+  r = await as('service', `select holidays_ahead() h`);
+  ok('holidays: Site health can see how many are left and how far ahead they run', (r.rows?.[0]?.h?.days ?? 0) > 0 && String(r.rows?.[0]?.h?.until || '').startsWith('2027-'), JSON.stringify(r.rows?.[0]?.h));
+  r = await as('anon', `select holidays_ahead()`).catch(() => ({ error: true }));
+  ok('holidays: holidays_ahead() is closed to anon', !!r.error || !r.rows, JSON.stringify(r.rows || r));
 
   for (const fn of [`after_auction_check(${AA.NSW})`, `after_seller_price(${AA.NSW})`, `after_seller_agree_core(${AA.NSW}, 1, 'portal', null)`, `after_sale_complete(gen_random_uuid())`,
     `finish_after_offers()`, `after_seller_text(${AA.NSW})`, `after_interested(${AA.NSW})`]) {

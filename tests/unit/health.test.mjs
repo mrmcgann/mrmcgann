@@ -174,6 +174,16 @@ ok('stripe: a stray bad message while good ones arrive is fine', get(run({ marks
 ok('stripe: old bad messages forgotten', get(run({ marks: { stripe_webhook_bad: { at: iso(3 * 86400_000), value: {} } } }), 'setup.stripe_webhook').status === 'ok');
 ok('setup: off on a test copy', get(run({}, dev), 'setup.mode').status === 'off' && !get(run({}, dev), 'setup.keys'));
 
+// public holidays (migration 28): running out is silent, so it's a check. Business days and a buyer's cooling-off
+// period after an auction both count them, and without them a cooling-off period ends early.
+ok('holidays: plenty ahead is fine', get(run({ holidays: { days: 42, until: '2027-12-31', states: 8 } }), 'setup.holidays').status === 'ok');
+c = get(run({ holidays: { days: 4, until: '2026-11-15', states: 8 } }), 'setup.holidays');
+ok('holidays: running out within 90 days is a warning that says when', c.status === 'warn' && /2026-11-15/.test(c.detail) && /public_holidays/.test(c.fix), JSON.stringify(c));
+c = get(run({ holidays: { days: 0, until: null, states: 0 } }), 'setup.holidays');
+ok('holidays: none listed is a failure that explains the cooling-off risk', c.status === 'fail' && /cooling-off/.test(c.detail) && /right to cancel/.test(c.detail), JSON.stringify(c));
+ok('holidays: too few states with their own dates is said out loud', /cooling-off period after an auction is counted in the buyer's state/.test(get(run({ holidays: { days: 10, until: '2027-12-31', states: 2 } }), 'setup.holidays').detail || ''));
+ok('holidays: no check at all when the database didn\'t answer', !get(run({}), 'setup.holidays'));
+
 ok('nightly jobs: missed audit flagged after 5:10 am', /SEO audit/.test(get(evaluate({ ...healthy, jobs: { metrics_backfill: '2026-10-10', insights: '2026-10-10' } }, live, probe, { day: '2026-10-10', hour: 5, minute: 30 }, { now: NOW }), 'jobs.daily').title));
 ok('nightly jobs: not flagged before their time', get(evaluate({ ...healthy, jobs: {} }, live, probe, { day: '2026-10-10', hour: 1, minute: 0 }, { now: NOW }), 'jobs.daily').status === 'ok');
 ok('nightly jobs: insights flagged after 8:30', /Morning insights/.test(get(evaluate({ ...healthy, jobs: { metrics_backfill: '2026-10-10', seo_audit: '2026-10-10' } }, live, probe, { day: '2026-10-10', hour: 9, minute: 0 }, { now: NOW }), 'jobs.daily').title));

@@ -51,6 +51,7 @@ export type Snapshot = {
   admins_added_day?: number;
   admin_refused_hour?: number;
   open_functions?: string[];
+  holidays?: { days: number; until: string | null; states: number };
 };
 
 export type Setup = {
@@ -313,6 +314,26 @@ export function evaluate(s: Snapshot, setup: Setup, probe: Probe, clock: Clock, 
     add(!setup.linkSecret
       ? { key: "setup.secrets", area: AREA_SET, status: "warn", title: "Email links are signed with the clock's secret", fix: "Add a separate LINK_SECRET (any long random text) in Vercel. Existing unsubscribe links will stop working, so do it before launch." }
       : { key: "setup.secrets", area: AREA_SET, status: "ok", title: "Email links have their own secret" });
+  }
+
+  // ---- Public holidays (business days, and a buyer's cooling-off period after an auction)
+  // The table has to be topped up each year, and running out is silent: business days simply stop skipping
+  // holidays, so a cooling-off period ends a day or two early and a sale could be made before the buyer's right to
+  // cancel has run out. So it's a check, not a note in a document.
+  const hol = s.holidays;
+  if (hol) {
+    const until = hol.until ? new Date(hol.until + "T00:00:00+10:00").getTime() : null;
+    const daysLeft = until == null ? -1 : Math.round((until - now) / (24 * 60 * MIN));
+    add(daysLeft < 0
+      ? { key: "setup.holidays", area: AREA_SET, status: "fail", title: "No public holidays are listed",
+          detail: "Payment due dates and the cooling-off period after an auction count business days. With nothing listed, both count public holidays as ordinary working days, so a cooling-off period can end before the buyer's right to cancel does.",
+          fix: "Add next year's dates to the public_holidays table, with the state each one applies in ('' means every state). Fair Work publishes them per state." }
+      : daysLeft < 90
+      ? { key: "setup.holidays", area: AREA_SET, status: "warn", title: `Public holidays run out in ${plural(daysLeft, "day")}`,
+          detail: `The last one listed is ${hol.until}. After that, business days and cooling-off periods stop skipping holidays.`,
+          fix: "Add next year's dates to the public_holidays table, with the state each one applies in. Fair Work publishes them per state." }
+      : { key: "setup.holidays", area: AREA_SET, status: "ok", title: `Public holidays listed to ${hol.until}`,
+          detail: hol.states < 5 ? `Only ${plural(hol.states, "state")} has its own dates; the cooling-off period after an auction is counted in the buyer's state.` : undefined });
   }
 
   // ---- Nightly jobs (each one is due at a Brisbane time and records the day it ran)

@@ -105,8 +105,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    25. `supabase/migrations/20261025000025_relist_by_state.sql` (a vehicle that doesn't sell is relisted for the next live auction for its state; the seller can say no; the seller's 90-day authority checked when publishing)
    26. `supabase/migrations/20261026000026_after_auction_sales.sql` (a vehicle passed in can be sold after the auction by agreement, state by state: the seller's written price, the consultant's written offer with the state's forms, the buyer's signature, the state's cooling-off period; never in Victoria)
    27. `supabase/migrations/20261027000027_never_a_warranty.sql` (we never give a statutory warranty: a vehicle one would cover isn't sold after the auction, and in the ACT, where the dealer's duty to repair applies even at auction, one it could cover isn't listed)
-   28. `supabase/seed.sql` (optional sample vehicles, waiting in a sample live auction with sample estimates, plus sample depots, a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
-   29. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   28. `supabase/migrations/20261030000028_holidays_by_state.sql` (public holidays by state, so a buyer's cooling-off period after an auction counts business days where they live, and 2027's dates for every state; Site health warns when the table runs out)
+   29. `supabase/seed.sql` (optional sample vehicles, waiting in a sample live auction with sample estimates, plus sample depots, a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
+   30. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
@@ -363,7 +364,7 @@ Look through `public/sample-photos/`, delete any that don't match, then run `sup
 - [ ] A written agreement with your transport partner and each depot: due care, insurance while vehicles are in transit and at the depot, keeping sellers' details confidential, and handing over only for the release code
 - [ ] The newsletter switched on in **Admin → Newsletter** only once you have opted-in members
 - [ ] **Admin → Fees & settings → Selling checks** is ON
-- [ ] Public holidays for next year added to the `public_holidays` table (the business-day maths skips them)
+- [ ] Public holidays topped up each year in the `public_holidays` table, with the state each one applies in (`''` means every state). 2027 is already in, from Fair Work's per-state lists. Payment due dates count Brisbane business days (national plus Queensland); a buyer's cooling-off period after an auction counts business days in **their** state, so a missing state row shortens it. **Admin → Site health** warns 90 days before the table runs out and fails when it's empty
 - [ ] A final read of the Terms of sale, Seller agency agreement, Website terms and Privacy policy by an Australian lawyer, with `docs/legal-basis.md` (every position and its source) beside them. It's a check of settled wording, not a list of open questions
 - [ ] Check for changes since October 2026 in the sources listed in `docs/legal-basis.md`, including Victoria's July 2026 auction-house reforms
 - [ ] ABN, licence number, phone, email and the trust account details in the environment variables and footer

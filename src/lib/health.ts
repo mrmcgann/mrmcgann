@@ -74,7 +74,10 @@ export async function runHealth(opts: { probe?: boolean; skipProbe?: boolean; db
     await directAlert(error?.message || "no answer");
     throw new Error(`The database didn't answer the health check: ${error?.message || "no data"}`);
   }
-  const snap = data as Snapshot;
+  // Asked separately so health_snapshot() doesn't have to be redefined wholesale for one count. A failure here is
+  // never fatal: the holidays check simply doesn't run.
+  const { data: holidays } = await db.rpc("holidays_ahead");
+  const snap = { ...(data as Snapshot), holidays: (holidays as Snapshot["holidays"]) ?? undefined };
   let probe = (snap.marks?.probe?.value as unknown as Probe) || null;
   if (!opts.skipProbe && (opts.probe || !probe || Date.now() - new Date(probe.at).getTime() > 4.5 * 60_000)) probe = await probeSite(db).catch(() => probe);
   const checks = evaluate(snap, setupNow(), probe, brisbaneClock(), { dbMs });
