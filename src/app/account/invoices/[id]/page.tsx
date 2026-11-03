@@ -11,6 +11,7 @@ import { InvoiceActions } from "./InvoiceActions";
 import { BookCollection, ChangeDecision, ClaimBox } from "./Collection";
 import { buyerTransportLine, type BuyerTransport } from "@/lib/transport";
 import { TransferStep, type TransferRow } from "./Transfer";
+import { SaleContract } from "./SaleContract";
 import { PayBox } from "@/components/deposit/PayBox";
 import { payIdEnabled } from "@/lib/payid";
 
@@ -111,6 +112,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         )}
         {inv.status === "payment_failed" && <InvoiceActions id={inv.id} mode="pay" amount={inv.card_amount} reason={inv.failure_reason} />}
         {inv.status === "cancelled" && <div className="notice bad">{inv.cancel_reason?.startsWith("not_buyer_fault") ? `This sale was cancelled (${inv.cancel_reason.replace("not_buyer_fault: ", "")}).${inv.refunded_amount ? ` Everything you paid (${money(inv.refunded_amount, true)}) is being refunded to where it came from.` : ""}` : `This sale was cancelled because it wasn't paid for${inv.cancel_fee ? `, with a ${money(inv.cancel_fee)} cancellation fee` : ""}.`}</div>}
+
+        {/* The record of the contract made at the fall of the hammer, and the buyer's acknowledgement of it.
+            A sale after the auction has its own signed contract instead, linked at the top of the page. */}
+        {inv.sold_via !== "after_auction" && (
+          <SaleContract id={inv.id} state={inv.lots.state} signedName={inv.buyer_ack_name ?? null} signedAt={inv.buyer_ack_at ?? null}
+            verifiedName={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} />
+        )}
 
         {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}
 

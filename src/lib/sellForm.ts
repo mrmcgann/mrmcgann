@@ -27,6 +27,10 @@ export const QUESTIONS: [key: string, question: string, details?: string][] = [
   ["recalls", "Is there a safety recall on it that hasn't been fixed?", "recalls_details"],
   ["warning_lights", "Are any warning lights on the dash?", "warning_lights_details"],
   ["odometer_concerns", "Any reason to think the odometer isn't accurate (replaced cluster, tampering)?", "odometer_details"],
+  // Queensland's buyer statement asks whether the engine has been replaced and when, so far as we're told
+  // (MDCA Regulation 2014 (Qld) s 8; docs/legal-basis.md section 12). Asked everywhere: it matters to a buyer
+  // wherever the vehicle is, and we'd rather have the answer than write "we were not told".
+  ["engine_replaced", "Has the engine been replaced?", "engine_replaced_when"],
 ];
 /** Which answer needs an explanation: "yes", except "Does it start and drive?" where it's "no". */
 export const needsDetails = (key: string, answer: string) => (key === "runs" ? answer === "no" : answer === "yes");

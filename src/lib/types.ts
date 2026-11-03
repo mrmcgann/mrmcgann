@@ -190,6 +190,11 @@ export interface Invoice {
   buyer_business?: { name?: string | null; abn?: string | null; gst?: boolean; dealer?: boolean } | null;
   id: string;
   ref: string;
+  // The buyer's acknowledgement of their sale contract (migration 29): a receipt for the contract made at the fall
+  // of the hammer, and what discharges the auction notice in the states whose own form the buyer signs.
+  buyer_ack_name?: string | null;
+  buyer_ack_at?: string | null;
+  buyer_ack_terms?: string | null;
   lot_id: number;
   buyer_id: string;
   sold_via: string;
