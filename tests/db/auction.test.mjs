@@ -1285,6 +1285,35 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('A', `update profiles set abn = '53004085616' where id = '${U.A}' returning dealer_status`); ok('dealer: changing the ABN means it is checked again', r.rows?.[0]?.dealer_status === 'pending', JSON.stringify(r));
   await as('service', `update profiles set dealer_status = 'none', company_name = null, abn = null, gst_registered = false where id = '${U.A}'`);
 
+  // the winning bidder's sale contract (migration 29): a record of the contract made at the hammer, never a
+  // condition of it. Two states want the buyer's signature on their auction notice, which is what this discharges.
+  {
+    const ack = (await c.query(`select create_invoice(10620, '${U.A}', 12000, 'auction') id`)).rows[0].id;
+    r = await as('B', `select acknowledge_sale('${ack}', 'Amy Ash')`);
+    ok('contract: only the buyer can sign their own', /invoice_not_found/.test(r.error || ''), r.error);
+    r = await as('A', `select acknowledge_sale('${ack}', 'Wrong Name')`);
+    ok('contract: the name has to be the verified one, and it says which', /sign_name:type your name as it is on your account: Amy Ash/.test(r.error || ''), r.error);
+    r = await as('A', `select acknowledge_sale('${ack}', 'A')`);
+    ok('contract: too short to be a signature', /sign_name:type your full name/.test(r.error || ''), r.error);
+    r = await as('A', `select acknowledge_sale('${ack}', '  amy   ASH ') v`);
+    ok('contract: signed, ignoring case and extra spaces', r.rows?.[0]?.v?.ok === true && r.rows[0].v.already === false, JSON.stringify(r.rows?.[0]?.v || r.error));
+    r = await as('A', `select acknowledge_sale('${ack}', 'Amy Ash') v`);
+    ok('contract: signing again is harmless and keeps the first signature', r.rows?.[0]?.v?.already === true, JSON.stringify(r.rows?.[0]?.v || r.error));
+    r = await as('service', `select buyer_ack_name, buyer_ack_at is not null signed, buyer_ack_terms from invoices where id = '${ack}'`);
+    ok('contract: the signature, when, and the terms version are kept', r.rows?.[0]?.signed === true && !!r.rows[0].buyer_ack_terms, JSON.stringify(r.rows));
+    r = await as('A', `select my_sale_contract('${ack}') v`);
+    const mv = r.rows?.[0]?.v || {};
+    const lotState = (await c.query(`select state from lots where id = 10620`)).rows[0].state;
+    ok('contract: the buyer can read their own, with the state that decides the notices',
+      mv.ref && mv.state === lotState && ['QLD','NSW','VIC','WA','SA','TAS','ACT','NT'].includes(mv.state) && mv.after_auction === false && !!mv.signed_at, JSON.stringify(mv));
+    ok('contract: it never carries the seller\'s name', !JSON.stringify(mv).toLowerCase().includes('marg') && !('owner' in mv) && !('seller' in mv), JSON.stringify(mv));
+    r = await as('B', `select my_sale_contract('${ack}')`);
+    ok('contract: nobody else can read it', /invoice_not_found/.test(r.error || ''), r.error);
+    r = await as('anon', `select acknowledge_sale('${ack}', 'Amy Ash')`);
+    ok('contract: closed to anon', !!r.error, r.error);
+    await c.query(`delete from invoices where id = '${ack}'`);
+  }
+
   // price drop
   const PD = (await c.query(`select id, buy_now_price from lots where status = 'live' and buy_now_price is not null and current_bid < buy_now_price order by id limit 1`)).rows[0];
   if (PD) {

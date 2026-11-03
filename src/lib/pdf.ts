@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { consumerRights, type SellerType } from "@/lib/listing";
 import { afterWarrantyLine, coolingLine, stateTime, STATE_NAMES, type AfterOffer, type AfterRule } from "@/lib/afterAuction";
+import { ruleFor, namesOwner, odometerLine, engineLine, soldLine, ACK_TEXT, ackNote } from "@/lib/buyerContract";
 
 const INK = rgb(0.114, 0.114, 0.122);
 const MUTED = rgb(0.43, 0.43, 0.45);
@@ -11,6 +12,21 @@ const BLUE = rgb(0.184, 0.357, 1);
 const aud = (n: number | null | undefined) => `$${Number(n || 0).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "Australia/Brisbane" }) : "");
 const when = (s: string | null | undefined) => (s ? new Date(s).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", dateStyle: "long", timeStyle: "short" }) : "");
+/** The owner's name, for the one place a buyer is entitled to it: the Queensland statement under MDCA Act s 74,
+ *  whose particulars (Regulation s 8(a)) include the name of the person who owned the vehicle immediately before
+ *  the sale. Server-side only, and never the address or the phone number. A company seller is named by its
+ *  company name. Returns null when we have no name rather than inventing one. */
+async function ownerNameOf(lotId: number | string): Promise<string | null> {
+  const db = supabaseAdmin();
+  const { data: lot } = await db.from("lots").select("seller_id").eq("id", lotId).maybeSingle();
+  if (!lot?.seller_id) return null;
+  const { data: p } = await db.from("profiles").select("first_name, last_name, company_name, abn").eq("id", lot.seller_id).maybeSingle();
+  if (!p) return null;
+  if (p.company_name) return `${p.company_name}${p.abn ? ` (ABN ${p.abn})` : ""}`;
+  const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+  return name || null;
+}
+
 // A sale made after the auction (migration 26): its offer, as the buyer signed it.
 type AfterSale = Pick<AfterOffer, "warranty" | "warranty_text" | "cooling_off_until" | "rule" | "signed_name" | "accepted_at" | "state">;
 async function afterSaleOf(invoiceId: string): Promise<AfterSale | null> {
@@ -314,7 +330,10 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   s.text(`After the auction, by agreement  ·  ${ref}`, 50, 10, { color: MUTED }); s.line(10);
 
   head("The parties");
-  para(`Seller: ${env.legalName} (ABN ${env.abn}), licensed as ${v.LICENCES}, ${env.address}, as agent for the owner of the vehicle. We don't name the owner, to protect their privacy; we're responsible to you for this sale as these terms say.`, 9, INK);
+  // Queensland's MDCA Act s 74 covers any sale by a licensee in the course of its business, not only a sale under
+  // the hammer, so an after-auction sale there names the owner too (docs/legal-basis.md section 12).
+  const ownerNamed = namesOwner(st) ? await ownerNameOf(o.lot_id) : null;
+  para(`Seller: ${env.legalName} (ABN ${env.abn}), licensed as ${v.LICENCES}, ${env.address}, as agent for the owner of the vehicle. ${ownerNamed ? `The owner is ${ownerNamed}; section 74 of the Motor Dealers and Chattel Auctioneers Act 2014 (Qld) requires us to name them to you. We don't give out their address or phone number.` : "We don't name the owner, to protect their privacy;"} we're responsible to you for this sale as these terms say.`, 9, INK);
   s.line(2);
   const who = [buyer?.company_name ? `${buyer.company_name}${buyer.abn ? ` (ABN ${buyer.abn})` : ""}` : null, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(),
     [buyer?.street, buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean).join(", ");
@@ -373,4 +392,108 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   s.line(6);
   para("Keep this copy with the vehicle's papers.", 8);
   return { bytes: await doc.save(), filename: `Tyrebiter-contract-${ref}.pdf` };
+}
+
+/** The winning bidder's sale contract: the record of the contract made at the fall of the hammer, with the
+ *  statement and notices the vehicle's own state requires. It records the sale; it never makes it. See
+ *  src/lib/buyerContract.ts and docs/legal-basis.md section 12. */
+export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
+  const db = supabaseAdmin();
+  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, premium, transport, gst, admin_fee, total, sold_via, terms_version, created_at, buyer_business, buyer_ack_name, buyer_ack_at")
+    .eq("id", invoiceId).maybeSingle();
+  if (!inv || inv.sold_via === "after_auction") return null; // an after-auction sale has its own signed contract
+  const [{ data: lot }, { data: buyer }, { data: rows }] = await Promise.all([
+    db.from("lots").select("id, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, build_date, compliance_date, suburb, state, seller_type, statutory_warranty, write_off_status, ppsr_checked_at, ppsr_cert_no, disclosures, sale_id, sold_at").eq("id", inv.lot_id).maybeSingle(),
+    db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, email, company_name, abn").eq("id", inv.buyer_id).maybeSingle(),
+    db.from("settings").select("key, value").in("key", ["business", "fees", "selling"]),
+  ]);
+  if (!lot) return null;
+  const { data: sale } = lot.sale_id ? await db.from("sales").select("title, auctioneer, starts_at").eq("id", lot.sale_id).maybeSingle() : { data: null };
+  const { legalValues, TERMS_VERSION_LABEL } = await import("@/content/legal");
+  const v = legalValues(Object.fromEntries(((rows || []) as { key: string; value: Record<string, unknown> }[]).map((r) => [r.key, r.value])));
+
+  const st = String(lot.state || "");
+  const rule = ruleFor(st);
+  const owner = rule.namesOwner ? await ownerNameOf(inv.lot_id) : null;
+  const d = (lot.disclosures || {}) as Record<string, string>;
+  const facts = {
+    state: st, odometer: lot.odometer as number | null,
+    odometerConcerns: d.odometer_concerns === "yes" ? true : d.odometer_concerns === "no" ? false : null,
+    odometerDetails: d.odometer_details || null,
+    engineReplaced: d.engine_replaced === "yes" ? true : d.engine_replaced === "no" ? false : null,
+    engineReplacedWhen: d.engine_replaced_when || null,
+  };
+
+  const { doc, sheet } = await newSheet();
+  let s = sheet;
+  const fresh = () => { const page = doc.addPage([595.28, 841.89]); s = new Sheet(page, s.font, s.bold); s.text(`Sale contract · ${inv.ref}`, 50, 9, { color: MUTED }); s.line(24); };
+  const room = (h: number) => { if (s.y - h < 56) fresh(); };
+  const para = (t: string, size = 9, color = MUTED) => {
+    const words = safe(t).split(/\s+/);
+    let cur = "";
+    for (const w of words) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (s.font.widthOfTextAtSize(next, size) > 495) { room(size + 3); s.text(cur, 50, size, { color }); s.line(size + 3); cur = w; } else cur = next;
+    }
+    if (cur) { room(size + 3); s.text(cur, 50, size, { color }); s.line(size + 3); }
+  };
+  const head = (t: string) => { room(34); s.line(6); s.text(t, 50, 12, { bold: true }); s.line(16); };
+  const row = (k: string, val: string, bold = false) => { room(16); s.row(k, safe(val), { bold }); };
+
+  s.text("Contract of sale", 50, 24, { bold: true }); s.line(20);
+  s.text(`Sold at auction  ·  ${inv.ref}  ·  Lot ${inv.lot_id}`, 50, 10, { color: MUTED }); s.line(12);
+  para(soldLine(sale?.auctioneer as string | null, when(lot.sold_at as string | null) || when(inv.created_at)), 10, INK);
+
+  head("The parties");
+  para(`Seller: ${env.legalName} (ABN ${env.abn}), licensed as ${v.LICENCES}, ${env.address}, as agent for the owner of the vehicle.`, 9, INK);
+  if (owner) para(`The owner of the vehicle immediately before this sale was ${owner}. Section 74 of the Motor Dealers and Chattel Auctioneers Act 2014 (Qld) requires us to give you this particular. We do not give out the owner's address or phone number, and nobody is told who they are before or during the auction.`, 9, INK);
+  s.line(2);
+  const bname = inv.buyer_business || (buyer?.company_name ? `${buyer.company_name}${buyer.abn ? ` (ABN ${buyer.abn})` : ""}` : null);
+  para(`Buyer: ${[bname, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" ")].filter(Boolean).join(", ")}`, 9, INK);
+
+  head("The vehicle");
+  const unreg = lot.registration !== "registered";
+  row("Description", String(lot.title || ""));
+  row("Year, make, model", [lot.year, lot.make, lot.model, lot.variant].filter(Boolean).join(" "));
+  row("Body and colour", [lot.body, lot.colour].filter(Boolean).join(", "));
+  row("Identification number (VIN/chassis)", String(lot.vin || "Not recorded"));
+  row("Engine number", String(lot.engine_no || "Not recorded"));
+  row("Built", String(lot.build_date || lot.compliance_date || lot.year || "Not recorded"));
+  row(unreg ? "Previous registration" : "Registration", lot.rego_plate ? `${lot.rego_plate} (${lot.rego_state || ""})` : unreg ? "None" : "Not recorded");
+  row("Registration status", unreg ? "Sold unregistered, without plates" : `Registered${lot.rego_expiry ? `, expires ${day(String(lot.rego_expiry))}` : ""}`);
+  row("Write-off history", lot.write_off_status === "none" || !lot.write_off_status ? "No write-off recorded" : String(lot.write_off_status));
+  s.line(4);
+  para(lot.hours != null ? `Hours (as indicated): ${Number(lot.hours).toLocaleString("en-AU")}. We cannot verify the true hours run.` : `Odometer: ${odometerLine(facts)}`, 9, INK);
+  para(engineLine(facts), 9, INK);
+  if (lot.ppsr_checked_at) para(`We searched the PPSR on ${day(String(lot.ppsr_checked_at))}${lot.ppsr_cert_no ? ` (certificate ${lot.ppsr_cert_no})` : ""}. Any finance it showed is paid out of the sale proceeds.`);
+
+  head("The price");
+  row("Hammer price", aud(Number(inv.price)), true);
+  row("Buyer's premium", aud(Number(inv.premium)));
+  if (Number(inv.transport)) row("  including transport to our depot", aud(Number(inv.transport)));
+  row("GST", aud(Number(inv.gst)));
+  row("Administration fee", aud(Number(inv.admin_fee)));
+  row("Total payable (all-in)", aud(Number(inv.total)), true);
+  s.line(4);
+  para(`The all-in total is what you agreed to pay. It was shown beside every bid and every estimate before you bid. Date of this statement: ${day(new Date().toISOString())}.`);
+
+  head("How it was sold, and what that means for your rights");
+  para(`This was a sale by auction. Each lot is a separate contract, made at the fall of the hammer. Your contract was complete when the hammer fell, on the Terms of Sale you accepted before bidding (version ${inv.terms_version || TERMS_VERSION_LABEL}) and the auction conditions you accepted before entering the room.`, 9, INK);
+  para(consumerRights("auction", (lot.seller_type as SellerType | null) ?? null), 9, INK);
+  para(rule.notice || "", 9, INK);
+  para("Any term of this contract or our terms that purports to exclude, restrict or waive a right you have under your state's motor dealer laws or the Australian Consumer Law is void, unless that law allows it.");
+
+  head("Paying, transfer and collection");
+  para(`Pay the all-in total by PayID, bank transfer or BPAY within ${v.PAY_DAYS} business days, quoting ${inv.ref}, from an account in your name (or your lender pays us). We never change our bank details by email or text. Ownership passes to you when we receive payment in full. Our transport partner then brings the vehicle to our depot in ${lot.suburb || ""}, ${lot.state || ""}, the registration is transferred into your name, and you collect it with a release code.`);
+
+  head(rule.signed && rule.document ? `Signed: ${rule.document}` : "Acknowledgement");
+  para(ACK_TEXT, 9, INK);
+  s.line(2);
+  para(`For ${env.legalName}: ${sale?.auctioneer || "our licensed auctioneer"}, at the fall of the hammer.`, 9, INK);
+  if (inv.buyer_ack_name && inv.buyer_ack_at) para(`Buyer: ${inv.buyer_ack_name}, signed electronically on ${when(inv.buyer_ack_at as string)} (Brisbane time).`, 9, INK);
+  else para("Buyer: not signed yet. Sign it on your invoice page.", 9, INK);
+  para(ackNote(st));
+  s.line(6);
+  para(`Issued ${day(new Date().toISOString())} by ${env.legalName}. Questions: ${env.phone} or ${env.supportEmail}, quoting ${inv.ref}. Keep this with the vehicle's papers.`, 8);
+  return { bytes: await doc.save(), filename: `Tyrebiter-sale-contract-${inv.ref}.pdf` };
 }

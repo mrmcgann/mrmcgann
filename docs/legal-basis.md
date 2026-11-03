@@ -189,6 +189,28 @@ For the lawyer's final read: check reg 99's current compilation on the Federal R
 to the prescribed wording (we use the short form; reg 99 also allows a longer one), and check each partner's referral
 agreement against the exemption relied on.
 
+## 12. The buyer's sale contract
+
+The contract is made at the fall of the hammer (section 2), on the Terms the bidder accepted before bidding and the
+auction conditions they ticked before entering the room. The document the winner is given **records** that contract.
+Nothing in it is a condition of the sale, and no wording anywhere may suggest the sale needs a signature to complete:
+that would hand a defaulting buyer the argument that there was no sale, and would cut against the deposit forfeit and
+the ban. Where a state's own form is signed by the buyer, the acknowledgement is how we discharge that form.
+
+| Position | Where it lives | Basis |
+|---|---|---|
+| Queensland: immediately after the sale we give the buyer a statement, signed by us, with the prescribed particulars about the vehicle **and about the person who owned it immediately before the sale** — including that person's name. It applies to a chattel auctioneer as much as a motor dealer, and there is no auction or consignment exemption: the Act exempts auction and consignment sales elsewhere when it means to (ss 6, 100(2)) and does not here. So the owner's **name** reaches the buyer, after the hammer, on this statement only — never their address or phone, and never before or during bidding. | `buyerContract.ts` (`namesOwner`), the statement PDF; the seller agreement and the privacy policy tell sellers so before they consign | Motor Dealers and Chattel Auctioneers Act 2014 (Qld) s 74, especially s 74(1)(b) (particulars about "the vehicle's owner immediately before the sale") with s 74(2)-(3) (keep a copy; the statement may sit in the contract of sale); "licensee" is s 14; Motor Dealers and Chattel Auctioneers Regulation 2014 (Qld) s 8, in particular s 8(a) (the owner's name) |
+| Queensland: the odometer goes on the statement in **words and figures**, with whether it or the engine has been replaced so far as we are told. Where the owner did not say, the statement says we were not told, never that we checked. | `odometerWords`, `odometerLine`, `engineLine`; the sell form's `odometer_concerns` and `engine_replaced` questions | MDCA Regulation 2014 (Qld) s 8 |
+| New South Wales: Form 11 is the auction notice. The dealer and the buyer sign it at the time of sale and the buyer is given a copy, so the buyer's acknowledgement is what discharges it. | `needsSignature('NSW')`; the acknowledgement on the invoice | Motor Dealers and Repairers Act 2013 (NSW) and Regulation; NSW Fair Trading, "Required forms for motor dealers" |
+| South Australia: Form 11 auction notice and Form 13 notice to the purchaser, likewise signed. | `needsSignature('SA')` | Second-hand Vehicle Dealers Act 1995 (SA) ss 7, 20, 23(3); CBS forms |
+| Tasmania: auctioning a vehicle for its owner is not "dealing", so no trader's forms apply to the sale. | `STATE_RULES.TAS` | Motor Vehicle Traders Act 2011 (Tas) ss 4(1), 4(3)(d), 4(4)(e), 6 |
+| A state we have not settled still gets the full Queensland-style statement, because it is the strictest: giving it everywhere can only be more than the minimum, never less. | `ruleFor()` falls back to QLD | — |
+
+For the lawyer's final read: confirm whether Victoria, Western Australia, the ACT and the Northern Territory require
+a prescribed notice to an auction buyer (as distinct from the private-treaty forms in section 5), and confirm the
+Queensland reading above, which is the one place a seller's name reaches a buyer. `STATE_RULES[...].toConfirm` names
+each open point in the code so it cannot be lost.
+
 ## Governing law
 
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document
