@@ -17,8 +17,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return fail("Sign in first.", 401);
   if (!/^[0-9a-f-]{36}$/.test(id)) return fail("Which invoice?");
   if (!(await allow(`ack-sale:${user.id}`, 30, 3600))) return fail("Too many attempts. Please call us.", 429);
-  // Never store a picture the browser sends: the strokes are checked here and drawn back by us. A signature that
-  // doesn't pass is simply dropped, not an error — the typed verified name is what identifies the signer.
+  // Never store a picture the browser sends: the strokes are checked here and drawn back by us. A drawing that
+  // doesn't pass the check becomes null, and acknowledge_sale then refuses with sign_draw — the signature is
+  // required in every state. The typed verified name is still what identifies the signer.
   const signature = cleanSignature(b.signature);
   const { data, error } = await db.rpc("acknowledge_sale", {
     p_invoice: id, p_name: String(b.name || "").slice(0, 120), p_signature: signature,

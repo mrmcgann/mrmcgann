@@ -85,7 +85,7 @@ export function SaleContract({ id, state, signedName, signedAt, signature, verif
 
         <div style={{ maxWidth: 460 }}>
           <span className="hint" style={{ display: "block", marginBottom: 5, fontWeight: 600 }}>Sign here</span>
-          <SignaturePad onChange={setSig} testId="ack-signature" />
+          <SignaturePad onChange={setSig} invalid={!!err && !sig} testId="ack-signature" />
           <div style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 8 }}>
             <span className="hint" style={{ fontWeight: 600 }}>Date</span>
             <b style={{ fontSize: 15 }}>{today}</b>
@@ -98,9 +98,10 @@ export function SaleContract({ id, state, signedName, signedAt, signature, verif
           placeholder={verifiedName} autoComplete="off" style={{ background: "#FFFFFF", maxWidth: 420 }}
         />
         {err && <span className="errmsg">{err}</span>}
-        <button className="btn btn-dark" disabled={busy || name.trim().length < 3} style={{ alignSelf: "flex-start", height: 46, fontSize: 15 }}>
+        <button className="btn btn-dark" disabled={busy || !sig || name.trim().length < 3} style={{ alignSelf: "flex-start", height: 46, fontSize: 15 }}>
           {busy ? "Signing…" : formal ? `Sign the ${rule.document}` : "Sign my copy"}
         </button>
+        {!sig && <span className="hint">Draw your signature in the box above to sign.</span>}
         <span className="hint">{ackNote(state)}</span>
       </form>
     </div>

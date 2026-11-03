@@ -1301,12 +1301,19 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     ok('contract: the database refuses a signature that is not stroke data', /invoices_ack_signature_shape/.test(r.error || ''), r.error);
     r = await c.query(`update invoices set buyer_ack_signature = '{"w":9000,"h":200,"strokes":[[1,2]]}'::jsonb where id = '${ack}'`).then(() => ({})).catch((e) => ({ error: e.message }));
     ok('contract: and one drawn outside a sane box', /invoices_ack_signature_shape/.test(r.error || ''), r.error);
+    // the drawing is required everywhere (migration 31), checked after the name so the name's message comes first
+    r = await as('A', `select acknowledge_sale('${ack}', 'Amy Ash')`);
+    ok('contract: no drawing, no signature', /sign_draw:draw your signature in the box/.test(r.error || ''), r.error);
+    r = await as('A', `select acknowledge_sale('${ack}', 'Amy Ash', '{"w":600,"h":200,"strokes":[]}'::jsonb)`);
+    ok('contract: an empty box is not a drawing', /sign_draw/.test(r.error || ''), r.error);
+    r = await as('A', `select acknowledge_sale('${ack}', 'Wrong Name', '${sig}'::jsonb)`);
+    ok('contract: the name is still checked first, drawing or not', /sign_name/.test(r.error || ''), r.error);
     r = await as('A', `select acknowledge_sale('${ack}', '  amy   ASH ', '${sig}'::jsonb) v`);
     ok('contract: signed, ignoring case and extra spaces', r.rows?.[0]?.v?.ok === true && r.rows[0].v.already === false, JSON.stringify(r.rows?.[0]?.v || r.error));
     ok('contract: the drawn signature is kept', r.rows?.[0]?.v?.drawn === true, JSON.stringify(r.rows?.[0]?.v));
     r = await as('service', `select buyer_ack_signature->>'w' w, jsonb_array_length(buyer_ack_signature->'strokes') n from invoices where id = '${ack}'`);
     ok('contract: as numbers, not a picture', r.rows?.[0]?.w === '600' && r.rows[0].n === 2, JSON.stringify(r.rows));
-    r = await as('A', `select acknowledge_sale('${ack}', 'Amy Ash') v`);
+    r = await as('A', `select acknowledge_sale('${ack}', 'Amy Ash', '${sig}'::jsonb) v`);
     ok('contract: signing again is harmless and keeps the first signature', r.rows?.[0]?.v?.already === true, JSON.stringify(r.rows?.[0]?.v || r.error));
     r = await as('service', `select buyer_ack_name, buyer_ack_at is not null signed, buyer_ack_terms from invoices where id = '${ack}'`);
     ok('contract: the signature, when, and the terms version are kept', r.rows?.[0]?.signed === true && !!r.rows[0].buyer_ack_terms, JSON.stringify(r.rows));
