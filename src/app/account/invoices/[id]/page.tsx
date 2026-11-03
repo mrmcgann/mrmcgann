@@ -117,7 +117,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             A sale after the auction has its own signed contract instead, linked at the top of the page. */}
         {inv.sold_via !== "after_auction" && (
           <SaleContract id={inv.id} state={inv.lots.state} signedName={inv.buyer_ack_name ?? null} signedAt={inv.buyer_ack_at ?? null}
-            verifiedName={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} />
+            signature={inv.buyer_ack_signature ?? null} verifiedName={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} />
         )}
 
         {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} consultantPhone={env.phone} />}

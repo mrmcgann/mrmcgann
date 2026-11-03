@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { allow } from "@/lib/ratelimit";
+import { cleanSignature } from "@/lib/sellForm";
 import { json, fail, friendly } from "@/lib/api";
 
 // The buyer acknowledges their sale contract by typing their verified name.
@@ -16,7 +17,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return fail("Sign in first.", 401);
   if (!/^[0-9a-f-]{36}$/.test(id)) return fail("Which invoice?");
   if (!(await allow(`ack-sale:${user.id}`, 30, 3600))) return fail("Too many attempts. Please call us.", 429);
-  const { data, error } = await db.rpc("acknowledge_sale", { p_invoice: id, p_name: String(b.name || "").slice(0, 120) });
+  // Never store a picture the browser sends: the strokes are checked here and drawn back by us. A signature that
+  // doesn't pass is simply dropped, not an error — the typed verified name is what identifies the signer.
+  const signature = cleanSignature(b.signature);
+  const { data, error } = await db.rpc("acknowledge_sale", {
+    p_invoice: id, p_name: String(b.name || "").slice(0, 120), p_signature: signature,
+  });
   if (error) return fail(friendly(error.message));
   return json({ ok: true, ...((data || {}) as Record<string, unknown>) });
 }

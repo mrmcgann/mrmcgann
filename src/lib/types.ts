@@ -195,6 +195,8 @@ export interface Invoice {
   buyer_ack_name?: string | null;
   buyer_ack_at?: string | null;
   buyer_ack_terms?: string | null;
+  /** Checked stroke numbers, never an image: {w, h, strokes}. */
+  buyer_ack_signature?: { w: number; h: number; strokes: number[][] } | null;
   lot_id: number;
   buyer_id: string;
   sold_via: string;

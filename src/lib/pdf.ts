@@ -399,7 +399,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
  *  src/lib/buyerContract.ts and docs/legal-basis.md section 12. */
 export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
   const db = supabaseAdmin();
-  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, premium, transport, gst, admin_fee, total, sold_via, terms_version, created_at, buyer_business, buyer_ack_name, buyer_ack_at")
+  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, premium, transport, gst, admin_fee, total, sold_via, terms_version, created_at, buyer_business, buyer_ack_name, buyer_ack_at, buyer_ack_signature")
     .eq("id", invoiceId).maybeSingle();
   if (!inv || inv.sold_via === "after_auction") return null; // an after-auction sale has its own signed contract
   const [{ data: lot }, { data: buyer }, { data: rows }] = await Promise.all([
@@ -490,8 +490,24 @@ export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint
   para(ACK_TEXT, 9, INK);
   s.line(2);
   para(`For ${env.legalName}: ${sale?.auctioneer || "our licensed auctioneer"}, at the fall of the hammer.`, 9, INK);
-  if (inv.buyer_ack_name && inv.buyer_ack_at) para(`Buyer: ${inv.buyer_ack_name}, signed electronically on ${when(inv.buyer_ack_at as string)} (Brisbane time).`, 9, INK);
-  else para("Buyer: not signed yet. Sign it on your invoice page.", 9, INK);
+  if (inv.buyer_ack_name && inv.buyer_ack_at) {
+    // The drawn signature, redrawn here from the checked stroke numbers rather than from anything the browser sent.
+    const sig = inv.buyer_ack_signature as { w: number; h: number; strokes: number[][] } | null;
+    if (sig?.strokes?.length) {
+      room(100);
+      const scale = Math.min(200 / sig.w, 64 / sig.h);
+      const top = s.y;
+      for (const st of sig.strokes) {
+        if (st.length < 4) continue;
+        let d = "";
+        for (let i = 0; i < st.length; i += 2) d += `${i ? " L" : "M"} ${(st[i] * scale).toFixed(1)} ${(st[i + 1] * scale).toFixed(1)}`;
+        s.page.drawSvgPath(d, { x: 50, y: top, borderColor: INK, borderWidth: 1.4 });
+      }
+      s.line(64 + 8);
+    }
+    para(`Buyer: ${inv.buyer_ack_name}`, 10, INK);
+    para(`Dated ${day(inv.buyer_ack_at as string)}. Signed electronically on ${when(inv.buyer_ack_at as string)} (Brisbane time)${sig?.strokes?.length ? ", with the signature drawn above" : ""}.`, 9, INK);
+  } else para("Buyer: not signed yet. Sign it on your invoice page.", 9, INK);
   para(ackNote(st));
   s.line(6);
   para(`Issued ${day(new Date().toISOString())} by ${env.legalName}. Questions: ${env.phone} or ${env.supportEmail}, quoting ${inv.ref}. Keep this with the vehicle's papers.`, 8);
