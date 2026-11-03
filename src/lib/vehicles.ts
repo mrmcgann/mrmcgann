@@ -46,6 +46,18 @@ export const CATEGORIES: Category[] = [
 
 export const CAT: Record<string, Category> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]));
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
+
+/** How the ten categories are grouped in the menus (the header, the phone sheet). Browsing only: a search still
+ *  filters on one category at a time (`cat`), so a group is a menu of its categories, never a filter of its own.
+ *  Every category belongs to exactly one group, which `tests/unit/search.test.mjs` checks. */
+export interface CategoryGroup { key: string; label: string; cats: CategoryKey[] }
+export const CATEGORY_GROUPS: CategoryGroup[] = [
+  { key: "light", label: "Cars & bikes", cats: ["cars", "utes", "vans", "motorbikes"] },
+  { key: "heavy", label: "Trucks & trailers", cats: ["trucks", "trailers", "buses", "machinery"] },
+  { key: "leisure", label: "Caravans & boats", cats: ["caravans", "boats"] },
+];
+/** The categories of a group, in the order they're listed. */
+export const groupCats = (g: CategoryGroup): Category[] => g.cats.map((k) => CAT[k]).filter(Boolean);
 export const VEHICLE_TYPES: VehicleType[] = ["car", "ute", "truck", "van", "bus", "bike", "caravan", "boat", "trailer", "tractor"];
 
 export function kindLabel(cat: string | null | undefined, kind: string | null | undefined) {

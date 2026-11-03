@@ -1,6 +1,6 @@
 // Search bar parser and suggestions: node --experimental-strip-types tests/unit/search.test.mjs
 import { parseQuery, suggest, cleanFilters, describe, toQueryString } from '../../src/lib/search.ts';
-import { specLine } from '../../src/lib/vehicles.ts';
+import { specLine, CATEGORIES, CATEGORY_GROUPS, CAT, groupCats } from '../../src/lib/vehicles.ts';
 
 let pass = 0, fail = 0;
 const sortObj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, sortObj(o[k])])) : o);
@@ -110,6 +110,20 @@ if (eq(sl, ['12,000 km · 689 cc · LAMS', 'Tinny · 4.2 m · 140 hrs', '1,000 k
 const t0 = performance.now(); for (let i = 0; i < 2000; i++) { parseQuery('toyota hilux sr5 dual cab 4x4 under 30k in qld diesel auto 2015-2020'); suggest('toyota hil'); }
 const ms = (performance.now() - t0) / 2000;
 if (ms < 2) pass++; else { fail++; console.log('FAIL too slow per keystroke', ms.toFixed(2), 'ms'); }
+
+// The menus group the categories (header and the phone sheet). Browsing only: a search still filters on one
+// category, so every category has to appear in exactly one group or it becomes unreachable from the menus.
+{
+  const listed = CATEGORY_GROUPS.flatMap((g) => g.cats);
+  const missing = CATEGORIES.map((c) => c.key).filter((k) => !listed.includes(k));
+  const twice = listed.filter((k, i) => listed.indexOf(k) !== i);
+  const unknown = listed.filter((k) => !CAT[k]);
+  if (!missing.length) pass++; else { fail++; console.log('FAIL categories missing from every menu group:', missing.join(', ')); }
+  if (!twice.length) pass++; else { fail++; console.log('FAIL categories in more than one menu group:', twice.join(', ')); }
+  if (!unknown.length) pass++; else { fail++; console.log('FAIL menu group names a category that does not exist:', unknown.join(', ')); }
+  const labelled = CATEGORY_GROUPS.every((g) => g.label && g.key && groupCats(g).length === g.cats.length);
+  if (labelled) pass++; else { fail++; console.log('FAIL a menu group has no label, no key, or a category that did not resolve'); }
+}
 
 console.log(`\n${pass} passed, ${fail} failed (parse + suggest ${ms.toFixed(2)} ms per keystroke)`);
 process.exit(fail ? 1 : 0);
