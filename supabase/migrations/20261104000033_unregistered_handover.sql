@@ -20,14 +20,20 @@
 -- ---------------------------------------------------------------------------
 
 /* Is this vehicle leaving unregistered? Either it was sold without plates, or it was registered and the buyer
-   chose to take it unregistered (in which case the registration is cancelled and the plates go back). */
-create or replace function public.leaves_unregistered(p_invoice uuid) returns boolean
+   chose to take it unregistered (in which case the registration is cancelled and the plates go back).
+   The second value says whether a permit could even exist for it: Queensland does not issue an unregistered
+   vehicle permit for a written-off vehicle at all, so for those three there is no lawful way to drive it on a
+   road, ever. A truck or a trailer is the only way it leaves, and the depot must not be offered a permit box it
+   could fill in for a vehicle no permit can cover. */
+create or replace function public.leaves_unregistered(p_invoice uuid)
+returns table (unregistered boolean, permit_possible boolean)
 language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from ownership_transfers t
-    where t.invoice_id = p_invoice
-      and (t.registration = 'unregistered' or t.buyer_choice = 'unregistered')
-  );
+  select
+    (t.registration = 'unregistered' or t.buyer_choice = 'unregistered') as unregistered,
+    coalesce(l.write_off_status, 'unknown') not in ('repairable', 'statutory') as permit_possible
+  from ownership_transfers t
+  join lots l on l.id = t.lot_id
+  where t.invoice_id = p_invoice;
 $$;
 revoke execute on function public.leaves_unregistered(uuid) from public, anon;
 grant execute on function public.leaves_unregistered(uuid) to authenticated, service_role;
@@ -40,7 +46,7 @@ create or replace function public.complete_handover(
   p_token text, p_code text, p_odometer int, p_keys int, p_notes text,
   p_left_by text default null, p_permit text default null
 ) returns jsonb language plpgsql security definer set search_path = public as $$
-declare c public.collections%rowtype; v_claim timestamptz; v_title text; v_unreg boolean; v_permit text;
+declare c public.collections%rowtype; v_claim timestamptz; v_title text; v_unreg boolean; v_can_permit boolean; v_permit text;
 begin
   select * into c from collections where seller_token = p_token for update;
   if not found then raise exception 'not_found'; end if;
@@ -54,12 +60,15 @@ begin
 
   -- The registration check, after the code so a wrong code still fails first and the depot isn't asked to
   -- establish anything about a collector who hasn't proved who they are.
-  v_unreg := leaves_unregistered(c.invoice_id);
-  if v_unreg then
+  select unregistered, permit_possible into v_unreg, v_can_permit from leaves_unregistered(c.invoice_id);
+  if coalesce(v_unreg, false) then
     if coalesce(p_left_by, '') not in ('carrier', 'trailer', 'permit') then
       raise exception 'unreg_how';
     end if;
     if p_left_by = 'permit' then
+      -- A written-off vehicle cannot hold a permit, so no number entered against one can be genuine. Refuse the
+      -- shape itself rather than inviting staff to type something into a box that can never be satisfied.
+      if not coalesce(v_can_permit, false) then raise exception 'unreg_writeoff'; end if;
       v_permit := nullif(trim(coalesce(p_permit, '')), '');
       -- A permit number we have actually been shown. Without it, driving away is the s 10(1) offence and we are
       -- the ones permitting it, so the handover cannot complete and the keys stay with us.

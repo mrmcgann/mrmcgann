@@ -249,6 +249,23 @@ Terms sections 10 and 16 carry this for buyers. Note the limit of contract here:
 buyer allocates risk **between us**, and cannot stop the regulator treating us as a person who permitted the use.
 Only the gate check does that, which is why the control is in `complete_handover` and not only in the wording.
 
+Written-off vehicles are a hard stop, not a permit case: Queensland does not issue an unregistered vehicle
+permit for a written-off vehicle at all (they are expressly ineligible, with modified vehicles), so for a
+repairable or statutory write-off there is no lawful way to drive it on a road and no permit number against one
+can be genuine. `leaves_unregistered()` returns `permit_possible` false for those, the depot is not offered the
+permit option, and `complete_handover` refuses it (`unreg_writeoff`). Two practical points follow from the same
+page: Queensland's online permit needs a Queensland CRN or licence number, so an interstate buyer cannot simply
+buy one at the gate (our own staff can apply on their behalf); and a permit covers one direct journey of one to
+seven days with Class 22 CTP, not a window of free use, so telling a buyer to "get a permit" without that invites
+a second offence.
+
+How the market handles this, from their own published terms (November 2026): Grays, Slattery Grays and Lloyds all
+push it to the buyer by contract, and Slattery states outright that it "is not responsible for verifying the
+validity of any permit" (cl 5.3(c)). Manheim instead makes permits obtainable "through any vehicle registration
+office and most of our sites". Only the second engages the s 10(2)(f) exemption; the first allocates risk between
+the parties and leaves the yard inside the offence. We follow Manheim's approach at the gate and keep the
+verification the others disclaim.
+
 Before launch: confirm the equivalent "use or permit to be used" offence and its permit exemption in each other
 state we release vehicles in, and record them here. The shape is the same everywhere, but the section numbers,
 penalties and permit durations are not, and the depot screen's wording should not imply Queensland's everywhere.
@@ -333,3 +350,7 @@ says nothing takes away the protections of the buyer's or seller's own state.
 - Transfer a boat registration (SA): https://www.sa.gov.au/topics/boating-and-marine/boat-registration/transfer-boat-registration
 - Transfer a boat registration (Service Tasmania, for MAST): https://www.service.tas.gov.au/services/boats-and-fishing/boat-and-personal-water-craft-registrations/transfer-a-boat-registration/
 - Transport Operations (Road Use Management—Vehicle Registration) Regulation 2021 (Qld), s 10 (use of unregistered vehicles) and s 73 (unregistered vehicle permits): https://www.legislation.qld.gov.au/view/whole/html/inforce/2021-09-17/sl-2021-0113
+- Queensland unregistered vehicle permit (eligibility, duration, CTP, online application): https://www.qld.gov.au/transport/buying/unregistered/uvp
+- Slattery Grays user agreement (cl 5.3 permits; cl 8 collection and storage): https://slatteryauctions.com.au/legal/user-agreement
+- Manheim, How to Buy Cars and Commercial Vehicles at Auction (permits available at their sites): https://www.manheim.com.au/opalcmsassets/manheim/brochures/how-to-buy-cars-and-commercial-vehicles-at-auction.pdf
+- Grays, Unregistered Vehicles (buyer obtains the permit; carrier avoids the need): https://support.grays.com/hc/en-au/articles/900004985823-Unregistered-Vehicles

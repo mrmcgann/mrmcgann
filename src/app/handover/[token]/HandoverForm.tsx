@@ -8,7 +8,7 @@ import { useState } from "react";
  *  buyer's own unregistered vehicle permit. So the depot has to say how it left, and if the answer is "driven"
  *  they have to write down a permit number they were actually shown. complete_handover refuses without it, which
  *  means the keys cannot be signed over on a shrug. */
-export function HandoverForm({ token, keys, who, noPlates }: { token: string; keys: number | null; who: string; noPlates?: boolean }) {
+export function HandoverForm({ token, keys, who, noPlates, canPermit }: { token: string; keys: number | null; who: string; noPlates?: boolean; canPermit?: boolean }) {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,7 +46,10 @@ export function HandoverForm({ token, keys, who, noPlates }: { token: string; ke
       {noPlates && (
         <fieldset className="choice" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend style={{ fontWeight: 700, marginBottom: 8 }}>How is it leaving? It has no plates.</legend>
-          {[["carrier", "On a car carrier or tow truck"], ["trailer", "On a trailer"], ["permit", "Being driven, on an unregistered vehicle permit"]].map(([k, label]) => (
+          {/* A written-off vehicle can hold no permit, so that option isn't offered at all: an impossible
+              choice on the screen is an invitation to tick it. */}
+          {[["carrier", "On a car carrier or tow truck"], ["trailer", "On a trailer"],
+            ...(canPermit ? [["permit", "Being driven, on an unregistered vehicle permit"]] : [])].map(([k, label]) => (
             <label key={k} className={leftBy === k ? "on" : ""}>
               <input type="radio" name="leftBy" checked={leftBy === k} onChange={() => { setLeftBy(k); setErr(""); }} />
               <span><b>{label}</b></span>

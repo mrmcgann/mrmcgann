@@ -383,11 +383,20 @@ r = await as('A', `select complete_handover('${tok}', '${code}', 100000, 2, '')`
 // (Vehicle Registration Regulation 2021 (Qld) s 10(1)), and the only way out is the buyer's own permit, so the
 // depot cannot complete a handover without establishing how it left.
 await c.query(`update ownership_transfers set buyer_choice='unregistered' where invoice_id='${SINV}'`);
-r = await as('service', `select leaves_unregistered('${SINV}') u`); ok('unreg: the depot is told it has no plates', r.rows?.[0]?.u === true, r.error);
+r = await as('service', `select * from leaves_unregistered('${SINV}')`); ok('unreg: the depot is told it has no plates, and that a permit is possible', r.rows?.[0]?.unregistered === true && r.rows[0].permit_possible === true, JSON.stringify(r.rows));
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('unreg: no handover without saying how it left', r.error?.includes('unreg_how'), r.error);
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'rolled')`); ok('unreg: only a carrier, a trailer or a permit', r.error?.includes('unreg_how'), r.error);
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit')`); ok('unreg: driving it away needs a permit number', r.error?.includes('unreg_permit'), r.error);
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit', '  x ')`); ok('unreg: a token permit number is not a permit', r.error?.includes('unreg_permit'), r.error);
+// No state issues a permit for a written-off vehicle, so there is no lawful way to drive one. Truck or trailer only.
+await c.query(`update lots set write_off_status='repairable' where id=${SL}`);
+r = await as('service', `select permit_possible p from leaves_unregistered('${SINV}')`); ok('unreg: a write-off can hold no permit', r.rows?.[0]?.p === false, JSON.stringify(r.rows));
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit', 'UVP-884213')`); ok('unreg: a write-off is never driven away, whatever number is typed', r.error?.includes('unreg_writeoff'), r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'trailer') h`); ok('unreg: a write-off still leaves on a trailer', r.rows?.[0]?.h?.ok === true, r.error);
+await c.query(`update lots set write_off_status='none' where id=${SL}`);
+await c.query(`update collections set status='confirmed', collected_at=null where seller_token='${tok}'`);
+await c.query(`update invoices set collected_at=null, claim_until=null where id='${SINV}'`);
+
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit', 'UVP-884213') h`); ok('unreg: a sighted permit lets it go, and is recorded', r.rows?.[0]?.h?.ok === true, r.error);
 r = await as('service', `select handover from collections where seller_token='${tok}'`);
 ok('unreg: the file shows what was established', r.rows?.[0]?.handover?.unregistered === true && r.rows[0].handover.left_by === 'permit' && r.rows[0].handover.permit === 'UVP-884213', JSON.stringify(r.rows?.[0]?.handover));
