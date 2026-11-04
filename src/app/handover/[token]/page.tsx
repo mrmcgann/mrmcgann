@@ -49,6 +49,13 @@ export default async function Handover({ params }: { params: Promise<{ token: st
                   <a className="blue" href={permits.permitUrl} target="_blank" rel="noopener noreferrer"
                     style={{ fontWeight: 700 }}>{permits.permit} with {permits.authority} ›</a>{" "}
                   Let them do it on their phone while they&apos;re standing there, then write the number down below.</span>
+                  {/* The interstate trap: a Queensland permit can only be bought online by someone with a
+                      Queensland CRN or licence, which a buyer who flew in from Sydney won't have. A staff
+                      member who does have one can apply on their behalf, which is the difference between a
+                      sale completing and a buyer going home empty-handed. */}
+                  <span>If they&apos;re from another state they may not be able to buy it themselves &mdash; some
+                  states only sell online to someone with a licence or customer reference number of their own. If
+                  you have one, apply for them. It takes a few minutes and saves the trip.</span>
                 </>
               ) : (
                 <>
