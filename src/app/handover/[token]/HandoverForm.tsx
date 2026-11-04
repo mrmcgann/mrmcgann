@@ -8,13 +8,18 @@ import { useState } from "react";
  *  buyer's own unregistered vehicle permit. So the depot has to say how it left, and if the answer is "driven"
  *  they have to write down a permit number they were actually shown. complete_handover refuses without it, which
  *  means the keys cannot be signed over on a shrug. */
-export function HandoverForm({ token, keys, who, noPlates, canPermit }: { token: string; keys: number | null; who: string; noPlates?: boolean; canPermit?: boolean }) {
+export function HandoverForm({ token, keys, who, noPlates, canPermit, planned, permitRef }: {
+  token: string; keys: number | null; who: string; noPlates?: boolean; canPermit?: boolean;
+  planned?: string | null; permitRef?: string | null;
+}) {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [id, setId] = useState(false);
-  const [leftBy, setLeftBy] = useState("");
-  const [permit, setPermit] = useState("");
+  // Pre-filled from what the buyer told us when they paid, so the usual case is a glance and a tick. The depot
+  // can still change it: what actually turned up beats what was planned.
+  const [leftBy, setLeftBy] = useState(planned && ["carrier", "trailer", "permit"].includes(planned) ? planned : "");
+  const [permit, setPermit] = useState(permitRef || "");
   const [sighted, setSighted] = useState(false);
   const needPermit = noPlates && leftBy === "permit";
   const blocked = !id || (noPlates && !leftBy) || (needPermit && (permit.trim().length < 4 || !sighted));

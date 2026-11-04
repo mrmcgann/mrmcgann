@@ -22,10 +22,14 @@ export default async function Handover({ params }: { params: Promise<{ token: st
   // unregistered vehicle be driven onto a road is an offence we commit too, as the party permitting it
   // (migration 33), so the depot is told before they read anything else on the page.
   const { data: unreg } = await db.rpc("leaves_unregistered", { p_invoice: c.invoice_id });
-  const u = ((unreg || []) as { unregistered: boolean; permit_possible: boolean }[])[0];
+  const u = ((unreg || []) as { unregistered: boolean; permit_possible: boolean; planned: string | null; permit_ref: string | null; on_wheels: boolean }[])[0];
   const noPlates = u?.unregistered === true;
+  // The buyer settled this when they paid, so the gate confirms rather than adjudicates. Our depots are tow
+  // yards: every question we add at their counter is a service they perform for us.
+  const PLAN: Record<string, string> = { carrier: "on a car carrier or tow truck", trailer: "on a trailer", permit: "driven, on an unregistered vehicle permit" };
+  const planned = u?.planned ? PLAN[u.planned] : null;
   // A written-off vehicle can hold no permit at all, so for those the only honest answer is a truck or a trailer.
-  const canPermit = noPlates && u?.permit_possible === true;
+  const canPermit = noPlates && u?.permit_possible === true && u?.on_wheels === true;
   // Manheim's model, which is the sensible one: don't turn a buyer away, hand them the permit. Most states issue
   // one online in minutes, so the depot can stand there while they do it.
   const permits = rulesFor(lot?.rego_state || lot?.state);
@@ -39,6 +43,13 @@ export default async function Handover({ params }: { params: Promise<{ token: st
           {noPlates && (
             <div className="notice bad" role="alert" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <b style={{ fontSize: 18 }}>This vehicle is UNREGISTERED. It has no plates.</b>
+              {planned && (
+                <span style={{ background: "rgba(255,255,255,.5)", borderRadius: 9, padding: "9px 12px" }}>
+                  <b>The buyer told us it&apos;s going {planned}.</b>
+                  {u?.permit_ref ? <> Permit <b>{u.permit_ref}</b> &mdash; check it matches what they show you, and that it&apos;s in date.</> : null}
+                  {" "}If that&apos;s what&apos;s happening, confirm it below. If it isn&apos;t, go by what you can see.
+                </span>
+              )}
               {canPermit ? (
                 <>
                   <span>It must not be driven on a road &mdash; not by the buyer, not by you, not across the
@@ -78,7 +89,7 @@ export default async function Handover({ params }: { params: Promise<{ token: st
               <li>Enter the code, the odometer and the keys handed over below.</li>
             </ol>
           </div>
-          <HandoverForm token={token} keys={lot?.keys || null} who={who} noPlates={noPlates} canPermit={canPermit} />
+          <HandoverForm token={token} keys={lot?.keys || null} who={who} noPlates={noPlates} canPermit={canPermit} planned={u?.planned || null} permitRef={u?.permit_ref || null} />
         </>
       )}
       <p className="hint">Something wrong? Don&apos;t hand over the vehicle. Call {env.phone}.</p>

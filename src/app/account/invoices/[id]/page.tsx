@@ -24,14 +24,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { supabase, user, profile } = await getSession();
   if (!user) redirect(`/signin?next=/account/invoices/${id}`);
-  const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status, category)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
+  const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status, category, write_off_status)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) notFound();
-  const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string | null } };
+  const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string | null; write_off_status: string | null } };
   const [{ data: coll }, { data: claims }, fees, { data: tr }, partners, { data: jobRows }] = await Promise.all([
     supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at, tracking_url").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
-    supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, buyer_said_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
+    supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, buyer_said_done_at, permit_ref, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
     getPartnersCached(),
     supabase.rpc("invoice_transport", { p_invoice: inv.id }),
   ]);
@@ -120,7 +120,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             signature={inv.buyer_ack_signature ?? null} verifiedName={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} />
         )}
 
-        {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} category={inv.lots.category} consultantPhone={env.phone} />}
+        {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} category={inv.lots.category} consultantPhone={env.phone} transporter={transporter} canPermit={!["repairable","statutory"].includes(String(inv.lots.write_off_status || ""))} />}
 
         {paidCard && (
           <div className="soft" data-testid="collection">

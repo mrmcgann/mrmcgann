@@ -674,6 +674,16 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select body from outbox where dedupe_key like 'transfer-seller:${inv}%'`); ok('unregistered: the seller hears about the pickup, with nothing to lodge', (r.rows || []).every((x) => /pick it up/.test(x.body) && !/registration transfer/.test(x.body)), JSON.stringify(r.rows));
   r = await as('B', `select transfer_submit('${inv}', null, null, null, '{}')`); ok('unregistered: buyer says how it will be moved', r.error?.includes('transport_needed'), r.error);
   r = await as('B', `select transfer_submit('${inv}', null, 'carrier', null, '{}') s`); ok('unregistered: complete once the buyer confirms', r.rows?.[0]?.s === 'complete', r.error);
+  // Migration 34: the exit plan is settled at the invoice, so the gate confirms it rather than deciding it.
+  r = await as('service', `select planned, permit_ref from leaves_unregistered('${inv}')`);
+  ok('exit plan: the depot sees what the buyer said', r.rows?.[0]?.planned === 'carrier' && r.rows[0].permit_ref === null, JSON.stringify(r.rows));
+  await c.query(`update ownership_transfers set status='waiting' where invoice_id='${inv}'`);
+  r = await as('B', `select transfer_submit('${inv}', null, 'permit', null, '{}', ' uvp-77421 ') s`); ok('exit plan: a permit choice is accepted', r.rows?.[0]?.s === 'complete', r.error);
+  r = await as('service', `select planned, permit_ref from leaves_unregistered('${inv}')`);
+  ok('exit plan: the permit number is kept, trimmed', r.rows?.[0]?.planned === 'permit' && r.rows[0].permit_ref === 'uvp-77421', JSON.stringify(r.rows));
+  await c.query(`update ownership_transfers set status='waiting' where invoice_id='${inv}'`);
+  r = await as('B', `select transfer_submit('${inv}', null, 'trailer', null, '{}', 'uvp-77421') s`); ok('exit plan: switching off a permit clears its number', r.rows?.[0]?.s === 'complete', r.error);
+  r = await as('service', `select permit_ref from leaves_unregistered('${inv}')`); ok('exit plan: no stale permit left behind', r.rows?.[0]?.permit_ref === null, JSON.stringify(r.rows));
   const UJ = (await c.query(`select id from transport_jobs where invoice_id = '${inv}'`)).rows[0]?.id;
   await c.query(`update transport_jobs set status = 'at_depot', at_depot_at = now() where id = '${UJ}'`);
   r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${inv}', ${lot}, '${U.B}', 'Mon', 'Morning')`); ok('unregistered: collection can then be booked (once it is at the depot)', !r.error, r.error);

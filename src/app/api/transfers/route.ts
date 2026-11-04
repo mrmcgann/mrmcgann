@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   }
   const { data: status, error } = await db.rpc("transfer_submit", {
     p_invoice: String(b.invoiceId), p_choice: b.choice || null, p_transport: b.transport || null, p_reference: String(b.reference || "").slice(0, 60), p_proof: paths,
+    // Captured here rather than at the gate: the depot confirms this, it doesn't decide it (migration 34).
+    p_permit: String(b.permit || "").slice(0, 40),
   });
   if (error) return fail(ERRORS[Object.keys(ERRORS).find((k) => error.message.includes(k)) || ""] || "Couldn't save that. Please try again.");
   if (status === "submitted") {

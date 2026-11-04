@@ -7,7 +7,7 @@ import { rulesFor, isVessel, vesselFor, trailerNote, TRANSPORT, transportLabel }
 export type TransferRow = {
   status: "waiting" | "submitted" | "complete"; registration: "registered" | "unregistered"; rego_state: string | null;
   buyer_choice: string | null; transport: string | null; reference: string | null; review_note: string | null;
-  seller_done_at: string | null; buyer_said_done_at: string | null; proof_count: number;
+  seller_done_at: string | null; buyer_said_done_at: string | null; permit_ref: string | null; proof_count: number;
 };
 
 // Upload one file through a one-off signed link (private bucket), and return its path. Nothing requires this any
@@ -30,7 +30,10 @@ export async function uploadProof(invoiceId: string, file: File) {
  *
  *  Sold unregistered is the other shape: there is no registration to move, the certificate of sale is the record,
  *  and the only real question is how they'll get it off our depot. */
-export function TransferStep({ invoiceId, t, title, category, consultantPhone }: { invoiceId: string; t: TransferRow; title: string; category?: string | null; consultantPhone: string }) {
+export function TransferStep({ invoiceId, t, title, category, consultantPhone, transporter, canPermit = true }: {
+  invoiceId: string; t: TransferRow; title: string; category?: string | null; consultantPhone: string;
+  transporter?: { slug: string; name: string } | null; canPermit?: boolean;
+}) {
   const router = useRouter();
   const rules = rulesFor(t.rego_state);
   const onWater = isVessel(category);
@@ -40,8 +43,12 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone }:
   const authority = vessel ? vessel.authority : rules.authority;
   const where = vessel ? vessel.buyerUrl : rules.buyerUrl;
 
+  // A boat sits on a trailer and machinery goes on a float: neither travels the road under its own power, so the
+  // permit question is about the trailer, not the thing itself.
+  const onWheels = !["boats", "machinery"].includes(String(category || ""));
   const [unreg, setUnreg] = useState(t.buyer_choice === "unregistered");
   const [transport, setTransport] = useState(t.transport && t.transport !== "drive" ? t.transport : "");
+  const [permit, setPermit] = useState(t.permit_ref || "");
   const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -136,12 +143,35 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone }:
             : <span>This {title} is sold <b>unregistered, without plates</b>. Your certificate of sale, in your name, is your record of ownership. {cert}</span>}
           <label className="consent"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> <span>The details on the certificate of sale are correct.</span></label>
 
+          {/* Settled here, where nothing is at stake, rather than at the gate with a paid invoice and a tow-yard
+              counter. The depot then confirms this answer instead of adjudicating it. */}
           <fieldset className="choice" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will you move it from our depot?</legend>
-            {TRANSPORT.map(([k, label]) => (
-              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => setTransport(k)} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">Apply to {rules.authority} before collection day: <a className="blue" href={rules.permitUrl} target="_blank" rel="noopener noreferrer">{rules.permit} ›</a>. Bring it with you.</span>}</span></label>
+            {TRANSPORT.filter(([k]) => k !== "permit" || (onWheels && canPermit)).map(([k, label]) => (
+              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => { setTransport(k); setErr(""); }} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">You get this from {rules.authority} before collection day, and the depot checks it before they hand over the keys.</span>}</span></label>
             ))}
           </fieldset>
+
+          {transport === "permit" && (
+            <div className="soft" style={{ background: "var(--panel)", gap: 9 }}>
+              <a className="btn btn-blue" href={rules.permitUrl} target="_blank" rel="noopener noreferrer"
+                style={{ alignSelf: "flex-start", height: 44 }} data-testid="permit-go">Get the {rules.permit} ›</a>
+              <label className="field" style={{ maxWidth: 320 }}><span>Permit number (if you have it)</span>
+                <input className="input" value={permit} onChange={(e) => { setPermit(e.target.value); setErr(""); }} maxLength={40} autoCapitalize="characters" data-testid="permit-ref" /></label>
+              <span className="hint">You can leave this blank and get the permit before collection day &mdash; but
+              the depot has to see it before they hand over the keys, so don&apos;t turn up without one. It covers
+              one direct trip, so get the dates right.</span>
+            </div>
+          )}
+
+          {transport && transport !== "permit" && transporter && (
+            <span className="hint">Need a truck? <a className="blue" href={`/go/${transporter.slug}`} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Get a quote from {transporter.name} ›</a></span>
+          )}
+
+          {!onWheels && (
+            <span className="hint">It travels on a trailer rather than under its own power, so a permit only comes
+            into it if the trailer itself is unregistered. Ask us if you&apos;re not sure.</span>
+          )}
 
           {err && <div className="notice bad" role="alert">{err}</div>}
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -149,7 +179,7 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone }:
               onClick={() => {
                 if (!agree) return setErr("Check the certificate of sale and tick the box.");
                 if (!transport) return setErr("Choose how it will be moved.");
-                void post("/api/transfers", { invoiceId, choice: "unregistered", transport, reference: "", paths: [] });
+                void post("/api/transfers", { invoiceId, choice: "unregistered", transport, reference: "", paths: [], permit });
               }}>
               {busy ? "Saving…" : "Confirm"}
             </button>
