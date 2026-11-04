@@ -52,7 +52,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --no-warnings tests/links.test.mjs",
     "export:web": "expo export -p web",
-    "doctor": "expo-doctor"
+    "doctor": "expo-doctor",
+    "lint": "expo lint"
   },
   "private": true
 }

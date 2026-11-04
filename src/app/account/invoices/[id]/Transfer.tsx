@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { env } from "@/lib/env";
-import { rulesFor, TRANSPORT, transportLabel } from "@/lib/transfer";
+import { rulesFor, isVessel, vesselFor, trailerNote, TRANSPORT, transportLabel } from "@/lib/transfer";
 
 export type TransferRow = {
   status: "waiting" | "submitted" | "complete"; registration: "registered" | "unregistered"; rego_state: string | null;
@@ -23,9 +23,18 @@ export async function uploadProof(invoiceId: string, file: File) {
 // Between payment and collection: put the vehicle in the buyer's name. Registered vehicles: the seller
 // lodges their part, the buyer transfers the registration and uploads the confirmation, we check it.
 // Unregistered: the certificate of sale is the ownership record; the buyer says how it will be moved.
-export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoiceId: string; t: TransferRow; title: string; consultantPhone: string }) {
+//
+// A boat is registered with the state's marine authority, not its transport authority, so it gets the vessel
+// steps instead (and a word about the trailer, which is a road vehicle of its own). Where we haven't settled a
+// state's vessel process we send them to their consultant rather than to a page we haven't read.
+export function TransferStep({ invoiceId, t, title, category, consultantPhone }: { invoiceId: string; t: TransferRow; title: string; category?: string | null; consultantPhone: string }) {
   const router = useRouter();
   const rules = rulesFor(t.rego_state);
+  const onWater = isVessel(category);
+  const vessel = onWater ? vesselFor(t.rego_state) : null;
+  // Who the buyer deals with for the transfer itself. The movement permit below stays with the road authority
+  // either way: that part is about towing it out of our depot.
+  const authority = vessel ? vessel.authority : rules.authority;
   const [choice, setChoice] = useState<"transfer" | "unregistered">(t.buyer_choice === "unregistered" ? "unregistered" : "transfer");
   const [transport, setTransport] = useState(t.transport && t.transport !== "drive" ? t.transport : "");
   const [reference, setReference] = useState("");
@@ -86,18 +95,25 @@ export function TransferStep({ invoiceId, t, title, consultantPhone }: { invoice
 
       {registered && (
         <div className="choice" role="radiogroup" aria-label="Registration">
-          <label className={choice === "transfer" ? "on" : ""}><input type="radio" name="choice" checked={choice === "transfer"} onChange={() => setChoice("transfer")} /> <span><b>Transfer the registration into my name</b><span className="hint">Registered in {t.rego_state}. You&apos;ll need to do this through {rules.authority}.</span></span></label>
-          <label className={choice === "unregistered" ? "on" : ""}><input type="radio" name="choice" checked={choice === "unregistered"} onChange={() => setChoice("unregistered")} /> <span><b>Take it unregistered</b><span className="hint">The seller cancels the registration and keeps the plates. Choose this if you can&apos;t register it in {t.rego_state}.</span></span></label>
+          <label className={choice === "transfer" ? "on" : ""}><input type="radio" name="choice" checked={choice === "transfer"} onChange={() => setChoice("transfer")} /> <span><b>Transfer the registration into my name</b><span className="hint">Registered in {t.rego_state}. You&apos;ll need to do this through {authority}.</span></span></label>
+          <label className={choice === "unregistered" ? "on" : ""}><input type="radio" name="choice" checked={choice === "unregistered"} onChange={() => setChoice("unregistered")} /> <span><b>Take it unregistered</b><span className="hint">The seller cancels the registration{onWater ? "" : " and keeps the plates"}. Choose this if you can&apos;t register it in {t.rego_state}.</span></span></label>
         </div>
       )}
 
-      {registered && choice === "transfer" && (
+      {registered && choice === "transfer" && (onWater && !vessel ? (
+        <span className="notice">A boat&apos;s registration is transferred through {t.rego_state || "the state"}&apos;s marine authority, not its road one, and we complete that part with you rather than send you to the wrong form. Call us on {consultantPhone} and we&apos;ll walk you through it, then upload the confirmation below.</span>
+      ) : (
         <ol className="steps-mini">
-          <li><b>The seller&apos;s part.</b> The seller lodges their part with {rules.authority}. {t.seller_done_at ? <span className="status-pill" style={{ background: "var(--mint)" }}>Done</span> : <span className="muted">We&apos;re arranging this with the seller.</span>}</li>
-          <li><b>Your part.</b> {rules.buyer} <a className="blue" href={rules.buyerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Transfer it with {rules.authority} ›</a>{rules.cert ? <span className="hint" style={{ display: "block", marginTop: 4 }}>{rules.cert}</span> : null}</li>
+          <li><b>The seller&apos;s part.</b> {vessel ? vessel.seller : `The seller lodges their part with ${rules.authority}.`} {t.seller_done_at ? <span className="status-pill" style={{ background: "var(--mint)" }}>Done</span> : <span className="muted">We&apos;re arranging this with the seller.</span>}</li>
+          <li>
+            <b>Your part.</b> {vessel ? vessel.buyer : rules.buyer}{" "}
+            <a className="blue" href={vessel ? vessel.buyerUrl : rules.buyerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Transfer it with {authority} ›</a>
+            {vessel ? <span className="hint" style={{ display: "block", marginTop: 4 }}>{trailerNote(t.rego_state)}</span>
+              : rules.cert ? <span className="hint" style={{ display: "block", marginTop: 4 }}>{rules.cert}</span> : null}
+          </li>
           <li><b>Show us.</b> Upload the confirmation (the receipt, or the new registration certificate in your name), or enter the receipt number. Need help, or does the form ask for the seller&apos;s details? Call us on {consultantPhone}: we handle that part, so the seller&apos;s details stay private.</li>
         </ol>
-      )}
+      ))}
 
       {!registered && (
         <>

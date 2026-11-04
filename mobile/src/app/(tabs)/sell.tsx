@@ -171,7 +171,7 @@ export default function Sell() {
                 {l.status === "sold" ? (
                   <View style={{ gap: 8 }}>
                     {!transfer && !coll ? <T v="body">We're taking payment from the buyer. We'll text you once it's paid.</T> : null}
-                    {transfer && transfer.status !== "complete" ? <SellerTransfer lotId={l.id} transfer={transfer} state={l.rego_state || l.state} onDone={load} /> : null}
+                    {transfer && transfer.status !== "complete" ? <SellerTransfer lotId={l.id} transfer={transfer} state={l.rego_state || l.state} category={l.category} onDone={load} /> : null}
                     {pickup ? (
                       <Notice testID="seller-pickup" style={{ gap: 6 }}>
                         <T v="strong">{pickup.status === "to_book" || pickup.status === "booked" ? "The pickup." : "Picked up."}</T>

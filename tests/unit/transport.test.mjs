@@ -2,6 +2,7 @@
 // node --experimental-strip-types tests/unit/transport.test.mjs
 import { priceBreakdown, lotFees } from '../../src/lib/fees.ts';
 import { premiumLabel, feesLine, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
+import { TRANSFER_RULES, rulesFor, isVessel, vesselFor, trailerNote } from '../../src/lib/transfer.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -55,6 +56,37 @@ ok('ack: no viewing, a guide only, an inspection at their cost, collected from o
 ok('check it: four ways, none of them a visit', CHECK_IT.length === 4 && CHECK_IT.every(([t, d]) => !/viewing|visit the seller|test drive/i.test(t + d)));
 ok('check it: the inspection is paid to the mechanic and the seller stays private', /you pay them/.test(CHECK_IT[2][1]) && /seller's details stay private/.test(CHECK_IT[2][1]));
 ok('no viewings, in one line', /^No viewings or test drives/.test(NO_VIEWINGS));
+
+// Putting it in the buyer's name. A boat is not a road vehicle: its registration belongs to the state's marine
+// authority, so it must never be sent down the transport authority's path.
+const roadStates = ['QLD', 'NSW', 'VIC', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+ok('transfer: every state has a road rule, with both sides and a rego check', roadStates.every((st) => {
+  const r = TRANSFER_RULES[st];
+  return r && r.authority && r.seller && r.sellerUrl && r.buyer && r.buyerUrl && r.permit && r.permitUrl && r.checkUrl;
+}));
+ok('transfer: an unknown state falls back to Queensland, because every road transfer is the same shape', rulesFor('ZZ') === TRANSFER_RULES.QLD && rulesFor(null) === TRANSFER_RULES.QLD && rulesFor('qld') === TRANSFER_RULES.QLD);
+
+ok('vessel: only boats are vessels', isVessel('boats') && !isVessel('cars') && !isVessel('trailers') && !isVessel('machinery') && !isVessel(null) && !isVessel(undefined));
+ok('vessel: the six settled states each name a marine authority and a form', ['QLD', 'NSW', 'VIC', 'WA', 'SA', 'TAS'].every((st) => {
+  const v = vesselFor(st);
+  return v && v.authority && v.seller && v.buyer && /^https:\/\//.test(v.buyerUrl);
+}));
+// Guessing a boat's process would be a confident wrong answer, so an unsettled or unknown state is null and the
+// screens fall back to the consultant doing it.
+ok('vessel: the Territories and an unknown state are null, not a guess', vesselFor('ACT') === null && vesselFor('NT') === null && vesselFor('ZZ') === null && vesselFor(null) === null);
+ok('vessel: no marine rule points at a vehicle transfer page', ['NSW', 'VIC', 'WA', 'SA', 'TAS'].every((st) => !/transfer-a-vehicle-registration|buy-sell-transfer\/buy-sell-transfer-vehicle/.test(vesselFor(st).buyerUrl)));
+// Queensland is the one state that runs boats through the same online form as vehicles, so it is allowed to
+// share the vehicle page — and it says so, rather than leaving the buyer to wonder.
+ok('vessel: Queensland shares the vehicle form and flags it', vesselFor('QLD').sameAsVehicle === true && /boats/i.test(vesselFor('QLD').buyer));
+ok('vessel: nowhere else claims to share the vehicle form', ['NSW', 'VIC', 'WA', 'SA', 'TAS'].every((st) => !vesselFor(st).sameAsVehicle));
+// No day counts or fees in the vessel copy: a vessel's clock is its own, and we haven't read it off the page.
+ok('vessel: no invented deadline or fee', ['QLD', 'NSW', 'VIC', 'WA', 'SA', 'TAS'].every((st) => {
+  const v = vesselFor(st);
+  return !/\b\d+\s*(days?|weeks?|months?)\b/i.test(v.buyer + v.seller) && !/\$\d/.test(v.buyer + v.seller);
+}));
+// A boat on a trailer is two registrations, and transferring one does nothing for the other.
+ok('vessel: the trailer is named as a separate road transfer', /trailer/i.test(trailerNote('QLD')) && /Transport and Main Roads/.test(trailerNote('QLD')) && /doesn't cover it/.test(trailerNote('QLD')));
+ok('vessel: the trailer note follows the state', /VicRoads/.test(trailerNote('VIC')) && /Service NSW/.test(trailerNote('NSW')));
 
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

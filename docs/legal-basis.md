@@ -212,6 +212,26 @@ a prescribed notice to an auction buyer (as distinct from the private-treaty for
 Queensland reading above, which is the one place a seller's name reaches a buyer. `STATE_RULES[...].toConfirm` names
 each open point in the code so it cannot be lost.
 
+## 13. Putting it in the buyer's name: registration transfer
+
+Transferring the registration is the buyer's own transaction with their state, not ours, and not part of the sale: we
+hand them the certificate of sale, the seller lodges their side, and the state does the rest. Two machines, and the
+code keeps them apart (`src/lib/transfer.ts`).
+
+| Position | Where it lives | Basis |
+| --- | --- | --- |
+| A car, ute, van, motorbike, truck, bus, trailer or caravan is a road vehicle. Its registration is transferred through the state's transport authority: the seller lodges a notice of disposal (or starts the transfer), the buyer completes it and pays the transfer fee and duty, and some states need a safety or roadworthy certificate first. | `TRANSFER_RULES`, `rulesFor`, `certNeeded` (mirrored by `roadworthy_needed()`), `certLine` | Each state's transport authority (links in the table; checked October 2026) |
+| A boat is not a road vehicle. Its registration belongs to the state's **marine** authority, on a separate form, with its own deadline and its own fee. Sending a boat buyer to the vehicle transfer page would be the wrong form. Queensland is the only state that runs boats through the same online transfer as vehicles, and the copy says so. | `VESSEL_RULES`, `vesselFor`, `isVessel` | Maritime Safety Queensland via TMR; Transport for NSW; VicRoads; WA Department of Transport (marine); Service SA; Marine and Safety Tasmania via Service Tasmania (links in the table; checked November 2026) |
+| A boat sold on its trailer carries **two** registrations, and transferring the boat does nothing for the trailer. The trailer is a road vehicle and goes through the transport authority like any other. | `trailerNote` | As above, both columns |
+| Machinery is normally registered nowhere, so there is nothing to transfer: the certificate of sale in the buyer's name is the whole record of ownership. This is the path the unregistered branch already takes. | `certNeeded` (null for `machinery`), the unregistered branch of `TransferStep` | Sale of Goods Act 1896 (Qld) s 21 (title passes on the contract, not on registration) |
+| No deadline or fee is stated for a vessel. Authority and form are verified; the day count is not, and a wrong figure on a statutory clock is the one thing on that screen that could cost a buyer a late fee, so the buyer is sent to the state's own page for both. | the comment above `VESSEL_RULES`; `tests/unit/transport.test.mjs` asserts no day count or dollar figure appears in the vessel copy | — |
+| The Australian Capital Territory and the Northern Territory are unsettled for vessels (the Territory may not register recreational vessels at all). Both are `null`, and the screens then tell the buyer their consultant will do that part, rather than link a page we have not read. An unknown state is `null` too: a road transfer can safely fall back to Queensland because every state runs the same shape, but a marine one cannot. | `VESSEL_RULES.ACT`, `VESSEL_RULES.NT`, `vesselFor` | — |
+| Registration is never where the seller's identity leaks. Where a state's form asks the buyer for the seller's details, the buyer is told to call us and we complete that part. | step 3 of `TransferStep` (web and app) | Section 9 below; `MDCA` Reg s 8(a) is the only place a seller's name reaches a buyer, and it is the statement, not the transfer |
+
+Before launch: read each state's vessel page and add the deadline and the fee, then drop the `[CHECK ...]` marker
+above `VESSEL_RULES`; settle the ACT and the NT either way. The road table's own marker is the same job on the other
+half, and both are due again every few months because these pages move.
+
 ## Governing law
 
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document
@@ -284,3 +304,10 @@ says nothing takes away the protections of the buyer's or seller's own state.
 - The ACT's statutory warranty for second-hand vehicles (under 10 years and 160,000 km; none for second-hand motorcycles), Region Canberra, 28 October 2019: https://region.com.au/stronger-warranties-to-protect-canberrans-who-buy-second-hand-vehicles/332847/
 - Williams v Pisano [2015] NSWCA 177 (summary): https://www.cbp.com.au/insights/insights/2015/july/selling-a-house-does-not-amount-to-engaging-in-tra
 - Victoria, "Labor cracks down on used car rip-offs" (11 July 2026): https://www.premier.vic.gov.au/labor-cracks-down-used-car-rip-offs
+- Transferring a Queensland registered vehicle, trailer, caravan or boat online: https://www.qld.gov.au/transport/registration/transfer/online
+- Transfer a vessel registration (NSW): https://www.nsw.gov.au/driving-boating-and-transport/boat-and-vessel-registration/transfer-registration
+- Submit a notice of disposal for a vessel (Service NSW): https://www.service.nsw.gov.au/transaction/submit-notice-disposal-vessel
+- Buy, sell or transfer a boat or jet ski (VicRoads): https://www.vicroads.vic.gov.au/buy-sell-transfer/buy-sell-transfer-vessel
+- Transfer a vessel (WA Department of Transport): https://www.transport.wa.gov.au/marine/recreational-boating/boat-registration/transfer-vessel
+- Transfer a boat registration (SA): https://www.sa.gov.au/topics/boating-and-marine/boat-registration/transfer-boat-registration
+- Transfer a boat registration (Service Tasmania, for MAST): https://www.service.tas.gov.au/services/boats-and-fishing/boat-and-personal-water-craft-registrations/transfer-a-boat-registration/

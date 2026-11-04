@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { PROOF_MAX, PROOF_TYPES, rulesFor, TRANSPORT, transportLabel } from "@/lib/transfer";
+import { PROOF_MAX, PROOF_TYPES, rulesFor, isVessel, vesselFor, trailerNote, TRANSPORT, transportLabel } from "@/lib/transfer";
 import { api, errText } from "~/lib/api";
 import { downloadAndShare, pickDocuments, uploadSigned, type PickedFile } from "~/lib/files";
 import type { SellerTransferRow, TransferRow } from "~/lib/types";
@@ -38,11 +38,19 @@ function Step({ n, children }: { n: number; children: ReactNode }) {
  * Registered: the seller lodges their part, the buyer transfers the registration and uploads the
  * confirmation, we check it. Unregistered: the certificate of sale is the ownership record, and the
  * buyer says how the vehicle will be moved.
+ *
+ * A boat's registration belongs to the state's marine authority, not its transport authority, so a vessel
+ * gets its own steps and a word about the trailer. Where a state's vessel process isn't settled we send them
+ * to their consultant instead of to a form we haven't read.
  */
-export function TransferStep({ invoiceId, invoiceRef, t, title, consultantPhone, certificateUrl, onDone }: {
-  invoiceId: string; invoiceRef: string; t: TransferRow; title: string; consultantPhone: string; certificateUrl: string | null | undefined; onDone: () => void;
+export function TransferStep({ invoiceId, invoiceRef, t, title, category, consultantPhone, certificateUrl, onDone }: {
+  invoiceId: string; invoiceRef: string; t: TransferRow; title: string; category?: string | null; consultantPhone: string; certificateUrl: string | null | undefined; onDone: () => void;
 }) {
   const rules = rulesFor(t.rego_state);
+  const onWater = isVessel(category);
+  const vessel = onWater ? vesselFor(t.rego_state) : null;
+  // The transfer itself; the movement permit below stays with the road authority, which is what tows it away.
+  const authority = vessel ? vessel.authority : rules.authority;
   const [choice, setChoice] = useState<"transfer" | "unregistered">(t.buyer_choice === "unregistered" ? "unregistered" : "transfer");
   const [transport, setTransport] = useState(t.transport && t.transport !== "drive" ? t.transport : "");
   const [reference, setReference] = useState("");
@@ -115,22 +123,25 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, consultantPhone,
       {registered ? (
         <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Registration">
           <Choice testID="transfer-choice-transfer" on={choice === "transfer"} onPress={() => setChoice("transfer")} title="Transfer the registration into my name"
-            hint={`Registered in ${t.rego_state}. You'll need to do this through ${rules.authority}.`} />
+            hint={`Registered in ${t.rego_state}. You'll need to do this through ${authority}.`} />
           <Choice testID="transfer-choice-unregistered" on={choice === "unregistered"} onPress={() => setChoice("unregistered")} title="Take it unregistered"
-            hint={`The seller cancels the registration and keeps the plates. Choose this if you can't register it in ${t.rego_state}.`} />
+            hint={`The seller cancels the registration${onWater ? "" : " and keeps the plates"}. Choose this if you can't register it in ${t.rego_state}.`} />
         </View>
       ) : null}
 
-      {transferring ? (
+      {transferring && onWater && !vessel ? (
+        <Notice><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>A boat&apos;s registration is transferred through {t.rego_state || "the state"}&apos;s marine authority, not its road one, and we complete that part with you rather than send you to the wrong form. Call us on {consultantPhone} and we&apos;ll walk you through it, then upload the confirmation below.</T></Notice>
+      ) : null}
+      {transferring && !(onWater && !vessel) ? (
         <View style={{ gap: 12 }}>
           <Step n={1}>
-            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>The seller's part. </Text>The seller lodges their part with {rules.authority}.</T>
+            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>The seller's part. </Text>{vessel ? vessel.seller : `The seller lodges their part with ${rules.authority}.`}</T>
             {t.seller_done_at ? <Tag label="Done" color={C.mint} /> : <T v="small">We're arranging this with the seller.</T>}
           </Step>
           <Step n={2}>
-            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Your part. </Text>{rules.buyer}</T>
-            <LinkText testID="transfer-buyer-link" title={`Transfer it with ${rules.authority} ›`} onPress={() => openUrl(rules.buyerUrl)} />
-            {rules.cert ? <T v="small">{rules.cert}</T> : null}
+            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Your part. </Text>{vessel ? vessel.buyer : rules.buyer}</T>
+            <LinkText testID="transfer-buyer-link" title={`Transfer it with ${authority} ›`} onPress={() => openUrl(vessel ? vessel.buyerUrl : rules.buyerUrl)} />
+            {vessel ? <T v="small">{trailerNote(t.rego_state)}</T> : rules.cert ? <T v="small">{rules.cert}</T> : null}
           </Step>
           <Step n={3}>
             <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Show us. </Text>Upload the confirmation (the receipt, or the new registration certificate in your name), or enter the receipt number. Need the seller's details or help? Call {consultantPhone}.</T>
@@ -184,8 +195,11 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, consultantPhone,
  * The seller's part once the buyer has paid in full (the website's dashboard block): lodge their part
  * with the state's transport authority, then tap "I've done this" (with an optional receipt number).
  */
-export function SellerTransfer({ lotId, transfer, state, onDone }: { lotId: number; transfer: SellerTransferRow; state: string | null | undefined; onDone: () => void }) {
+export function SellerTransfer({ lotId, transfer, state, category, onDone }: { lotId: number; transfer: SellerTransferRow; state: string | null | undefined; category?: string | null; onDone: () => void }) {
   const rules = rulesFor(transfer.rego_state || state);
+  // A boat's registration is the marine authority's, so the seller's part is lodged there too.
+  const vessel = isVessel(category) ? vesselFor(transfer.rego_state || state) : null;
+  const authority = vessel ? vessel.authority : rules.authority;
   const [ref, setRef] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -200,12 +214,12 @@ export function SellerTransfer({ lotId, transfer, state, onDone }: { lotId: numb
     <Soft testID="seller-transfer" bg={C.sun} style={{ padding: 16, gap: 8 }}>
       <T v="strong">Paid in full. Next: transfer of ownership.</T>
       {transfer.registration === "registered" && transfer.buyer_choice === "unregistered" ? (
-        <T v="body" style={body}>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {rules.authority} (you may get a refund for the unused registration). Keep the plates.</T>
+        <T v="body" style={body}>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {authority} (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</T>
       ) : transfer.registration === "registered" ? (
         <>
-          <T v="body" style={body}><Text style={{ fontFamily: F.bold }}>Your part: </Text>{rules.seller}</T>
-          <LinkText testID="seller-transfer-link" title={`${rules.authority} ›`} onPress={() => openUrl(rules.sellerUrl)} color={C.blueInk} />
-          {rules.cert ? <T v="small" style={{ color: C.ink2 }}>{rules.cert}</T> : null}
+          <T v="body" style={body}><Text style={{ fontFamily: F.bold }}>Your part: </Text>{vessel ? vessel.seller : rules.seller}</T>
+          <LinkText testID="seller-transfer-link" title={`${authority} ›`} onPress={() => openUrl(vessel ? vessel.sellerUrl || vessel.buyerUrl : rules.sellerUrl)} color={C.blueInk} />
+          {vessel ? null : rules.cert ? <T v="small" style={{ color: C.ink2 }}>{rules.cert}</T> : null}
           {transfer.seller_done_at ? <Tag label={`Done${transfer.seller_reference ? ` · ${transfer.seller_reference}` : ""}`} color={C.mint} /> : (
             <View style={{ gap: 8 }}>
               <Field testID="seller-transfer-reference" label="Receipt or reference number (optional)" value={ref} onChangeText={setRef} maxLength={60} autoCapitalize="characters" inputStyle={{ backgroundColor: "#FFFFFF" }} />

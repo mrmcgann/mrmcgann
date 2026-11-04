@@ -9,7 +9,7 @@ import { SellerDecision } from "./SellerDecision";
 import { SellerVideos } from "./SellerVideos";
 import { BlurName } from "@/components/BidPanel";
 import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
-import { rulesFor } from "@/lib/transfer";
+import { rulesFor, isVessel, vesselFor } from "@/lib/transfer";
 import { SellerTransferDone } from "./SellerTransfer";
 import { SellerReserve } from "./SellerReserve";
 import { SellerRelist } from "./SellerRelist";
@@ -88,6 +88,10 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
       {lots.map((l, i) => {
         const { offers, coll, watchers, bids, videos, transfer, pickup, after } = extra[i];
         const rules = rulesFor(transfer?.rego_state || l.rego_state || l.state);
+        // A boat's registration is the state's marine authority's, not its road one, so the seller's part is
+        // lodged there instead. null (a state we haven't settled) falls back to the consultant doing it.
+        const vessel = isVessel(l.category) ? vesselFor(transfer?.rego_state || l.rego_state || l.state) : null;
+        const authority = vessel ? vessel.authority : rules.authority;
         const p = payoutFor(l.id);
         const [label, colour] = STATUS[l.status] || [l.status, "var(--panel)"];
         const pending = offers.filter((o) => o.status === "pending");
@@ -159,10 +163,10 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                   <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="seller-transfer">
                     <b>Paid in full. Next: transfer of ownership.</b>
                     {transfer.registration === "registered" && transfer.buyer_choice === "unregistered" ? (
-                      <span>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {rules.authority} (you may get a refund for the unused registration). Keep the plates.</span>
+                      <span>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {authority} (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</span>
                     ) : transfer.registration === "registered" ? (<>
-                      <span><b>Your part:</b> {rules.seller} <a className="blue" href={rules.sellerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>{rules.authority} ›</a></span>
-                      {rules.cert && <span className="hint">{rules.cert}</span>}
+                      <span><b>Your part:</b> {vessel ? vessel.seller : rules.seller} <a className="blue" href={vessel ? vessel.sellerUrl || vessel.buyerUrl : rules.sellerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>{authority} ›</a></span>
+                      {!vessel && rules.cert && <span className="hint">{rules.cert}</span>}
                       {transfer.seller_done_at ? <span className="status-pill" style={{ background: "var(--mint)", alignSelf: "flex-start" }}>Done{transfer.seller_reference ? ` · ${transfer.seller_reference}` : ""}</span> : <SellerTransferDone lotId={l.id} />}
                       <span className="muted">{transfer.status === "submitted" ? "The buyer has sent their transfer. We're checking it." : "Then the buyer transfers it into their name. We'll text you when it's done."}</span>
                     </>) : (

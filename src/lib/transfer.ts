@@ -1,6 +1,12 @@
 // Transfer of ownership between payment and collection, state by state. Shared by the website and the app.
 // Checked against each transport authority's website in October 2026. Rules and links change:
 // [CHECK EACH STATE'S PAGE BEFORE LAUNCH, AND EVERY FEW MONTHS]
+//
+// Two different machines, so don't merge them. A car, ute, van, motorbike, truck, bus, trailer or caravan is a road
+// vehicle: its registration belongs to the state's transport authority (TRANSFER_RULES). A boat is not: its
+// registration belongs to the state's marine authority, on its own form, its own clock and its own fee
+// (VESSEL_RULES). Machinery is normally neither — nothing is registered, so the certificate of sale is the whole
+// record of ownership, which is the path the unregistered branch already takes.
 
 export type StateRules = {
   authority: string;
@@ -87,6 +93,83 @@ export const TRANSFER_RULES: Record<string, StateRules> = {
 
 export const rulesFor = (state?: string | null) => TRANSFER_RULES[String(state || "").toUpperCase()] || TRANSFER_RULES.QLD;
 
+// ---------------------------------------------------------------------------
+// Boats
+// ---------------------------------------------------------------------------
+
+export type VesselRules = {
+  authority: string; // the marine authority, which is not always the transport authority
+  seller: string;
+  buyer: string; buyerUrl: string;
+  sellerUrl?: string; // where the seller lodges their part, when it's a separate form from the buyer's
+  sameAsVehicle?: boolean; // the state runs boats through the same transfer as vehicles
+};
+
+/** Transferring a boat into the buyer's name, by the state the boat is registered in.
+ *
+ *  Authority and form checked November 2026. Deliberately no day counts or fees here: a vessel's clock is its
+ *  own and is not a vehicle's, and the state's page carries both, so a figure we hadn't read off the page would
+ *  be the one thing on this screen that could cost a buyer a late fee.
+ *  [CHECK EACH STATE'S VESSEL PAGE BEFORE LAUNCH: the deadline and fee can then be stated here]
+ *
+ *  null means we haven't settled that state's position, so the buyer is sent to their consultant instead of to a
+ *  page we haven't read. The Australian Capital Territory and the Northern Territory are both open: the Territory
+ *  may not register recreational vessels at all, and guessing either way is worse than asking us. */
+export const VESSEL_RULES: Record<string, VesselRules | null> = {
+  QLD: {
+    authority: "Maritime Safety Queensland, through Transport and Main Roads",
+    sameAsVehicle: true,
+    seller: "The seller starts the transfer the same way they would for a vehicle.",
+    buyer: "Queensland puts boats through the same online transfer as vehicles, trailers and caravans. Complete your part and pay the transfer fee.",
+    buyerUrl: "https://www.qld.gov.au/transport/registration/transfer/online",
+  },
+  NSW: {
+    authority: "Transport for NSW",
+    seller: "The seller lodges a notice of disposal for the vessel.",
+    sellerUrl: "https://www.service.nsw.gov.au/transaction/submit-notice-disposal-vessel",
+    buyer: "Transfer the vessel registration with Transport for NSW. It's a different form from a vehicle's, with its own deadline and fee on the page.",
+    buyerUrl: "https://www.nsw.gov.au/driving-boating-and-transport/boat-and-vessel-registration/transfer-registration",
+  },
+  VIC: {
+    authority: "VicRoads",
+    seller: "The seller lodges their part of the vessel transfer.",
+    buyer: "Transfer the vessel registration with VicRoads. Boats and jet skis go through their own form, not the vehicle one.",
+    buyerUrl: "https://www.vicroads.vic.gov.au/buy-sell-transfer/buy-sell-transfer-vessel",
+  },
+  WA: {
+    authority: "the Department of Transport (marine)",
+    seller: "The seller lodges their part of the vessel transfer.",
+    buyer: "Transfer the vessel registration with the Department of Transport. Boat registration is handled separately from vehicle licensing, even though it's the same department.",
+    buyerUrl: "https://www.transport.wa.gov.au/marine/recreational-boating/boat-registration/transfer-vessel",
+  },
+  SA: {
+    authority: "Service SA",
+    seller: "The seller lodges their part of the boat transfer.",
+    buyer: "Transfer the boat registration with Service SA, which can be done online.",
+    buyerUrl: "https://www.sa.gov.au/topics/boating-and-marine/boat-registration/transfer-boat-registration",
+  },
+  TAS: {
+    authority: "Marine and Safety Tasmania, through Service Tasmania",
+    seller: "The seller lodges a disposal notice for the vessel with MAST.",
+    buyer: "Transfer the boat registration through Service Tasmania.",
+    buyerUrl: "https://www.service.tas.gov.au/services/boats-and-fishing/boat-and-personal-water-craft-registrations/transfer-a-boat-registration/",
+  },
+  ACT: null,
+  NT: null,
+};
+
+export const isVessel = (category?: string | null) => String(category || "") === "boats";
+
+/** The vessel rules for a state, or null when we haven't settled that state (send them to their consultant). An
+ *  unknown state is null too: defaulting a boat to Queensland's marine process would be a confident wrong answer,
+ *  where the road rules can safely fall back because every state runs the same shape of vehicle transfer. */
+export const vesselFor = (state?: string | null): VesselRules | null => VESSEL_RULES[String(state || "").toUpperCase()] ?? null;
+
+/** A boat sold on its trailer carries two registrations, and transferring one does nothing for the other: the
+ *  trailer is a road vehicle and goes through the transport authority like any other. */
+export const trailerNote = (state?: string | null) =>
+  `If it comes with a trailer, the trailer is registered separately as a road vehicle. Transfer it through ${rulesFor(state).authority} as well — the boat's transfer doesn't cover it.`;
+
 export const TRANSPORT: [string, string][] = [
   ["carrier", "A car carrier or tow truck (no permit needed)"],
   ["trailer", "On a trailer"],
@@ -111,6 +194,8 @@ export function certNeeded(state: string | null | undefined, year: number | null
   const light = ["cars", "utes", "vans", "motorbikes"].includes(c);
   const towed = c === "caravans" || c === "trailers";
   const heavyType = c === "trucks" || c === "buses";
+  // A boat has no roadworthy or safety certificate to give: it isn't a road vehicle, and its transfer runs through
+  // the marine authority (VESSEL_RULES). Machinery isn't registered, so there's nothing to certify either.
   if (c === "boats" || c === "machinery") return null;
   if (st === "QLD" && (light || (towed && (gvm ?? 750) >= 750 && (gvm ?? 750) <= 4500) || (heavyType && (gvm ?? 4500) <= 4500))) return "safety certificate";
   if (st === "VIC" && (light || heavyType || (towed && (gvm ?? 0) > 4500))) return "roadworthy certificate";
