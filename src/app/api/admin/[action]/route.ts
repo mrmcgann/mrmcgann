@@ -485,6 +485,13 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       return done();
     }
     // ---- Transfer of ownership ----
+    // We lodge the notice of disposal as the owner's agent under their consignment authority, so the seller is
+    // asked for nothing. Recording it here is what opens the buyer's collection window (migration 32).
+    case "transfer-lodged": {
+      const { error } = await supabase.rpc("admin_transfer_lodged", { p_id: String(b.id), p_reference: String(b.reference || "") });
+      if (error) return fail(error.message.includes("nothing_to_lodge") ? "It's sold unregistered, so there's nothing to lodge." : "Couldn't save that.");
+      return done();
+    }
     case "transfer-review": {
       const { error } = await supabase.rpc("admin_transfer_review", { p_id: String(b.id), p_ok: b.ok === true, p_note: String(b.note || "") });
       if (error) return fail(error.message.includes("note_needed") ? "Say what the buyer needs to do." : "Couldn't save that.");

@@ -71,6 +71,8 @@ export async function GET(req: Request) {
 
   // 4. One-hour reminders for watched vehicles
   await guard("ending reminders", async () => { s.reminders = Number((await call("queue_ending_reminders", { p_limit: 50000 })) || 0); });
+  // The buyer's own registration transfer is chased here rather than by a person, and never gates their vehicle.
+  await guard("transfer reminders", async () => { s.transferNudges = Number((await call("queue_transfer_reminders", { p_limit: 2000 })) || 0); });
 
   // 5. Saved-search alerts (every 15 minutes)
   if (new Date().getMinutes() % 15 === 0) {

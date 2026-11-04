@@ -10,7 +10,6 @@ import { SellerVideos } from "./SellerVideos";
 import { BlurName } from "@/components/BidPanel";
 import { VIDEO_OPEN_STATUSES } from "@/lib/videos";
 import { rulesFor, isVessel, vesselFor } from "@/lib/transfer";
-import { SellerTransferDone } from "./SellerTransfer";
 import { SellerReserve } from "./SellerReserve";
 import { SellerRelist } from "./SellerRelist";
 import { SellerAfter, type SellerAfterView } from "./SellerAfter";
@@ -161,16 +160,20 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                 {!transfer && !coll && <span>We&apos;re taking payment from the buyer. We&apos;ll text you once it&apos;s paid.</span>}
                 {transfer && transfer.status !== "complete" && (
                   <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="seller-transfer">
-                    <b>Paid in full. Next: transfer of ownership.</b>
+                    <b>Paid in full. Transfer of ownership: nothing for you to do.</b>
+                    {/* Since migration 32 we lodge the seller's side ourselves, as their agent under the signed
+                        consignment authority. The seller is told what we did, never asked to do it. */}
                     {transfer.registration === "registered" && transfer.buyer_choice === "unregistered" ? (
-                      <span>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {authority} (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</span>
-                    ) : transfer.registration === "registered" ? (<>
-                      <span><b>Your part:</b> {vessel ? vessel.seller : rules.seller} <a className="blue" href={vessel ? vessel.sellerUrl || vessel.buyerUrl : rules.sellerUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>{authority} ›</a></span>
-                      {!vessel && rules.cert && <span className="hint">{rules.cert}</span>}
-                      {transfer.seller_done_at ? <span className="status-pill" style={{ background: "var(--mint)", alignSelf: "flex-start" }}>Done{transfer.seller_reference ? ` · ${transfer.seller_reference}` : ""}</span> : <SellerTransferDone lotId={l.id} />}
-                      <span className="muted">{transfer.status === "submitted" ? "The buyer has sent their transfer. We're checking it." : "Then the buyer transfers it into their name. We'll text you when it's done."}</span>
-                    </>) : (
-                      <span>It&apos;s sold unregistered, so there&apos;s nothing for you to lodge. The buyer confirms their certificate of sale and how they&apos;ll move it.</span>
+                      <span>The buyer is taking it unregistered, so we&apos;re cancelling the registration with {authority} for you (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</span>
+                    ) : transfer.registration === "registered" ? (
+                      transfer.seller_done_at ? (<>
+                        <span><b>Done.</b> We&apos;ve lodged the notice of disposal for you with {authority}, so the {l.title} is no longer your responsibility for tolls, fines or renewals.{transfer.seller_reference ? ` Reference ${transfer.seller_reference}.` : ""}</span>
+                        <span className="muted">The buyer puts it into their own name from here. That part is between them and {authority}, and nothing about it comes back to you.</span>
+                      </>) : (
+                        <span>We&apos;re lodging the notice of disposal with {authority} for you now, using the details on your agreement. We&apos;ll text you the moment it&apos;s done.</span>
+                      )
+                    ) : (
+                      <span>It&apos;s sold unregistered, so there&apos;s nothing to lodge at all. The buyer&apos;s certificate of sale is the record of ownership.</span>
                     )}
                     <span className="hint">The buyer never gets your name or address: they collect it from our depot.</span>
                   </div>

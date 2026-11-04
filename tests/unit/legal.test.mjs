@@ -169,7 +169,7 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   ok('after: Help answers buyers and sellers', /Can I buy a vehicle after the auction\?/.test(help) && /cancel free on the offer page/.test(help) && /accept the highest bid, or name the lowest price you’d take, on your seller dashboard/.test(help));
   ok('after: the short version and the cooling-off line agree', /we may send you a written offer to sign \(section 6\)/.test(terms) && /A vehicle bought after the auction gets the cooling-off period your state gives a buyer from a dealer/.test(terms));
   ok('seller: told up front we never give a statutory warranty (the ACT; a motor dealer\'s own vehicle)', /We never give a statutory warranty: we don’t list a vehicle that would carry one \(in the ACT a dealer’s duty to repair applies even at auction/.test(sa) && /if you’re a motor dealer, tell us/.test(sa));
-  ok('after: new versions of both documents', /This version: 27 October 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 27 October 2026');
+  ok('after: new versions of both documents', /This version: 4 November 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 4 November 2026');
 }
 
 {

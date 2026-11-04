@@ -61,7 +61,8 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
   const registered = t.registration === "registered";
   const takeUnreg = !registered || choice === "unregistered";
   const transferring = registered && choice === "transfer";
-  const showFiles = transferring || transport === "permit";
+  // Only the permit is ever uploaded now: the transfer itself needs no proof, because nothing waits on it.
+  const showFiles = transport === "permit";
   const cert = <CertLink url={certificateUrl} filename={`certificate-of-sale-${invoiceRef}.pdf`} onError={setErr} />;
 
   async function add(from: "photos" | "camera" | "files") {
@@ -78,17 +79,25 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
     setErr("");
     if (takeUnreg && !transport) return setErr("Choose how the vehicle will be moved.");
     if (!registered && !agree) return setErr("Check the certificate of sale and tick the box.");
-    if (transferring && !files.length && !reference.trim()) return setErr("Upload the transfer confirmation, or enter the receipt number.");
     setBusy(true);
     try {
       const paths: string[] = [];
       if (showFiles) for (const f of files.slice(0, MAX_FILES)) paths.push(await uploadProof(invoiceId, f));
-      await api("/api/transfers", { body: { invoiceId, choice: registered ? choice : "unregistered", transport: takeUnreg ? transport : null, reference: transferring ? reference : "", paths } });
+      await api("/api/transfers", { body: { invoiceId, choice: "unregistered", transport, reference: "", paths } });
       setFiles([]);
       onDone();
     } catch (e) {
       setErr(errText(e));
     }
+    setBusy(false);
+  }
+
+  // Their word that they've done their half. No proof asked for: it only stops the reminders.
+  async function saidDone() {
+    setErr("");
+    setBusy(true);
+    try { await api("/api/transfers/done", { body: { invoiceId } }); onDone(); }
+    catch (e) { setErr(errText(e)); }
     setBusy(false);
   }
 
@@ -103,11 +112,23 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
       </Soft>
     );
   }
+  // They've told us they did their half. We took their word for it, so this says so rather than claiming we
+  // checked anything, and nothing further is asked of them.
+  if (t.buyer_said_done_at) {
+    return (
+      <Soft testID="transfer">
+        <T v="h">Transfer of ownership.</T>
+        <Notice kind="ok">Thanks — you&apos;ve told us it&apos;s in your name, so we&apos;ll stop reminding you. Keep your receipt from {authority} with the vehicle&apos;s papers.</Notice>
+        {cert}
+        {err ? <Notice kind="bad">{err}</Notice> : null}
+      </Soft>
+    );
+  }
   if (t.status === "submitted") {
     return (
       <Soft testID="transfer">
         <T v="h">Transfer of ownership.</T>
-        <Notice>{`We're checking it${t.buyer_choice === "unregistered" ? " and arranging with the seller to cancel the registration" : ""}. We'll text you when it's done, usually within one business day. Then you can book your collection.`}</Notice>
+        <Notice>{`We're checking it${t.buyer_choice === "unregistered" ? " and arranging to cancel the registration" : ""}. We'll text you when it's done, usually within one business day. It doesn't hold up your collection.`}</Notice>
         {cert}
         {err ? <Notice kind="bad">{err}</Notice> : null}
       </Soft>
@@ -117,41 +138,38 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
   return (
     <Soft testID="transfer" style={{ gap: 14 }}>
       <T v="h">Transfer of ownership.</T>
-      <T v="muted">Before you collect, the {title} goes into your name. The pickup address is sent once this is done and your collection time is confirmed.</T>
       {t.review_note ? <Notice kind="bad"><T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>We need one more thing: </Text>{t.review_note}</T></Notice> : null}
 
-      {registered ? (
-        <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Registration">
-          <Choice testID="transfer-choice-transfer" on={choice === "transfer"} onPress={() => setChoice("transfer")} title="Transfer the registration into my name"
-            hint={`Registered in ${t.rego_state}. You'll need to do this through ${authority}.`} />
-          <Choice testID="transfer-choice-unregistered" on={choice === "unregistered"} onPress={() => setChoice("unregistered")} title="Take it unregistered"
-            hint={`The seller cancels the registration${onWater ? "" : " and keeps the plates"}. Choose this if you can't register it in ${t.rego_state}.`} />
-        </View>
-      ) : null}
-
-      {transferring && onWater && !vessel ? (
-        <Notice><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>A boat&apos;s registration is transferred through {t.rego_state || "the state"}&apos;s marine authority, not its road one, and we complete that part with you rather than send you to the wrong form. Call us on {consultantPhone} and we&apos;ll walk you through it, then upload the confirmation below.</T></Notice>
-      ) : null}
-      {transferring && !(onWater && !vessel) ? (
-        <View style={{ gap: 12 }}>
-          <Step n={1}>
-            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>The seller's part. </Text>{vessel ? vessel.seller : `The seller lodges their part with ${rules.authority}.`}</T>
-            {t.seller_done_at ? <Tag label="Done" color={C.mint} /> : <T v="small">We're arranging this with the seller.</T>}
-          </Step>
-          <Step n={2}>
-            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Your part. </Text>{vessel ? vessel.buyer : rules.buyer}</T>
-            <LinkText testID="transfer-buyer-link" title={`Transfer it with ${authority} ›`} onPress={() => openUrl(vessel ? vessel.buyerUrl : rules.buyerUrl)} />
-            {vessel ? <T v="small">{trailerNote(t.rego_state)}</T> : rules.cert ? <T v="small">{rules.cert}</T> : null}
-          </Step>
-          <Step n={3}>
-            <T v="body" style={{ fontSize: 15, lineHeight: 21 }}><Text style={{ fontFamily: F.bold }}>Show us. </Text>Upload the confirmation (the receipt, or the new registration certificate in your name), or enter the receipt number. Need the seller's details or help? Call {consultantPhone}.</T>
-          </Step>
-        </View>
-      ) : null}
-
-      {!registered ? (
+      {/* One button. We've lodged the seller's side, their half gates nothing, so nothing here asks for proof. */}
+      {transferring ? (
         <>
-          <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>This vehicle is sold <Text style={{ fontFamily: F.bold }}>unregistered, without plates</Text>. Your certificate of sale, in your name, is your record of ownership.</T>
+          <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>
+            {t.seller_done_at
+              ? `We've lodged the seller's side with ${authority}, so that part is finished. The last step is yours, and the form is already filled in from your account.`
+              : `We're lodging the seller's side with ${authority} now. You can do your part straight away — you don't have to wait for us.`}
+          </T>
+          {onWater && !vessel ? (
+            <Notice><T v="body" style={{ fontSize: 15, lineHeight: 21 }}>A boat&apos;s registration goes through {t.rego_state || "the state"}&apos;s marine authority, not its road one. Call us on {consultantPhone} and we&apos;ll do that part with you.</T></Notice>
+          ) : (
+            <Button testID="transfer-go" title="Transfer it into my name ›" kind="blue" onPress={() => openUrl(vessel ? vessel.buyerUrl : rules.buyerUrl)} />
+          )}
+          <T v="small">You&apos;ll pay your state&apos;s transfer fee and duty, which is a tax in your own name, so it&apos;s the one part nobody can pay for you. Most states give you 14 days from the sale.{vessel ? ` ${trailerNote(t.rego_state)}` : rules.cert ? ` ${rules.cert}` : ""}</T>
+          <T v="small">Does the form ask for the seller&apos;s details? Call us on {consultantPhone} and we&apos;ll complete that part — the seller&apos;s details stay private.</T>
+          <Button testID="transfer-done" small kind="dark" title="I've done it" busy={busy} onPress={saidDone} style={{ alignSelf: "flex-start" }} />
+          <T v="small">Telling us stops the reminders. It never holds up your collection: you can book and collect whether or not this is finished.</T>
+          <Text testID="transfer-take-unreg" accessibilityRole="button" onPress={() => setChoice("unregistered")} style={s.remove}>
+            I can&apos;t register it in {t.rego_state} — take it unregistered instead
+          </Text>
+        </>
+      ) : null}
+
+      {takeUnreg ? (
+        <>
+          <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>
+            {registered
+              ? <>The seller cancels the registration{onWater ? "" : " and keeps the plates"}, and your certificate of sale, in your name, is your record of ownership.</>
+              : <>This {title} is sold <Text style={{ fontFamily: F.bold }}>unregistered, without plates</Text>. Your certificate of sale, in your name, is your record of ownership.</>}
+          </T>
           {cert}
           <Check testID="transfer-agree" checked={agree} onChange={setAgree}>The details on the certificate of sale are correct.</Check>
         </>
@@ -171,7 +189,7 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
 
       {showFiles ? (
         <View style={s.drop}>
-          <T v="strong">{files.length ? `${files.length} file${files.length === 1 ? "" : "s"} added` : transferring ? "Upload the transfer confirmation" : "Upload the permit (optional)"}</T>
+          <T v="strong">{files.length ? `${files.length} file${files.length === 1 ? "" : "s"} added` : "Upload the permit (optional)"}</T>
           <T v="small">A photo or PDF, up to 10 MB each.</T>
           {files.length < MAX_FILES ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
@@ -183,10 +201,17 @@ export function TransferStep({ invoiceId, invoiceRef, t, title, category, consul
           {files.length ? <Text testID="transfer-files-clear" accessibilityRole="button" onPress={() => setFiles([])} style={s.remove}>Remove {files.length === 1 ? "it" : "them"}</Text> : null}
         </View>
       ) : null}
-      {transferring ? <Field testID="transfer-reference" label="Or the receipt number" value={reference} onChangeText={setReference} maxLength={60} autoCapitalize="characters" inputStyle={{ backgroundColor: "#FFFFFF" }} /> : null}
-
       {err ? <Notice kind="bad">{err}</Notice> : null}
-      <Button testID="transfer-submit" title={registered ? (choice === "transfer" ? "Send for checking" : "Ask for it unregistered") : "Confirm"} busy={busy} onPress={submit} />
+      {takeUnreg ? (
+        <>
+          <Button testID="transfer-submit" title="Confirm" busy={busy} onPress={submit} />
+          {registered ? (
+            <Text testID="transfer-back" accessibilityRole="button" onPress={() => setChoice("transfer")} style={s.remove}>
+              Back — I&apos;ll transfer the registration after all
+            </Text>
+          ) : null}
+        </>
+      ) : null}
     </Soft>
   );
 }
@@ -200,39 +225,30 @@ export function SellerTransfer({ lotId, transfer, state, category, onDone }: { l
   // A boat's registration is the marine authority's, so the seller's part is lodged there too.
   const vessel = isVessel(category) ? vesselFor(transfer.rego_state || state) : null;
   const authority = vessel ? vessel.authority : rules.authority;
-  const [ref, setRef] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  async function done() {
-    setBusy(true); setErr("");
-    try { await api("/api/transfers/seller", { body: { lotId, reference: ref } }); onDone(); }
-    catch (e) { setErr(errText(e)); }
-    setBusy(false);
-  }
   const body = { fontSize: 15, lineHeight: 21 };
   return (
     <Soft testID="seller-transfer" bg={C.sun} style={{ padding: 16, gap: 8 }}>
-      <T v="strong">Paid in full. Next: transfer of ownership.</T>
+      <T v="strong">Paid in full. Transfer of ownership: nothing for you to do.</T>
+      {/* Since migration 32 we lodge the seller's side ourselves as their agent, so this screen reports a
+          result and never asks for one. */}
       {transfer.registration === "registered" && transfer.buyer_choice === "unregistered" ? (
-        <T v="body" style={body}>The buyer is taking it unregistered. Your consultant will call you about cancelling the registration with {authority} (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</T>
+        <T v="body" style={body}>The buyer is taking it unregistered, so we&apos;re cancelling the registration with {authority} for you (you may get a refund for the unused registration).{vessel ? "" : " Keep the plates."}</T>
       ) : transfer.registration === "registered" ? (
         <>
-          <T v="body" style={body}><Text style={{ fontFamily: F.bold }}>Your part: </Text>{vessel ? vessel.seller : rules.seller}</T>
-          <LinkText testID="seller-transfer-link" title={`${authority} ›`} onPress={() => openUrl(vessel ? vessel.sellerUrl || vessel.buyerUrl : rules.sellerUrl)} color={C.blueInk} />
-          {vessel ? null : rules.cert ? <T v="small" style={{ color: C.ink2 }}>{rules.cert}</T> : null}
-          {transfer.seller_done_at ? <Tag label={`Done${transfer.seller_reference ? ` · ${transfer.seller_reference}` : ""}`} color={C.mint} /> : (
-            <View style={{ gap: 8 }}>
-              <Field testID="seller-transfer-reference" label="Receipt or reference number (optional)" value={ref} onChangeText={setRef} maxLength={60} autoCapitalize="characters" inputStyle={{ backgroundColor: "#FFFFFF" }} />
-              <Button testID="seller-transfer-done" small kind="dark" title="I've done this" busy={busy} onPress={done} style={{ alignSelf: "flex-start" }} />
-              {err ? <Notice kind="bad">{err}</Notice> : null}
-            </View>
+          {transfer.seller_done_at ? (
+            <>
+              <T v="body" style={body}><Text style={{ fontFamily: F.bold }}>Done. </Text>We&apos;ve lodged the notice of disposal for you with {authority}, so it&apos;s no longer your responsibility for tolls, fines or renewals.</T>
+              {transfer.seller_reference ? <Tag label={transfer.seller_reference} color={C.mint} /> : null}
+              <T v="body" style={[body, { color: C.ink2 }]}>The buyer puts it into their own name from here. That part is between them and {authority}, and nothing about it comes back to you.</T>
+            </>
+          ) : (
+            <T v="body" style={body}>We&apos;re lodging the notice of disposal with {authority} for you now, using the details on your agreement. We&apos;ll text you the moment it&apos;s done.</T>
           )}
-          <T v="body" style={[body, { color: C.ink2 }]}>{transfer.status === "submitted" ? "The buyer has sent their transfer. We're checking it." : "Then the buyer transfers it into their name. We'll text you when it's done."}</T>
         </>
       ) : (
-        <T v="body" style={body}>It's sold unregistered, so there's nothing for you to lodge. The buyer confirms their certificate of sale and how they'll move it.</T>
+        <T v="body" style={body}>It&apos;s sold unregistered, so there&apos;s nothing to lodge at all. The buyer&apos;s certificate of sale is the record of ownership.</T>
       )}
-      <T v="small" style={{ color: C.ink2 }}>The buyer only gets your address once ownership is done and the collection time is confirmed.</T>
+      <T v="small" style={{ color: C.ink2 }}>The buyer never gets your name or address: they collect it from our depot.</T>
     </Soft>
   );
 }

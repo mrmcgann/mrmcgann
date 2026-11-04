@@ -31,7 +31,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at, tracking_url").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
     getFeesCached(),
-    supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
+    supabase.from("ownership_transfers").select("status, registration, rego_state, buyer_choice, transport, reference, review_note, seller_done_at, buyer_said_done_at, proof_paths").eq("invoice_id", inv.id).maybeSingle(),
     getPartnersCached(),
     supabase.rpc("invoice_transport", { p_invoice: inv.id }),
   ]);

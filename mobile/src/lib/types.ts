@@ -91,7 +91,7 @@ export type SellerVideo = { id: string; lot_id: number; title: string; status: s
 export interface TransferRow {
   status: "waiting" | "submitted" | "complete"; registration: "registered" | "unregistered"; rego_state: string | null;
   buyer_choice: string | null; transport: string | null; reference: string | null; review_note: string | null;
-  seller_done_at: string | null; proof_count: number;
+  seller_done_at: string | null; buyer_said_done_at: string | null; proof_count: number;
 }
 /** The seller's side of the same transfer (seller_lot_transfer). */
 export interface SellerTransferRow { registration: string; rego_state: string | null; status: string; buyer_choice: string | null; seller_done_at: string | null; seller_reference: string | null }

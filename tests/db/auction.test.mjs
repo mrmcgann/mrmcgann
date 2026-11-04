@@ -32,7 +32,7 @@ const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-22
   C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-10-27' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-11-04' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -185,14 +185,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-10-27' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-11-04' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-10-27', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-11-04', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -321,8 +321,12 @@ r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, '', '{}')
 r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, '', '{"other/11111111-1111-1111-1111-111111111111.jpg"}')`); ok("transfer: only files uploaded for this invoice", r.error?.includes('bad_files'), r.error);
 r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, 'TR-998', '{"${SINV}/11111111-2222-3333-4444-555555555555.jpg"}') s`); ok('transfer: buyer uploads the confirmation', r.rows?.[0]?.s === 'submitted', r.error);
 r = await as('A', `update ownership_transfers set status='complete'`); ok("transfer: buyer can't mark it complete", !!r.error || r.count === 0);
-r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning')`);
-ok('transfer: still no collection while it is being checked', r.error?.includes('transfer_not_done'), r.error);
+// Migration 32: the buyer's own half no longer gates their vehicle. Once we have lodged the seller's side the
+// seller is out of harm's way, which is all the gate ever protected, so collection opens even while the buyer's
+// paperwork is still being checked.
+r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning') returning seller_token, release_code`);
+ok('transfer: collection opens once we have lodged the seller side, even mid-check', !r.error && !!r.rows?.[0]?.release_code, r.error);
+const tok = r.rows?.[0]?.seller_token, code = r.rows?.[0]?.release_code;
 r = await as('service', `select id from ownership_transfers where invoice_id='${SINV}'`); const TID = r.rows?.[0]?.id;
 r = await as('A', `select admin_transfer_review('${TID}', true, null)`); ok('transfer: only staff can approve it', r.error?.includes('forbidden'), r.error);
 r = await as('ADM', `select admin_transfer_review('${TID}', false, '')`); ok('transfer: sending it back needs a note', r.error?.includes('note_needed'), r.error);
@@ -334,8 +338,35 @@ r = await as('ADM', `select admin_transfer_review('${TID}', true, 'Checked with 
 r = await as('service', `select collect_by > now() c from invoices where id='${SINV}'`); ok('transfer: the collection window starts once ownership is done', r.rows?.[0]?.c === true);
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'collect-ready:${SINV}%'`); ok('transfer: at the depot and in their name, the buyer is told to book', r.rows?.[0]?.n >= 1);
 r = await as('A', `select transfer_submit('${SINV}', 'transfer', null, 'again', '{}')`); ok('transfer: nothing changes once complete', r.error?.includes('already_done'), r.error);
-r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${SINV}', ${SL}, '${U.A}', 'Sat', 'Morning') returning seller_token, release_code`);
-const tok = r.rows?.[0]?.seller_token, code = r.rows?.[0]?.release_code;
+
+// Migration 32: we lodge the seller's side, and the clock chases the buyer.
+r = await as('A', `select admin_transfer_lodged('${TID}', 'NOD-9')`); ok('lodged: members cannot record a lodgement', r.error?.includes('forbidden'), r.error);
+r = await as('service', `select transfer_clear('${SINV}') c`); ok('lodged: a completed transfer is clear', r.rows?.[0]?.c === true, r.error);
+r = await as('ADM', `select admin_transfer_lodged('${TID}', 'NOD-1234')`); ok('lodged: staff record it, and it is idempotent', !r.error, r.error);
+r = await as('service', `select seller_reference, lodged_by is not null b from ownership_transfers where id='${TID}'`);
+ok('lodged: the reference and who lodged it are kept', r.rows?.[0]?.seller_reference === 'NOD-1234' && r.rows?.[0]?.b === true, JSON.stringify(r.rows));
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-lodged:${SL}%'`);
+ok('lodged: the seller is told it is done, not asked to do it', r.rows?.[0]?.n >= 1, JSON.stringify(r.rows));
+
+// The nudges: 3, 7 and 12 days after we lodged, each once, and never for a transfer that is finished.
+r = await as('service', `select queue_transfer_reminders() n`); ok('nudge: none for a completed transfer', r.rows?.[0]?.n === 0, r.error);
+await c.query(`update ownership_transfers set status='submitted', seller_done_at = now() - interval '8 days' where id='${TID}'`);
+r = await as('service', `select queue_transfer_reminders() n`); ok('nudge: the 7-day one goes out', r.rows?.[0]?.n === 1, r.error);
+// queue_notice fans one notice out to a row per channel, so the key carries a suffix: match it with like.
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-nudge:${TID}:7%'`); ok('nudge: keyed to its own mark', r.rows?.[0]?.n >= 1, JSON.stringify(r.rows));
+const before = r.rows?.[0]?.n;
+r = await as('service', `select queue_transfer_reminders() n`); ok('nudge: the sweep still matches it, but queues nothing new', r.rows?.[0]?.n === 1, r.error);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-nudge:${TID}:7%'`); ok('nudge: the same mark never goes twice', r.rows?.[0]?.n === before, JSON.stringify(r.rows));
+await c.query(`update ownership_transfers set seller_done_at = now() - interval '13 days' where id='${TID}'`);
+await as('service', `select queue_transfer_reminders()`);
+r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-nudge:${TID}:12%'`); ok('nudge: the last one lands inside the 14-day deadline', r.rows?.[0]?.n >= 1, JSON.stringify(r.rows));
+// The buyer's word is enough to stop the nudges: nothing hangs on it now, so we don't ask for a receipt.
+r = await as('B', `select transfer_buyer_done('${SINV}')`); ok("done: only this invoice's buyer can say so", r.error?.includes('not_found'), r.error);
+r = await as('A', `select transfer_buyer_done('${SINV}')`); ok('done: the buyer says they have done their half', !r.error, r.error);
+await c.query(`update ownership_transfers set seller_done_at = now() - interval '20 days' where id='${TID}'`);
+r = await as('service', `select queue_transfer_reminders() n`); ok('done: the nudges stop once they say so', r.rows?.[0]?.n === 0, r.error);
+await c.query(`update ownership_transfers set buyer_said_done_at = null where id='${TID}'`);
+await c.query(`update ownership_transfers set status='complete', seller_done_at = now() where id='${TID}'`);
 ok('release code is 6 digits', /^\d{6}$/.test(code || ''));
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('no handover before the time is confirmed', r.error?.includes('not_confirmed'));
 r = await as('A', `select depot_address from invoice_transport('${SINV}')`); ok('collection: no depot address before the time is confirmed', r.rows?.[0]?.depot_address === null, JSON.stringify(r.rows));
@@ -796,7 +827,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-10-27', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-11-04', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
   await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
@@ -1042,8 +1073,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id = '${U.C}'`);
-  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id = '${U.D}'`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id = '${U.D}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
     (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
@@ -1142,8 +1173,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
   await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.E}'`);
-  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.F}'`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.F}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
     (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
@@ -1174,13 +1205,13 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // ... and can't come back with a new account
   await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-10-27' where id='${U.G}'`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-11-04' where id='${U.G}'`);
   r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
   r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
   ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
   r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
-  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-10-27' where id='${U.H}'`);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-11-04' where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
@@ -1470,7 +1501,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('B', `select place_bid(${order[0]}, 3000)`); ok("live: no bid in the room until the auction's conditions are accepted", r.error?.includes('enter_first'), r.error);
   r = await as('anon', `select enter_sale(${SA})`); ok('live: only members accept the conditions', !!r.error);
   r = await as('B', `select enter_sale(${SA}) t`); ok('live: B accepts the conditions on entering the room', !!r.rows?.[0]?.t, r.error);
-  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-10-27', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-11-04', JSON.stringify(r.rows));
   r = await as('A', `select count(*)::int n from sale_entries`); ok("live: members see only their own entries", r.rows?.[0]?.n === 0, JSON.stringify(r.rows));
   r = await as('B', `insert into sale_entries (sale_id, user_id) values (${SA}, '${U.A}')`); ok('live: entries are written only by enter_sale', !!r.error);
   r = await as('B', `select place_bid(${order[0]}, 3000) r`); ok('live: an online bid in the last seconds', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
@@ -1607,7 +1638,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select live_only() x`); ok('live only: the switch is on, and anyone can read it', r.rows?.[0]?.x === true, r.error);
   U.X = '7e7e7e7e-0000-4000-8000-00000000007e';
   await c.query(`insert into auth.users (id, email) values ('${U.X}', 'xan@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-10-27' where id='${U.X}'`);
+  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.X}'`);
   await c.query(`update settings set value = value || '{"require_checks": false}' where key = 'selling'`);
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('lo-thursday', 'Thursday night live', true, 'live', now() + interval '2 days', 30, 15, 'Pat Gavel') returning id`);
   const LS = r.rows?.[0]?.id; ok('live only: staff create a live auction', !!LS, r.error);
@@ -1959,7 +1990,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select l.status, l.sold_via, l.winner_id, l.sold_price, i.sold_via iv, i.price, o.status os, o.signed_name, o.terms_version, o.invoice_id = i.id same
     from lots l join invoices i on i.lot_id = l.id join second_chance_offers o on o.lot_id = l.id where l.id = ${AA.QLD}`);
   ok('after: the vehicle is sold after the auction, the invoice made, the signature and terms version kept', r.rows?.[0]?.status === 'sold' && r.rows[0].sold_via === 'after_auction' && r.rows[0].winner_id === U.A
-    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-10-27' && r.rows[0].same, JSON.stringify(r.rows));
+    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-11-04' && r.rows[0].same, JSON.stringify(r.rows));
   r = await as('service', `select status from lots where relisted_from = ${AA.QLD}`); ok('after: its relist for the next auction is cancelled', r.rows?.length === 1 && r.rows[0].status === 'cancelled', JSON.stringify(r.rows));
   await as('service', `select queue_status_notices()`);
   r = await as('service', `select (select body from outbox where dedupe_key like 'seller-sold:${AA.QLD}%' limit 1) s, (select body from notifications where user_id = '${U.B}' and title = 'The Brisbane ute has sold') b`);
