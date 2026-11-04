@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { env } from "@/lib/env";
-import { rulesFor, isVessel, vesselFor, trailerNote, TRANSPORT, transportLabel } from "@/lib/transfer";
+import { rulesFor, isVessel, vesselFor, trailerNote, permitLine, TRANSPORT, transportLabel } from "@/lib/transfer";
 
 export type TransferRow = {
   status: "waiting" | "submitted" | "complete"; registration: "registered" | "unregistered"; rego_state: string | null;
@@ -148,7 +148,7 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone, t
           <fieldset className="choice" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will you move it from our depot?</legend>
             {TRANSPORT.filter(([k]) => k !== "permit" || (onWheels && canPermit)).map(([k, label]) => (
-              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => { setTransport(k); setErr(""); }} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">You get this from {rules.authority} before collection day, and the depot checks it before they hand over the keys.</span>}</span></label>
+              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => { setTransport(k); setErr(""); }} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">{permitLine(t.rego_state)} The depot checks it before they hand over the keys.</span>}</span></label>
             ))}
           </fieldset>
 

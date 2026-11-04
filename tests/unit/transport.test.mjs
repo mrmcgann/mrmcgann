@@ -2,7 +2,7 @@
 // node --experimental-strip-types tests/unit/transport.test.mjs
 import { priceBreakdown, lotFees } from '../../src/lib/fees.ts';
 import { premiumLabel, feesLine, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
-import { TRANSFER_RULES, rulesFor, isVessel, vesselFor, trailerNote } from '../../src/lib/transfer.ts';
+import { TRANSFER_RULES, rulesFor, isVessel, vesselFor, trailerNote, PERMIT_RULES, permitFacts, permitLine, permitPossible } from '../../src/lib/transfer.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -87,6 +87,20 @@ ok('vessel: no invented deadline or fee', ['QLD', 'NSW', 'VIC', 'WA', 'SA', 'TAS
 // A boat on a trailer is two registrations, and transferring one does nothing for the other.
 ok('vessel: the trailer is named as a separate road transfer', /trailer/i.test(trailerNote('QLD')) && /Transport and Main Roads/.test(trailerNote('QLD')) && /doesn't cover it/.test(trailerNote('QLD')));
 ok('vessel: the trailer note follows the state', /VicRoads/.test(trailerNote('VIC')) && /Service NSW/.test(trailerNote('NSW')));
+
+// Permits: what we can truthfully promise a buyer differs by state, and getting this wrong strands them at
+// our gate with a paid invoice.
+ok('permit: every state has an entry', roadStates.every((st) => !!PERMIT_RULES[st]));
+ok('permit: Queensland and Victoria are online, New South Wales is not', permitFacts('QLD').online === true && permitFacts('VIC').online === true && permitFacts('NSW').online === false);
+ok('permit: an unchecked state admits it rather than guessing', ['WA','SA','TAS','ACT','NT'].every((st) => permitFacts(st).online === null));
+ok('permit: an unknown state is unknown, not Queensland', permitFacts('ZZ').online === null && permitFacts(null).days === null);
+ok('permit: the line never promises online where it is not', /isn't available online/.test(permitLine('NSW')) && !/online/.test(permitLine('WA')));
+ok('permit: the line says where to check when we do not know', /Check with/.test(permitLine('WA')) && /Department of Transport/.test(permitLine('WA')));
+ok('permit: Queensland names the CRN trap and the duration', /customer reference number/.test(permitLine('QLD')) && /1 to 7 days/.test(permitLine('QLD')));
+// No state issues one for a write-off. Verified in two, applied in all: wrong in the permissive direction is
+// the expensive way to be wrong.
+ok('permit: never for a write-off, repairable or statutory', !permitPossible('repairable') && !permitPossible('statutory'));
+ok('permit: fine for anything else, including an unknown status', permitPossible('none') && permitPossible('unknown') && permitPossible(null) && permitPossible('inspected'));
 
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

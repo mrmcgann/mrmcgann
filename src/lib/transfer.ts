@@ -160,6 +160,52 @@ export const VESSEL_RULES: Record<string, VesselRules | null> = {
 
 export const isVessel = (category?: string | null) => String(category || "") === "boats";
 
+// ---------------------------------------------------------------------------
+// Unregistered vehicle permits
+// ---------------------------------------------------------------------------
+
+/** What a buyer faces if they want to drive an unregistered vehicle off our depot. The permit's NAME is already
+ *  in TRANSFER_RULES; this is the part that decides what we can truthfully promise them.
+ *
+ *  `online` is the one that bites: telling a New South Wales buyer they can get a permit on their phone at the
+ *  gate is wrong, and they would find out standing in our yard with a paid invoice. `days` sets expectations,
+ *  and `note` carries anything that would otherwise surprise them.
+ *
+ *  Verified November 2026 for QLD, NSW and VIC against the authorities' own pages. The rest carry null, which
+ *  the copy renders as "check before collection day" rather than a guess.
+ *  [CHECK WA, SA, TAS, ACT AND NT BEFORE LAUNCH] */
+export type PermitFacts = { online: boolean | null; days: string | null; note: string | null };
+
+export const PERMIT_RULES: Record<string, PermitFacts> = {
+  QLD: { online: true, days: "1 to 7 days", note: "Buying online needs a Queensland customer reference number or licence; without one, we can apply for you. CTP is bought with it." },
+  NSW: { online: false, days: "the trip, up to 28 days", note: "Not available online: it's over the counter at a Service NSW centre (or by post if you've held NSW registration before). The fee includes CTP, and the plates come off." },
+  VIC: { online: true, days: "up to 7 days for a single trip", note: null },
+  WA: { online: null, days: null, note: null },
+  SA: { online: null, days: null, note: null },
+  TAS: { online: null, days: null, note: null },
+  ACT: { online: null, days: null, note: null },
+  NT: { online: null, days: null, note: null },
+};
+
+export const permitFacts = (state?: string | null): PermitFacts =>
+  PERMIT_RULES[String(state || "").toUpperCase()] || { online: null, days: null, note: null };
+
+/** One line telling a buyer how to get the permit, true for their own state rather than for Queensland's.
+ *  Written for the person who has to act on it, so where we don't know we say so instead of implying "online". */
+export function permitLine(state?: string | null): string {
+  const r = rulesFor(state);
+  const f = permitFacts(state);
+  const how = f.online === true ? `You can buy it online from ${r.authority}`
+    : f.online === false ? `It isn't available online — you get it from ${r.authority} in person`
+    : `Check with ${r.authority} how to get one`;
+  return [`${how}${f.days ? `, and it lasts ${f.days}` : ""}.`, f.note].filter(Boolean).join(" ");
+}
+
+/** No state issues a permit for a written-off vehicle: confirmed word for word in Queensland and New South
+ *  Wales, and applied everywhere because being wrong in the permissive direction is the expensive way to be
+ *  wrong. Mirrors permit_possible in leaves_unregistered(). */
+export const permitPossible = (writeOff?: string | null) => !["repairable", "statutory"].includes(String(writeOff || ""));
+
 /** The vessel rules for a state, or null when we haven't settled that state (send them to their consultant). An
  *  unknown state is null too: defaulting a boat to Queensland's marine process would be a confident wrong answer,
  *  where the road rules can safely fall back because every state runs the same shape of vehicle transfer. */
