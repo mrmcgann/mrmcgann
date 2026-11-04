@@ -52,6 +52,10 @@ export function friendly(message: string | undefined) {
   if (m.includes("wrong_code")) return "That release code doesn't match. Check it with the person collecting.";
   if (m.includes("too_many_attempts")) return "Too many wrong codes. Call us before handing over the vehicle.";
   if (m.includes("not_confirmed")) return "This collection hasn't been confirmed yet.";
+  // Unregistered vehicles: we commit the offence too if we let one be driven onto a road, so the handover can't
+  // complete until the depot has said how it left (migration 33).
+  if (m.includes("unreg_how")) return "This vehicle has no plates. Say how it's leaving before you hand over the keys.";
+  if (m.includes("unreg_permit")) return "Driving it away needs an unregistered vehicle permit. Ask to see it and enter its number. No permit, no keys.";
   if (m.includes("offer_not_pending")) return "That offer is no longer pending.";
   if (m.includes("not_referred")) return "This vehicle isn't waiting on a referral decision.";
   if (m.includes("forbidden")) return "You don't have permission to do that.";

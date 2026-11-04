@@ -29,13 +29,17 @@ export async function POST(req: Request) {
   if (!(await allow(`handover:${await clientIp()}`, 20, 3600))) return fail("Too many attempts. Call us.", 429);
   const odo = Number(String(b.odometer || "").replace(/[^0-9]/g, "")) || null;
   const keys = Number(b.keys) || null;
+  // For an unregistered vehicle the depot must say how it left, and name a permit if it was driven. The database
+  // refuses the handover otherwise: we are the party permitting the road use, so this cannot be skipped here.
+  const leftBy = ["carrier", "trailer", "permit"].includes(String(b.leftBy || "")) ? String(b.leftBy) : null;
   const { data, error } = await supabaseAdmin().rpc("complete_handover", {
     p_token: token, p_code: String(b.code || "").replace(/\D/g, ""), p_odometer: odo, p_keys: keys, p_notes: String(b.notes || "").slice(0, 1000),
+    p_left_by: leftBy, p_permit: String(b.permit || "").slice(0, 40),
   });
   if (error) return fail(friendly(error.message));
   const r = data as { ok: boolean; error?: string };
   if (!r.ok) return fail(friendly(r.error));
   kickOutbox();
-  await sendEmail({ to: env.supportEmail, subject: "Vehicle handed over", text: `The depot confirmed handover. Odometer ${odo ?? "?"}, keys ${keys ?? "?"}. ${b.notes || ""}` }).catch(() => undefined);
+  await sendEmail({ to: env.supportEmail, subject: "Vehicle handed over", text: `The depot confirmed handover. Odometer ${odo ?? "?"}, keys ${keys ?? "?"}.${leftBy ? ` Unregistered, left ${leftBy}${b.permit ? ` (permit ${b.permit})` : ""}.` : ""} ${b.notes || ""}` }).catch(() => undefined);
   return json(data);
 }

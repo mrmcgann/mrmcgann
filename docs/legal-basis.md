@@ -232,6 +232,27 @@ Before launch: read each state's vessel page and add the deadline and the fee, t
 above `VESSEL_RULES`; settle the ACT and the NT either way. The road table's own marker is the same job on the other
 half, and both are due again every few months because these pages move.
 
+## 14. Releasing an unregistered vehicle from our depot
+
+Our exposure is not the buyer's failure to register. It is the moment our own staff hand over the keys.
+
+| Position | Where it lives | Basis |
+| --- | --- | --- |
+| Letting an unregistered vehicle be driven on a road is an offence committed by whoever **permits** it, not only by whoever drives it. We hold the vehicle, hold the keys and decide whether it leaves, so a buyer who drives off our forecourt without a permit puts us inside the offence, not merely near it. | the whole of this section | Transport Operations (Road Use Management—Vehicle Registration) Regulation 2021 (Qld) s 10(1): "A person must not use, or permit to be used, a vehicle on a road that is not a registered vehicle." Maximum 80 penalty units |
+| The lawful ways out are exhaustive and we only release into one of them: on a carrier, on a trailer, or driven under a current unregistered vehicle permit. | `complete_handover` (`unreg_how`), the depot's three choices | Same Regulation s 10(2)(f): subsection (1) does not apply to a vehicle "being used under an unregistered vehicle permit" (issued under s 73, up to 7 days) |
+| A permit is sighted, not assumed. Where the depot says it was driven, they must enter the permit's number and tick that they saw it, that it is in date and that it covers this vehicle. The handover is refused without it, so the keys cannot be signed over on a shrug. | `complete_handover` (`unreg_permit`), `HandoverForm` | As above: the exemption is only made out by an actual permit, so an unverified claim of one is no defence |
+| What was established is recorded against the collection — whether it was unregistered, how it left, and the permit number — so the file shows the check was done rather than asserting it. | the `handover` jsonb on `collections` | Evidentiary; supports the s 10(2)(f) exemption if it is ever questioned |
+| The depot is told before anything else on the page, in red, that the vehicle has no plates and must not be driven, and is told to call us and keep the keys if the buyer expects to drive away. | `/handover/[token]` | Operational control; a rule nobody reads protects nobody |
+| An unregistered vehicle carries no compulsory third party insurance. Stated to buyers rather than left to be discovered. | Terms s 10 | Queensland's Nominal Defendant answers for injuries caused by an unregistered vehicle and then recovers from those responsible, so this is a live tail risk rather than a theoretical one |
+
+Terms sections 10 and 16 carry this for buyers. Note the limit of contract here: an agreement between us and the
+buyer allocates risk **between us**, and cannot stop the regulator treating us as a person who permitted the use.
+Only the gate check does that, which is why the control is in `complete_handover` and not only in the wording.
+
+Before launch: confirm the equivalent "use or permit to be used" offence and its permit exemption in each other
+state we release vehicles in, and record them here. The shape is the same everywhere, but the section numbers,
+penalties and permit durations are not, and the depot screen's wording should not imply Queensland's everywhere.
+
 ## Governing law
 
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document
@@ -311,3 +332,4 @@ says nothing takes away the protections of the buyer's or seller's own state.
 - Transfer a vessel (WA Department of Transport): https://www.transport.wa.gov.au/marine/recreational-boating/boat-registration/transfer-vessel
 - Transfer a boat registration (SA): https://www.sa.gov.au/topics/boating-and-marine/boat-registration/transfer-boat-registration
 - Transfer a boat registration (Service Tasmania, for MAST): https://www.service.tas.gov.au/services/boats-and-fishing/boat-and-personal-water-craft-registrations/transfer-a-boat-registration/
+- Transport Operations (Road Use Management—Vehicle Registration) Regulation 2021 (Qld), s 10 (use of unregistered vehicles) and s 73 (unregistered vehicle permits): https://www.legislation.qld.gov.au/view/whole/html/inforce/2021-09-17/sl-2021-0113

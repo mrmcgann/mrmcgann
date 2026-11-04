@@ -378,7 +378,26 @@ r = await as('service', `select code_attempts from collections where seller_toke
 r = await as('A', `select seller_token from collections`); ok("buyer can't read the seller's handover link", !!r.error, JSON.stringify(r));
 r = await as('A', `select release_code from collections`); ok('buyer can read their own release code', r.rows?.length === 1, r.error);
 r = await as('A', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('buyers cannot call handover directly', !!r.error);
+
+// Migration 33: an unregistered vehicle driven onto a road is an offence we commit as the party permitting it
+// (Vehicle Registration Regulation 2021 (Qld) s 10(1)), and the only way out is the buyer's own permit, so the
+// depot cannot complete a handover without establishing how it left.
+await c.query(`update ownership_transfers set buyer_choice='unregistered' where invoice_id='${SINV}'`);
+r = await as('service', `select leaves_unregistered('${SINV}') u`); ok('unreg: the depot is told it has no plates', r.rows?.[0]?.u === true, r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '')`); ok('unreg: no handover without saying how it left', r.error?.includes('unreg_how'), r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'rolled')`); ok('unreg: only a carrier, a trailer or a permit', r.error?.includes('unreg_how'), r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit')`); ok('unreg: driving it away needs a permit number', r.error?.includes('unreg_permit'), r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit', '  x ')`); ok('unreg: a token permit number is not a permit', r.error?.includes('unreg_permit'), r.error);
+r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, '', 'permit', 'UVP-884213') h`); ok('unreg: a sighted permit lets it go, and is recorded', r.rows?.[0]?.h?.ok === true, r.error);
+r = await as('service', `select handover from collections where seller_token='${tok}'`);
+ok('unreg: the file shows what was established', r.rows?.[0]?.handover?.unregistered === true && r.rows[0].handover.left_by === 'permit' && r.rows[0].handover.permit === 'UVP-884213', JSON.stringify(r.rows?.[0]?.handover));
+// Put it back the way the rest of the run expects: registered, collected the ordinary way.
+await c.query(`update ownership_transfers set buyer_choice='transfer' where invoice_id='${SINV}'`);
+await c.query(`update collections set status='confirmed', collected_at=null where seller_token='${tok}'`);
+await c.query(`update invoices set collected_at=null, claim_until=null where id='${SINV}'`);
+
 r = await as('service', `select complete_handover('${tok}', '${code}', 100000, 2, 'all good') h`); ok('handover with the right code', r.rows?.[0]?.h?.ok === true, r.error);
+r = await as('service', `select handover from collections where seller_token='${tok}'`); ok('registered: nothing to establish, recorded as driven', r.rows?.[0]?.handover?.unregistered === false && r.rows[0].handover.left_by === 'driven', JSON.stringify(r.rows?.[0]?.handover));
 r = await as('service', `select collected_at is not null c, claim_until is not null w from invoices where id='${SINV}'`); ok('collection starts the claim window', r.rows?.[0]?.c && r.rows[0].w);
 r = await as('service', `select status, released_at is not null x from transport_jobs where id='${JOB.id}'`); ok('collection: the depot has released it', r.rows?.[0]?.status === 'released' && r.rows[0].x, JSON.stringify(r.rows));
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'collected-seller:%' and title like '%Seller car%'`); ok('collection: the seller hears it has been collected', r.rows?.[0]?.n >= 1);
