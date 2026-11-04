@@ -239,6 +239,10 @@ export interface Invoice {
 
 export interface Fees {
   premium_rate: number;
+  /** Floor on our own cut, before transport. Absent on fees locked before migration 35. */
+  premium_min?: number;
+  /** The cheapest competitor's shape, for beats_market(). */
+  benchmark?: { bands?: { to?: number; fee?: number; rate?: number }[]; flat?: number; rate?: number; heavy_rate?: number };
   admin_fee: number;
   surcharge_rate: number;
   card_limit: number;
@@ -264,7 +268,7 @@ export interface Fees {
 }
 
 export const DEFAULT_FEES: Fees = {
-  premium_rate: 0.1, admin_fee: 99, surcharge_rate: 0, card_limit: 5000,
+  premium_rate: 0.015, premium_min: 140, admin_fee: 0, surcharge_rate: 0, card_limit: 5000,
   nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
   storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10,
   pay_mode: "transfer", deposit_rate: 0.1, deposit_min: 500, deposit_cap: 5000,

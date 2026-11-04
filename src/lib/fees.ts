@@ -27,12 +27,15 @@ export function bidLimit(available: number, f: Fees): number | null {
 export const depositForLimit = (limit: number, f: Fees) => depositFor(limit, f);
 
 // Mirrors public.price_breakdown_with() in the database. Used for the live all-in preview.
-// The buyer's premium is the premium rate of the price plus the vehicle's transport to our depot (GST on all of it).
+// The buyer's premium is the premium rate of the price (with a floor, so a cheap car still pays its way) plus the
+// vehicle's transport to our depot, with GST on all of it. The floor applies to OUR cut before the transport is
+// added: a floor that swallowed the tow would quietly make cheap cars cost us money. A vehicle whose fees were
+// locked before the floor existed carries no premium_min and prices exactly as it did (migration 35).
 // With deposits, cardAmount is the part that comes from the bidding deposit; balanceDue is paid by transfer
 // (with "transfer", that's everything).
 export function priceBreakdown(price: number, f: Fees) {
   const transport = Math.max(0, r2(Number(f.transport) || 0));
-  const premium = r2(r2(price * f.premium_rate) + transport);
+  const premium = r2(Math.max(r2(price * f.premium_rate), Number(f.premium_min) || 0) + transport);
   const gst = r2(premium * 0.1);
   const subtotal = r2(price + premium + gst + f.admin_fee);
   const pm = payMode(f);
@@ -68,7 +71,7 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" || !Numbe
  *  Mirrors public.lot_price_breakdown(). */
 export function lotFees(f: Fees, lot?: { fees?: Partial<Record<keyof Fees, number | string>> | null; transport_fee?: number | string | null } | null): Fees {
   if (!lot) return f;
-  const out = { ...f } as Record<string, number | string>;
+  const out = { ...f } as Record<string, unknown>;
   if (lot.fees) {
     for (const [k, v] of Object.entries(lot.fees)) {
       if (GLOBAL_KEYS.has(k) || k === "transport") continue;
@@ -80,3 +83,21 @@ export function lotFees(f: Fees, lot?: { fees?: Partial<Record<keyof Fees, numbe
   }
   return out as unknown as Fees;
 }
+
+/** What the cheapest competitor charges a buyer over the hammer at this price, GST inclusive, from the benchmark
+ *  in settings. Mirrors public.market_fee(). */
+const HEAVY = new Set(["trucks", "buses", "machinery", "trailers", "caravans", "boats"]);
+
+export const marketFee = (price: number, f: Fees, category?: string | null) => {
+  // The bands are the car schedules. Anything heavy goes through everyone's industrial books, where the thinnest
+  // rate on offer is about 9.9% -- which is why a big tow is affordable on a truck and impossible on a cheap car.
+  if (category && HEAVY.has(category)) return r2(price * (Number(f.benchmark?.heavy_rate) || 0));
+  const band = (f.benchmark?.bands || []).slice().sort((a, b) => (a.to || 0) - (b.to || 0)).find((b) => price <= (b.to || 0));
+  if (band) return r2(band.fee != null ? Number(band.fee) : price * (Number(band.rate) || 0));
+  return r2((Number(f.benchmark?.flat) || 0) + price * (Number(f.benchmark?.rate) || 0));
+};
+
+/** Does our all-in beat theirs at this price? Mirrors public.beats_market(), including that an unset benchmark
+ *  never blocks anything: the check is a floor on our own discipline, not a kill switch. */
+export const beatsMarket = (price: number, f: Fees, category?: string | null) =>
+  !f.benchmark || priceBreakdown(price, f).total - price < marketFee(price, f, category);

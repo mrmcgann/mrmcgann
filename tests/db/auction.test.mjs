@@ -122,7 +122,7 @@ ok('10611 no bids, no reserve -> passed', st['10611']?.status === 'passed');
 r = await as('service', `select * from invoices where lot_id=10432`);
 const inv = r.rows?.[0];
 ok('invoice created pending charge', inv?.status === 'pending_charge' && inv.mode === 'card');
-ok('fees: 10% premium, 10% GST, $99 admin, no card surcharge (RBA ban from 1 Oct 2026)', Number(inv?.premium) === 320 && Number(inv?.gst) === 32 && Number(inv?.admin_fee) === 99 && Number(inv?.subtotal) === 3651 && Number(inv?.surcharge) === 0 && Number(inv?.total) === 3651, JSON.stringify(inv));
+ok('fees: 1.5% premium with a $140 floor, 10% GST, no admin fee, no card surcharge (RBA ban from 1 Oct 2026)', Number(inv?.premium) === 140 && Number(inv?.gst) === 14 && Number(inv?.admin_fee) === 0 && Number(inv?.subtotal) === 3354 && Number(inv?.surcharge) === 0 && Number(inv?.total) === 3354, JSON.stringify(inv));
 r = await as('A', `select * from invoices`); ok("A cannot see B's invoice", !r.rows?.some((x) => x.buyer_id === U.B));
 r = await as('B', `select * from invoices`); ok('B sees own invoice', r.rows?.some((x) => Number(x.lot_id) === 10432));
 r = await as('B', `update invoices set status='paid'`); ok('member cannot mark own invoice paid', r.count === 0 || !!r.error);
@@ -130,7 +130,7 @@ r = await as('B', `update invoices set status='paid'`); ok('member cannot mark o
 // ---------- deposit tier, Buy Now ----------
 r = await as('A', `select buy_now(10633) id`); ok('Buy Now works for verified member', !!r.rows?.[0]?.id, r.error);
 r = await as('service', `select mode, card_amount, balance_due, total from invoices where lot_id=10633`);
-ok('$8,900 Buy Now -> $500 deposit, no surcharge', r.rows?.[0]?.mode === 'deposit' && Number(r.rows[0].card_amount) === 500 && Number(r.rows[0].balance_due) === 9478, JSON.stringify(r.rows));
+ok('$8,900 Buy Now -> $500 deposit, no surcharge', r.rows?.[0]?.mode === 'deposit' && Number(r.rows[0].card_amount) === 500 && Number(r.rows[0].balance_due) === 8554, JSON.stringify(r.rows));
 r = await as('B', `select buy_now(10633)`); ok('Buy Now only once', r.error?.includes('auction_closed'));
 r = await as('B', `select place_bid(10590, 60000) r`);
 r = await as('service', `select mode, card_amount from price_breakdown(60000) as t(mode text, card_amount numeric)`).catch(()=>({}));
@@ -227,7 +227,7 @@ await as('ADM', `update lots set suburb='Paddington' where id=${SL}`);
 r = await as('service', `select suburb from lots where id=${SL}`); ok("depot: the location can't be typed over while a depot is chosen", r.rows?.[0]?.suburb === 'Eagle Farm', JSON.stringify(r.rows));
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('transport: the transport amount must be set before bidding opens', r.error?.includes('transport amount'), r.error);
 await as('ADM', `update lots set transport_fee=300 where id=${SL}`);
-r = await as('service', `select lot_price_breakdown(${SL}, 4100) b`); ok('transport: a draft previews the amount entered so far', Number(r.rows?.[0]?.b?.transport) === 300 && Number(r.rows[0].b.premium) === 710, JSON.stringify(r.rows?.[0]?.b));
+r = await as('service', `select lot_price_breakdown(${SL}, 4100) b`); ok('transport: a draft previews the amount entered so far', Number(r.rows?.[0]?.b?.transport) === 300 && Number(r.rows[0].b.premium) === 440, JSON.stringify(r.rows?.[0]?.b));
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('pickup: the pickup address must be recorded', r.error?.includes('pickup address'), r.error);
 await as('ADM', `update lot_private set seller_address='1 Sample St, Paddington QLD 4064' where lot_id=${SL}`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('statutory warranty: it must be stated before bidding opens', r.error?.includes('statutory warranty'), r.error);
@@ -281,7 +281,7 @@ ok('transfer: starts when paid in full', r.rows?.[0]?.status === 'waiting' && r.
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-start:${SINV}%'`); ok('transfer: buyer told what happens next', r.rows?.[0]?.n >= 1);
 r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'transfer-seller:${SINV}%'`); ok('transfer: seller told to lodge their part', r.rows?.[0]?.n >= 1);
 r = await as('service', `select premium, transport, gst, total from invoices where id='${SINV}'`);
-ok('transport: in the buyer\'s premium on the invoice (10% + $300, GST on all of it)', Number(r.rows?.[0]?.premium) === 710 && Number(r.rows[0].transport) === 300 && Number(r.rows[0].gst) === 71 && Number(r.rows[0].total) === 4980, JSON.stringify(r.rows));
+ok('transport: in the buyer\'s premium on the invoice (the $140 floor + $300, GST on all of it)', Number(r.rows?.[0]?.premium) === 440 && Number(r.rows[0].transport) === 300 && Number(r.rows[0].gst) === 44 && Number(r.rows[0].total) === 4584, JSON.stringify(r.rows));
 r = await as('service', `select id, ref, status, depot_id from transport_jobs where invoice_id='${SINV}'`); const JOB = r.rows?.[0];
 ok('pickup: a transport job starts when it is paid in full', JOB?.status === 'to_book' && JOB.depot_id === DEP && /^TR-\d+$/.test(JOB.ref), JSON.stringify(r.rows));
 r = await as('service', `select count(*)::int n from notifications where user_id='${U.ADM}' and kind='staff' and title like 'Book a pickup:%'`); ok('pickup: our team is told to book it', r.rows?.[0]?.n >= 1);
@@ -860,15 +860,15 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     (10980, 'live', 'Fee lock ute', 1000, now() + interval '3 days', 'drives', 'unregistered')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10980`); ok('fees: locked when a vehicle goes live', r.rows?.[0]?.p != null, JSON.stringify(r.rows));
   const before = (await as('service', `select (lot_price_breakdown(10980, 10000)->>'total')::numeric t`)).rows?.[0]?.t;
-  await c.query(`update settings set value = value || '{"premium_rate": 0.2}' where key = 'fees'`);
+  await c.query(`update settings set value = value || '{"premium_rate": 0.02}' where key = 'fees'`);
   r = await as('service', `select (lot_price_breakdown(10980, 10000)->>'total')::numeric t, (price_breakdown(10000)->>'total')::numeric n`);
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
   r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-11-04', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
-  r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.2);
-  await c.query(`update settings set value = value || '{"premium_rate": 0.1}' where key = 'fees'`);
+  r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.02);
+  await c.query(`update settings set value = value || '{"premium_rate": 0.015}' where key = 'fees'`);
   await c.query(`update lots set status = 'draft' where id = 10981`);
   r = await as('service', `select fees from lots where id = 10981`); ok('fees: a draft (or relisted copy) starts from current fees again', r.rows?.[0]?.fees === null);
 
@@ -1171,7 +1171,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('win: the deposit for the price leaves the balance once', Number(r.rows?.[0]?.b) === 600 && r.rows[0].n === 1, JSON.stringify(r.rows));
   r = await as('C', `select request_deposit_withdrawal(100)`); ok("withdraw: not while there's a vehicle to pay for", r.error?.includes('withdraw_unpaid'), r.error);
   r = await as('service', `select (price_breakdown(300)->>'card_amount')::numeric d, (price_breakdown(300)->>'balance_due')::numeric b, price_breakdown(20000)->>'mode' m, (price_breakdown(20000)->>'surcharge')::numeric s`);
-  ok('win: a cheap vehicle is paid entirely from the deposit; never a surcharge', Number(r.rows?.[0]?.b) === 0 && Number(r.rows[0].d) === 432 && r.rows[0].m === 'deposit' && Number(r.rows[0].s) === 0, JSON.stringify(r.rows));
+  ok('win: a cheap vehicle is paid entirely from the deposit; never a surcharge', Number(r.rows?.[0]?.b) === 0 && Number(r.rows[0].d) === 454 && r.rows[0].m === 'deposit' && Number(r.rows[0].s) === 0, JSON.stringify(r.rows));
 
   // Buy Now and offers need the deposit too
   r = await as('C', `select buy_now(20003)`); ok('buy now: needs the deposit for the Buy Now price', r.error?.includes('deposit_short:3000:600'), r.error);
@@ -1607,7 +1607,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     (10944, 'live', 'Early cancel car', 1000, now() + interval '3 days', '${TD}', 200, false)`);
   r = await as('service', `select suburb, (fees->>'transport')::numeric t from lots where id = 10940`); ok('depot: a listing takes the depot suburb and locks the transport', r.rows?.[0]?.suburb === 'Hendra' && Number(r.rows[0].t) === 280, JSON.stringify(r.rows));
   r = await as('service', `select lot_price_breakdown(10940, 10000) b`);
-  ok('transport: in the all-in price (10% + $280, GST on both)', Number(r.rows?.[0]?.b?.premium) === 1280 && Number(r.rows[0].b.transport) === 280 && Number(r.rows[0].b.gst) === 128 && Number(r.rows[0].b.total) === 11507, JSON.stringify(r.rows?.[0]?.b));
+  ok('transport: in the all-in price (1.5% + $280, GST on both)', Number(r.rows?.[0]?.b?.premium) === 430 && Number(r.rows[0].b.transport) === 280 && Number(r.rows[0].b.gst) === 43 && Number(r.rows[0].b.total) === 10473, JSON.stringify(r.rows?.[0]?.b));
   r = await as('service', `select price_breakdown_with(10000, '{"premium_rate": 0.1, "admin_fee": 99}'::jsonb) b`); ok('transport: none unless a listing has it', Number(r.rows?.[0]?.b?.transport) === 0 && Number(r.rows[0].b.premium) === 1000, JSON.stringify(r.rows?.[0]?.b));
   await c.query(`update lots set fees = fees - 'transport' where id = 10941`);
   r = await as('service', `select lot_price_breakdown(10941, 10000) b`); ok('transport: a listing that went live before transport was in the premium carries none', Number(r.rows?.[0]?.b?.transport) === 0, JSON.stringify(r.rows?.[0]?.b));
@@ -1631,7 +1631,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     return { inv: id, job: (await c.query(`select id from transport_jobs where invoice_id = '${id}'`)).rows[0]?.id };
   };
   const P1 = await paid(10940, 9000);
-  r = await as('service', `select transport, premium from invoices where id = '${P1.inv}'`); ok('transport: on the invoice', Number(r.rows?.[0]?.transport) === 280 && Number(r.rows[0].premium) === 1180, JSON.stringify(r.rows));
+  r = await as('service', `select transport, premium from invoices where id = '${P1.inv}'`); ok('transport: on the invoice', Number(r.rows?.[0]?.transport) === 280 && Number(r.rows[0].premium) === 420, JSON.stringify(r.rows));
   r = await as('ADM', `select admin_transport('${P1.job}', 'picked_up', '{"ok": false}')`); ok('pickup: a change needs a note for the buyer', r.error?.includes('transport_note'), r.error);
   r = await as('ADM', `select admin_transport('${P1.job}', 'picked_up', '{"ok": false, "note": "A crack in the windscreen that the photos do not show."}') s`); ok('pickup: picked up with a change noted', r.rows?.[0]?.s === 'picked_up', r.error);
   r = await as('service', `select body from outbox where dedupe_key like 'transport-change:${P1.job}%' limit 1`);

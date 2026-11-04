@@ -1,6 +1,6 @@
 // Transport to our depot in the buyer's premium, and the pickup and collection words (website, server and app).
 // node --experimental-strip-types tests/unit/transport.test.mjs
-import { priceBreakdown, lotFees } from '../../src/lib/fees.ts';
+import { priceBreakdown, lotFees, marketFee, beatsMarket } from '../../src/lib/fees.ts';
 import { premiumLabel, feesLine, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
 import { TRANSFER_RULES, rulesFor, isVessel, vesselFor, trailerNote, PERMIT_RULES, permitFacts, permitLine, permitPossible } from '../../src/lib/transfer.ts';
 
@@ -101,6 +101,33 @@ ok('permit: Queensland names the CRN trap and the duration', /customer reference
 // the expensive way to be wrong.
 ok('permit: never for a write-off, repairable or statutory', !permitPossible('repairable') && !permitPossible('statutory'));
 ok('permit: fine for anything else, including an unknown status', permitPossible('none') && permitPossible('unknown') && permitPossible(null) && permitPossible('inspected'));
+
+// Migration 35: the all-in beats the market at every price, with the tow inside the premium and never shown
+// as a separate line. A thin rate with a floor, because their flat fee plus 1.65% beats any flat percentage.
+const M = { ...F, premium_rate: 0.015, premium_min: 140, admin_fee: 0, transport: 0,
+  benchmark: { bands: [{ to: 2000, fee: 495 }, { to: 5000, fee: 550 }, { to: 10000, fee: 710 }, { to: 13000, rate: 0.07 }], flat: 650, rate: 0.0165, heavy_rate: 0.099 } };
+ok('market: the benchmark is whichever of them is cheapest at that price', marketFee(1000, M) === 495 && marketFee(4000, M) === 550 && marketFee(12000, M) === 840 && Math.round(marketFee(14500, M)) === 889);
+ok('market: the lowest band holds at the very bottom', marketFee(100, M) === 495);
+ok('market: past the last band it is their flat plus thin rate', Math.round(marketFee(90000, M)) === 2135);
+// Modelled from $1,000 to $90,000 with the tow scaled to the vehicle, the way a real listing would price it.
+const towFor = (p) => (p < 5000 ? 180 : p < 15000 ? 280 : p < 40000 ? 350 : 450);
+const prices = [1000, 2000, 3000, 5000, 8000, 12000, 14500, 20000, 30000, 45000, 60000, 90000];
+ok('market: we are cheapest at every price, tow included', prices.every((p) => beatsMarket(p, { ...M, transport: towFor(p) })),
+  JSON.stringify(prices.filter((p) => !beatsMarket(p, { ...M, transport: towFor(p) }))));
+ok('market: the old 10% plus admin fee loses nearly everywhere', prices.filter((p) => !beatsMarket(p, { ...M, premium_rate: 0.10, premium_min: 0, admin_fee: 99, transport: towFor(p) })).length >= 10);
+// A tow bigger than the gap is the real failure mode, and it has to be caught rather than absorbed silently.
+ok('market: an over-priced tow breaks the rule and is detectable', !beatsMarket(14500, { ...M, transport: 900 }));
+ok('market: no benchmark never blocks a listing', beatsMarket(14500, { ...M, benchmark: undefined, transport: 5000 }));
+// The floor applies to our cut only: adding the tow inside it would make cheap cars cost us money.
+ok('market: the floor sits under our cut, not under the tow', priceBreakdown(2000, { ...M, transport: 180 }).premium === 320);
+ok('market: above the floor the rate takes over', priceBreakdown(40000, { ...M, transport: 350 }).premium === 950);
+ok('market: no admin fee on the all-in any more', priceBreakdown(14500, { ...M, transport: 350 }).adminFee === 0);
+
+// Heavy vehicles are the case that makes a big tow work: everyone's industrial book starts at 9.9%, not $650.
+ok('market: heavy goes through the industrial rate, not the car bands', marketFee(30000, M, 'trucks') === 2970 && marketFee(30000, M, 'cars') === 1145);
+ok('market: a truck with a $650 tow is comfortably under', beatsMarket(30000, { ...M, transport: 650 }, 'trucks'));
+ok('market: the same tow on a cheap car is not, and is caught', !beatsMarket(2000, { ...M, transport: 500 }, 'cars'));
+ok('market: boats and machinery count as heavy too', marketFee(20000, M, 'boats') === 1980 && marketFee(20000, M, 'machinery') === 1980);
 
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

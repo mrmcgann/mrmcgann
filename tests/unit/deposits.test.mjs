@@ -74,8 +74,8 @@ ok('short: nothing when covered', depositShortBy(5000, F, d).short === 0);
 // The default, like Turners: no deposit; the winner pays the whole amount by transfer
 ok('no deposit is the default', payMode(DEFAULT_FEES) === 'transfer' && payMode({}) === 'transfer' && payMode({ pay_mode: 'deposit' }) === 'deposit');
 const t = priceBreakdown(8000, TF);
-ok('no deposit: the whole amount by transfer, nothing up front, no surcharge', t.payMode === 'transfer' && t.cardBase === 0 && t.cardAmount === 0 && t.surcharge === 0 && t.balanceDue === t.subtotal && t.total === t.subtotal && t.subtotal === 8979, JSON.stringify(t));
-ok('no deposit: what the bidder is told', winPayLine(t) === 'If you win, pay the $8,979.00 by PayID or bank transfer within 2 business days (your lender can pay it if you\'re using finance). No deposit, no card, no surcharge.' && buyNowPayLine(t).startsWith('Pay the $8,979.00 by PayID'));
+ok('no deposit: the whole amount by transfer, nothing up front, no surcharge', t.payMode === 'transfer' && t.cardBase === 0 && t.cardAmount === 0 && t.surcharge === 0 && t.balanceDue === t.subtotal && t.total === t.subtotal && t.subtotal === 8154, JSON.stringify(t));
+ok('no deposit: what the bidder is told', winPayLine(t) === 'If you win, pay the $8,154.00 by PayID or bank transfer within 2 business days (your lender can pay it if you\'re using finance). No deposit, no card, no surcharge.' && buyNowPayLine(t).startsWith('Pay the $8,154.00 by PayID'));
 ok('no deposit: agreeing to pay or lose the account', ackPayLine('transfer').includes('my account closed') && ackPayLine('deposit').includes('lose that deposit'));
 ok('no deposit: four steps to bid, no payment step', JSON.stringify(joinSteps('transfer')) === '[1,2,3,5]' && JSON.stringify(joinSteps(undefined)) === '[1,2,3,5]' && JSON.stringify(joinSteps('deposit')) === '[1,2,3,5,4]');
 ok('card mode words stay with the old code', winPayLine(priceBreakdown(1000, { ...TF, pay_mode: 'card' })) === null);
