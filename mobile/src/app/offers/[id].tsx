@@ -110,7 +110,7 @@ export default function OfferScreen() {
       </Notice>
       <View style={{ gap: 8 }} testID="after-docs">
         <T v="title">Read before you sign</T>
-        <LinkText testID="after-contract" title="The contract of sale (PDF)" onPress={() => downloadAndShare(`${SITE}/api/offers/${o.id}/contract`, `Tyrebiter-contract-${String(o.id).slice(0, 8)}.pdf`).catch((e) => setMsg(errText(e)))} />
+        <LinkText testID="after-contract" title="The contract of sale (PDF)" onPress={() => downloadAndShare(`${SITE}/api/offers/${o.id}/contract`, `SuperTrucker-contract-${String(o.id).slice(0, 8)}.pdf`).catch((e) => setMsg(errText(e)))} />
         {docs.map((d, i) => <LinkText key={i} testID={`after-doc-${i}`} title={d.name} onPress={() => openDoc(i)} />)}
         {docs.length === 0 ? <T v="small">In {rule?.state || lot?.state || "this state"}, the contract is all the paperwork there is.</T> : null}
       </View>

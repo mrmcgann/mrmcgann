@@ -28,7 +28,7 @@ export function TwoStep() {
     if (ready) { setMode({ k: "verify", factorId: ready.id }); return; }
     // a half-finished set-up from before is cleared so the new code matches
     for (const f of (data?.all || []) as { id: string; status: string }[]) if (f.status !== "verified") await auth.mfa.unenroll({ factorId: f.id });
-    const { data: e, error: enrolErr } = await auth.mfa.enroll({ factorType: "totp", friendlyName: `Tyrebiter ${new Date().toISOString().slice(0, 10)}`, issuer: "Tyrebiter" });
+    const { data: e, error: enrolErr } = await auth.mfa.enroll({ factorType: "totp", friendlyName: `Super Trucker ${new Date().toISOString().slice(0, 10)}`, issuer: "Super Trucker" });
     if (enrolErr || !e) { setMode({ k: "error", text: "Two-step sign-in couldn't be set up. Try again in a minute." }); return; }
     // Supabase gives "data:image/svg+xml;utf-8,<svg…>"; characters like # in raw SVG would cut the picture short
     const raw = e.totp.qr_code.replace(/^data:image\/svg\+xml;utf-8,/, "");
@@ -74,7 +74,7 @@ export function TwoStep() {
           {mode.k === "error" && <div className="notice bad">{mode.text}</div>}
           {mode.k === "verify" && (
             <>
-              <span className="muted" style={{ fontSize: 16 }}>Open your authenticator app and enter the code for Tyrebiter. Admin needs it every time you sign in.</span>
+              <span className="muted" style={{ fontSize: 16 }}>Open your authenticator app and enter the code for Super Trucker. Admin needs it every time you sign in.</span>
               {codeBox}
             </>
           )}
@@ -85,7 +85,7 @@ export function TwoStep() {
                 <li><b>Get an authenticator app</b><span>Google Authenticator, Microsoft Authenticator or 1Password all work.</span></li>
                 <li><b>Scan this code</b><span>In the app, add an account and point your camera at it.</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={mode.qr} alt="QR code to add Tyrebiter to your authenticator app" width={184} height={184} className="ts-qr" data-testid="totp-qr" />
+                  <img src={mode.qr} alt="QR code to add Super Trucker to your authenticator app" width={184} height={184} className="ts-qr" data-testid="totp-qr" />
                   <span className="ts-key">Can&apos;t scan? Type this key: <code data-testid="totp-secret">{mode.secret.replace(/(.{4})/g, "$1 ").trim()}</code>
                     <button type="button" className="copybtn" onClick={() => { navigator.clipboard?.writeText(mode.secret).then(() => setCopied(true)).catch(() => undefined); }}>{copied ? "Copied" : "Copy"}</button></span>
                 </li>

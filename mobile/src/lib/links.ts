@@ -5,7 +5,7 @@ export function appPath(link: string | null | undefined): string {
   let path = link.trim();
   const abs = /^https?:\/\/[^/]+(\/.*)?$/i.exec(path);
   if (abs) path = abs[1] || "/";
-  if (/^tyrebiter:\/\//i.test(path)) path = "/" + path.replace(/^tyrebiter:\/\/\/?/i, "");
+  if (/^supertrucker:\/\//i.test(path)) path = "/" + path.replace(/^supertrucker:\/\/\/?/i, "");
   if (!path.startsWith("/")) path = "/" + path;
   const [p, query = ""] = path.split("?");
   const q = query ? `?${query.split("#")[0]}` : "";

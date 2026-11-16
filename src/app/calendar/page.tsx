@@ -7,7 +7,7 @@ import { CAT } from "@/lib/vehicles";
 export const revalidate = 120;
 export const metadata: Metadata = {
   title: "Auction calendar",
-  description: "Upcoming live auctions at Tyrebiter: the day and time of each one and how many vehicles are in it.",
+  description: "Upcoming live auctions at Super Trucker: the day and time of each one and how many vehicles are in it.",
   alternates: { canonical: "/calendar" },
 };
 

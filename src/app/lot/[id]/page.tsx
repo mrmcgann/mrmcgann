@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     alternates: { canonical: url },
     // cancelled listings drop out of search; sold ones stay as a record of the result
     robots: ["live", "referred", "offers", "sold", "passed", "scheduled"].includes(l.status) ? undefined : { index: false, follow: true },
-    openGraph: { title, description: desc, url, images: img ? [{ url: img, alt: l.title }] : undefined, type: "website", siteName: "Tyrebiter", locale: "en_AU" },
+    openGraph: { title, description: desc, url, images: img ? [{ url: img, alt: l.title }] : undefined, type: "website", siteName: "Super Trucker", locale: "en_AU" },
     twitter: { card: "summary_large_image", title, description: desc, images: img ? [img] : undefined },
   };
 }

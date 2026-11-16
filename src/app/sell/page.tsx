@@ -12,9 +12,9 @@ const steps = (v: Record<string, string>) => [
   ["2", "We call you", "Within 1 business day, with the auction estimate we'd put on it. Then you verify your ID in your browser: about 2 minutes.", "sun"],
   ["3", "Your video, our checks", "You film a short walkaround (we tell you exactly what). We check your photos, video and papers from here: we're never at your place.", "lime"],
   ["4", "Live auction", "Offered by our auctioneer in a live online auction to verified buyers nationwide, with the estimate on the listing. You can lower your reserve until the hammer falls. Buyers never visit and never get your name or address.", "sky"],
-  ["5", "Pickup and payout", `The buyer pays Tyrebiter first. Then our transport partner picks it up from you and takes it to our depot, where the buyer collects it. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
+  ["5", "Pickup and payout", `The buyer pays Super Trucker first. Then our transport partner picks it up from you and takes it to our depot, where the buyer collects it. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
 ];
-const CMP = [["Who deals with buyers", "You", "The dealer", "Tyrebiter"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Your phone photos and video, checked and written up by us"], ["Visitors to your home", "Every interested buyer", "None", "None: no buyers, no staff. Just the pickup, once it's paid for"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
+const CMP = [["Who deals with buyers", "You", "The dealer", "Super Trucker"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Your phone photos and video, checked and written up by us"], ["Visitors to your home", "Every interested buyer", "None", "None: no buyers, no staff. Just the pickup, once it's paid for"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
 
 export default async function Sell() {
   const settings = await getSettingsCached();
@@ -59,7 +59,7 @@ export default async function Sell() {
 
       <section>
         <h2 className="d2" style={{ textAlign: "center", marginBottom: 40 }}>Compare your options.</h2>
-        <div className="cmp"><table><thead><tr><th scope="col"><span className="hide">Feature</span></th><th scope="col">Private sale</th><th scope="col">Dealer trade-in</th><th scope="col" className="us" style={{ color: "var(--ink)" }}>Tyrebiter</th></tr></thead>
+        <div className="cmp"><table><thead><tr><th scope="col"><span className="hide">Feature</span></th><th scope="col">Private sale</th><th scope="col">Dealer trade-in</th><th scope="col" className="us" style={{ color: "var(--ink)" }}>Super Trucker</th></tr></thead>
           <tbody>{CMP.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="muted">{r[1]}</td><td className="muted">{r[2]}</td><td className="us">{r[3]}</td></tr>)}</tbody></table></div>
       </section>
 

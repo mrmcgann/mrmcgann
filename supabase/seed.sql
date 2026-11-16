@@ -78,18 +78,50 @@ insert into public.consultants (name, title, phone, email, is_default) values
 update public.lots set consultant_id = (select id from public.consultants where is_default) where consultant_id is null;
 
 insert into public.partners (kind, slug, name, licence, blurb, rate_from, comparison_rate, comparison_basis, establishment_fee, monthly_fee, min_amount, max_amount, min_term_months, max_term_months, referral_url, commission_note, sample, active, sort) values
-  ('finance', 'sample-lender-a', 'Sample Lender A', 'ACL 000001 (sample)', 'Secured car loans for private buyers.', 7.49, 8.12, '$30,000 secured loan over 5 years', 395, 8, 5000, 150000, 12, 84, 'https://example.com/apply?amount={amount}&term={term}', 'Sample: Tyrebiter receives up to $1,500 from this lender if your loan settles.', true, true, 1),
-  ('finance', 'sample-lender-b', 'Sample Lender B', 'ACL 000002 (sample)', 'Car and truck finance, including ABN holders.', 8.95, 9.60, '$30,000 secured loan over 5 years', 250, 10, 3000, 250000, 12, 84, 'https://example.com/apply?amount={amount}&term={term}', 'Sample: Tyrebiter receives up to $1,200 from this lender if your loan settles.', true, true, 2),
-  ('finance', 'sample-broker-c', 'Sample Broker C', 'ACL 000003 (sample)', 'A broker comparing 30+ lenders.', 6.99, 7.85, '$30,000 secured loan over 5 years', 490, 0, 5000, 200000, 24, 84, 'https://example.com/quote?amount={amount}&term={term}', 'Sample: Tyrebiter receives 0.8% of the amount borrowed from this broker if your loan settles.', true, true, 3);
+  ('finance', 'sample-lender-a', 'Sample Lender A', 'ACL 000001 (sample)', 'Secured car loans for private buyers.', 7.49, 8.12, '$30,000 secured loan over 5 years', 395, 8, 5000, 150000, 12, 84, 'https://example.com/apply?amount={amount}&term={term}', 'Sample: Super Trucker receives up to $1,500 from this lender if your loan settles.', true, true, 1),
+  ('finance', 'sample-lender-b', 'Sample Lender B', 'ACL 000002 (sample)', 'Car and truck finance, including ABN holders.', 8.95, 9.60, '$30,000 secured loan over 5 years', 250, 10, 3000, 250000, 12, 84, 'https://example.com/apply?amount={amount}&term={term}', 'Sample: Super Trucker receives up to $1,200 from this lender if your loan settles.', true, true, 2),
+  ('finance', 'sample-broker-c', 'Sample Broker C', 'ACL 000003 (sample)', 'A broker comparing 30+ lenders.', 6.99, 7.85, '$30,000 secured loan over 5 years', 490, 0, 5000, 200000, 24, 84, 'https://example.com/quote?amount={amount}&term={term}', 'Sample: Super Trucker receives 0.8% of the amount borrowed from this broker if your loan settles.', true, true, 3);
 
 insert into public.partners (kind, slug, name, licence, blurb, features, pds_url, tmd_url, referral_url, commission_note, sample, active, sort) values
-  ('insurance', 'sample-insurer-a', 'Sample Insurer A', 'AFSL 000001 (sample)', 'Comprehensive and third party cover.', '{"agreed_value": "Agreed or market value", "new_car_replacement": "Under 2 years old", "choice_of_repairer": "Optional extra", "hire_car": "After theft", "excess_from": 600, "monthly_payments": "No extra cost", "roadside": "Optional extra"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/quote?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Tyrebiter receives $40 from this insurer if you buy a policy.', true, true, 1),
-  ('insurance', 'sample-insurer-b', 'Sample Insurer B', 'AFSL 000002 (sample)', 'Car, ute and light truck cover.', '{"agreed_value": "Market value", "new_car_replacement": "Under 3 years old", "choice_of_repairer": "Included", "hire_car": "Optional extra", "excess_from": 750, "monthly_payments": "Small fee", "roadside": "Included"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/quote?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Tyrebiter receives $40 from this insurer if you buy a policy.', true, true, 2),
-  ('insurance', 'sample-compare-c', 'Sample Comparison C', 'AFSL 000003 (sample)', 'Compares quotes from several insurers.', '{"agreed_value": "Depends on insurer", "new_car_replacement": "Depends on insurer", "choice_of_repairer": "Depends on insurer", "hire_car": "Depends on insurer", "monthly_payments": "Depends on insurer", "roadside": "Depends on insurer"}', null, null, 'https://example.com/compare?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Tyrebiter receives $40 from this insurer if you buy a policy.', true, true, 3);
+  ('insurance', 'sample-insurer-a', 'Sample Insurer A', 'AFSL 000001 (sample)', 'Comprehensive and third party cover.', '{"agreed_value": "Agreed or market value", "new_car_replacement": "Under 2 years old", "choice_of_repairer": "Optional extra", "hire_car": "After theft", "excess_from": 600, "monthly_payments": "No extra cost", "roadside": "Optional extra"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/quote?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Super Trucker receives $40 from this insurer if you buy a policy.', true, true, 1),
+  ('insurance', 'sample-insurer-b', 'Sample Insurer B', 'AFSL 000002 (sample)', 'Car, ute and light truck cover.', '{"agreed_value": "Market value", "new_car_replacement": "Under 3 years old", "choice_of_repairer": "Included", "hire_car": "Optional extra", "excess_from": 750, "monthly_payments": "Small fee", "roadside": "Included"}', 'https://example.com/pds', 'https://example.com/tmd', 'https://example.com/quote?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Super Trucker receives $40 from this insurer if you buy a policy.', true, true, 2),
+  ('insurance', 'sample-compare-c', 'Sample Comparison C', 'AFSL 000003 (sample)', 'Compares quotes from several insurers.', '{"agreed_value": "Depends on insurer", "new_car_replacement": "Depends on insurer", "choice_of_repairer": "Depends on insurer", "hire_car": "Depends on insurer", "monthly_payments": "Depends on insurer", "roadside": "Depends on insurer"}', null, null, 'https://example.com/compare?make={make}&model={model}&year={year}&postcode={postcode}', 'Sample: Super Trucker receives $40 from this insurer if you buy a policy.', true, true, 3);
 
 insert into public.partners (kind, slug, name, licence, blurb, price_from, turnaround, referral_url, commission_note, sample, active, sort) values
-  ('inspection', 'sample-inspections', 'Sample Mobile Inspections', null, 'An independent mechanic inspects the vehicle where it is and sends you a written report with photos.', 249, 'Usually within 2 business days', null, 'Sample: Tyrebiter receives $30 from the inspection provider for each inspection.', true, true, 1);
+  ('inspection', 'sample-inspections', 'Sample Mobile Inspections', null, 'An independent mechanic inspects the vehicle where it is and sends you a written report with photos.', 249, 'Usually within 2 business days', null, 'Sample: Super Trucker receives $30 from the inspection provider for each inspection.', true, true, 1);
 insert into public.partner_private (partner_id, lead_email) select id, 'partners@tyrebiter.com.au' from public.partners where sample;
+
+-- More sample trucks, one in each state we sell in, for the way the site runs now (collected from the seller).
+-- The older database checks run with the depot settings and don't get these.
+insert into public.lots (id, status, title, short_title, subtitle, vehicle_type, category, kind, year, make, model, variant, body, engine, transmission, fuel, odometer, colour, seats, keys, suburb, state, postcode, backdrop, take, owner_note, service_history, known_faults, roadworthy_note, ppsr_clear, visual_grade, grade_paint, grade_interior, grade_tyres, start_price, current_bid, bid_count, starts_at, ends_at, gvm_kg, registration, rego_plate, rego_state, rego_expiry, plates_note, vin)
+select v.* from (values
+(10701,'live','2017 Hino 500 Series FG 1628 Curtainsider','2017 Hino 500 Curtainsider','10-pallet curtainsider with a tailgate loader. One owner.','truck','trucks','curtainsider',2017,'Hino','500 Series','FG 1628','Curtainsider','7.7L turbo-diesel','Auto','Diesel',412000,'White',3,2,'Wetherill Park','NSW','2164','sky',
+ 'Hino 500 Series FG 1628 with a 10-pallet curtainsider body and a 1,500 kg tailgate loader. Allison automatic. One owner from new on metro distribution work, serviced by the Hino dealer.',
+ 'Our metro delivery truck since new. Replaced by a bigger unit.','Dealer serviced, books with the truck','Curtain on the driver''s side has two patches','Not included',true,'B','B','B','B',20000,20000,0, now(), now() + interval '2 days', 16000,
+ 'registered','SMPL01','NSW',(current_date + interval '5 months')::date, null::text, 'JHDFG8JPKXXX00701'),
+(10702,'live','2015 Isuzu FVZ 1400 Tipper','2015 Isuzu FVZ Tipper','6x4 tipper, 10 m³ body. Hoist and PTO serviced this year.','truck','trucks','tipper',2015,'Isuzu','FVZ','1400','Tipper','7.8L turbo-diesel','Manual','Diesel',386000,'White',3,2,'Welshpool','WA','6106','lime',
+ 'Isuzu FVZ 1400 6x4 tipper with a 10 cubic metre steel body, two-way tailgate and a tarp. Nine-speed manual. Worked on civil jobs around Perth, with the hoist and PTO serviced this year.',
+ 'Bought for a subdivision contract that has finished.','Serviced every 20,000 km, records with the truck','Body floor is worn and has been plated','Not included',true,'C','C','B','B',30000,30000,0, now(), now() + interval '2 days 3 hours', 24000,
+ 'registered','SMPL02','WA',(current_date + interval '7 months')::date, null::text, 'JALFVZ34PF7000702'),
+(10703,'live','2012 Volvo FH16 600 Prime Mover','2012 Volvo FH16 600','6x4 prime mover, I-Shift. Sold unregistered.','truck','trucks','prime-mover',2012,'Volvo','FH','16 600','Prime mover','16.1L turbo-diesel','Auto','Diesel',1240000,'Blue',2,2,'Dubbo','NSW','2830','blueberry',
+ 'Volvo FH16 600 6x4 prime mover with the I-Shift automated gearbox, a sleeper cab and a hydraulic kit. It ran B-double livestock work out of western New South Wales. Sold unregistered.',
+ 'Came off the road when we downsized the fleet.','Fleet workshop records with the truck','Air leak at the driver''s seat; dash warning light for the AdBlue level sensor','Not included',true,'C','C','C','C',25000,25000,0, now(), now() + interval '2 days 6 hours', 26500,
+ 'unregistered',null,null,null::date, 'The registration lapsed in June 2026 and the plates were handed in to Service NSW (receipt on file).', 'YV2XTY0D6CB000703'),
+(10704,'live','2019 Fuso Canter 815 Tilt Tray','2019 Fuso Canter Tilt Tray','4.5 m tilt tray with a winch. Car and small machine recovery.','truck','trucks','tilt-tray',2019,'Mitsubishi Fuso','Canter','815','Tilt tray','3.0L turbo-diesel','Auto','Diesel',142000,'White',3,2,'Rocklea','QLD','4106','tangerine',
+ 'Fuso Canter 815 with a 4.5 metre steel tilt tray, a 9,000 lb winch and tie-down rails. Duonic automated gearbox. Used for car and small machine recovery around Brisbane.',
+ 'Selling one of two trays as the work has dropped off.','Serviced on time, books with the truck','Tray paint is scraped from normal use','Not included',true,'B','B','B','B',30000,30000,0, now(), now() + interval '2 days 9 hours', 8000,
+ 'registered','SMPL04','QLD',(current_date + interval '4 months')::date, null::text, 'JLFFEC71KKK000704')
+) v where public.collection_mode() = 'seller';
+insert into public.lot_private (lot_id, reserve_price, seller_name, seller_phone, seller_address, pickup_notes)
+select v.id, v.reserve, 'Sample Seller', '0400000000', v.addr, 'Ask for the workshop office. Closed shoes on site.' from (values
+  (10701, 46000, 'Sample address, Wetherill Park NSW 2164'), (10702, 65000, 'Sample address, Welshpool WA 6106'),
+  (10703, 52000, 'Sample address, Dubbo NSW 2830'), (10704, 60000, 'Sample address, Rocklea QLD 4106')
+) v(id, reserve, addr) where exists (select 1 from public.lots l where l.id = v.id);
+insert into public.lot_flaws (lot_id, title, note, sort)
+select v.id, v.title, v.note, v.sort from (values
+  (10701,'Patched curtain','Two patches, driver''s side.',1), (10702,'Plated body floor','Wear plate welded in.',1),
+  (10703,'AdBlue sensor warning','Dash light on; level sensor.',1), (10703,'Seat air leak','Driver''s seat.',2), (10704,'Scraped tray paint','Normal use.',1)
+) v(id, title, note, sort) where exists (select 1 from public.lots l where l.id = v.id);
 
 -- Registration for the sample vehicles (made-up plates). Delete with the sample vehicles.
 update public.lots set registration = 'registered', rego_state = state, rego_plate = 'SMPL' || right(id::text, 2),
@@ -110,27 +142,34 @@ update public.lots set verified = public.listing_check_keys(), verified_at = coa
   write_off_status = case when write_off_status = 'unknown' then 'none' else write_off_status end
   where status <> 'draft';
 
--- Sample depots: our transport partner's yards, where buyers collect (listings show the depot, never the seller's
--- suburb). Replace them with your real depots before launch. Each sample vehicle collects from the depot in its
--- town, with a sample transport amount (pickup from the seller to the depot, before GST) in its buyer's premium.
-insert into public.depots (name, suburb, state, postcode, hours) values
-  ('Sample Depot Eagle Farm', 'Eagle Farm', 'QLD', '4009', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Toowoomba', 'Toowoomba', 'QLD', '4350', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Townsville', 'Townsville', 'QLD', '4810', 'Monday to Friday, 7am to 3pm'),
-  ('Sample Depot Parramatta', 'Parramatta', 'NSW', '2150', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Dandenong', 'Dandenong', 'VIC', '3175', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Geelong', 'Geelong', 'VIC', '3220', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Elizabeth', 'Elizabeth', 'SA', '5112', 'Monday to Friday, 8am to 4pm'),
-  ('Sample Depot Moonah', 'Moonah', 'TAS', '7009', 'Monday to Friday, 8am to 3pm'),
-  ('Sample Depot Bunbury', 'Bunbury', 'WA', '6230', 'Monday to Friday, 8am to 4pm');
-insert into public.depot_private (depot_id, address, phone, email)
-  select id, 'Sample yard, ' || suburb || ' ' || state || ' ' || postcode, '0400000001', 'depot@tyrebiter.com.au' from public.depots;
-alter table public.lots disable trigger lot_transport_lock;
-update public.lots l set depot_id = d.id, statutory_warranty = false,
-  transport_fee = case l.category when 'trucks' then 650 when 'caravans' then 450 when 'boats' then 350 when 'motorbikes' then 180 else 250 end
-  from public.depots d where d.suburb = l.suburb and d.state = l.state;
-update public.lots set fees = fees || jsonb_build_object('transport', transport_fee) where fees is not null and transport_fee is not null;
-alter table public.lots enable trigger lot_transport_lock;
+-- Where the sample vehicles are collected from. The site now sells from the seller's yard (the listing shows the
+-- seller's suburb; the street address goes only to a buyer with a confirmed viewing or collection), so there are no
+-- depots and nothing for transport. The older database checks run with the depot setting and get the sample depots.
+do $$
+begin
+  if public.collection_mode() = 'depot' then
+    insert into public.depots (name, suburb, state, postcode, hours) values
+      ('Sample Depot Eagle Farm', 'Eagle Farm', 'QLD', '4009', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Toowoomba', 'Toowoomba', 'QLD', '4350', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Townsville', 'Townsville', 'QLD', '4810', 'Monday to Friday, 7am to 3pm'),
+      ('Sample Depot Parramatta', 'Parramatta', 'NSW', '2150', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Dandenong', 'Dandenong', 'VIC', '3175', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Geelong', 'Geelong', 'VIC', '3220', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Elizabeth', 'Elizabeth', 'SA', '5112', 'Monday to Friday, 8am to 4pm'),
+      ('Sample Depot Moonah', 'Moonah', 'TAS', '7009', 'Monday to Friday, 8am to 3pm'),
+      ('Sample Depot Bunbury', 'Bunbury', 'WA', '6230', 'Monday to Friday, 8am to 4pm');
+    insert into public.depot_private (depot_id, address, phone, email)
+      select id, 'Sample yard, ' || suburb || ' ' || state || ' ' || postcode, '0400000001', 'depot@tyrebiter.com.au' from public.depots;
+    alter table public.lots disable trigger lot_transport_lock;
+    update public.lots l set depot_id = d.id, statutory_warranty = false,
+      transport_fee = case l.category when 'trucks' then 650 when 'caravans' then 450 when 'boats' then 350 when 'motorbikes' then 180 else 250 end
+      from public.depots d where d.suburb = l.suburb and d.state = l.state;
+    update public.lots set fees = fees || jsonb_build_object('transport', transport_fee) where fees is not null and transport_fee is not null;
+    alter table public.lots enable trigger lot_transport_lock;
+  else
+    update public.lots set statutory_warranty = false where statutory_warranty is null;
+  end if;
+end $$;
 
 -- Sample transport and warranty partners (shown in test mode only). Replace before launch.
 insert into public.partners (kind, slug, name, licence, blurb, price_from, turnaround, referral_url, commission_note, sample, active, sort, accepts_leads) values
@@ -159,7 +198,8 @@ begin
          estimate_low = o.lo, estimate_high = o.hi, roadworthy_note = null
     from (values (10432, 1, 3500, 4300), (10611, 2, 5500, 6800), (10633, 3, 6000, 7500), (10620, 4, 3000, 4000),
                  (10599, 5, 25000, 30000), (10660, 6, 7000, 8500), (10661, 7, 24000, 29000), (10662, 8, 14000, 17000),
-                 (10588, 9, 32000, 38000), (10590, 10, 52000, 62000)) o(id, n, lo, hi)
+                 (10588, 9, 32000, 38000), (10590, 10, 52000, 62000),
+                 (10701, 11, 48000, 58000), (10702, 12, 68000, 80000), (10703, 13, 55000, 65000), (10704, 14, 62000, 72000)) o(id, n, lo, hi)
    where l.id = o.id;
   update public.lot_private set estimate_basis = 'Sample estimate: recent sales of similar vehicles (same model, age and kilometres). Replace with your own evidence.'
    where lot_id in (select id from public.lots where sale_id = v_sale);
@@ -168,5 +208,12 @@ begin
      and public.roadworthy_needed(coalesce(rego_state, state), year, category, gvm_kg) is not null;
   perform public.live_estimates(v_sale);
 end $$;
+
+-- Only what we sell, where we sell it: with the catalogue set to trucks in Queensland, New South Wales and Western
+-- Australia, the other sample vehicles go, and the sample auction is renumbered. (The older database checks run with
+-- every category and state switched on, so nothing is removed there.)
+delete from public.lots where not (category = any(public.selling_categories())) or not (upper(state) = any(public.selling_states()));
+update public.lots l set sale_order = o.n from (select id, row_number() over (order by sale_order, id) n from public.lots where sale_id is not null) o
+  where o.id = l.id and l.sale_order is distinct from o.n;
 
 alter table public.lots enable trigger lot_corrections_log;

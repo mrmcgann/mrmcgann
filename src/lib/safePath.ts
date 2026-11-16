@@ -5,8 +5,8 @@ export function safePath(next: string | null | undefined, fallback = "/account")
   if (!s.startsWith("/") || s.startsWith("//") || s.startsWith("/\\")) return fallback;
   if (/[\u0000-\u001f\\]/.test(s)) return fallback;
   try {
-    const u = new URL(s, "https://tyrebiter.invalid");
-    if (u.origin !== "https://tyrebiter.invalid") return fallback;
+    const u = new URL(s, "https://supertrucker.invalid");
+    if (u.origin !== "https://supertrucker.invalid") return fallback;
     return u.pathname + u.search + u.hash;
   } catch {
     return fallback;

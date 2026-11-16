@@ -1,4 +1,4 @@
-# Tyrebiter
+# Super Trucker
 
 Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, like Turners Live: a licensed auctioneer offers each vehicle and it sells under the hammer, with an auction estimate on every listing. Sellers send the photos and a walkaround video; we check them against the records and are never at the vehicle.
 
@@ -112,7 +112,7 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:
    ```html
-   <h2>Your Tyrebiter code: {{ .Token }}</h2>
+   <h2>Your Super Trucker code: {{ .Token }}</h2>
    <p>Enter this code on the sign-up page, or <a href="{{ .ConfirmationURL }}">tap here to confirm</a>.</p>
    ```
    Do the same for **Magic Link** (used when someone asks for a new code).
@@ -157,7 +157,7 @@ Stripe is only used for ID checks (no cards are taken). The ID check is what mak
 ### 5. Twilio (SMS)
 1. Create an account at twilio.com.
 2. Create a **Verify** service and copy its SID into `TWILIO_VERIFY_SERVICE_SID`.
-3. Register your sender ID "Tyrebiter" on the **ACMA SMS Sender ID Register** (mandatory since 1 July 2026; unregistered brand names show as "Unverified"). Then create a **Messaging Service** with it and put its SID in `TWILIO_MESSAGING_SERVICE_SID` (or a number in `TWILIO_FROM_NUMBER`).
+3. Register your sender ID "Super Trucker" on the **ACMA SMS Sender ID Register** (mandatory since 1 July 2026; unregistered brand names show as "Unverified"). Then create a **Messaging Service** with it and put its SID in `TWILIO_MESSAGING_SERVICE_SID` (or a number in `TWILIO_FROM_NUMBER`).
 4. **Messaging → Settings → Geo permissions**: allow Australia only. Keep **Fraud Guard** on in Verify. This stops SMS pumping fraud.
 5. Throughput is about 10 texts a second per sender. Ask Twilio to raise it before launch if you expect big watchlists; payment and outbid texts always go first, and "ending soon" texts that can't go out in time are skipped rather than sent late.
 
@@ -167,7 +167,7 @@ Create an account at resend.com, verify `tyrebiter.com.au` (add the SPF, DKIM an
 ### 7. Taking money: the trust account and PayID
 1. Open a trust account (the motor dealer and agent trust account laws require one for buyers' money: see `docs/legal-basis.md`) with your bank, with a PayID (an email or ABN PayID such as `pay@tyrebiter.com.au`). Put its details in the `NEXT_PUBLIC_BANK_*` and `NEXT_PUBLIC_PAYID` variables. They show on every deposit and invoice page with copy buttons and a scam warning.
 2. Until you add a PayID provider, when a buyer's payment shows on the statement (their invoice number is the reference), press **Admin → Invoices → Balance received**. With bidding deposits switched on, deposits are recorded in **Admin → Deposits** the same way (their BID… reference, the amount, and the payer's name, BSB and account, which is where refunds go; it asks you to check if the name doesn't match the member).
-3. Optional, so deposits record themselves: an **Azupay** account (Australian, PayTo/PayID payments). Set `AZUPAY_CLIENT_ID`, `AZUPAY_SECRET_KEY` and `AZUPAY_API_URL` (their UAT address first). Bidders then get a "Get a PayID for $X" button: a single-use PayID for that exact amount that shows "Tyrebiter" before they pay, and the payment is recorded the moment Azupay tells `/api/payments/azupay`. Check the field names in `src/lib/payid.ts` against your Azupay onboarding pack before switching it on.
+3. Optional, so deposits record themselves: an **Azupay** account (Australian, PayTo/PayID payments). Set `AZUPAY_CLIENT_ID`, `AZUPAY_SECRET_KEY` and `AZUPAY_API_URL` (their UAT address first). Bidders then get a "Get a PayID for $X" button: a single-use PayID for that exact amount that shows "Super Trucker" before they pay, and the payment is recorded the moment Azupay tells `/api/payments/azupay`. Check the field names in `src/lib/payid.ts` against your Azupay onboarding pack before switching it on.
 4. Refunds: **Admin → Deposits → Refunds to send** lists each withdrawal with the full BSB and account it came from. Pay it from your bank, then press **Mark sent** (the member is told).
 
 ---
@@ -220,7 +220,7 @@ PGPORT=55432 node tests/load/storm.mjs     # sale day, last-second snipe, 2,000 
 `tests/load/mock-supabase.mjs` + `tests/load/web.mjs` load-test the website itself. Results from the last run are in `tests/load/results/` and summarised in `tests/load/RESULTS.md`.
 
 ## Phone apps (iPhone and Android)
-The `mobile/` folder is the Tyrebiter app for the App Store and Google Play. It uses this website's database and API, so deploy the website first. Step-by-step store setup, costs and the listing copy are in [`mobile/README.md`](mobile/README.md) and [`mobile/store/LISTING.md`](mobile/store/LISTING.md).
+The `mobile/` folder is the Super Trucker app for the App Store and Google Play. It uses this website's database and API, so deploy the website first. Step-by-step store setup, costs and the listing copy are in [`mobile/README.md`](mobile/README.md) and [`mobile/store/LISTING.md`](mobile/store/LISTING.md).
 
 ## Finance, insurance and inspections (partner income)
 Like carsales and Trade Me, the site earns from finance, insurance and inspection partners: a fee per enquiry, per funded loan or per policy, agreed with each partner. Buyers see the partners on `/finance`, `/insurance` and every listing.
@@ -267,12 +267,12 @@ One page, six parts, signed at the bottom (`src/app/sell/SellForm.tsx`; rules in
 ## Transfer of ownership (between payment and collection)
 When an invoice is paid in full, the buyer's invoice shows a **Transfer of ownership** step and the seller's dashboard shows theirs, with the steps and official links for the vehicle's state (`src/lib/transfer.ts`, checked October 2026; recheck each state's page before launch).
 - **Registered:** the seller lodges their part (notice of disposal, or starting the transfer online); your consultant gives them the buyer's details the form needs. The buyer transfers the registration and uploads the confirmation (or enters the receipt number). Check it in **Admin → Transfers** and complete it. A buyer who can't register it in that state can choose to take it unregistered: the seller cancels the registration and keeps the plates.
-- **Unregistered:** the buyer confirms the certificate of sale (a PDF from their invoice, issued by Tyrebiter as agent for the owner) and how it will be moved: carrier, trailer, or the state's unregistered vehicle permit. This completes straight away.
+- **Unregistered:** the buyer confirms the certificate of sale (a PDF from their invoice, issued by Super Trucker as agent for the owner) and how it will be moved: carrier, trailer, or the state's unregistered vehicle permit. This completes straight away.
 - Collection can only be booked once the transfer is complete and the vehicle is at our depot (and the buyer has answered any change the driver found at pickup); the collection window starts then. The buyer gets the depot's address with the confirmed time. The seller's address never goes to a buyer.
 - Proof files are kept in the private `transfer-docs` storage bucket.
 
 ## Terms, payment and liability (version 23 October 2026)
-Written in our own words after comparing the payment terms and site terms of Grays/Slattery, Pickles and Manheim, keeping what protects buyers, sellers and Tyrebiter and leaving out terms the unfair contract terms laws catch (termination "for any reason", 1%-a-day late fees, one-sided changes, blanket exclusions). `src/content/legal.ts`: Terms of sale (20 sections), Seller agency agreement, Website terms (`/website-terms`), Help.
+Written in our own words after comparing the payment terms and site terms of Grays/Slattery, Pickles and Manheim, keeping what protects buyers, sellers and Super Trucker and leaving out terms the unfair contract terms laws catch (termination "for any reason", 1%-a-day late fees, one-sided changes, blanket exclusions). `src/content/legal.ts`: Terms of sale (20 sections), Seller agency agreement, Website terms (`/website-terms`), Help.
 - **Paying (sections 6, 8 and 11):** by default (like Turners) nothing before bidding but a verified ID; the winner pays the full amount by PayID or bank transfer within 2 business days (their lender may pay). With bidding deposits switched on, a refundable deposit first and the deposit for the price goes onto the invoice. The Terms, Help and Privacy show the wording for whichever is on (`[[transfer]]`/`[[deposit]]` in `src/content/legal.ts`); after switching, save a new terms version. No cards, cash or cheques; payments only from an account in the buyer's name (others are sent back); refunds only to the account money came from; nothing released until funds clear. Interest on overdue balances at the rate in **Fees & settings** (default 10% a year, capped at 20), no other late fees. Never "non-refundable": the deposit is kept only if the buyer doesn't pay.
 - **Why deposits, not cards:** a card payment can be disputed for months (chargebacks), and a merchant-initiated charge has no fraud liability shift. A PayID or bank transfer can't be charged back: once it has cleared, the buyer can't reverse it through a dispute (a bank can only try to recall a payment for fraud or a mistake, which is why it must come from the buyer's own account). And nobody pays a surcharge. Copart and Manheim take bidding deposits the same way.
 - **Not paying:** an overdue reminder (clock), then 1 business day. **Admin → Invoices → Cancel: buyer didn't pay** refuses earlier, bans the buyer (no new account for the same person), and with deposits keeps the deposit applied to that vehicle (half to the seller). No cancellation fee. The Terms keep the right to recover an actual shortfall if the vehicle resells for less.
@@ -332,7 +332,7 @@ Nothing online is unhackable, so the site is built in layers: if one is beaten, 
 - **Admins need two-step sign-in.** An admin's password alone gets nothing: no Admin pages, no admin API and no admin rights in the database. Each admin sets up an authenticator app the first time they open Admin. Admin → Security shows who has admin access, who has set up two-step, and can switch it off (please don't).
 - **Admin log.** Everything admins do (in Admin and straight to the database from the vehicle editor) is written to a log that nobody can change or delete, with the network and device. Bank details, passwords and codes are never written to it. Every admin is told at once when someone is made an admin, and Site health warns about new admins and repeated refused admin requests.
 - **Browser protections on every page:** a Content Security Policy (only our site, Supabase and Stripe can load anything), no framing (stops click-jacking), HTTPS-only once live (HSTS), and signed-in pages never stored by shared caches.
-- **Requests from other sites are refused.** Another website can't make a signed-in member's browser bid, pay or change their details. Sign-in links only ever send people to pages on Tyrebiter.
+- **Requests from other sites are refused.** Another website can't make a signed-in member's browser bid, pay or change their details. Sign-in links only ever send people to pages on Super Trucker.
 - **Limits** on SMS codes, ID checks, profile changes, claims, questions, reports and forms, on top of Vercel's firewall rules (step 2.6 above) and Supabase's own sign-in limits.
 - **Checked on every change:** the Tests workflow runs the security tests and `npm audit` (known holes in the packages the site runs on) and looks for passwords or keys accidentally committed. GitHub's CodeQL scans the code for security holes every week and on every change, and Dependabot opens a pull request when a package gets a security fix.
 - **Reporting:** `/.well-known/security.txt` and `/security-policy` tell security researchers how to report a hole privately (set `SECURITY_EMAIL`, otherwise it uses the support address).

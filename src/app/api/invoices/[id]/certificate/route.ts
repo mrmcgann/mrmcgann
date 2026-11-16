@@ -2,7 +2,7 @@ import { currentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { saleCertificatePdf } from "@/lib/pdf";
 
-// Certificate of sale: Tyrebiter, as agent for the owner, sold this vehicle to the buyer.
+// Certificate of sale: Super Trucker, as agent for the owner, sold this vehicle to the buyer.
 // The buyer's proof of ownership (and what an unregistered vehicle's new owner keeps).
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

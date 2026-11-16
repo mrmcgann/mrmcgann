@@ -38,7 +38,7 @@ export async function probeSite(db: Db = supabaseAdmin()): Promise<Probe> {
     const t = Date.now();
     try {
       const r = await fetch(`${env.siteUrl}${path}`, { cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10_000),
-        headers: { "user-agent": "TyrebiterHealthCheck/1.0" } });
+        headers: { "user-agent": "SuperTruckerHealthCheck/1.0" } });
       await r.arrayBuffer().catch(() => null);
       return { path, status: r.status, ms: Date.now() - t };
     } catch (e) {
@@ -56,7 +56,7 @@ async function directAlert(reason: string) {
   const to = process.env.HEALTH_ALERT_EMAIL;
   if (!to || Date.now() - lastDirect < 30 * 60_000) return;
   lastDirect = Date.now();
-  await sendEmail({ to, subject: "Tyrebiter problem: the database isn't answering",
+  await sendEmail({ to, subject: "Super Trucker problem: the database isn't answering",
     text: `The site's health check couldn't reach the database: ${reason}\n\nCheck status.supabase.com and your Supabase project. Site health: ${env.siteUrl}/admin/health`,
     html: `<p>The site's health check couldn't reach the database: ${reason.replace(/[<>&]/g, "")}</p><p>Check status.supabase.com and your Supabase project. <a href="${env.siteUrl}/admin/health">Site health</a></p>` }).catch(() => null);
 }

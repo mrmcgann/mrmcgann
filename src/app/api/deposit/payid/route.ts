@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const { data: row, error } = await admin.from("payment_requests").insert({ user_id: user.id, purpose: "deposit", amount, provider: "azupay", expires_at: expires.toISOString() }).select("id").single();
   if (error || !row) return fail("We couldn't set that up. Use the bank details instead.");
   try {
-    const r = await createPayId({ requestId: row.id, amount, description: `Tyrebiter bidding deposit ${p.deposit_ref}`, expiresAt: expires, payerName: `${p.first_name} ${p.last_name}` });
+    const r = await createPayId({ requestId: row.id, amount, description: `Super Trucker bidding deposit ${p.deposit_ref}`, expiresAt: expires, payerName: `${p.first_name} ${p.last_name}` });
     await admin.from("payment_requests").update({ payid: r.payId, provider_id: r.providerId || null, raw: r.raw as object }).eq("id", row.id);
     return json({ id: row.id, payId: r.payId, amount, expiresAt: expires.toISOString() });
   } catch {

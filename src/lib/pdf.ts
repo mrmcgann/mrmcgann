@@ -83,8 +83,8 @@ async function newSheet() {
   const doc = await PDFDocument.create();
   const page = doc.addPage([595.28, 841.89]);
   const sheet = new Sheet(page, await doc.embedFont(StandardFonts.Helvetica), await doc.embedFont(StandardFonts.HelveticaBold));
-  sheet.text("Tyrebiter", 50, 22, { bold: true });
-  sheet.text(".", 50 + sheet.bold.widthOfTextAtSize("Tyrebiter", 22), 22, { bold: true, color: BLUE });
+  sheet.text("Super Trucker", 50, 22, { bold: true });
+  sheet.text(".", 50 + sheet.bold.widthOfTextAtSize("Super Trucker", 22), 22, { bold: true, color: BLUE });
   sheet.text(`${env.legalName}  ·  ABN ${env.abn}`, 0, 9, { color: MUTED, right: 545 });
   sheet.line(12);
   sheet.text(env.address, 0, 9, { color: MUTED, right: 545 });
@@ -144,11 +144,11 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   }
   s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? (bank ? (fromDeposit > 0 ? "Deposit applied, balance due" : "Payment due") : "Deposit paid, balance due") : inv.status.replace("_", " "), { bold: true });
   s.line(10); s.rule();
-  s.wrap(`Tyrebiter sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is held in our trust account and paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and this tax invoice covers the vehicle too: we're treated as its supplier under Subdivision 153-B of the GST Act.`, 50, 495, 8);
+  s.wrap(`Super Trucker sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is held in our trust account and paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and this tax invoice covers the vehicle too: we're treated as its supplier under Subdivision 153-B of the GST Act.`, 50, 495, 8);
   s.line(4);
   s.wrap(buyerNotice(lot, after), 50, 495, 8);
 
-  return { bytes: await doc.save(), filename: `Tyrebiter-${inv.ref}.pdf` };
+  return { bytes: await doc.save(), filename: `SuperTrucker-${inv.ref}.pdf` };
 }
 
 // Certificate of sale: the buyer's proof that they own the vehicle. For an unregistered vehicle it's
@@ -193,7 +193,7 @@ export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Ui
   s.wrap(buyerNotice(lot, after), 50, 495, 8);
   s.line(8);
   s.wrap(`Issued ${day(new Date().toISOString())}. Check it at ${env.siteUrl.replace(/^https?:\/\//, "")} or call ${env.phone}, quoting ${inv.ref}.`, 50, 495, 8);
-  return { bytes: await doc.save(), filename: `Tyrebiter-certificate-of-sale-${inv.ref}.pdf` };
+  return { bytes: await doc.save(), filename: `SuperTrucker-certificate-of-sale-${inv.ref}.pdf` };
 }
 
 // Settlement statement for a seller.
@@ -222,7 +222,7 @@ export async function statementPdf(payoutId: string): Promise<{ bytes: Uint8Arra
   s.row("Status", p.status === "paid" ? `Paid ${day(p.paid_at)}${p.payment_ref ? ` · ref ${p.payment_ref}` : ""}` : p.status === "on_hold" ? `On hold: ${p.hold_reason || ""}` : p.status === "ready" ? "Ready to pay" : "Waiting for collection and the buyer's claim window");
   s.line(10);
   s.wrap(`Paid under your Seller Agency Agreement with ${env.legalName}. GST on our fee is a taxable supply by us; this statement is a tax invoice for that fee.`, 50, 495, 8);
-  return { bytes: await doc.save(), filename: `Tyrebiter-settlement-${p.lot_id}.pdf` };
+  return { bytes: await doc.save(), filename: `SuperTrucker-settlement-${p.lot_id}.pdf` };
 }
 
 // The Seller Agency Agreement as the seller signed it on the sell form: what they told us, every clause, and their
@@ -391,7 +391,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   else para("Buyer: not signed yet. Sign on the offer page to accept.", 9, INK);
   s.line(6);
   para("Keep this copy with the vehicle's papers.", 8);
-  return { bytes: await doc.save(), filename: `Tyrebiter-contract-${ref}.pdf` };
+  return { bytes: await doc.save(), filename: `SuperTrucker-contract-${ref}.pdf` };
 }
 
 /** The winning bidder's sale contract: the record of the contract made at the fall of the hammer, with the
@@ -511,5 +511,5 @@ export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint
   para(ackNote(st));
   s.line(6);
   para(`Issued ${day(new Date().toISOString())} by ${env.legalName}. Questions: ${env.phone} or ${env.supportEmail}, quoting ${inv.ref}. Keep this with the vehicle's papers.`, 8);
-  return { bytes: await doc.save(), filename: `Tyrebiter-sale-contract-${inv.ref}.pdf` };
+  return { bytes: await doc.save(), filename: `SuperTrucker-sale-contract-${inv.ref}.pdf` };
 }

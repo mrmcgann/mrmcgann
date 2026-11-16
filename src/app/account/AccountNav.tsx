@@ -11,7 +11,7 @@ export function AccountNav({ current, profile }: { current: "account" | "deposit
       <span className="h">Account</span><Link href="/account" className={on("account")}>Account &amp; verification</Link><Link href="/account#invoices">Invoices</Link><Link href="/account/dealer" className={on("dealer")}>Dealer account</Link>
       <Link href="/account/notifications" className={on("notifications")}>Notifications{profile.unread ? <span>{profile.unread}</span> : null}</Link><Link href="/terms">Terms of sale</Link>
       {profile.is_seller && <><span className="h">Selling</span><Link href="/sell/dashboard">My vehicles for sale</Link></>}
-      {profile.role === "admin" && <><span className="h">Tyrebiter</span><Link href="/admin">Admin</Link></>}
+      {profile.role === "admin" && <><span className="h">Super Trucker</span><Link href="/admin">Admin</Link></>}
     </nav>
   );
 }

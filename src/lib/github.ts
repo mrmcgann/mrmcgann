@@ -22,7 +22,7 @@ export async function gh<T = unknown>(path: string, init: { method?: string; bod
       Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
       Accept: init.raw ? "application/vnd.github.raw+json" : "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "tyrebiter-site-health",
+      "User-Agent": "supertrucker-site-health",
       ...(init.body ? { "Content-Type": "application/json" } : {}),
     },
     body: init.body ? JSON.stringify(init.body) : undefined,

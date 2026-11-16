@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Reporting a security problem", description: "Found a security hole in Tyrebiter? Tell us privately and we'll fix it.", alternates: { canonical: "/security-policy" } };
+export const metadata: Metadata = { title: "Reporting a security problem", description: "Found a security hole in Super Trucker? Tell us privately and we'll fix it.", alternates: { canonical: "/security-policy" } };
 
 const email = process.env.SECURITY_EMAIL || env.supportEmail;
 
@@ -20,7 +20,7 @@ const SECTIONS: [string, string[]][] = [
     "We don't pay rewards for reports at the moment.",
   ]],
   ["Not a security problem", [
-    "Problems with a vehicle, a sale or a payment go to our help team through the Help page. If someone has asked you to pay for a vehicle outside Tyrebiter, or our bank details look different from usual, don't pay: call us on the number on our website first.",
+    "Problems with a vehicle, a sale or a payment go to our help team through the Help page. If someone has asked you to pay for a vehicle outside Super Trucker, or our bank details look different from usual, don't pay: call us on the number on our website first.",
   ]],
 ];
 

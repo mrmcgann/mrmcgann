@@ -16,7 +16,7 @@ const APP_STORE_ID = /id(\d{6,12})/.exec(process.env.NEXT_PUBLIC_APP_STORE_URL |
 const fraunces = Fraunces({ subsets: ["latin"], style: ["italic"], weight: ["500", "600"], variable: "--font-fraunces" });
 
 export const metadata: Metadata = {
-  title: { default: "Tyrebiter · Car and truck auctions Australia-wide", template: "%s · Tyrebiter" },
+  title: { default: "Super Trucker · Car and truck auctions Australia-wide", template: "%s · Super Trucker" },
   description: "Live online auctions for cars, utes, trucks, bikes, caravans, boats and machinery Australia-wide. An estimate on every listing, PPSR searched, all-in prices shown.",
   metadataBase: new URL(env.siteUrl),
   // iPhone Safari shows an "Open in the app" banner once the app is on the App Store.

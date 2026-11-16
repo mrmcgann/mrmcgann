@@ -20,7 +20,7 @@ export function auctionConditions(o: { payMode: PayMode; payDays?: number }): Co
   const days = o.payDays ?? 2;
   return [
     { head: "We sell for the owner.", terms: "t-agent",
-      text: "Tyrebiter sells each vehicle as its owner's agent, in an auction run by our licensed auctioneer. Your contract is with the owner, on our Terms of Sale. We keep the owner's details private and deal with everything for you." },
+      text: "Super Trucker sells each vehicle as its owner's agent, in an auction run by our licensed auctioneer. Your contract is with the owner, on our Terms of Sale. We keep the owner's details private and deal with everything for you." },
     { head: "As is, where is.", terms: "t-asis",
       text: "Every vehicle is sold in its condition when the hammer falls, with any faults that aren't described. Condition reports, grades and estimates are a guide only. There's no cooling-off period for a sale by auction." },
     { head: "We're never at the vehicle.", terms: "t-condition",

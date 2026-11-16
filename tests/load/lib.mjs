@@ -9,7 +9,7 @@ export const PG = {
   port: Number(process.env.PGPORT || 5432),
   user: process.env.PGUSER || 'postgres',
 };
-export const DB = process.env.SCALE_DB || 'tyrebiter_scale';
+export const DB = process.env.SCALE_DB || 'supertrucker_scale';
 
 export const uid = (i) => md5uuid('u' + i);
 export function md5uuid(s) {

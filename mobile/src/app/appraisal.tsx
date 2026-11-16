@@ -248,7 +248,7 @@ const s = StyleSheet.create({
   link: { fontFamily: F.bold, color: C.blue },
 });
 
-// What similar vehicles have sold for on Tyrebiter: our own results, only with at least 3 sales.
+// What similar vehicles have sold for on Super Trucker: our own results, only with at least 3 sales.
 function SoldGuide({ make, model, year }: { make: string; model: string; year: string }) {
   const [r, setR] = useState<{ count: number; low?: number; high?: number } | null>(null);
   useEffect(() => {
@@ -261,7 +261,7 @@ function SoldGuide({ make, model, year }: { make: string; model: string; year: s
   const aud = (n: number) => `$${Math.round(n).toLocaleString("en-AU")}`;
   return (
     <Notice kind="info">
-      <T v="body" style={{ fontSize: 14, lineHeight: 20 }} testID="sold-guide"><Text style={{ fontFamily: F.bold }}>Similar vehicles we've sold: {aud(r.low)} to {aud(r.high)}. </Text>The middle half of {r.count} {make} {model} sales on Tyrebiter in the last 18 months (hammer prices). Based on past results, not a valuation of your vehicle: your consultant gives you a price guide after seeing it.</T>
+      <T v="body" style={{ fontSize: 14, lineHeight: 20 }} testID="sold-guide"><Text style={{ fontFamily: F.bold }}>Similar vehicles we've sold: {aud(r.low)} to {aud(r.high)}. </Text>The middle half of {r.count} {make} {model} sales on Super Trucker in the last 18 months (hammer prices). Based on past results, not a valuation of your vehicle: your consultant gives you a price guide after seeing it.</T>
     </Notice>
   );
 }

@@ -75,7 +75,7 @@ export default function LotScreen() {
       title: b ? `Lot ${lotId}` : "",
       headerRight: () => (
         <View style={{ flexDirection: "row", gap: 4 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Share" hitSlop={8} style={s.hbtn} onPress={() => Share.share({ message: `${b?.lot.title || "Tyrebiter"} ${SITE}/lot/${lotId}`, url: `${SITE}/lot/${lotId}` })}><Icon name="share" size={21} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Share" hitSlop={8} style={s.hbtn} onPress={() => Share.share({ message: `${b?.lot.title || "Super Trucker"} ${SITE}/lot/${lotId}`, url: `${SITE}/lot/${lotId}` })}><Icon name="share" size={21} /></Pressable>
           <Pressable testID="lot-watch" accessibilityRole="button" accessibilityLabel={watched.has(lotId) ? "Remove from watchlist" : "Add to watchlist"} hitSlop={8} style={s.hbtn} onPress={() => toggle(lotId)}><Icon name={watched.has(lotId) || mine?.watched ? "heartOn" : "heart"} size={22} /></Pressable>
         </View>
       ),
@@ -160,7 +160,7 @@ export default function LotScreen() {
               {warrantySign(lot.statutory_warranty) ? <T v="strong" testID="warranty-sign">{warrantySign(lot.statutory_warranty)}</T> : null}
               {coolingOffSign(lot.state) ? <T v="strong" testID="cooling-sign">{coolingOffSign(lot.state)}</T> : null}
               <T v="small">{premiumLabel(lotFees(fees, lot))}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</T>
-              <T v="small">Sold in a live auction, under the hammer, by Tyrebiter as agent for the owner. Only registered, verified bidders can bid.</T>
+              <T v="small">Sold in a live auction, under the hammer, by Super Trucker as agent for the owner. Only registered, verified bidders can bid.</T>
             </Soft>
           ) : null}
           {["live", "scheduled", "offers", "referred"].includes(lot.status) ? <FinanceBox lotId={lot.id} finance={finance} insurers={!!b.insurers} buyNow={!!lot.buy_now_price} warranty={!!b.warranty} /> : null}
@@ -181,7 +181,7 @@ export default function LotScreen() {
             {show(facts).map(([k, v]) => <View key={k} style={s.fact}><T v="small">{k}</T><T v="strong" selectable>{String(v)}</T></View>)}
           </View>
           {lot.runs ? <T v="small">{RUNS_HINT[lot.runs]}</T> : null}
-          <T v="small">VIN, registration and PPSR are checked by Tyrebiter against the official records before listing. Odometer and hours readings are from the seller's photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
+          <T v="small">VIN, registration and PPSR are checked by Super Trucker against the official records before listing. Odometer and hours readings are from the seller's photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-states`)}>rego and plates ›</Text></T>
         </View>
 
         <View style={s.pad}>
@@ -239,7 +239,7 @@ export default function LotScreen() {
               <View style={{ flex: 1 }}><T v="strong">{k}</T><T v="small">{v}</T></View>
             </View>
           ))}
-          <T v="small">Green: checked by Tyrebiter. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We're never at the vehicle. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
+          <T v="small">Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We're never at the vehicle. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
         </View>
 
         {show(declared).length ? (
@@ -298,7 +298,7 @@ export default function LotScreen() {
         </View>
 
         <View style={s.pad}>
-          <Soft><T v="strong">Buying safely.</T><T v="muted">Pay Tyrebiter only, never the seller. Our bank details never change by email or SMS.{config?.phone ? ` If anything looks wrong, call ${config.phone}.` : ""}</T><ReportLink lotId={lot.id} path={path} /></Soft>
+          <Soft><T v="strong">Buying safely.</T><T v="muted">Pay Super Trucker only, never the seller. Our bank details never change by email or SMS.{config?.phone ? ` If anything looks wrong, call ${config.phone}.` : ""}</T><ReportLink lotId={lot.id} path={path} /></Soft>
           <LinkText title="How claims and collection work ›" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)} />
         </View>
 

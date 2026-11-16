@@ -93,7 +93,7 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
   const t = JSON.stringify(fillLegal({ TERMS, HELP, PRIVACY, SELLER_AGREEMENT, WEBSITE_TERMS }, { selling: { pre_inspection_fee: 249 } }));
   const seller = JSON.stringify(SELLER_AGREEMENT), privacy = JSON.stringify(PRIVACY);
   ok('no viewings or test drives, anywhere', /There are no viewings, video calls or test drives/.test(terms) && /no viewings or test drives/i.test(help) && !/strictly by appointment|free video walkaround|in-person viewing|view it in person/i.test(t));
-  ok('inspection: optional, through our partner, paid by the bidder, independent', /mechanical inspection/.test(t) && /independent of Tyrebiter/.test(t) && /You pay the mechanic/.test(terms) && /You don’t attend, and you aren’t given the address/.test(terms));
+  ok('inspection: optional, through our partner, paid by the bidder, independent', /mechanical inspection/.test(t) && /independent of Super Trucker/.test(t) && /You pay the mechanic/.test(terms) && /You don’t attend, and you aren’t given the address/.test(terms));
   ok('inspection: the report says what couldn’t be checked (no hoist)', /without a hoist/i.test(terms) && /Without a hoist/.test(help));
   ok('pre-inspection: fee from the proceeds, only if it sells', t.includes('$249 including GST') && /only if it sells|nothing to pay/.test(t));
   ok('transport: in the buyer’s premium, shown before bidding, fixed once it opens', /plus the vehicle’s transport to our depot/.test(terms) && /set before bidding opens and doesn’t change once it has/.test(terms) && /Why is transport in the buyer’s premium\?/.test(help));

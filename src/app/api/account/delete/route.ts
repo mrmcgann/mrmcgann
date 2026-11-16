@@ -44,8 +44,8 @@ export async function POST(req: Request) {
   }).catch(() => undefined);
   if (before?.email) {
     await sendEmail({
-      to: before.email, subject: "Your Tyrebiter account has been deleted",
-      text: `Your Tyrebiter account and personal details have been deleted. We keep records of any purchases or sales only for as long as tax law requires.\n\nIf you didn't ask for this, call us on ${env.phone}.\n\n${env.legalName} · ABN ${env.abn}`,
+      to: before.email, subject: "Your Super Trucker account has been deleted",
+      text: `Your Super Trucker account and personal details have been deleted. We keep records of any purchases or sales only for as long as tax law requires.\n\nIf you didn't ask for this, call us on ${env.phone}.\n\n${env.legalName} · ABN ${env.abn}`,
     }).catch(() => undefined);
   }
   return json({ ok: true });

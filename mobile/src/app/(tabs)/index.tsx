@@ -40,7 +40,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
       <View style={s.top}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><LogoMark size={26} /><Text style={s.word}>tyrebiter</Text></View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><LogoMark size={26} /><Text style={s.word}>super trucker</Text></View>
         {signedIn ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`Notifications${unread ? `, ${unread} unread` : ""}`} onPress={() => router.push("/notifications")} style={s.iconBtn} hitSlop={6}>
             <Icon name="bell" />
@@ -91,7 +91,7 @@ export default function Home() {
           </View>
         </View>
 
-        {err && !data ? <Empty title="Can't reach Tyrebiter." sub={err}><Button title="Try again" onPress={load} /></Empty> : null}
+        {err && !data ? <Empty title="Can't reach Super Trucker." sub={err}><Button title="Try again" onPress={load} /></Empty> : null}
         {!data && !err ? <Loading /> : null}
 
         {f ? (
@@ -119,7 +119,7 @@ export default function Home() {
         ) : null}
 
         <View style={s.sell}>
-          <T v="eyebrow" style={{ color: C.sun }}>Sell with Tyrebiter</T>
+          <T v="eyebrow" style={{ color: C.sun }}>Sell with Super Trucker</T>
           <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>From your driveway.</Text></Text>
           <Text style={s.sellBody}>Send us photos and a short video from your phone. We check them, auction it live Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
           <Button testID="home-sell" kind="white" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />

@@ -40,17 +40,17 @@ export function ValueTool() {
         <div className="soft" style={{ gap: 10, background: "var(--mint)" }} data-testid="value-result" role="status">
           <span style={{ fontWeight: 700 }}>{[year, make, model].filter(Boolean).join(" ")}</span>
           <b style={{ fontSize: "clamp(36px,6vw,56px)", letterSpacing: "-0.04em", lineHeight: 1 }}>{money(r.low!)} to {money(r.high!)}</b>
-          <span>Most sold for about <b>{money(r.mid)}</b>, from {r.count} sales on Tyrebiter{year ? " within two years of that age" : ""} in the last 18 months. Condition, kilometres and options move the price a lot, so treat it as a guide.</span>
+          <span>Most sold for about <b>{money(r.mid)}</b>, from {r.count} sales on Super Trucker{year ? " within two years of that age" : ""} in the last 18 months. Condition, kilometres and options move the price a lot, so treat it as a guide.</span>
           <div className="pill-row"><Link className="btn btn-dark" href={sell}>Get a free appraisal</Link><Link className="btn btn-soft" style={{ background: "#FFFFFF" }} href={`/auctions?${new URLSearchParams({ make, model })}`}>See them for sale</Link></div>
         </div>
       ) : (
         <div className="soft" style={{ gap: 10 }} data-testid="value-result" role="status">
-          <b style={{ fontSize: 20 }}>Not enough sales of the {make} {model} on Tyrebiter yet to give a fair range.</b>
+          <b style={{ fontSize: 20 }}>Not enough sales of the {make} {model} on Super Trucker yet to give a fair range.</b>
           <span>We only show a range when at least three have sold, so it means something. Ask for a free appraisal instead: we&apos;ll look at yours and tell you what we&apos;d expect it to fetch.</span>
           <Link className="btn btn-dark" style={{ alignSelf: "flex-start" }} href={sell}>Get a free appraisal</Link>
         </div>
       ))}
-      <p className="hint">From vehicles sold on Tyrebiter (the winning bid, before fees). Not a formal valuation for insurance, finance or tax.</p>
+      <p className="hint">From vehicles sold on Super Trucker (the winning bid, before fees). Not a formal valuation for insurance, finance or tax.</p>
     </div>
   );
 }

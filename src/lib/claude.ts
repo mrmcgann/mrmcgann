@@ -26,7 +26,7 @@ type Block = { type: "text"; text: string } | { type: "tool_use"; id: string; na
   | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
 type Msg = { role: "user" | "assistant"; content: string | Block[] };
 
-const SYSTEM = `You are the site reliability assistant inside the admin panel of Tyrebiter, an Australian online vehicle auction (Next.js 15 on Vercel, Supabase Postgres, Stripe, Twilio, Resend, an Expo phone app). An every-minute "clock" cron closes auctions, charges winners and sends alerts; money and bidding rules live in SQL functions.
+const SYSTEM = `You are the site reliability assistant inside the admin panel of Super Trucker, an Australian online vehicle auction (Next.js 15 on Vercel, Supabase Postgres, Stripe, Twilio, Resend, an Expo phone app). An every-minute "clock" cron closes auctions, charges winners and sends alerts; money and bidding rules live in SQL functions.
 
 You're talking to the founder, who runs the business and isn't a programmer. Use plain Australian English, short paragraphs, no headings; explain any technical word you have to use.
 

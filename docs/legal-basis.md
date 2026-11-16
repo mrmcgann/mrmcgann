@@ -1,4 +1,4 @@
-# Tyrebiter: the legal basis, clause by clause
+# Super Trucker: the legal basis, clause by clause
 
 Settled 23 October 2026 from primary sources (Acts, regulations, regulators' guidance and cases), with selling after
 the auction, state by state, added on 26 October 2026 (section 5). Each position below
@@ -6,20 +6,20 @@ is built into the engine (the database), the wording (`src/content/legal.ts`, `s
 both. If a rule changes in one place, change it in the other, and update this register.
 
 A lawyer gives the finished set a final read before launch (late February or early March 2027). That review is a
-check, not a list of open questions: nothing here is waiting on it. The business facts only Tyrebiter can supply are
+check, not a list of open questions: nothing here is waiting on it. The business facts only Super Trucker can supply are
 listed at the end.
 
 ## The model in one paragraph
 
-Tyrebiter (a Queensland company) sells vehicles for their owners, as their agent, in live online auctions conducted
+Super Trucker (a Queensland company) sells vehicles for their owners, as their agent, in live online auctions conducted
 by a licensed auctioneer, at the fall of the hammer. Every listing has an auction estimate. A vehicle passed in (or
 whose buyer didn't pay) can be sold afterwards by agreement, where the state allows it: the seller agrees the price in
 writing, a consultant offers it to a bidder, and the buyer signs the offer, with that state's protections for a
-dealer's sale (cooling-off, notices). Tyrebiter never gives a statutory warranty or takes on a dealer's duty to repair:
+dealer's sale (cooling-off, notices). Super Trucker never gives a statutory warranty or takes on a dealer's duty to repair:
 it sells only where none applies, so a vehicle one would cover isn't sold after the auction, and in the ACT (where the
 duty to repair applies even at auction) one it could cover isn't listed at all. Never in Victoria, where a consigned vehicle can only be sold
 at auction; in Tasmania and the Northern Territory only once the licence that covers it is held. Otherwise it goes into
-the next live auction for its state. Tyrebiter is never at the vehicle: the seller supplies the photos and walkaround
+the next live auction for its state. Super Trucker is never at the vehicle: the seller supplies the photos and walkaround
 video, and staff check them against the registration record, the PPSR search and the papers. Buyers never see the
 vehicle or learn who the seller is. After payment, a transport partner takes the vehicle to a depot, where the buyer
 collects it.
@@ -63,8 +63,8 @@ collects it.
 
 | Position | Built in | Source |
 | --- | --- | --- |
-| Seller-supplied content (photos, video, declarations, reports) is labelled as the seller's and passed on without being adopted; "checked by Tyrebiter" is used only for what staff check (the photos against the records and each other). | `LISTING_CHECKS`, `REMOTE_REPORT`, `PHOTO_CHECK`, listing legend; Terms s 3 | Butcher v Lachlan Elder Realty Pty Ltd [2004] HCA 60 (an agent that merely passes on the principal's information, without adopting it and saying so, isn't misleading) |
-| The seller warrants the photos and video are of this vehicle, recent (14 days), unedited, and show known damage. | Seller agreement s 6; `SELLER_ACKS.video`; `PHOTO_RULES` | Contract (indemnity, s 11); supports Tyrebiter's reasonable reliance under ACL s 18 |
+| Seller-supplied content (photos, video, declarations, reports) is labelled as the seller's and passed on without being adopted; "checked by Super Trucker" is used only for what staff check (the photos against the records and each other). | `LISTING_CHECKS`, `REMOTE_REPORT`, `PHOTO_CHECK`, listing legend; Terms s 3 | Butcher v Lachlan Elder Realty Pty Ltd [2004] HCA 60 (an agent that merely passes on the principal's information, without adopting it and saying so, isn't misleading) |
+| The seller warrants the photos and video are of this vehicle, recent (14 days), unedited, and show known damage. | Seller agreement s 6; `SELLER_ACKS.video`; `PHOTO_RULES` | Contract (indemnity, s 11); supports Super Trucker's reasonable reliance under ACL s 18 |
 | Photos copied from the sell form are stripped of EXIF/GPS/XMP/IPTC on the server; videos have their recorded place blanked. | `stripImageMetadata`, `copySellerPhotos`, `blankLocation` | Privacy Act 1988 (APP 11 security, where it applies); Privacy and Other Legislation Amendment Act 2024 (statutory tort for serious invasions of privacy, from 10 June 2025) |
 | The Grays case: listed facts (year, transmission, features, damage, warning lights) must be right. | Eleven listing checks, publish gate | ACCC v GraysOnline (Federal Court, 2024, $10 million penalty) |
 
@@ -129,7 +129,7 @@ listing's state); a vehicle located or registered in Victoria is treated as Vict
 | Position | Built in | Source |
 | --- | --- | --- |
 | Each listing and the live room state, before bidding opens, that no statutory warranty applies; listings and advertisements say "No statutory warranty", beside the price. | `lots.statutory_warranty` (publish check: stated, and never true), `warrantySign()`, LotCard, listing notice, live room | MDCA Act 2014 (Qld); MDCA Regulation 2014 (Qld) s 11 |
-| We never give a statutory warranty or take on a dealer's duty to repair (the owner's decision: Tyrebiter sells only as the owner's agent). A private owner's vehicle sold at auction has none in QLD (consignment for a private seller excluded), NSW (auction with the dealer's notice), VIC, WA, SA, TAS, NT (auction sales excluded). The ACT duty to repair isn't lifted for auctions (only motorcycles) and has no consignment exclusion, so we don't list an ACT vehicle it could cover. A motor dealer's own vehicle can carry one, so we don't list one that would. | `lot_publish_check` (never `statutory_warranty`; in the ACT `warranty_free_for()`), `warrantyGuide()` for staff; Terms s 4 | Qld "Warranty for used cars"; NSW "Dealer guarantees and warranties"; MVDA 1973 (WA) s 32(1)(b); SHVDA 1995 (SA) s 23(3); ACT SMVA 1977 ss 23(1), 23(9), 25(4), 25A(5)(b) |
+| We never give a statutory warranty or take on a dealer's duty to repair (the owner's decision: Super Trucker sells only as the owner's agent). A private owner's vehicle sold at auction has none in QLD (consignment for a private seller excluded), NSW (auction with the dealer's notice), VIC, WA, SA, TAS, NT (auction sales excluded). The ACT duty to repair isn't lifted for auctions (only motorcycles) and has no consignment exclusion, so we don't list an ACT vehicle it could cover. A motor dealer's own vehicle can carry one, so we don't list one that would. | `lot_publish_check` (never `statutory_warranty`; in the ACT `warranty_free_for()`), `warrantyGuide()` for staff; Terms s 4 | Qld "Warranty for used cars"; NSW "Dealer guarantees and warranties"; MVDA 1973 (WA) s 32(1)(b); SHVDA 1995 (SA) s 23(3); ACT SMVA 1977 ss 23(1), 23(9), 25(4), 25A(5)(b) |
 | Sold after the auction, the auction exclusions fall away: the NSW dealer guarantee (a vehicle "sold by the motor dealer"; the Act has no consignment exclusion, so we treat it as applying), the WA, SA and ACT duty to repair and the Tasmanian and NT warranties apply to an eligible vehicle, and no contract can exclude them (Queensland still excludes a consignment for an owner who isn't a licensee). So we only sell after the auction where none applies: a vehicle is clear only well past the limits (two years past the age, because the law counts from build, compliance or first registration, which can come after the model year; over the distance; or a kind not covered), unknown counts as covered, and staff confirm from the papers that none applies (the owner isn't a motor dealer; the dates). Every offer and contract say no statutory warranty applies. | `warranty_free_for()` (migration 27) = `warrantyFree()`; `after_auction_check` ('warranty', 'warranty_unknown'); `admin_after_offer` (never with one); the staff confirmation on the lot page | Section 5, "Selling after the auction"; MDRA 2013 (NSW) ss 67-74; MVDA 1973 (WA) s 34, Sch 4 cl 9; SHVDA 1995 (SA) s 23; SMVA 1977 (ACT) ss 23-25; MVTA 2011 (Tas) ss 42-44 |
 
 ## 7. Safety and roadworthy certificates
@@ -150,8 +150,8 @@ Terms s 10 (buyer may cancel if a lapsed certificate can't be renewed).
 
 | Position | Built in | Source |
 | --- | --- | --- |
-| An agent may contract for a principal it doesn't name. Because the buyer can't deal with the owner, Tyrebiter takes on payment, title, transport, the vehicle from pickup, and every promised refund. | Terms s 1; sale certificate "as agent for the owner" | General law of agency (unnamed principal) |
-| GST-registered sellers: Subdivision 153-B arrangement, so Tyrebiter issues the buyer's tax invoice in its own name and the seller stays private. | Seller agreement s 14; invoice PDF footer | A New Tax System (Goods and Services Tax) Act 1999 Subdiv 153-B; GSTR 2000/37 |
+| An agent may contract for a principal it doesn't name. Because the buyer can't deal with the owner, Super Trucker takes on payment, title, transport, the vehicle from pickup, and every promised refund. | Terms s 1; sale certificate "as agent for the owner" | General law of agency (unnamed principal) |
+| GST-registered sellers: Subdivision 153-B arrangement, so Super Trucker issues the buyer's tax invoice in its own name and the seller stays private. | Seller agreement s 14; invoice PDF footer | A New Tax System (Goods and Services Tax) Act 1999 Subdiv 153-B; GSTR 2000/37 |
 
 ## 9. Privacy, transport, depot, uncollected goods
 
@@ -174,7 +174,7 @@ checks these protections stay in.
 
 ## 11. Credit and insurance referrals (advertising a rate)
 
-Tyrebiter holds no credit licence and no AFSL. It refers to licensed partners, discloses that it is paid a fee, and
+Super Trucker holds no credit licence and no AFSL. It refers to licensed partners, discloses that it is paid a fee, and
 never recommends one or advises on credit or insurance, which is what keeps it inside the referrer exemption.
 
 | Position | Where it lives | Basis |
@@ -275,14 +275,14 @@ penalties and permit durations are not, and the depot screen's wording should no
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document
 says nothing takes away the protections of the buyer's or seller's own state.
 
-## What only Tyrebiter can supply before launch
+## What only Super Trucker can supply before launch
 
 - The licences actually held, by state (settings `business.licences`; shown in the footer, the Terms and the live room).
   Launch only in the states where the licence is held, or keep listings to those states.
 - The licensed chattel auctioneer (an employee in Queensland), whose name goes on each live sale.
 - The consultants who negotiate sales after the auction: a motor salesperson registration in Queensland and a
   salesperson's licence in Western Australia (or the licensee does it). Tasmania and the Northern Territory stay off
-  until Tyrebiter holds a trader (Tas) or dealer (NT) licence; then add them in Admin settings.
+  until Super Trucker holds a trader (Tas) or dealer (NT) licence; then add them in Admin settings.
 - Western Australian sellers also sign the prescribed vehicle consignment contract (the Schedule 4 terms, which
   prevail where they differ from our agreement), and the state's forms for each offer after the auction (NSW Forms 5
   and 12, the SA notices and cooling-off agreement, WA Form 4 and the Schedule 5 sale contract, the ACT s 20 notice)

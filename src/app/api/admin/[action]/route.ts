@@ -143,7 +143,7 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       const half = Math.round(kept * 50) / 100;
       if (half > 0) {
         await db.from("seller_payouts").insert({ lot_id: inv.lot_id, invoice_id: inv.id, seller_id: inv.lots?.seller_id || null, kind: "forfeit", sale_price: kept,
-          other_deductions: kept - half, deductions_note: "Tyrebiter's half of the amount the buyer forfeited", net_amount: half, status: "ready" });
+          other_deductions: kept - half, deductions_note: "Super Trucker's half of the amount the buyer forfeited", net_amount: half, status: "ready" });
       }
       // A buyer who doesn't pay can't bid again (Terms of sale, section 11): banned, and their live bids come off.
       await db.rpc("ban_member", { p_user: inv.buyer_id, p_reason: `Didn't pay for ${inv.ref}` });
@@ -286,10 +286,10 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
         `/account/invoices/${c.invoice_id}`, { dedupe: `coll-confirm:${c.id}:${when}` });
       const handover = `${env.siteUrl}/handover/${c.seller_token}`;
       const rows: Record<string, unknown>[] = [];
-      if (c.collector_mobile) rows.push({ channel: "sms", to_addr: c.collector_mobile, kind: "account", title: "Tyrebiter collection", body: `Tyrebiter: collect the ${lot?.title} on ${when} from ${where}. Bring photo ID. Release code: ${c.release_code}. Give it to the depot team at handover.`, dedupe_key: `coll-collector:${c.id}:${when}`, priority: 1 });
-      const depotText = `Collection booked: ${lot?.title} (invoice ${inv?.ref}). ${who} will collect it on ${when}. Check their photo ID matches, and hand it over only for the 6-digit release code they give you, which you enter here: ${handover}. The buyer has paid Tyrebiter in full: never take money from them.`;
+      if (c.collector_mobile) rows.push({ channel: "sms", to_addr: c.collector_mobile, kind: "account", title: "Super Trucker collection", body: `Super Trucker: collect the ${lot?.title} on ${when} from ${where}. Bring photo ID. Release code: ${c.release_code}. Give it to the depot team at handover.`, dedupe_key: `coll-collector:${c.id}:${when}`, priority: 1 });
+      const depotText = `Collection booked: ${lot?.title} (invoice ${inv?.ref}). ${who} will collect it on ${when}. Check their photo ID matches, and hand it over only for the 6-digit release code they give you, which you enter here: ${handover}. The buyer has paid Super Trucker in full: never take money from them.`;
       if (dp?.email) rows.push({ channel: "email", to_addr: dp.email, kind: "staff", title: `Collection booked: ${lot?.title}, ${when}`, body: depotText, link: `/handover/${c.seller_token}`, dedupe_key: `coll-depot:${c.id}:${when}:email`, priority: 1 });
-      if (dp?.phone) rows.push({ channel: "sms", to_addr: dp.phone, kind: "staff", title: "Tyrebiter collection", body: depotText, dedupe_key: `coll-depot:${c.id}:${when}:sms`, priority: 1 });
+      if (dp?.phone) rows.push({ channel: "sms", to_addr: dp.phone, kind: "staff", title: "Super Trucker collection", body: depotText, dedupe_key: `coll-depot:${c.id}:${when}:sms`, priority: 1 });
       if (!dp?.email && !dp?.phone) rows.push({ channel: "email", to_addr: env.supportEmail, kind: "staff", title: `Pass this on to the depot: ${lot?.title}, ${when}`, body: `The depot has no email or phone in Depots, so pass this on.\n\n${depotText}`, dedupe_key: `coll-depot:${c.id}:${when}:staff`, priority: 1 });
       if (rows.length) await db.from("outbox").insert(rows);
       return done();
@@ -327,9 +327,9 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       const { data: lot } = await db.from("lots").select("title").eq("id", b.lotId).single();
       if (!pr?.seller_invite) return fail("No invite for this vehicle.");
       const link = `${env.siteUrl}/sell/agreement/${pr.seller_invite}`;
-      const text = `Hi ${pr.seller_name || "there"}, it's Tyrebiter. To list your ${lot?.title}, please verify your ID, answer a few questions and sign your seller agreement here: ${link}`;
+      const text = `Hi ${pr.seller_name || "there"}, it's Super Trucker. To list your ${lot?.title}, please verify your ID, answer a few questions and sign your seller agreement here: ${link}`;
       if (pr.seller_phone) await sendSms(pr.seller_phone, text);
-      if (pr.seller_email) await sendEmail({ to: pr.seller_email, subject: `Your Tyrebiter seller agreement: ${lot?.title}`, text: `${text}\n\nIt takes about ten minutes.`, html: mailHtml("Let's get your vehicle listed.", `To list your ${lot?.title}, please verify your ID, answer a few questions about the vehicle, add your bank details and sign your seller agreement. It takes about ten minutes.`, link, "Start my seller agreement") });
+      if (pr.seller_email) await sendEmail({ to: pr.seller_email, subject: `Your Super Trucker seller agreement: ${lot?.title}`, text: `${text}\n\nIt takes about ten minutes.`, html: mailHtml("Let's get your vehicle listed.", `To list your ${lot?.title}, please verify your ID, answer a few questions about the vehicle, add your bank details and sign your seller agreement. It takes about ten minutes.`, link, "Start my seller agreement") });
       return json({ ok: true, link });
     }
     case "payout-adjust": {
@@ -341,7 +341,7 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       return done();
     }
     case "payout-hold":
-      await db.from("seller_payouts").update(b.release ? { status: "pending", hold_reason: null } : { status: "on_hold", hold_reason: String(b.reason || "Held by Tyrebiter") }).eq("id", b.payoutId).neq("status", "paid");
+      await db.from("seller_payouts").update(b.release ? { status: "pending", hold_reason: null } : { status: "on_hold", hold_reason: String(b.reason || "Held by Super Trucker") }).eq("id", b.payoutId).neq("status", "paid");
       return done();
     case "payout-paid": {
       const { data: p } = await db.from("seller_payouts").select("*").eq("id", b.payoutId).single();

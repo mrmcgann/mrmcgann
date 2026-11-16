@@ -71,9 +71,9 @@ function Shell() {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 18, backgroundColor: C.bg }}>
         <LogoMark size={48} />
         <T v="d3" style={{ textAlign: "center" }}>Time for an update.</T>
-        <T v="muted" style={{ textAlign: "center" }}>This version of Tyrebiter is too old to bid safely. Update to the latest version to keep going.</T>
-        <Button title="Update Tyrebiter" onPress={() => Linking.openURL(Platform.OS === "ios"
-          ? config?.stores?.ios || "https://apps.apple.com/au/search?term=tyrebiter"
+        <T v="muted" style={{ textAlign: "center" }}>This version of Super Trucker is too old to bid safely. Update to the latest version to keep going.</T>
+        <Button title="Update Super Trucker" onPress={() => Linking.openURL(Platform.OS === "ios"
+          ? config?.stores?.ios || "https://apps.apple.com/au/search?term=super%20trucker"
           : config?.stores?.android || "market://details?id=au.com.tyrebiter.app")} />
       </View>
     );
@@ -95,7 +95,7 @@ function Shell() {
         <Stack.Screen name="alerts" options={{ title: "Alerts" }} />
         <Stack.Screen name="settings" options={{ title: "Account settings" }} />
         <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
-        <Stack.Screen name="join" options={{ title: "Join Tyrebiter" }} />
+        <Stack.Screen name="join" options={{ title: "Join Super Trucker" }} />
         <Stack.Screen name="deposit" options={{ title: "Bidding deposit" }} />
         <Stack.Screen name="signin" options={{ title: "Sign in" }} />
         <Stack.Screen name="forgot" options={{ title: "Reset password" }} />

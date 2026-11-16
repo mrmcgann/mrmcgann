@@ -1,4 +1,4 @@
-# Tyrebiter: store listing copy and answers
+# Super Trucker: store listing copy and answers
 
 Everything to paste into App Store Connect and Google Play Console. Character limits are in brackets; every field below fits.
 
@@ -16,7 +16,7 @@ To remake them after the app changes, ask Claude Code to "recapture the store sc
 
 | Field | Text |
 |---|---|
-| App name [30] | Tyrebiter: Vehicle Auctions |
+| App name [30] | Super Trucker: Vehicle Auctions |
 | Website | https://tyrebiter.com.au |
 | Support / contact | https://tyrebiter.com.au/contact |
 | Privacy policy | https://tyrebiter.com.au/privacy |
@@ -28,7 +28,7 @@ To remake them after the app changes, ask Claude Code to "recapture the store sc
 ```
 Every car. Beautifully sold.
 
-Tyrebiter runs live online auctions for cars, utes, 4x4s, vans, trucks, trailers, buses, motorbikes, caravans, boats and machinery right across Australia. Every vehicle is offered in a live auction with an auctioneer, and every listing has an auction estimate, the seller's photos and walkaround video (checked by our team against the papers and records), a condition report and a PPSR search for finance, write-offs and theft.
+Super Trucker runs live online auctions for cars, utes, 4x4s, vans, trucks, trailers, buses, motorbikes, caravans, boats and machinery right across Australia. Every vehicle is offered in a live auction with an auctioneer, and every listing has an auction estimate, the seller's photos and walkaround video (checked by our team against the papers and records), a condition report and a PPSR search for finance, write-offs and theft.
 
 SEARCH THE WAY YOU TALK
 Type "HiLux under 30k in QLD", "LAMS bike" or "caravan sleeps 4" and we work out the make, price, state and features for you. Filter by category, make, model, year, price, kilometres or hours, fuel, transmission, licence class and more. Save a search and we'll tell you the moment a match is listed.
@@ -57,13 +57,13 @@ Watch vehicles and get a push alert when you're outbid, when a watched vehicle i
 PAY, THEN COLLECT FROM OUR DEPOT
 When you win, your tax invoice is in the app. Pay by bank transfer, PayID or BPAY. Our transport partner brings the vehicle to our depot; book a collection time and show your release code when you pick it up.
 
-SELLING WITH TYREBITER
+SELLING WITH SUPER TRUCKER
 Type your rego plate and we fill in the vehicle; add the kilometres, your photos and a walkaround video from your phone. We check them against your papers and the records, agree an auction estimate and reserve with you, and offer it in our next live auction to buyers Australia-wide. Nobody visits: buyers never come to your place and never get your name or address. You can lower your reserve until the hammer falls, and follow every bid and watcher in the app. If it doesn't reach your reserve it goes into the next auction automatically, and where the law allows it your consultant can offer it to someone who bid or watched, at a price you agree first.
 
 SAFE BY DESIGN
 Every bidder verifies their mobile and ID before bidding. We never ask you to pay a seller directly, and our bank details never change by email or SMS.
 
-Tyrebiter Pty Ltd sells as agent for the owner. You must be 18 or over to bid.
+Super Trucker Pty Ltd sells as agent for the owner. You must be 18 or over to bid.
 ```
 
 ---
@@ -77,7 +77,7 @@ Tyrebiter Pty Ltd sells as agent for the owner. You must be 18 or over to bid.
 | Keywords [100] | car auction,ute,4x4,truck,motorbike,caravan,boat,machinery,used cars,bid,trailer,vehicle,auctions |
 | Primary category | Shopping |
 | Secondary category | Lifestyle |
-| Copyright | 2026 Tyrebiter Pty Ltd |
+| Copyright | 2026 Super Trucker Pty Ltd |
 | Price | Free |
 | Availability | Australia only (App Store Connect > Pricing and Availability) |
 
@@ -131,7 +131,7 @@ Partner enquiries: when someone orders a mobile inspection, the app sends their 
 - **Notes** (paste and fill in the blanks):
 
 ```
-Tyrebiter is an online live auction marketplace for physical vehicles (cars, utes, trucks, motorbikes, caravans, boats and machinery) in Australia. Winning bidders pay for the vehicle itself, a physical good, by bank transfer outside the app, so in-app purchase doesn't apply (guideline 3.1.3(e)).
+Super Trucker is an online live auction marketplace for physical vehicles (cars, utes, trucks, motorbikes, caravans, boats and machinery) in Australia. Winning bidders pay for the vehicle itself, a physical good, by bank transfer outside the app, so in-app purchase doesn't apply (guideline 3.1.3(e)).
 
 Demo account: [email] / [password]. Its mobile is verified so you can browse, search, watch vehicles, save searches, set alerts, open the live auction room and see the bid screen. Its ID isn't verified, so tapping a bid button leads to the ID check. Bids are legally binding for real vehicles, so please don't complete an ID check and bid.
 
@@ -139,7 +139,7 @@ Demo account: [email] / [password]. Its mobile is verified so you can browse, se
 - Push notifications are optional; we ask the first time you watch a vehicle, bid or save a search.
 - The camera and photo library are used only when you choose to add photos of a vehicle to sell (Sell tab), a transfer document or a claim on a purchase (invoice screen). Sellers can also choose a video from the library for their own listing (Sell tab, after a listing exists; the demo account has none). No microphone access is requested.
 - There are no in-person viewings. "Order a mechanical inspection" on a listing sends a real enquiry to an independent inspection company, so it's only open to fully verified members (mobile and ID). The demo account hasn't verified its ID, so it will be asked to finish verifying; that's expected.
-- "Compare car loans" and "Compare insurance" open our website in an in-app browser. Tyrebiter doesn't lend money or sell insurance in the app.
+- "Compare car loans" and "Compare insurance" open our website in an in-app browser. Super Trucker doesn't lend money or sell insurance in the app.
 - Bidder names in the bid history are blurred on purpose, for privacy. It isn't a display fault.
 - If a vehicle doesn't reach its reserve, we may later offer it to someone who bid on or watched it, at a price its
   owner has agreed in writing. That offer opens on the Offers screen: it shows the price, the all-in total, the state's
@@ -160,7 +160,7 @@ Demo account: [email] / [password]. Its mobile is verified so you can browse, se
 
 | Field | Text |
 |---|---|
-| App name [30] | Tyrebiter: Vehicle Auctions |
+| App name [30] | Super Trucker: Vehicle Auctions |
 | Short description [80] | Live vehicle auctions Australia-wide: cars, utes, trucks, bikes and boats. |
 | Full description [4000] | The long description above |
 | App category | Auto & Vehicles |
@@ -203,7 +203,7 @@ Demo account: [email] / [password]. Its mobile is verified so you can browse, se
 
 For the "Shared" rows, the sharing purpose is **App functionality** (the partner contacts the person about the inspection, loan or policy they asked about).
 
-The last five rows are Tyrebiter's own first-party counter (`POST /api/t` → `web_events`) and crash reporting
+The last five rows are Super Trucker's own first-party counter (`POST /api/t` → `web_events`) and crash reporting
 (`POST /api/errors`). They are marked **Required** because the app sends them without a toggle, and **not** processed
 ephemerally (rows are kept for 90 days, then deleted; only daily totals remain). No account id or sign-in token goes
 with them: a visit is counted under an anonymous code rebuilt from the connection and the day, and the only thing said

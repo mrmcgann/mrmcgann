@@ -23,7 +23,7 @@ function pacer(perSecond: number) {
 
 function smsText(r: Row) {
   const url = r.link ? env.siteUrl + r.link : env.siteUrl;
-  let t = `Tyrebiter: ${r.title}. ${url}`;
+  let t = `Super Trucker: ${r.title}. ${url}`;
   if (OPTIONAL.has(r.kind) && r.user_id) t += ` Opt out: ${env.siteUrl}/u/${sign(`u:${r.user_id}`)}`;
   return t;
 }
@@ -38,7 +38,7 @@ function mail(r: Row): Mail {
     to: r.to_addr,
     subject: r.title,
     text,
-    html: mailHtml(r.title, r.body, url, r.kind === "won" ? "View invoice and collection" : "Open Tyrebiter",
+    html: mailHtml(r.title, r.body, url, r.kind === "won" ? "View invoice and collection" : "Open Super Trucker",
       manage ? `<a href="${manage}" style="color:#6E6E73">Manage alerts or unsubscribe</a>` : undefined),
     headers: token ? { "List-Unsubscribe": `<${env.siteUrl}/api/unsubscribe?t=${token}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined,
   };

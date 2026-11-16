@@ -73,7 +73,7 @@ export function MakePage({ make, model, data }: { make: string; model: string | 
           {" "}Each one has an auction estimate, the seller&apos;s photos and video checked by us against the papers and records, a PPSR search for finance and write-offs, and its all-in price.
         </p>
         {est.count >= 3 && est.low && est.mid && est.high && (
-          <div className="notice" data-testid="make-range">Recent {name} sales on Tyrebiter: the middle half sold for between <b>{money(est.low)}</b> and <b>{money(est.high)}</b> (median {money(est.mid)}), from {est.count} sales in the last 18 months. Hammer prices, before the buyer&apos;s premium and fees; every vehicle is different.</div>
+          <div className="notice" data-testid="make-range">Recent {name} sales on Super Trucker: the middle half sold for between <b>{money(est.low)}</b> and <b>{money(est.high)}</b> (median {money(est.mid)}), from {est.count} sales in the last 18 months. Hammer prices, before the buyer&apos;s premium and fees; every vehicle is different.</div>
         )}
         {!model && models.length > 0 && <div className="pill-row">{models.slice(0, 16).map(([m, n]) => <Link key={m} className="pill pill-soft" href={`/makes/${slugify(make)}/${slugify(m)}`}>{m} ({n})</Link>)}</div>}
       </div>

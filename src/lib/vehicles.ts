@@ -1,4 +1,4 @@
-// Everything Tyrebiter can list, modelled on the motoring side of Grays
+// Everything Super Trucker can list, modelled on the motoring side of Grays
 // (Motor Vehicles/Motor Cycles, Commercial Vehicles, Classic and Sports Cars,
 // Transport, Trucks and Trailers, Caravans/Motorhomes, Boats, and
 // Mining, Construction & Agriculture) and on Trade Me Motors' verticals.

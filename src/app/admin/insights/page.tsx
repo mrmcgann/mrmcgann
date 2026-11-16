@@ -120,7 +120,7 @@ export default async function Insights({ searchParams }: { searchParams: Promise
 
       <div className="dash2">
         <div className="admin-card"><TrendChart title="Vehicle sales per day" points={pts("gmv")} fmt="money" testId="chart-gmv" /></div>
-        <div className="admin-card"><TrendChart title="Tyrebiter revenue per day" points={pts("revenue")} fmt="money" testId="chart-revenue" /></div>
+        <div className="admin-card"><TrendChart title="Super Trucker revenue per day" points={pts("revenue")} fmt="money" testId="chart-revenue" /></div>
         <div className="admin-card"><TrendChart title="Visitors per day" points={pts("visitors")} fmt="count" kind="line" testId="chart-visitors" /></div>
         <div className="admin-card"><TrendChart title="New members per day" points={pts("signups")} fmt="count" testId="chart-signups" /></div>
         <div className="admin-card"><TrendChart title="Bids per day" points={pts("bids")} fmt="count" kind="line" testId="chart-bids" /></div>

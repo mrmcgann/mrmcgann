@@ -645,7 +645,7 @@ function SoldGuide({ make, model, year }: { make: string; model: string; year: s
   if (!r || r.count < 3 || r.low == null || r.high == null) return null;
   return (
     <div className="notice" data-testid="sold-guide">
-      <b>Similar vehicles we&apos;ve sold: {money(r.low)} to {money(r.high)}.</b> The middle half of {r.count} {make} {model} sales{year ? ` from about ${Number(year) - 2} to ${Number(year) + 2}` : ""} on Tyrebiter in the last 18 months (hammer prices). It&apos;s based on past results, not a valuation of your vehicle.
+      <b>Similar vehicles we&apos;ve sold: {money(r.low)} to {money(r.high)}.</b> The middle half of {r.count} {make} {model} sales{year ? ` from about ${Number(year) - 2} to ${Number(year) + 2}` : ""} on Super Trucker in the last 18 months (hammer prices). It&apos;s based on past results, not a valuation of your vehicle.
     </div>
   );
 }

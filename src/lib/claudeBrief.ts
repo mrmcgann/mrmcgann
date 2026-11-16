@@ -55,7 +55,7 @@ export function issueTitle(task: string, e?: ErrorInfo | null, c?: CheckInfo | n
 export function issueBody(o: { task: string; error?: ErrorInfo | null; check?: CheckInfo | null; fixId: number; siteUrl: string; publicRepo?: boolean }): string {
   const facts = [o.error ? errorFacts(o.error, o.publicRepo) : "", o.check ? checkFacts(o.check, o.publicRepo) : ""].filter(Boolean).join("\n\n");
   return [
-    "@claude please fix this problem on the live Tyrebiter site.",
+    "@claude please fix this problem on the live Super Trucker site.",
     "",
     "## What to do",
     asData(o.task, 6000),
@@ -78,7 +78,7 @@ export function issueBody(o: { task: string; error?: ErrorInfo | null; check?: C
     "- Finish with a short summary for the owner, who isn't a programmer: what was wrong, what you changed, how you tested it, and anything they need to do (for example a new setting in Vercel, or a migration to run in Supabase).",
     "",
     `Opened from ${o.siteUrl}/admin/health (fix #${o.fixId}).`,
-    `<!-- tyrebiter-fix:${o.fixId} -->`,
+    `<!-- supertrucker-fix:${o.fixId} -->`,
   ].join("\n");
 }
 

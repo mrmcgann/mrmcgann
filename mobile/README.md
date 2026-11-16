@@ -1,4 +1,4 @@
-# Tyrebiter for iPhone and Android
+# Super Trucker for iPhone and Android
 
 A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, early bids and the live auction room (every vehicle is sold in a live auction, with an estimate), alerts, invoices (paid by bank transfer, PayID or BPAY), transfer of ownership, collection from our depot, claims, selling (with the plate lookup, the seller's photos and walkaround video) and the seller dashboard. It adds push notifications and in-app account deletion.
 
@@ -12,7 +12,7 @@ You need four accounts. Do steps 1 and 2 now: Apple and Google can take a week o
 
 | Account | Cost | Notes |
 |---|---|---|
-| Apple Developer Program | US$99 a year (AU$149 in Australia) | developer.apple.com/programs/enroll. Enrol as an **organisation** (Tyrebiter Pty Ltd) so the store shows the company, not your name. Needs a free D-U-N-S number. |
+| Apple Developer Program | US$99 a year (AU$149 in Australia) | developer.apple.com/programs/enroll. Enrol as an **organisation** (Super Trucker Pty Ltd) so the store shows the company, not your name. Needs a free D-U-N-S number. |
 | Google Play Console | US$25 once | play.google.com/console. Register as an **organisation** with the same D-U-N-S number. A *personal* account would have to run a 14-day test with 12 testers before it's allowed to publish. |
 | Expo | Free to start | expo.dev. Builds the apps in the cloud, so you don't need a Mac. |
 | Firebase | Free | console.firebase.google.com. Android push notifications go through it. |
@@ -20,7 +20,7 @@ You need four accounts. Do steps 1 and 2 now: Apple and Google can take a week o
 Claude Code can run every command below for you. Where a step needs you to click around a website, it says so.
 
 ### 1. Get a D-U-N-S number
-Apple's lookup tool (developer.apple.com/enroll/duns-lookup) finds Tyrebiter Pty Ltd or requests a number for free. It can take up to two weeks. Use the same number for Apple and Google.
+Apple's lookup tool (developer.apple.com/enroll/duns-lookup) finds Super Trucker Pty Ltd or requests a number for free. It can take up to two weeks. Use the same number for Apple and Google.
 
 ### 2. Open the Apple and Google accounts
 Enrol in the Apple Developer Program and create the Google Play developer account as above.
@@ -62,7 +62,7 @@ On expo.dev, open the project, then **Environment variables**. Add each of these
 The website address (`https://tyrebiter.com.au`) is already set in `eas.json`. If the domain changes, change it there.
 
 ### 6. Android push notifications (Firebase)
-1. In Firebase, create a project called Tyrebiter. Add an **Android app** with package name `au.com.tyrebiter.app`. Download `google-services.json`.
+1. In Firebase, create a project called Super Trucker. Add an **Android app** with package name `au.com.tyrebiter.app`. Download `google-services.json`.
 2. On expo.dev, add an environment variable named `GOOGLE_SERVICES_JSON`, type **File**, visibility **Secret**, and upload that file (production and preview).
 3. In Firebase: Project settings, **Service accounts**, **Generate new private key**. Then run `eas credentials -p android`, choose production, then **Google Service Account**, then **Push Notifications (FCM V1)**, and upload that key.
 
@@ -104,7 +104,7 @@ auction's date."
 4. Choose the build, then **Add for Review**. Reviews usually take a day or two.
 
 ### 11. Send it to Google
-1. In Play Console, **Create app**: Tyrebiter: Vehicle Auctions, App, Free.
+1. In Play Console, **Create app**: Super Trucker: Vehicle Auctions, App, Free.
 2. Fill in **Store listing** and every item under **App content** from `store/LISTING.md` (privacy policy, app access with the demo account, ads, content rating, target audience, data safety, data deletion).
 3. Upload `store/play-icon-512.png`, `store/play-feature-graphic.png` and `store/screenshots/android/01.png` to `06.png`.
 4. Google needs the first upload done by hand: open the production build on expo.dev, download the `.aab` file, then in Play Console go to **Test and release > Production > Create new release** and upload it.
@@ -149,4 +149,4 @@ How it fits together:
 - **Payments**: buyers pay by bank transfer, PayID or BPAY (`PayRows`); the app never takes a card. Stripe is used for the ID check (Stripe Identity); `src/lib/pay.tsx` (the old card sheet) is only for invoices from before cards were switched off.
 - **Account deletion** is `GET/POST /api/account/delete`. It refuses while bids, purchases or listings are in progress, then anonymises the profile, removes the Stripe customer and deletes the sign-in.
 - **Links**: `src/lib/links.ts` maps website links (emails, SMS, shared lots) to app screens. Universal links come from `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` on the website (step 12).
-- **Store images**: `store/` holds the listing copy, screenshots, feature graphic and icon. `assets/` holds the app icon, Android adaptive icon, notification icon and splash, all drawn from the Tyrebiter ring.
+- **Store images**: `store/` holds the listing copy, screenshots, feature graphic and icon. `assets/` holds the app icon, Android adaptive icon, notification icon and splash, all drawn from the Super Trucker ring.

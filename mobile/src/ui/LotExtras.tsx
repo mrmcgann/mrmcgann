@@ -76,7 +76,7 @@ export function QuestionBox({ lotId, mine, open, path }: { lotId: number; mine: 
       {open ? (signedIn ? (
         <Soft>
           <Field label="Ask the seller" value={text} onChangeText={setText} multiline maxLength={600} placeholder="e.g. Has the timing belt been done? Is there a spare key?" inputStyle={{ backgroundColor: "#FFFFFF" }} />
-          <T v="small">Please leave out phone numbers and emails. Questions go through Tyrebiter.</T>
+          <T v="small">Please leave out phone numbers and emails. Questions go through Super Trucker.</T>
           {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
           <Button small kind="dark" title="Send question" busy={busy} onPress={send} style={{ alignSelf: "flex-start" }} />
         </Soft>

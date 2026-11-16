@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const sale = await getSaleCached(slug).catch(() => null);
   if (!sale) return { title: "Sale not found" };
-  return { title: sale.title, description: sale.intro?.slice(0, 160) || `${sale.title}: vehicles sold together online at Tyrebiter.`, alternates: { canonical: `/sales/${sale.slug}` } };
+  return { title: sale.title, description: sale.intro?.slice(0, 160) || `${sale.title}: vehicles sold together online at Super Trucker.`, alternates: { canonical: `/sales/${sale.slug}` } };
 }
 
 // One seller's vehicles together (a fleet, a council, a finance company), closing a few minutes apart.

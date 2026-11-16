@@ -6,7 +6,7 @@ import { allow } from "@/lib/ratelimit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 
-// "Ask a question": goes to Tyrebiter (who checks with the seller), never straight to the seller.
+// "Ask a question": goes to Super Trucker (who checks with the seller), never straight to the seller.
 export async function POST(req: Request) {
   const { lotId, question } = await req.json().catch(() => ({}));
   const db = await supabaseServer();

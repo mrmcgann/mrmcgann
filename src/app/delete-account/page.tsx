@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Delete your account",
-  description: "How to delete your Tyrebiter account and what we keep afterwards.",
+  description: "How to delete your Super Trucker account and what we keep afterwards.",
 };
 
 // Public page the app stores link to for account deletion (Google Play's data deletion URL).
@@ -12,7 +12,7 @@ export default function DeleteAccount() {
   return (
     <div className="wrap" style={{ maxWidth: 760, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 22 }}>
       <h1 className="d2">Delete your account.</h1>
-      <p className="lede" style={{ margin: 0 }}>You can delete your Tyrebiter account yourself at any time, in the app or here on the website.</p>
+      <p className="lede" style={{ margin: 0 }}>You can delete your Super Trucker account yourself at any time, in the app or here on the website.</p>
       <ol style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 10 }}>
         <li><b>In the app:</b> open Account, scroll to the bottom and tap Delete my account.</li>
         <li><b>On the website:</b> <Link href="/signin?next=/account">sign in</Link>, open Account and choose Delete my account.</li>

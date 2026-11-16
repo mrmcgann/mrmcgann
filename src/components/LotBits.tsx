@@ -23,7 +23,7 @@ export function ShareButton({ title }: { title: string }) {
 
 type Q = { question: string; answer: string | null; status: string };
 
-// Questions go to Tyrebiter (never straight to the seller). Answers that help
+// Questions go to Super Trucker (never straight to the seller). Answers that help
 // everyone are published on the listing.
 export function QuestionBox({ lotId, signedIn, mine, open }: { lotId: number; signedIn: boolean; mine: Q[]; open: boolean }) {
   const router = useRouter();

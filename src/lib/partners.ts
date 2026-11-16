@@ -19,15 +19,15 @@ export function consentText(p: Pick<Partner, "name" | "licence" | "commission_no
     : ", any notes I add, and the vehicle's location";
   const pc = p.kind === "transport" ? "the postcode I want it delivered to" : "postcode";
   const what = `my name, mobile, email, ${pc}${withVehicle ? ", the vehicle I'm looking at" : ""}${extra}`;
-  return `I agree that Tyrebiter can share ${what} with ${who} so they can contact me by phone, SMS and email about ${KIND_NOUN[p.kind]}.${fee} ${p.name}'s privacy policy applies to what they do with my details.`;
+  return `I agree that Super Trucker can share ${what} with ${who} so they can contact me by phone, SMS and email about ${KIND_NOUN[p.kind]}.${fee} ${p.name}'s privacy policy applies to what they do with my details.`;
 }
 
 export const REFERRER_NOTE = {
-  finance: "Tyrebiter isn't a lender or credit broker and doesn't hold an Australian Credit Licence. We don't recommend any loan. We can refer you to the licensed lenders and brokers shown, and may receive a fee from them, as stated.",
-  insurance: "Any advice here is general and doesn't take into account your objectives, financial situation or needs, so consider whether it's right for you. Tyrebiter isn't an insurer and doesn't recommend any policy. Read the Product Disclosure Statement (PDS) and Target Market Determination (TMD) before you buy. We don't compare every insurer, and may receive a commission from those shown.",
-  inspection: "Inspections are done by an independent provider, not by Tyrebiter. Their report is their opinion of the vehicle's condition on the day.",
-  transport: "Transport is arranged and carried out by an independent carrier, not by Tyrebiter. Their quote, terms and transit insurance apply. We may receive a referral fee from them, as stated.",
-  warranty: "Any advice here is general and doesn't take into account your objectives, financial situation or needs. Tyrebiter doesn't sell or recommend any warranty and may receive a commission from those shown. Read the Product Disclosure Statement (PDS) or terms before you buy. You don't need a warranty to keep any consumer guarantee rights you have: where they apply, they're free.",
+  finance: "Super Trucker isn't a lender or credit broker and doesn't hold an Australian Credit Licence. We don't recommend any loan. We can refer you to the licensed lenders and brokers shown, and may receive a fee from them, as stated.",
+  insurance: "Any advice here is general and doesn't take into account your objectives, financial situation or needs, so consider whether it's right for you. Super Trucker isn't an insurer and doesn't recommend any policy. Read the Product Disclosure Statement (PDS) and Target Market Determination (TMD) before you buy. We don't compare every insurer, and may receive a commission from those shown.",
+  inspection: "Inspections are done by an independent provider, not by Super Trucker. Their report is their opinion of the vehicle's condition on the day.",
+  transport: "Transport is arranged and carried out by an independent carrier, not by Super Trucker. Their quote, terms and transit insurance apply. We may receive a referral fee from them, as stated.",
+  warranty: "Any advice here is general and doesn't take into account your objectives, financial situation or needs. Super Trucker doesn't sell or recommend any warranty and may receive a commission from those shown. Read the Product Disclosure Statement (PDS) or terms before you buy. You don't need a warranty to keep any consumer guarantee rights you have: where they apply, they're free.",
 } as const;
 
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);

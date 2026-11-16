@@ -103,12 +103,12 @@ export async function POST(req: Request) {
     { channel: "sms", to_addr: v.mobile, kind: "account", title: `Thanks ${v.name.split(" ")[0]}, we've got your ${[v.year, v.make, v.model].filter(Boolean).join(" ")} (ref ${row.ref}). We'll call you within 1 business day`, body: "", priority: 3, dedupe_key: `sell-sms:${row.ref}` },
   ]);
   kickOutbox();
-  const subject = `Your Tyrebiter sell form ${row.ref}: a copy of what you signed`;
-  const text = `Hi ${v.name.split(" ")[0]},\n\nThanks for choosing Tyrebiter to sell your ${facts[0][1]}. Your reference is ${row.ref}.\n\nWhat happens next:\n1. We call you within 1 business day to talk through the price guide and your ${v.reserve_type === "reserve" ? "reserve" : "no-reserve sale"}.\n2. We text you a link to verify your identity (about 2 minutes in your browser), add the bank account we pay you into and a photo of the registration papers, and confirm the agreement.\n3. You send us a short walkaround video (we'll tell you exactly what to film) and any photos still missing. We check them and the papers from here: we're never at your place. Then it goes into our next live auction, with an estimate on the listing.\n4. Buyers never visit and never get your details. Once the buyer has paid, our transport partner calls you to book the pickup.\n\nA copy of the Seller Agency Agreement you signed is attached. Questions? Call ${env.phone}.`;
+  const subject = `Your Super Trucker sell form ${row.ref}: a copy of what you signed`;
+  const text = `Hi ${v.name.split(" ")[0]},\n\nThanks for choosing Super Trucker to sell your ${facts[0][1]}. Your reference is ${row.ref}.\n\nWhat happens next:\n1. We call you within 1 business day to talk through the price guide and your ${v.reserve_type === "reserve" ? "reserve" : "no-reserve sale"}.\n2. We text you a link to verify your identity (about 2 minutes in your browser), add the bank account we pay you into and a photo of the registration papers, and confirm the agreement.\n3. You send us a short walkaround video (we'll tell you exactly what to film) and any photos still missing. We check them and the papers from here: we're never at your place. Then it goes into our next live auction, with an estimate on the listing.\n4. Buyers never visit and never get your details. Once the buyer has paid, our transport partner calls you to book the pickup.\n\nA copy of the Seller Agency Agreement you signed is attached. Questions? Call ${env.phone}.`;
   after(async () => {
     await sendEmail({
-      to: v.email, subject, text, html: mailHtml(subject, text, `${env.siteUrl}/sell`, "About selling with Tyrebiter"),
-      attachments: pdf ? [{ filename: `Tyrebiter-seller-agreement-${row.ref}.pdf`, content: Buffer.from(pdf).toString("base64") }] : undefined,
+      to: v.email, subject, text, html: mailHtml(subject, text, `${env.siteUrl}/sell`, "About selling with Super Trucker"),
+      attachments: pdf ? [{ filename: `SuperTrucker-seller-agreement-${row.ref}.pdf`, content: Buffer.from(pdf).toString("base64") }] : undefined,
     }).catch(() => null);
   });
   return json({ ref: row.ref, emailed: !!pdf });

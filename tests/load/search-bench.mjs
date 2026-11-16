@@ -1,7 +1,7 @@
 // Search speed (run after build.mjs; everything is rolled back). Usage: node tests/load/search-bench.mjs
 // Search speed at marketplace scale: 1M accounts, 60k lots, 20k live across all 10 categories, 250k saved searches.
 import pg from 'pg';
-const c = new pg.Client({ host: process.env.PGHOST || '/tmp', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres', database: process.env.SCALE_DB || 'tyrebiter_scale' });
+const c = new pg.Client({ host: process.env.PGHOST || '/tmp', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres', database: process.env.SCALE_DB || 'supertrucker_scale' });
 await c.connect();
 await c.query('begin');
 const cats = ['cars','utes','vans','trucks','trailers','buses','motorbikes','caravans','boats','machinery'];

@@ -42,7 +42,7 @@ export const RUNS_HINT: Record<string, string> = {
 };
 
 /** Where the condition report comes from. */
-export const REMOTE_REPORT = "Prepared from the seller's photos and walkaround video, the records we check (registration, PPSR and VIN) and the seller's written declarations. We're never at the vehicle: nobody from Tyrebiter sees it in person before it's sold.";
+export const REMOTE_REPORT = "Prepared from the seller's photos and walkaround video, the records we check (registration, PPSR and VIN) and the seller's written declarations. We're never at the vehicle: nobody from Super Trucker sees it in person before it's sold.";
 /** What we do with the seller's photos and video. */
 export const PHOTO_CHECK = "Taken by the seller for this listing. We check they show this vehicle and nothing that identifies the seller, and we remove the camera's location.";
 
@@ -72,13 +72,13 @@ export type SalePath = "auction" | "after" | "outright";
 export function consumerRights(path: SalePath, seller: SellerType | null | undefined): string {
   const misdescribed = "If the vehicle isn't as described you can still make a claim, and your rights under the Australian Consumer Law against misleading descriptions aren't affected.";
   if (path === "auction") {
-    return "Sold by auction, with Tyrebiter acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description don't apply to auction sales. " + misdescribed;
+    return "Sold by auction, with Super Trucker acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description don't apply to auction sales. " + misdescribed;
   }
   if (path === "after") {
     if (seller === "business") {
-      return "Bought after the auction (not at auction) from a business seller, with Tyrebiter acting as the seller's agent, so the consumer guarantees under the Australian Consumer Law, including acceptable quality, may apply as well as our claims process. " + misdescribed;
+      return "Bought after the auction (not at auction) from a business seller, with Super Trucker acting as the seller's agent, so the consumer guarantees under the Australian Consumer Law, including acceptable quality, may apply as well as our claims process. " + misdescribed;
     }
-    return "Bought after the auction (not at auction) from a private seller, with Tyrebiter acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description apply to sales in trade or commerce, so they may not apply to a private owner's sale; any that does apply can't be excluded. " + misdescribed;
+    return "Bought after the auction (not at auction) from a private seller, with Super Trucker acting as the seller's agent. The consumer guarantees of clear title, undisturbed possession and no undisclosed securities apply. The guarantees about acceptable quality, fitness for purpose and matching the description apply to sales in trade or commerce, so they may not apply to a private owner's sale; any that does apply can't be excluded. " + misdescribed;
   }
   if (seller === "business") {
     return "Bought outright (not at auction) from a business seller, so the consumer guarantees under the Australian Consumer Law, including acceptable quality, may apply as well as our claims process. " + misdescribed;

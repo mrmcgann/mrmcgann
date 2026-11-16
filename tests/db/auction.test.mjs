@@ -8,8 +8,8 @@ const M = ROOT + '/supabase/';
 const PG = { host: process.env.PGHOST || '/tmp', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres' };
 const admin = new pg.Client({ ...PG, database: 'postgres' });
 await admin.connect();
-await admin.query('drop database if exists tyrebiter_test'); await admin.query('create database tyrebiter_test'); await admin.end();
-const c = new pg.Client({ ...PG, database: 'tyrebiter_test' });
+await admin.query('drop database if exists supertrucker_test'); await admin.query('create database supertrucker_test'); await admin.end();
+const c = new pg.Client({ ...PG, database: 'supertrucker_test' });
 await c.connect();
 await c.query(fs.readFileSync(ROOT + '/tests/db/supabase_base.sql', 'utf8'));
 for (const f of fs.readdirSync(M + 'migrations').sort()) { await c.query(fs.readFileSync(M + 'migrations/' + f, 'utf8')); }
@@ -17,6 +17,16 @@ for (const f of fs.readdirSync(M + 'migrations').sort()) { await c.query(fs.read
 // they run with it off, and the seed keeps its sample vehicles as timed auctions; the live-only checks at the end switch
 // it back on (and the seed's sample live auction is checked there too).
 await c.query(`update settings set value = value || '{"live_only": false}' where key = 'auction'`);
+// Super Trucker (migration 36) sells trucks only, in three states, viewed and collected at the seller's, at 6%, and
+// never after the auction. Most checks below were written for every kind of vehicle in every state, towed to a depot
+// at 1.5%, with no viewings: they run with those older settings, and the Super Trucker block at the end restores the
+// real ones and checks the new way of selling.
+const OLD_WAY = { categories: ['cars','utes','vans','trucks','buses','motorbikes','caravans','trailers','boats','machinery'],
+  states: ['QLD','NSW','VIC','WA','SA','TAS','ACT','NT',''], collection: 'depot', viewings: false, after_auction_heavy: true };
+const NEW_WAY = { categories: ['trucks'], states: ['QLD','NSW','WA'], collection: 'seller', viewings: true, after_auction_heavy: false };
+await c.query(`update settings set value = value || $1::jsonb where key = 'selling'`, [JSON.stringify(OLD_WAY)]);
+await c.query(`update settings set value = value || '{"premium_rate": 0.015}' where key = 'fees'`);
+await c.query(`update settings set value = value || '{"exclusivity_days": 30}' where key = 'auction'`);
 await c.query(fs.readFileSync(M + 'seed.sql', 'utf8'));
 // The checks below were written for card payments; the bidding-deposit checks at the end switch to deposits (the default).
 await c.query(`update settings set value = value || '{"pay_mode": "card"}' where key = 'fees'`);
@@ -32,7 +42,7 @@ const U = { A: '11111111-1111-1111-1111-111111111111', B: '22222222-2222-2222-22
   C: 'c0c0c0c0-0000-4000-8000-00000000000c', D: 'd0d0d0d0-0000-4000-8000-00000000000d' };
 await c.query(`insert into auth.users (id,email) values ('${U.A}','a@x.au'),('${U.B}','b@x.au'),('${U.ADM}','admin@x.au'),('${U.NEW}','new@x.au')`);
 // Verify A and B as the service role would; make ADM admin via SQL editor (postgres)
-await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-11-04' where id in ('${U.A}','${U.B}')`);
+await c.query(`update profiles set details_done=true, first_name='Amy', last_name='Ash', mobile='0411111111', mobile_verified=true, payment_method_id='pm_a', card_brand='Visa', card_last4='4242', id_status='verified', terms_version='2026-11-15' where id in ('${U.A}','${U.B}')`);
 await c.query(`update profiles set role='admin' where id='${U.ADM}'`);
 
 // Run a query as a role with JWT claims, inside a transaction (like PostgREST)
@@ -185,14 +195,14 @@ r = await as('A', `select * from my_bids()`); ok('my bids lists every lot bid on
 // ---------- terms version ----------
 await c.query(`update profiles set terms_version='2020-01-01' where id='${U.A}'`);
 r = await as('A', `select place_bid(10611, 900000)`); ok('outdated terms block bidding', r.error?.includes('terms_outdated'), r.error);
-await c.query(`update profiles set terms_version='2026-11-04' where id='${U.A}'`);
+await c.query(`update profiles set terms_version='2026-11-15' where id='${U.A}'`);
 r = await as('A', `update profiles set terms_version='x' where id='${U.A}'`); ok('members cannot set terms version themselves', r.error?.includes('protected_field'), r.error);
 
 // ---------- seller agency agreement, publish gate, seller can't bid ----------
 const S = '55555555-5555-5555-5555-555555555555';
 U.S = S;
 await c.query(`insert into auth.users (id,email) values ('${S}','seller@x.au')`);
-await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-11-04', payment_method_id='pm_s' where id='${S}'`);
+await c.query(`update profiles set details_done=true, first_name='Sam', last_name='Seller', mobile='0499999999', mobile_verified=true, id_status='verified', terms_version='2026-11-15', payment_method_id='pm_s' where id='${S}'`);
 r = await as('ADM', `insert into lots (status,title,ends_at,start_price) values ('draft','Seller car', now()+interval '2 days', 500) returning id`); const SL = r.rows?.[0]?.id;
 await as('ADM', `insert into lot_private (lot_id, seller_phone, seller_email) values (${SL}, '0499 999 999', 'seller@x.au')`);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('cannot publish before the seller signs', r.error?.includes('not_ready'), r.error);
@@ -849,8 +859,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   await c.query(`update profiles set notify = notify || '{"marketing":{"sms":false,"email":true}}' where id = '${U.A}'`);
   r = await as('A', `select queue_newsletter('News', 'Body', '/auctions', 'nl:test')`); ok('newsletter: only the server sends it', !!r.error);
-  r = await as('service', `select queue_newsletter('This week at Tyrebiter', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: only to members who opted in', r.rows?.[0]?.n === 1, JSON.stringify(r));
-  r = await as('service', `select queue_newsletter('This week at Tyrebiter', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: never sent twice', r.rows?.[0]?.n === 0);
+  r = await as('service', `select queue_newsletter('This week at Super Trucker', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: only to members who opted in', r.rows?.[0]?.n === 1, JSON.stringify(r));
+  r = await as('service', `select queue_newsletter('This week at Super Trucker', 'New vehicles', '/auctions', 'nl:test') n`); ok('newsletter: never sent twice', r.rows?.[0]?.n === 0);
   r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'nl:test:%' and user_id = '${U.B}'`); ok('newsletter: nothing for members who did not opt in', r.rows?.[0]?.n === 0);
 }
 
@@ -865,7 +875,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('fees: a fee change never applies to a vehicle already live', Number(r.rows?.[0]?.t) === Number(before) && Number(r.rows[0].n) > Number(before), JSON.stringify(r.rows));
   r = await as('service', `select create_invoice(10980, '${U.B}', 10000, 'auction') id`); const FI = r.rows?.[0]?.id;
   r = await as('service', `select total from invoices where id = '${FI}'`); ok('fees: the invoice uses the fees locked on the vehicle', Number(r.rows?.[0]?.total) === Number(before), JSON.stringify(r.rows));
-  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-11-04', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from invoices where id = '${FI}'`); ok('terms: each invoice records the terms version the buyer accepted', r.rows?.[0]?.terms_version === '2026-11-15', JSON.stringify(r.rows));
   await c.query(`insert into lots (id, status, title, start_price, ends_at) values (10981, 'live', 'New fees ute', 1000, now() + interval '3 days')`);
   r = await as('service', `select (fees->>'premium_rate')::numeric p from lots where id = 10981`); ok('fees: vehicles listed after the change get the new fees', Number(r.rows?.[0]?.p) === 0.02);
   await c.query(`update settings set value = value || '{"premium_rate": 0.015}' where key = 'fees'`);
@@ -972,10 +982,10 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   await c.query(`insert into seo_search_daily (day, query, page, clicks, impressions, position) values
     (current_date - 3, 'ute auction brisbane', '/for-sale/utes/qld', 2, 300, 7.2), (current_date - 2, 'ute auction brisbane', '/for-sale/utes/qld', 1, 200, 6.8),
-    (current_date - 2, 'tyrebiter', '/', 40, 60, 1.0)`);
+    (current_date - 2, 'super trucker', '/', 40, 60, 1.0)`);
   r = await as('service', `select * from seo_opportunities(28, 10)`);
   ok('seo: searches we could win (page 1-2, not the top)', r.rows?.length === 1 && r.rows[0].query === 'ute auction brisbane' && Number(r.rows[0].impressions) === 500 && Number(r.rows[0].position) === 7.0, JSON.stringify(r.rows));
-  r = await as('service', `select * from seo_top(28, 'query', 5)`); ok('seo: top searches by clicks', r.rows?.[0]?.key === 'tyrebiter', JSON.stringify(r.rows));
+  r = await as('service', `select * from seo_top(28, 'query', 5)`); ok('seo: top searches by clicks', r.rows?.[0]?.key === 'super trucker', JSON.stringify(r.rows));
   r = await as('service', `select count(*)::int n from seo_lot_audit(100)`); const liveN = (await as('service', `select count(*)::int n from lots where status = 'live'`)).rows[0].n;
   ok('seo: the audit sees every live listing', r.rows?.[0]?.n === liveN, JSON.stringify(r));
   r = await as('service', `select count(*)::int n from seo_changed_lots(now() - interval '1 hour', 100)`); ok('seo: recently changed listings for the search engine ping', r.rows?.[0]?.n > 0);
@@ -1068,7 +1078,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   await c.query(`update app_errors set status = 'ignored' where fingerprint = 'server:new'`);
   r = await as('service', `select health_snapshot() j`); ok('snapshot: ignored errors not counted', Number(r.rows?.[0]?.j?.errors_recent) === before - 1, JSON.stringify([before, r.rows?.[0]?.j?.errors_recent]));
   // alerts go to admins only, by email and app, and by SMS when urgent
-  r = await as('service', `select queue_health_alert('Tyrebiter problem: clock', 'body', '/admin/health', 'health:test:1', true) n`);
+  r = await as('service', `select queue_health_alert('Super Trucker problem: clock', 'body', '/admin/health', 'health:test:1', true) n`);
   ok('alerts: queued for each admin', Number(r.rows?.[0]?.n) === 1, JSON.stringify(r));
   r = await c.query(`select channel, priority, kind from outbox where dedupe_key like 'health:test:1:%' order by channel`);
   ok('alerts: email to the admin, top priority', r.rows.some((x) => x.channel === 'email' && x.priority === 1 && x.kind === 'health'), JSON.stringify(r.rows));
@@ -1111,8 +1121,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 {
   await c.query(`update settings set value = value || '{"pay_mode": "deposit", "deposit_rate": 0.10, "deposit_min": 500, "deposit_cap": 5000}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.C}','c@x.au'),('${U.D}','d@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id = '${U.C}'`);
-  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id = '${U.D}'`);
+  await c.query(`update profiles set details_done=true, first_name='Cal', last_name='Cole', mobile='0433333333', mobile_verified=true, id_status='verified', terms_version='2026-11-15' where id = '${U.C}'`);
+  await c.query(`update profiles set details_done=true, first_name='Dee', last_name='Dunn', mobile='0444444444', mobile_verified=true, id_status='verified', terms_version='2026-11-15' where id = '${U.D}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20001, 'live', 'Deposit ute one', 1000, now() + interval '3 days', null),
     (20002, 'live', 'Deposit ute two', 1000, now() + interval '3 days', null),
@@ -1211,8 +1221,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   Object.assign(U, { E: 'e0e0e0e0-0000-4000-8000-00000000000e', F: 'f0f0f0f0-0000-4000-8000-00000000000f', G: '9a9a9a9a-0000-4000-8000-00000000009a', H: 'abababab-0000-4000-8000-0000000000ab' });
   await c.query(`update settings set value = value || '{"pay_mode": "transfer"}' where key = 'fees'`);
   await c.query(`insert into auth.users (id,email) values ('${U.E}','e@x.au'),('${U.F}','f@x.au'),('${U.H}','h@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.E}'`);
-  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.F}'`);
+  await c.query(`update profiles set details_done=true, first_name='Eve', last_name='Elder', dob='1990-05-01', mobile='0455555555', mobile_verified=true, id_status='verified', terms_version='2026-11-15' where id='${U.E}'`);
+  await c.query(`update profiles set details_done=true, first_name='Fay', last_name='Ford', dob='1985-02-02', mobile='0466666666', mobile_verified=true, id_status='verified', terms_version='2026-11-15' where id='${U.F}'`);
   await c.query(`insert into lots (id, status, title, start_price, ends_at, buy_now_price) values
     (20011, 'live', 'Transfer ute', 1000, now() + interval '3 days', null),
     (20012, 'live', 'Transfer van', 1000, now() + interval '3 days', 40000),
@@ -1243,13 +1253,13 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // ... and can't come back with a new account
   await c.query(`insert into auth.users (id,email) values ('${U.G}','eve.again@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-11-04' where id='${U.G}'`);
+  await c.query(`update profiles set details_done=true, first_name='EVE', last_name='elder', dob='1990-05-01', mobile='0499990000', mobile_verified=true, terms_version='2026-11-15' where id='${U.G}'`);
   r = await as('service', `select suspended from profiles where id = '${U.G}'`); ok('ban: a new account is fine until it verifies an ID', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set id_status='verified' where id='${U.G}'`);
   r = await as('service', `select suspended, suspended_reason from profiles where id = '${U.G}'`);
   ok('ban: the same person verifying a new account is suspended (case and spacing ignored)', r.rows?.[0]?.suspended === true && r.rows[0].suspended_reason.startsWith('Matches an account closed for'), JSON.stringify(r.rows));
   r = await as('G', `select place_bid(20013, 9000) r`); ok('ban: and can\'t bid', r.error?.includes('account_suspended'), r.error);
-  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-11-04' where id='${U.H}'`);
+  await c.query(`update profiles set details_done=true, first_name='Hal', last_name='Hart', dob='1970-01-01', mobile='+61 455 555 555', id_status='verified', terms_version='2026-11-15' where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: not yet: the mobile is only checked once it is verified', r.rows?.[0]?.suspended === false);
   await c.query(`update profiles set mobile_verified = true where id='${U.H}'`);
   r = await as('service', `select suspended from profiles where id = '${U.H}'`); ok('ban: the banned mobile, written another way, verified on a new account', r.rows?.[0]?.suspended === true);
@@ -1337,7 +1347,11 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('A', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok('no viewings: video calls are not offered', r.error?.includes('viewing_not_offered'), r.error);
   r = await as('A', `select request_viewing(${L}, 'in_person', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok('no viewings: in person is not offered', r.error?.includes('viewing_not_offered'), r.error);
   r = await as('anon', `select request_viewing(${L}, 'video', $1::jsonb)`, [slots([{ day, part: 'morning' }])]); ok("no viewings: signed-out visitors can't call it", !!r.error, r.error);
-  r = await as('ADM', `update lots set in_person_viewing = true where id = ${L}`); ok('no viewings: a listing can never offer in-person viewings', r.error?.includes('lots_no_viewings'), r.error);
+  // (Viewing by appointment came back with Super Trucker; these checks run with it switched off, the way it was.)
+  r = await as('ADM', `update lots set in_person_viewing = true where id = ${L} returning id`);
+  r = await as('A', `select request_viewing(${L}, 'in_person', $1::jsonb, null, true)`, [slots([{ day, part: 'morning' }])]);
+  ok("no viewings: with viewings switched off, a listing's own tick doesn't open them", r.error?.includes('viewing_not_offered'), r.error);
+  await c.query(`update lots set in_person_viewing = false where id = ${L}`);
   r = await as('A', `insert into viewings (lot_id, user_id, kind) values (${L}, '${U.A}', 'video')`); ok("no viewings: members can't write bookings directly", !!r.error);
   r = await as('service', `select count(*)::int n from viewings where status in ('requested', 'confirmed')`); ok('no viewings: none open', r.rows?.[0]?.n === 0);
 
@@ -1539,7 +1553,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('B', `select place_bid(${order[0]}, 3000)`); ok("live: no bid in the room until the auction's conditions are accepted", r.error?.includes('enter_first'), r.error);
   r = await as('anon', `select enter_sale(${SA})`); ok('live: only members accept the conditions', !!r.error);
   r = await as('B', `select enter_sale(${SA}) t`); ok('live: B accepts the conditions on entering the room', !!r.rows?.[0]?.t, r.error);
-  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-11-04', JSON.stringify(r.rows));
+  r = await as('service', `select terms_version from sale_entries where sale_id = ${SA} and user_id = '${U.B}'`); ok('live: recorded with the version of the terms', r.rows?.[0]?.terms_version === '2026-11-15', JSON.stringify(r.rows));
   r = await as('A', `select count(*)::int n from sale_entries`); ok("live: members see only their own entries", r.rows?.[0]?.n === 0, JSON.stringify(r.rows));
   r = await as('B', `insert into sale_entries (sale_id, user_id) values (${SA}, '${U.A}')`); ok('live: entries are written only by enter_sale', !!r.error);
   r = await as('B', `select place_bid(${order[0]}, 3000) r`); ok('live: an online bid in the last seconds', r.rows?.[0]?.r?.status === 'leading', JSON.stringify(r));
@@ -1676,7 +1690,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('anon', `select live_only() x`); ok('live only: the switch is on, and anyone can read it', r.rows?.[0]?.x === true, r.error);
   U.X = '7e7e7e7e-0000-4000-8000-00000000007e';
   await c.query(`insert into auth.users (id, email) values ('${U.X}', 'xan@x.au')`);
-  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-11-04' where id='${U.X}'`);
+  await c.query(`update profiles set details_done=true, first_name='Xan', last_name='Xavier', dob='1981-03-03', mobile='0477777001', mobile_verified=true, id_status='verified', terms_version='2026-11-15' where id='${U.X}'`);
   await c.query(`update settings set value = value || '{"require_checks": false}' where key = 'selling'`);
   r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('lo-thursday', 'Thursday night live', true, 'live', now() + interval '2 days', 30, 15, 'Pat Gavel') returning id`);
   const LS = r.rows?.[0]?.id; ok('live only: staff create a live auction', !!LS, r.error);
@@ -1865,10 +1879,14 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select roadworthy_needed('QLD', 2015, 'cars', null) q, roadworthy_needed('NSW', 2005, 'cars', null) n, roadworthy_needed('VIC', 2020, 'trailers', 2000) vt,
     roadworthy_needed('VIC', 2020, 'utes', null) vu, roadworthy_needed('ACT', extract(year from current_date)::int - 3, 'cars', null) a3, roadworthy_needed('ACT', extract(year from current_date)::int - 8, 'cars', null) a8,
     roadworthy_needed('NT', extract(year from current_date)::int - 7, 'cars', null) nt, roadworthy_needed('SA', 2015, 'cars', null) sac, roadworthy_needed('SA', 2015, 'trailers', 2000) sat,
-    roadworthy_needed('QLD', 2015, 'boats', null) b, roadworthy_needed('WA', 2001, 'cars', null) w, roadworthy_needed('QLD', 2015, 'trailers', 600) qt`);
+    roadworthy_needed('QLD', 2015, 'boats', null) b, roadworthy_needed('WA', 2001, 'cars', null) w, roadworthy_needed('QLD', 2015, 'trailers', 600) qt,
+    roadworthy_needed('QLD', 2015, 'trucks', 22500) qh, roadworthy_needed('QLD', 2015, 'trucks', 4495) ql, roadworthy_needed('QLD', 2015, 'trucks', null) qn,
+    roadworthy_needed('NSW', 2015, 'trucks', 22500) nh, roadworthy_needed('WA', 2015, 'trucks', 22500) wh, roadworthy_needed('NSW', 2015, 'boats', null) nb`);
   const rw = r.rows?.[0] || {};
-  ok('roadworthy: the right certificate for each state', rw.q === 'safety certificate' && rw.n === null && rw.vt === null && rw.vu === 'roadworthy certificate' && rw.a3 === null && rw.a8 === 'roadworthy inspection'
+  ok('roadworthy: the right certificate for each state', rw.q === 'safety certificate' && rw.n === 'inspection report' && rw.vt === null && rw.vu === 'roadworthy certificate' && rw.a3 === null && rw.a8 === 'roadworthy inspection'
     && rw.nt === 'roadworthy inspection' && rw.sac === null && rw.sat === 'inspection' && rw.b === null && rw.w === null && rw.qt === null, JSON.stringify(rw));
+  ok('roadworthy: a Queensland heavy truck needs a certificate of inspection, a light one a safety certificate', rw.qh === 'certificate of inspection' && rw.ql === 'safety certificate' && rw.qn === 'safety certificate', JSON.stringify(rw));
+  ok('roadworthy: New South Wales wants an inspection report to auction it with plates on; Western Australia wants nothing', rw.nh === 'inspection report' && rw.wh === null && rw.nb === null, JSON.stringify(rw));
 
   for (const fn of [`buy_now_core(${E3})`, `make_offer_core(${E2}, 1)`, `seller_decide_core(${E4}, 'accept_referral', null)`, `admin_accept_core(${E2}, null)`,
     `admin_offer_next_bidder_core(${E2}, 24, false)`, `respond_second_chance_core(gen_random_uuid(), true)`, `remove_bids_core(${E3}, '${U.A}', 'x', '${U.A}', false)`,
@@ -2028,7 +2046,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select l.status, l.sold_via, l.winner_id, l.sold_price, i.sold_via iv, i.price, o.status os, o.signed_name, o.terms_version, o.invoice_id = i.id same
     from lots l join invoices i on i.lot_id = l.id join second_chance_offers o on o.lot_id = l.id where l.id = ${AA.QLD}`);
   ok('after: the vehicle is sold after the auction, the invoice made, the signature and terms version kept', r.rows?.[0]?.status === 'sold' && r.rows[0].sold_via === 'after_auction' && r.rows[0].winner_id === U.A
-    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-11-04' && r.rows[0].same, JSON.stringify(r.rows));
+    && Number(r.rows[0].sold_price) === 8250 && r.rows[0].iv === 'after_auction' && r.rows[0].os === 'accepted' && r.rows[0].signed_name === 'amy ash' && r.rows[0].terms_version === '2026-11-15' && r.rows[0].same, JSON.stringify(r.rows));
   r = await as('service', `select status from lots where relisted_from = ${AA.QLD}`); ok('after: its relist for the next auction is cancelled', r.rows?.length === 1 && r.rows[0].status === 'cancelled', JSON.stringify(r.rows));
   await as('service', `select queue_status_notices()`);
   r = await as('service', `select (select body from outbox where dedupe_key like 'seller-sold:${AA.QLD}%' limit 1) s, (select body from notifications where user_id = '${U.B}' and title = 'The Brisbane ute has sold') b`);
@@ -2167,11 +2185,202 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   await c.query(`update settings set value = value || '{"require_checks": true}' where key = 'selling'`);
 }
 
+// ---------- Super Trucker: trucks only, in three states, viewed by appointment and collected at the seller's (migration 36) ----------
+{
+  await c.query(`update settings set value = value || $1::jsonb where key = 'selling'`, [JSON.stringify({ ...NEW_WAY, require_checks: true })]);
+  await c.query(`update settings set value = value || '{"premium_rate": 0.06, "pay_mode": "transfer"}' where key = 'fees'`);
+  await c.query(`update settings set value = value || '{"exclusivity_days": 90, "live_only": true}' where key = 'auction'`);
+  r = await as('anon', `select selling_categories() c, selling_states() s, collection_mode() m, viewings_on() v, exclusivity_days() d`);
+  ok('super trucker: trucks only, in Queensland, New South Wales and Western Australia, collected from the seller, viewing on',
+    r.rows?.[0]?.c?.join() === 'trucks' && r.rows[0].s.join() === 'QLD,NSW,WA' && r.rows[0].m === 'seller' && r.rows[0].v === true && r.rows[0].d === 90, JSON.stringify(r.rows || r.error));
+
+  r = await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer) values ('st-trucks', 'Truck auction', true, 'live', now() + interval '5 days', 30, 15, 'Pat Gavel') returning id`);
+  const ST = Number(r.rows?.[0]?.id); ok('super trucker: a live truck auction', ST > 0, r.error);
+  const mk = async (o) => {
+    const id = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
+    const v = { title: '2016 Isuzu FVR 1000 Tray', category: 'trucks', state: 'QLD', suburb: 'Rocklea', postcode: '4106', registration: 'registered', rego_plate: 'ST' + String(id).slice(-4),
+      rego_state: o.state || 'QLD', rego_expiry: 'D+200', gvm_kg: 16000, roadworthy_issued_on: 'D-30', roadworthy_note: null, plates_note: null, lo: 40000, hi: 48000, reserve: 38000, ...o };
+    const day = (x) => x === null ? 'null' : /^D[+-]\d+$/.test(x) ? `(current_date ${x[1]} ${x.slice(2)})` : `'${x}'`;
+    const txt = (x) => x === null || x === undefined ? 'null' : `'${String(x).replace(/'/g, "''")}'`;
+    await c.query(`insert into lots (id, status, title, category, kind, year, make, model, state, suburb, postcode, start_price, ends_at, registration, rego_plate, rego_state, rego_expiry, method, seller_id,
+        estimate_low, estimate_high, vin, ppsr_checked_at, write_off_status, runs, statutory_warranty, verified, gvm_kg, roadworthy_issued_on, roadworthy_note, plates_note, sale_id, odometer)
+      values (${id}, 'draft', ${txt(v.title)}, ${txt(v.category)}, 'tray', 2016, 'Isuzu', 'FVR', ${txt(v.state)}, ${txt(v.suburb)}, ${txt(v.postcode)}, 5000, now() + interval '5 days', ${txt(v.registration)},
+        ${v.registration === 'registered' ? txt(v.rego_plate) : 'null'}, ${v.registration === 'registered' ? txt(v.rego_state) : 'null'}, ${v.registration === 'registered' ? day(v.rego_expiry) : 'null'}, 'auction', '${U.S}',
+        ${v.lo}, ${v.hi}, 'JALFVR34PG7${String(id).padStart(6, '0')}', now(), 'none', 'drives', false, listing_check_keys(), ${v.gvm_kg === null ? 'null' : v.gvm_kg}, ${day(v.roadworthy_issued_on)}, ${txt(v.roadworthy_note)}, ${txt(v.plates_note)}, ${ST}, 412000)`);
+    await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis, ownership_checked_at, seller_address, pickup_notes)
+      values (${id}, ${v.reserve}, 'Recent sales of the same model and year on our results page', now(), ${txt(v.address === undefined ? '12 Sample Street, ' + v.suburb + ' ' + v.state + ' ' + v.postcode : v.address)}, 'Ask for Dave at the workshop office.')`);
+    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '2 days', '{}', '{}')`);
+    return id;
+  };
+  const live = (id) => as('ADM', `update lots set status = 'live' where id = ${id} returning status`);
+
+  // a new listing is collected from the seller and open for viewing; the rules a truck must meet to go live
+  const T1 = await mk({});
+  r = await as('service', `select collect_from, in_person_viewing, depot_id from lots where id = ${T1}`);
+  ok('super trucker: a new listing is collected from the seller and can be viewed by appointment', r.rows?.[0]?.collect_from === 'seller' && r.rows[0].in_person_viewing === true && r.rows[0].depot_id === null, JSON.stringify(r.rows));
+  await c.query(`update lots set category = 'cars' where id = ${T1}`);
+  r = await live(T1); ok('super trucker: only trucks are listed', r.error?.includes('we only sell trucks'), r.error);
+  await c.query(`update lots set category = 'trucks', state = 'VIC' where id = ${T1}`);
+  r = await live(T1); ok('super trucker: only in the states we sell in', r.error?.includes('we sell in QLD, NSW, WA only') && r.error.includes('VIC'), r.error);
+  await c.query(`update lots set state = 'QLD', gvm_kg = null where id = ${T1}`);
+  r = await live(T1); ok('super trucker: a truck needs its GVM', r.error?.includes('add the GVM'), r.error);
+  await c.query(`update lots set gvm_kg = 16000 where id = ${T1}`);
+  const anyDepot = (await c.query(`select id from depots limit 1`)).rows[0]?.id;
+  r = await as('ADM', `update lots set depot_id = '${anyDepot}' where id = ${T1}`); ok('super trucker: collected from the seller, it has no depot', r.error?.includes('it has no depot'), r.error);
+  r = await as('ADM', `update lots set transport_fee = 500 where id = ${T1}`); ok('super trucker: and nothing for transport', r.error?.includes('no transport amount'), r.error);
+  await c.query(`update lot_private set seller_address = '' where lot_id = ${T1}`);
+  r = await live(T1); ok('super trucker: the address where it is kept must be on file', r.error?.includes('the address where it is kept'), r.error);
+  await c.query(`update lot_private set seller_address = '12 Sample Street, Rocklea QLD 4106' where lot_id = ${T1}`);
+  await c.query(`update lots set roadworthy_issued_on = null where id = ${T1}`);
+  r = await live(T1); ok('super trucker: a Queensland heavy truck needs a certificate of inspection to be transferred', r.error?.includes('certificate of inspection'), r.error);
+  await c.query(`update lots set roadworthy_issued_on = current_date - 400 where id = ${T1}`);
+  r = await live(T1); ok('super trucker: and one that will still be current at the auction (12 months)', r.error?.includes('lasts 12 months'), r.error);
+  await c.query(`update lot_private set reserve_price = 900 where lot_id = ${T1}`);
+  await c.query(`update lots set roadworthy_issued_on = current_date - 30, estimate_low = 1000, estimate_high = 1500 where id = ${T1}`);
+  r = await live(T1); ok('super trucker: a truck too cheap for our minimum premium to beat the market is refused, without blaming a tow', r.error?.includes('over_market') && r.error.includes('too cheap') && !/transport/.test(r.error), r.error);
+  await c.query(`update lots set estimate_low = 40000, estimate_high = 48000 where id = ${T1}`);
+  await c.query(`update lot_private set reserve_price = 38000 where lot_id = ${T1}`);
+  r = await live(T1); ok('super trucker: with everything in place it goes live', r.rows?.[0]?.status === 'live', r.error);
+  r = await as('service', `select fees->>'premium_rate' rate, fees->>'transport' tow, live_state, lot_price_breakdown(${T1}, 50000) b from lots where id = ${T1}`);
+  const b1 = r.rows?.[0]?.b || {};
+  ok('super trucker: the premium is 6% with nothing for transport: $50,000 is $53,300 all-in', Number(r.rows?.[0]?.rate) === 0.06 && Number(r.rows[0].tow) === 0 && Number(b1.premium) === 3000 && Number(b1.transport) === 0
+    && Number(b1.gst) === 300 && Number(b1.total) === 53300, JSON.stringify(r.rows));
+  r = await as('service', `select beats_market(50000, fees, 'trucks') ok, market_fee(50000, fees, 'trucks') m from lots where id = ${T1}`);
+  ok('super trucker: under what a truck buyer pays elsewhere', r.rows?.[0]?.ok === true && Number(r.rows[0].m) > 3300, JSON.stringify(r.rows));
+  r = await as('ADM', `update lots set collect_from = 'depot' where id = ${T1}`); ok("super trucker: where it's collected from can't change once bidding has opened", r.error?.includes('collect_locked'), r.error);
+
+  // New South Wales: plates on needs a current inspection report shown with it; plates off needs the reason
+  const T2 = await mk({ state: 'NSW', suburb: 'Wetherill Park', postcode: '2164', roadworthy_issued_on: null });
+  r = await live(T2); ok("NSW: a truck can't be auctioned with its plates on without a current inspection report", r.error?.includes('plates on') && r.error.includes('inspection report'), r.error);
+  await c.query(`update lots set roadworthy_issued_on = current_date - 50 where id = ${T2}`);
+  r = await live(T2); ok('NSW: the report must be within 42 days of the auction', r.error?.includes('within 42 days'), r.error);
+  await c.query(`update lots set roadworthy_issued_on = null, roadworthy_note = 'Exempt: the registration was renewed on 20 October, within 90 days of the auction' where id = ${T2}`);
+  r = await live(T2); ok('NSW: or the registration was renewed within 90 days (written down)', r.rows?.[0]?.status === 'live', r.error);
+  const T3 = await mk({ state: 'NSW', suburb: 'Dubbo', postcode: '2830', registration: 'unregistered', roadworthy_issued_on: null });
+  r = await live(T3); ok('NSW: sold without plates, the reason is shown with it', r.error?.includes('without number plates'), r.error);
+  await c.query(`update lots set plates_note = 'The registration lapsed in June and the plates were handed in (receipt on file).' where id = ${T3}`);
+  r = await live(T3); ok('NSW: with the reason, it goes live', r.rows?.[0]?.status === 'live', r.error);
+  const T4 = await mk({ state: 'WA', suburb: 'Welshpool', postcode: '6106', roadworthy_issued_on: null });
+  r = await live(T4); ok('WA: nothing more is needed to list a registered truck', r.rows?.[0]?.status === 'live', r.error);
+
+  // viewing by appointment: verified members only, who agree we introduced them; the address only on a confirmed booking
+  const d1 = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), dAuction = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+  const sl = (day) => JSON.stringify([{ day, part: 'morning' }]);
+  r = await as('anon', `select request_viewing(${T1}, 'in_person', $1::jsonb, null, true)`, [sl(d1)]); ok("viewing: signed-out visitors can't ask", !!r.error, r.error);
+  U.V = '77777777-7777-4777-8777-777777777777';
+  await c.query(`insert into auth.users (id, email) values ('${U.V}', 'visitor@x.au')`);
+  r = await as('V', `select request_viewing(${T1}, 'in_person', $1::jsonb, null, true)`, [sl(d1)]); ok('viewing: only members who could bid (ID and mobile verified)', r.error?.includes('viewing_needs_id'), r.error);
+  r = await as('A', `select request_viewing(${T1}, 'video', $1::jsonb, null, true)`, [sl(d1)]); ok('viewing: in person only, no video calls with an owner', r.error?.includes('viewing_not_offered'), r.error);
+  r = await as('A', `select request_viewing(${T1}, 'in_person', $1::jsonb)`, [sl(d1)]); ok("viewing: not without agreeing that we're making the introduction", r.error?.includes('viewing_ack'), r.error);
+  r = await as('S', `select request_viewing(${T1}, 'in_person', $1::jsonb, null, true)`, [sl(d1)]); ok("viewing: not your own truck", r.error?.includes('viewing_own_vehicle'), r.error);
+  r = await as('A', `select request_viewing(${T1}, 'in_person', $1::jsonb, null, true)`, [sl(dAuction)]); ok('viewing: not on or after the auction day', r.error?.includes('viewing_times_range'), r.error);
+  r = await as('A', `select request_viewing(${T1}, 'in_person', $1::jsonb, 'Bringing my mechanic', true) v`, [sl(d1)]);
+  const VW = r.rows?.[0]?.v?.id, VREF = r.rows?.[0]?.v?.ref; ok('viewing: a verified member asks for a time', !!VW && /^VW-/.test(VREF || ''), r.error);
+  r = await as('service', `select ack_text, ack_version, ack_at, address_sent_at, viewing_ack_text() t from viewings where id = '${VW}'`);
+  const ackTs = (fs.readFileSync(ROOT + '/src/lib/viewings.ts', 'utf8').match(/export const viewingAck = \(days: number\) =>\s*`([^`]+)`/) || [])[1]?.replace('${days}', '90');
+  ok('viewing: what they agreed to is kept word for word, with the terms version and the time', r.rows?.[0]?.ack_text === r.rows[0].t && r.rows[0].ack_version === '2026-11-15' && !!r.rows[0].ack_at && r.rows[0].address_sent_at === null, JSON.stringify(r.rows));
+  ok('viewing: the agreement names us, the 90 days, the premium, the address and the owner being told', /Super Trucker/.test(r.rows[0].t) && /within 90 days after/.test(r.rows[0].t) && /buyer's premium/.test(r.rows[0].t)
+    && /won't share it/.test(r.rows[0].t) && /gives the owner my name/.test(r.rows[0].t) && /no road test/.test(r.rows[0].t), r.rows[0].t);
+  ok('viewing: the website shows the same words the database records', ackTs === r.rows[0].t, JSON.stringify([ackTs, r.rows[0].t]));
+  r = await as('A', `select request_viewing(${T1}, 'in_person', $1::jsonb, null, true)`, [sl(d1)]); ok('viewing: one open request per truck', r.error?.includes('viewing_already'), r.error);
+  r = await as('A', `select seller_address from lot_private where lot_id = ${T1}`); ok("viewing: asking doesn't show the address", (r.rows || []).length === 0, JSON.stringify(r.rows));
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.ADM}' and kind = 'staff' and title = 'Viewing request ${VREF}'`); ok('viewing: staff are told to agree a time with the owner', r.rows?.[0]?.n === 1, JSON.stringify(r.rows));
+  r = await as('A', `select admin_viewing('${VW}', 'confirm', now() + interval '2 days')`); ok("viewing: members can't confirm one", r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_viewing('${VW}', 'confirm', now() + interval '2 days', null, 'Gate 3 on the service road.')`); ok('viewing: staff confirm the time agreed with the owner', !r.error, r.error);
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Viewing booked:%' order by created_at desc limit 1`);
+  ok('viewing: the member gets the address, the owner\'s notes and the rules, only now', /12 Sample Street, Rocklea QLD 4106/.test(r.rows?.[0]?.body || '') && r.rows[0].body.includes(VREF) && /Ask for Dave/.test(r.rows[0].body)
+    && /no road test/.test(r.rows[0].body) && /every sale goes through Super Trucker/.test(r.rows[0].body) && /Gate 3/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select body from outbox where dedupe_key like 'viewing-seller:${VW}%' limit 1`);
+  ok('viewing: the owner is told who is coming, by name, and that we introduced them', /Amy Ash will come to view it/.test(r.rows?.[0]?.body || '') && /We introduced them to you/.test(r.rows[0].body) && /section 2 of your agreement/.test(r.rows[0].body)
+    && /say no and tell us/.test(r.rows[0].body) && !/0411111111/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select status, host, address_sent_at from viewings where id = '${VW}'`); ok('viewing: when the address left our hands is on the booking', r.rows?.[0]?.status === 'confirmed' && !!r.rows[0].address_sent_at, JSON.stringify(r.rows));
+  r = await as('ADM', `select name, how, ref from lot_introductions(${T1})`); ok('introductions: staff can list everyone we introduced to a truck', r.rows?.some((x) => x.name === 'Amy Ash' && x.how === 'viewing' && x.ref === VREF), JSON.stringify(r.rows || r.error));
+  r = await as('A', `select * from lot_introductions(${T1})`); ok("introductions: members can't", (r.rows || []).length === 0, JSON.stringify(r.rows || r.error));
+  r = await as('anon', `select * from lot_introductions(${T1})`); ok("introductions: nor can visitors", !!r.error, JSON.stringify(r.rows));
+  await c.query(`update lots set in_person_viewing = false where id = ${T4}`);
+  r = await as('A', `select request_viewing(${T4}, 'in_person', $1::jsonb, null, true)`, [sl(d1)]); ok("viewing: not where the owner can't host one", r.error?.includes('viewing_in_person_off'), r.error);
+
+  // sold and paid: no tow, no depot. The buyer books a time, and the address comes with the confirmation.
+  const sold = async (lot, price, buyer = U.A) => {
+    const id = (await c.query(`select create_invoice(${lot}, '${buyer}', ${price}, 'auction') id`)).rows[0].id;
+    await c.query(`update lots set status = 'sold', winner_id = '${buyer}', sold_price = ${price} where id = ${lot}`);
+    await c.query(`update invoices set status = 'paid', paid_at = now() where id = '${id}'`);
+    return id;
+  };
+  const I1 = await sold(T1, 45000);
+  r = await as('service', `select total, premium, transport, gst from invoices where id = '${I1}'`);
+  ok('seller collection: $45,000 is invoiced at $47,970 (6% premium of $2,700, no transport)', Number(r.rows?.[0]?.premium) === 2700 && Number(r.rows[0].transport) === 0 && Number(r.rows[0].total) === 47970, JSON.stringify(r.rows));
+  r = await as('service', `select (select count(*)::int from transport_jobs where invoice_id = '${I1}') jobs, (select registration from ownership_transfers where invoice_id = '${I1}') reg, (select collect_by from invoices where id = '${I1}') by`);
+  ok('seller collection: no transport job, and no collection window until the notice of disposal is lodged', r.rows?.[0]?.jobs === 0 && r.rows[0].reg === 'registered' && r.rows[0].by === null, JSON.stringify(r.rows));
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Paid in full.%' order by created_at desc limit 1`);
+  ok('seller collection: the buyer is told to book a time to collect it from the seller', /collect the 2016 Isuzu FVR 1000 Tray from the seller in Rocklea, QLD/.test(r.rows?.[0]?.body || '') && /release code/.test(r.rows[0].body) && !/depot|transport partner/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select body from outbox where dedupe_key like 'transfer-seller:${I1}%' limit 1`);
+  ok('seller collection: the seller is told to hand it over only on the release code, and never to take money', /release code/.test(r.rows?.[0]?.body || '') && /never take money/.test(r.rows[0].body) && /We lodge the notice of disposal for you/.test(r.rows[0].body)
+    && !/transport partner/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select count(*)::int n from notifications where user_id = '${U.ADM}' and kind = 'staff' and title like 'Paid in full:%'`); ok('seller collection: staff are told to lodge the notice of disposal', r.rows?.[0]?.n >= 1);
+  r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${I1}', ${T1}, '${U.A}', 'Sat', 'Morning')`);
+  ok("seller collection: no booking until the seller's side is lodged", r.error?.includes('transfer_not_done'), r.error);
+  const TID1 = (await c.query(`select id from ownership_transfers where invoice_id = '${I1}'`)).rows[0].id;
+  r = await as('ADM', `select admin_transfer_lodged('${TID1}', 'NOD-5521')`); ok('seller collection: staff lodge it for the owner', !r.error, r.error);
+  r = await as('service', `select collect_by from invoices where id = '${I1}'`); const by1 = r.rows?.[0]?.collect_by; ok('seller collection: that opens the collection window, with nothing to wait for at a depot', !!by1, JSON.stringify(r.rows));
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Ready to collect:%' order by created_at desc limit 1`);
+  ok('seller collection: ready to collect, from the seller', /from the seller in Rocklea, QLD/.test(r.rows?.[0]?.body || '') && !/depot/.test(r.rows[0].body), r.rows?.[0]?.body);
+  await as('service', `select collection_ready('${I1}')`);
+  r = await as('service', `select collect_by from invoices where id = '${I1}'`); ok("seller collection: asking again doesn't move the deadline", String(r.rows?.[0]?.collect_by) === String(by1), JSON.stringify(r.rows));
+  r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${I1}', ${T1}, '${U.A}', 'Sat', 'Morning') returning id, seller_token, release_code`);
+  const C1 = r.rows?.[0] || {}; ok('seller collection: the buyer books a time', !!C1.seller_token, r.error);
+  r = await as('A', `select * from invoice_pickup('${I1}')`);
+  ok('seller collection: before the time is confirmed the buyer sees the suburb, not the street', r.rows?.[0]?.collect_from === 'seller' && r.rows[0].suburb === 'Rocklea' && r.rows[0].address === null && r.rows[0].notes === null, JSON.stringify(r.rows || r.error));
+  r = await as('S', `select * from seller_lot_collection(${T1})`); ok("seller collection: the seller sees a request, with no name and no link yet", r.rows?.[0]?.status === 'requested' && r.rows[0].collector === null && r.rows[0].seller_token === null, JSON.stringify(r.rows || r.error));
+  await as('service', `update collections set status = 'confirmed', confirmed_for = 'Saturday 10am' where id = '${C1.id}'`);
+  r = await as('A', `select * from invoice_pickup('${I1}')`);
+  ok('seller collection: once confirmed, the buyer has the address and the owner\'s notes', r.rows?.[0]?.address === '12 Sample Street, Rocklea QLD 4106' && /Ask for Dave/.test(r.rows[0].notes || ''), JSON.stringify(r.rows || r.error));
+  r = await as('B', `select * from invoice_pickup('${I1}')`); ok("seller collection: nobody else's invoice shows it", (r.rows || []).length === 0, JSON.stringify(r.rows || r.error));
+  r = await as('anon', `select * from invoice_pickup('${I1}')`); ok("seller collection: nor a visitor", !!r.error, JSON.stringify(r.rows));
+  r = await as('S', `select * from seller_lot_collection(${T1})`);
+  ok('seller collection: the seller sees the time, who is coming and their handover link', r.rows?.[0]?.confirmed_for === 'Saturday 10am' && r.rows[0].collector === 'Amy Ash' && r.rows[0].seller_token === C1.seller_token, JSON.stringify(r.rows || r.error));
+  r = await as('B', `select * from seller_lot_collection(${T1})`); ok("seller collection: only that truck's seller", (r.rows || []).length === 0, JSON.stringify(r.rows || r.error));
+  r = await as('service', `select complete_handover('${C1.seller_token}', '${C1.release_code === '000000' ? '111111' : '000000'}', 412050, 2, '') h`); ok('seller collection: the wrong code hands nothing over', r.rows?.[0]?.h?.ok === false, JSON.stringify(r.rows || r.error));
+  r = await as('service', `select complete_handover('${C1.seller_token}', '${C1.release_code}', 412050, 2, 'All as listed') h`); ok('seller collection: the seller hands it over on the release code', r.rows?.[0]?.h?.ok === true, JSON.stringify(r.rows || r.error));
+  r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Collected: 2016 Isuzu%' order by created_at desc limit 1`);
+  ok('seller collection: the buyer is told it is theirs now, with no depot in it', /^Handed over\. The vehicle is now your responsibility/.test(r.rows?.[0]?.body || '') && !/depot/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select body from outbox where dedupe_key like 'collected-seller:${C1.id}%' limit 1`); ok('seller collection: the seller hears when they are paid', /The handover is recorded\./.test(r.rows?.[0]?.body || '') && /claim window/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `select claim_until, collected_at from invoices where id = '${I1}'`); ok('seller collection: the claim window starts at the handover', !!r.rows?.[0]?.claim_until && !!r.rows[0].collected_at, JSON.stringify(r.rows));
+  await as('service', `select viewing_sweep()`);
+  r = await as('service', `select status from viewings where id = '${VW}'`); ok('viewing: a booking on a truck that has sold is called off', r.rows?.[0]?.status === 'cancelled', JSON.stringify(r.rows));
+  r = await as('ADM', `select how from lot_introductions(${T1})`); ok('introductions: the record of the viewing outlives the booking', r.rows?.some((x) => x.how === 'viewing'), JSON.stringify(r.rows));
+
+  // an unregistered truck: nothing to lodge, so the window opens at payment; it still can't be driven off without a permit
+  const I3 = await sold(T3, 56000, U.B);
+  r = await as('service', `select collect_by, (select count(*)::int from transport_jobs where invoice_id = '${I3}') jobs from invoices where id = '${I3}'`);
+  ok('seller collection: an unregistered truck can be booked as soon as it is paid for', !!r.rows?.[0]?.collect_by && r.rows[0].jobs === 0, JSON.stringify(r.rows));
+  r = await as('service', `select body from notifications where user_id = '${U.B}' and title like 'Paid in full.%' order by created_at desc limit 1`);
+  ok('seller collection: its buyer is asked how they will move it', /sold unregistered/.test(r.rows?.[0]?.body || '') && /a carrier, your own float or trailer, or a permit/.test(r.rows[0].body) && /from the seller in Dubbo, NSW/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('service', `insert into collections (invoice_id, lot_id, buyer_id, preferred_day, preferred_time) values ('${I3}', ${T3}, '${U.B}', 'Mon', 'Morning') returning id, seller_token, release_code`);
+  const C3 = r.rows?.[0] || {}; ok('seller collection: and books a time', !!C3.seller_token, r.error);
+  await as('service', `update collections set status = 'confirmed', confirmed_for = 'Monday 9am' where id = '${C3.id}'`);
+  r = await as('service', `select complete_handover('${C3.seller_token}', '${C3.release_code}', 1240000, 2, '')`); ok("seller collection: the seller can't let an unregistered truck go without saying how it left", r.error?.includes('unreg_how'), r.error);
+  r = await as('service', `select complete_handover('${C3.seller_token}', '${C3.release_code}', 1240000, 2, '', 'carrier') h`); ok('seller collection: on a float, it goes', r.rows?.[0]?.h?.ok === true, JSON.stringify(r.rows || r.error));
+
+  // a truck that didn't sell goes into the next auction: never sold by private treaty afterwards
+  await c.query(`alter table lots disable trigger user`);
+  await c.query(`update lots set status = 'passed' where id = ${T4}`);
+  await c.query(`alter table lots enable trigger user`);
+  r = await as('service', `select after_auction_check(${T4}) x`);
+  ok('after the auction: a truck is sold under the hammer only', r.rows?.[0]?.x?.ok === false && r.rows[0].x.code === 'heavy' && /next auction/.test(r.rows[0].x.why), JSON.stringify(r.rows || r.error));
+  await c.query(`update settings set value = value || '{"after_auction_heavy": true}' where key = 'selling'`);
+  r = await as('service', `select after_auction_check(${T4}) x`); ok('after the auction: unless the setting is changed', r.rows?.[0]?.x?.code !== 'heavy', JSON.stringify(r.rows || r.error));
+  await c.query(`update settings set value = value || '{"after_auction_heavy": false}' where key = 'selling'`);
+
+  // the older way still works for a listing that was sold on the depot promise
+  r = await as('service', `select count(*)::int n from lots where collect_from = 'depot'`); ok('depot: listings made the old way keep their depot', r.rows?.[0]?.n > 0, JSON.stringify(r.rows));
+}
+
 // ---------- the seed as it really runs (live-only on): its sample vehicles wait in a sample live auction ----------
 {
   const sa = new pg.Client({ ...PG, database: 'postgres' }); await sa.connect();
-  await sa.query('drop database if exists tyrebiter_seedcheck'); await sa.query('create database tyrebiter_seedcheck'); await sa.end();
-  const sc = new pg.Client({ ...PG, database: 'tyrebiter_seedcheck' }); await sc.connect();
+  await sa.query('drop database if exists supertrucker_seedcheck'); await sa.query('create database supertrucker_seedcheck'); await sa.end();
+  const sc = new pg.Client({ ...PG, database: 'supertrucker_seedcheck' }); await sc.connect();
   await sc.query(fs.readFileSync(ROOT + '/tests/db/supabase_base.sql', 'utf8'));
   for (const f of fs.readdirSync(M + 'migrations').sort()) { await sc.query(fs.readFileSync(M + 'migrations/' + f, 'utf8')); }
   await sc.query(fs.readFileSync(M + 'seed.sql', 'utf8'));
@@ -2181,15 +2390,24 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('seed: a sample live auction, on a Thursday at 7pm (Brisbane), that the clock never runs by itself', q.rows.length === 1 && sale.slug === 'sample-live-auction' && sale.mode === 'live' && sale.live_status === 'scheduled'
     && sale.auctioneer === 'Sample Auctioneer' && sale.auto_advance === false && sale.published && sale.dow === 4 && sale.t === '19:00' && sale.later, JSON.stringify(q.rows));
   q = await sc.query(`select l.id, l.live_state, l.method, l.buy_now_price, l.estimate_low::int lo, l.estimate_high::int hi, p.reserve_price, char_length(coalesce(p.estimate_basis, '')) basis,
-    l.registration, l.roadworthy_issued_on, roadworthy_needed(coalesce(l.rego_state, l.state), l.year, l.category, l.gvm_kg) cert, l.ends_at > now() future
+    l.registration, l.roadworthy_issued_on, roadworthy_needed(coalesce(l.rego_state, l.state), l.year, l.category, l.gvm_kg) cert, l.ends_at > now() future,
+    l.category, l.state, l.collect_from, l.depot_id, l.transport_fee, l.in_person_viewing, l.sale_order, l.fees->>'premium_rate' rate, l.fees->>'transport' tow, l.plates_note, p.seller_address
     from lots l join lot_private p on p.lot_id = l.id where l.status = 'live' order by l.sale_order`);
   const lots = q.rows;
-  ok('seed: every sample vehicle waits in it, with no Buy Now', lots.length === 10 && lots.every((x) => x.live_state === 'waiting' && x.method === 'auction' && x.buy_now_price === null && x.future), JSON.stringify(lots));
+  ok('seed: every sample vehicle waits in it, with no Buy Now', lots.length === 6 && lots.every((x) => x.live_state === 'waiting' && x.method === 'auction' && x.buy_now_price === null && x.future), JSON.stringify(lots));
   ok('seed: each has an estimate within the rule, above the reserve, with its basis on file', lots.every((x) => x.lo > 0 && x.hi >= x.lo && x.hi <= Math.max(x.lo * 1.25, x.lo + 1000)
     && (x.reserve_price === null || Number(x.reserve_price) <= x.lo) && x.basis >= 20), JSON.stringify(lots));
   ok("seed: the seller's certificate where the state needs one to transfer the registration", lots.every((x) => (x.registration === 'registered' && x.cert) ? !!x.roadworthy_issued_on : x.roadworthy_issued_on === null), JSON.stringify(lots));
+  ok('seed: trucks only, in the states we sell in, numbered 1 to 6', lots.every((x) => x.category === 'trucks' && ['QLD', 'NSW', 'WA'].includes(x.state)) && lots.map((x) => x.sale_order).join() === '1,2,3,4,5,6'
+    && ['QLD', 'NSW', 'WA'].every((st) => lots.some((x) => x.state === st)), JSON.stringify(lots.map((x) => [x.id, x.category, x.state, x.sale_order])));
+  ok('seed: collected from the seller: no depot, no tow in the premium, viewing by appointment, the address on file', lots.every((x) => x.collect_from === 'seller' && x.depot_id === null
+    && Number(x.transport_fee || 0) === 0 && Number(x.tow) === 0 && x.in_person_viewing === true && !!x.seller_address), JSON.stringify(lots.map((x) => [x.id, x.collect_from, x.depot_id, x.transport_fee, x.tow, x.in_person_viewing])));
+  ok('seed: the premium is 6%', lots.every((x) => Number(x.rate) === 0.06), JSON.stringify(lots.map((x) => x.rate)));
+  ok('seed: the New South Wales truck sold without plates says why', lots.filter((x) => x.state === 'NSW' && x.registration === 'unregistered').every((x) => (x.plates_note || '').length > 10)
+    && lots.some((x) => x.state === 'NSW' && x.registration === 'unregistered'), JSON.stringify(lots.map((x) => [x.id, x.state, x.registration, x.plates_note])));
+  q = await sc.query(`select count(*)::int n from depots`); ok('seed: no sample depots', q.rows[0].n === 0, JSON.stringify(q.rows));
   await sc.end();
-  const sd = new pg.Client({ ...PG, database: 'postgres' }); await sd.connect(); await sd.query('drop database if exists tyrebiter_seedcheck'); await sd.end();
+  const sd = new pg.Client({ ...PG, database: 'postgres' }); await sd.connect(); await sd.query('drop database if exists supertrucker_seedcheck'); await sd.end();
 }
 
 console.log(`\n${pass} passed, ${failN} failed`);

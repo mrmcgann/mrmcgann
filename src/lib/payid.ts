@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { env } from "@/lib/env";
 
 // Single-use PayIDs from a payments provider (Azupay), so a bidder's deposit or an invoice balance is matched
-// automatically the moment it's paid, and the payer sees "Tyrebiter" before they send it.
+// automatically the moment it's paid, and the payer sees "Super Trucker" before they send it.
 // Off unless AZUPAY_CLIENT_ID and AZUPAY_SECRET_KEY are set; without them people pay by plain bank transfer with their
 // reference and our team records it in Admin → Deposits. Check the field names against your Azupay onboarding pack
 // (UAT first) before switching it on.

@@ -253,7 +253,7 @@ export default function Join() {
         {errors.id ? <Notice kind="bad">{errors.id}</Notice> : null}
         <Button testID="verify-id" title={me.config.stripe ? "Verify my ID" : "Verify ID (test mode)"} busy={busy} onPress={startId} />
         {st === "pending" ? <Button kind="soft" title="Check again" onPress={checkId} /> : null}
-        <T v="small">ID checks are handled securely by Stripe Identity. Tyrebiter keeps the result, not a copy of your document.</T>
+        <T v="small">ID checks are handled securely by Stripe Identity. Super Trucker keeps the result, not a copy of your document.</T>
         <LinkText title="Verify later" color={C.muted} style={{ alignSelf: "center" }} onPress={finish} />
       </>
     );

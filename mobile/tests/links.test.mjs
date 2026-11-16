@@ -17,7 +17,7 @@ eq("search keeps the filters", appPath("/auctions?cat=utes&make=Toyota"), "/sear
 eq("join", appPath("/join"), "/join");
 eq("unknown goes home", appPath("/terms#t-claims"), "/");
 eq("empty goes home", appPath(""), "/");
-eq("scheme link", appPath("tyrebiter://lot/10500"), "/lot/10500");
+eq("scheme link", appPath("supertrucker://lot/10500"), "/lot/10500");
 eq("not a lot number", appPath("/lot/abc"), "/");
 eq("live auction room", appPath("https://tyrebiter.com.au/live/ex-council-fleet"), "/live/ex-council-fleet");
 eq("live: bad name goes home", appPath("/live/../etc"), "/");

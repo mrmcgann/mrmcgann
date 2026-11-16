@@ -5,7 +5,7 @@
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
-select cron.schedule('tyrebiter-process', '* * * * *', $$
+select cron.schedule('supertrucker-process', '* * * * *', $$
   select net.http_get(
     url := 'https://YOUR-SITE.vercel.app/api/cron/process',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET')

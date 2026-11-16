@@ -9,7 +9,7 @@ export async function sendSms(to: string, body: string): Promise<{ ok: boolean; 
     console.log(`[sms:test] to ${to}: ${body}`);
     return { ok: true, status: 200, test: true };
   }
-  // A Messaging Service (sender pool, registered "Tyrebiter" sender ID) is preferred over a single number.
+  // A Messaging Service (sender pool, registered "Super Trucker" sender ID) is preferred over a single number.
   const params: Record<string, string> = { To: toE164(to), Body: body };
   if (env.twilioMessagingService) params.MessagingServiceSid = env.twilioMessagingService;
   else params.From = env.twilioFrom;

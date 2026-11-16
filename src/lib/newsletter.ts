@@ -61,7 +61,7 @@ export async function sendNewsletter({ force = false, now = new Date() }: { forc
   if (!fresh?.length && !endingOnly.length) return { queued: 0, reason: "There are no live vehicles to send." };
   const fees = { ...DEFAULT_FEES, ...((feeRow?.value || {}) as Partial<Fees>) };
   const n = fresh?.length || 0;
-  const title = n ? `This week at Tyrebiter: ${n} new vehicle${n === 1 ? "" : "s"}` : "Ending soon at Tyrebiter";
+  const title = n ? `This week at Super Trucker: ${n} new vehicle${n === 1 ? "" : "s"}` : "Ending soon at Super Trucker";
   // A manual send gets its own tag so it never collides with (or blocks) the weekly one.
   const sendTag = force ? `${tag}-${now.getTime()}` : tag;
   const { data: queued, error } = await db.rpc("queue_newsletter", {

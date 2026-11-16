@@ -3,18 +3,18 @@ import Link from "next/link";
 import { TERMS as RAW, fillLegal, TERMS_VERSION_LABEL } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Terms of sale", description: "The Terms of sale for buying at Tyrebiter in plain English: bidding, fees, payment, collection, claims and your consumer rights.", alternates: { canonical: "/terms" } };
+export const metadata: Metadata = { title: "Terms of sale", description: "The Terms of sale for buying at Super Trucker in plain English: bidding, fees, payment, collection, claims and your consumer rights.", alternates: { canonical: "/terms" } };
 
 export default async function Terms() {
   const TERMS = fillLegal(RAW, await getSettingsCached());
   return (
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>
-        <span className="eyebrow" style={{ color: "var(--grape)" }}>Buying with Tyrebiter</span>
+        <span className="eyebrow" style={{ color: "var(--grape)" }}>Buying with Super Trucker</span>
         <h1 className="d2">Terms of sale.</h1>
         <p className="lede">Plain English, because you should know exactly what you&apos;re agreeing to before you bid.</p>
       </div>
-      <div className="notice" style={{ margin: "32px auto 0", maxWidth: 880 }}>{TERMS_VERSION_LABEL}. Draft for review. Items in [brackets] need Tyrebiter&apos;s details, and the whole document should be checked by an Australian lawyer before launch.</div>
+      <div className="notice" style={{ margin: "32px auto 0", maxWidth: 880 }}>{TERMS_VERSION_LABEL}. Draft for review. Items in [brackets] need Super Trucker&apos;s details, and the whole document should be checked by an Australian lawyer before launch.</div>
       <div className="acctgrid" style={{ paddingTop: 48 }}>
         <nav className="side-nav" aria-label="Sections" style={{ position: "sticky", top: 80, alignSelf: "start" }}>
           {TERMS.map(([id, title]) => <a key={id} href={`#${id}`} style={{ height: "auto", minHeight: 40, padding: "8px 16px", fontSize: 14 }}>{title}</a>)}

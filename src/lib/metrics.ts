@@ -32,7 +32,7 @@ export const KPIS: Kpi[] = [
   { key: "lots_published", label: "New listings", group: "Sales", fmt: "count", good: "up", hint: "Vehicles that went live.", calc: (g) => g("lots_published") },
   { key: "live_lots", label: "Live now", group: "Sales", fmt: "count", good: "up", hint: "Auctions open right now.", calc: (_g, l) => l("live_lots") },
   // Money
-  { key: "revenue", label: "Tyrebiter revenue", group: "Money", fmt: "money", good: "up", hint: "Buyer's premium and admin fees (ex GST), seller fees, and our half of forfeited deposits.", calc: (g) => g("revenue") },
+  { key: "revenue", label: "Super Trucker revenue", group: "Money", fmt: "money", good: "up", hint: "Buyer's premium and admin fees (ex GST), seller fees, and our half of forfeited deposits.", calc: (g) => g("revenue") },
   { key: "take_rate", label: "Take rate", group: "Money", fmt: "pct", good: "up", hint: "Revenue as a share of vehicle sales.", calc: (g) => div(g("revenue"), g("gmv")) },
   { key: "premium", label: "Buyer's premium", group: "Money", fmt: "money", good: "up", hint: "Ex GST.", calc: (g) => g("premium") },
   { key: "admin_fees", label: "Admin fees", group: "Money", fmt: "money", good: "up", hint: "Ex GST.", calc: (g) => g("admin_fees") },

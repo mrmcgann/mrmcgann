@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 }
 
 function browserOf(ua: string) {
-  if (/Expo|CFNetwork|okhttp|Tyrebiter/i.test(ua)) return "app";
+  if (/Expo|CFNetwork|okhttp|Super(?:%20|\s)?Trucker/i.test(ua)) return "app";
   if (/Edg\//.test(ua)) return "Edge";
   if (/SamsungBrowser/.test(ua)) return "Samsung Internet";
   if (/Firefox\//.test(ua)) return "Firefox";

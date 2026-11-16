@@ -82,7 +82,7 @@ export default async function Handover({ params }: { params: Promise<{ token: st
             <span>Collected by: <b>{who}</b></span>
             <ol className="steps-mini">
               <li>Check their photo ID matches <b>{who}</b>.</li>
-              <li>Ask them for the 6-digit release code. Don&apos;t hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Tyrebiter.</li>
+              <li>Ask them for the 6-digit release code. Don&apos;t hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Super Trucker.</li>
               <li>Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.</li>
               {noPlates && <li><b>Unregistered:</b> see how it&apos;s going. {canPermit ? "If they're driving it, ask for the permit and write its number down below." : "It's written off, so it can only go on a truck or a trailer."}</li>}
               <li>Enter the code, the odometer and the keys handed over below.</li>

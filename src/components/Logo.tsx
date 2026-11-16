@@ -15,9 +15,9 @@ export function LogoMark({ size = 26, ringOverride }: { size?: number; ringOverr
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link className="logo" href="/" aria-label="Tyrebiter home" style={light ? { color: "#FFFFFF" } : undefined}>
+    <Link className="logo" href="/" aria-label="Super Trucker home" style={light ? { color: "#FFFFFF" } : undefined}>
       <LogoMark />
-      tyrebiter
+      super trucker
     </Link>
   );
 }

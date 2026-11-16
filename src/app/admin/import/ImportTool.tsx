@@ -26,7 +26,7 @@ export function ImportTool({ sales, depots }: { sales: { id: number; title: stri
   }
   return (
     <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <span className="hint"><a className="blue" href={template} download="tyrebiter-bulk-upload.csv">Download the template ›</a> One vehicle per row, up to 500. Make and model are required; anything else can be filled in later.</span>
+      <span className="hint"><a className="blue" href={template} download="supertrucker-bulk-upload.csv">Download the template ›</a> One vehicle per row, up to 500. Make and model are required; anything else can be filled in later.</span>
       <label className="drop"><b>Choose a CSV file</b><span className="hint">Or paste it below.</span><input type="file" accept=".csv,text/csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) f.text().then(setCsv); }} data-testid="import-file" /></label>
       <textarea className="input" style={{ minHeight: 140, fontFamily: "monospace", fontSize: 13 }} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder="Year,Make,Model,…" aria-label="CSV" data-testid="import-csv" />
       <div className="grid3">

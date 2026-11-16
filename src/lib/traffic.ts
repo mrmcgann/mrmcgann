@@ -87,7 +87,7 @@ export function ipKey(ip: string): string {
 }
 
 /** The app's own HTTP clients (React Native on iOS and Android). */
-export const isAppAgent = (ua: string) => /CFNetwork|okhttp|Dalvik|Expo|Tyrebiter/i.test(ua);
+export const isAppAgent = (ua: string) => /CFNetwork|okhttp|Dalvik|Expo|Super(?:%20|\s)?Trucker/i.test(ua);
 
 /** Australian state from the hosting provider's location headers (country + region code). */
 export function regionOf(country: string | null | undefined, region: string | null | undefined): string | null {

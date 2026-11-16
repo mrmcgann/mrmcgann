@@ -1,6 +1,6 @@
 import type { ExpoConfig } from "expo/config";
 
-// Tyrebiter for iOS and Android.
+// Super Trucker for iOS and Android.
 // Set these on expo.dev (your project > Environment variables), or in a local .env.local for testing:
 //   EXPO_PUBLIC_SITE_URL                https://tyrebiter.com.au (the website; its /api is the app's API)
 //   EXPO_PUBLIC_SUPABASE_URL            same as NEXT_PUBLIC_SUPABASE_URL on the website
@@ -18,16 +18,16 @@ const version = "1.0.0";
 const APP_PATHS = ["/lot", "/live", "/auctions", "/watchlist", "/account", "/sell/dashboard", "/handover", "/offers", "/join", "/signin"];
 
 const config: ExpoConfig = {
-  name: "Tyrebiter",
-  slug: "tyrebiter",
-  scheme: "tyrebiter",
+  name: "Super Trucker",
+  slug: "supertrucker",
+  scheme: "supertrucker",
   version,
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   backgroundColor: "#FFFFFF",
   primaryColor: "#2F5BFF",
-  description: "Live vehicle auctions across Australia: cars, utes, trucks, motorbikes, caravans, boats and machinery.",
+  description: "Live truck auctions in Queensland, New South Wales and Western Australia. View by appointment, bid from anywhere.",
   runtimeVersion: { policy: "appVersion" },
   ...(projectId ? { updates: { url: `https://u.expo.dev/${projectId}`, checkAutomatically: "ON_LOAD", fallbackToCacheTimeout: 0 } } : {}),
   ios: {

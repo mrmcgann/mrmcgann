@@ -86,7 +86,7 @@ export function sellerTransportLine(t: Pick<SellerTransport, "status" | "pickup_
 export const shortDay = (day: string) => new Date(`${day.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).replace(",", "");
 
 /** What the bidder agrees to about seeing it and collecting it, in the as-is acknowledgement (after "sold as is, where is:"). */
-export const ACK_CHECK = "I can't view it, the condition report is a guide only (I can order a mechanical inspection through Tyrebiter, at my cost, before I bid), and I collect it from Tyrebiter's depot";
+export const ACK_CHECK = "I can't view it, the condition report is a guide only (I can order a mechanical inspection through Super Trucker, at my cost, before I bid), and I collect it from Super Trucker's depot";
 
 /** Plain words for the database's refusals (null when it isn't one of them). */
 export function transportError(m: string): string | null {

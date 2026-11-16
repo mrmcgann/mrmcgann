@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const lot = n("lot", 1e9), source = s("src");
   const target = fillReferral(p.referral_url, {
     amount: n("amount", 5e6), term: n("term", 120), lot, make: s("make"), model: s("model"), year: n("year", 2100), postcode: (u.searchParams.get("postcode") || "").replace(/\D/g, "").slice(0, 4),
-    ref: "tyrebiter",
+    ref: "supertrucker",
   });
   // Count real people once per partner per day: skip bots, link previews and browser prefetches.
   const ua = req.headers.get("user-agent") || "";

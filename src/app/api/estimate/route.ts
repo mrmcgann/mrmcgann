@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { supabasePublic } from "@/lib/supabase/anon";
 
-// What similar vehicles sold for on Tyrebiter (Sell page): same make and model, within two
+// What similar vehicles sold for on Super Trucker (Sell page): same make and model, within two
 // years, sold in the last 18 months. Only with at least 3 sales, so the range has a real basis.
 const estimate = (make: string, model: string, year: number | null) => unstable_cache(async () => {
   const { data } = await supabasePublic().rpc("price_estimate", { p_make: make, p_model: model, p_year: year });

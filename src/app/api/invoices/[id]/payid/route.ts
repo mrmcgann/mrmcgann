@@ -24,7 +24,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { data: row, error } = await admin.from("payment_requests").insert({ user_id: user.id, purpose: "invoice", invoice_id: id, amount: inv.balance_due, provider: "azupay", expires_at: expires.toISOString() }).select("id").single();
   if (error || !row) return fail("We couldn't set that up. Use the bank details instead.");
   try {
-    const r = await createPayId({ requestId: row.id, amount: Number(inv.balance_due), description: `Tyrebiter invoice ${inv.ref}`, expiresAt: expires });
+    const r = await createPayId({ requestId: row.id, amount: Number(inv.balance_due), description: `Super Trucker invoice ${inv.ref}`, expiresAt: expires });
     await admin.from("payment_requests").update({ payid: r.payId, provider_id: r.providerId || null, raw: r.raw as object }).eq("id", row.id);
     return json({ id: row.id, payId: r.payId, amount: Number(inv.balance_due), expiresAt: expires.toISOString() });
   } catch {

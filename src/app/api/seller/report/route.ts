@@ -15,5 +15,5 @@ export async function GET() {
     return [l.id, l.title, l.status, l.bid_count, l.current_bid, l.sold_price, l.sold_via, l.ends_at ? new Date(l.ends_at).toLocaleString("en-AU", { timeZone: "Australia/Brisbane" }) : "", l.views,
       p?.sale_price, p?.seller_fee, p?.fee_gst, p?.lender_payout, p?.other_deductions, p?.net_amount, p?.status, p?.paid_at ? new Date(p.paid_at).toLocaleDateString("en-AU") : ""];
   });
-  return csvResponse("tyrebiter-my-vehicles.csv", toCsv(["Lot", "Vehicle", "Status", "Bids", "Highest bid", "Sold price", "Sold by", "Closed (Brisbane)", "Views", "Sale price", "Seller fee", "GST on fee", "Paid to lender", "Other deductions", "Paid to you", "Payout status", "Paid on"], rows));
+  return csvResponse("supertrucker-my-vehicles.csv", toCsv(["Lot", "Vehicle", "Status", "Bids", "Highest bid", "Sold price", "Sold by", "Closed (Brisbane)", "Views", "Sale price", "Seller fee", "GST on fee", "Paid to lender", "Other deductions", "Paid to you", "Payout status", "Paid on"], rows));
 }

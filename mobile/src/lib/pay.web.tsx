@@ -4,6 +4,6 @@ import type { ReactNode } from "react";
 export function PayProvider({ children }: { children: ReactNode }) { return <>{children}</>; }
 export type PayResult = { ok: true } | { cancelled: true } | { error: string };
 export function usePayments() {
-  const unavailable = async (_s: string): Promise<PayResult> => ({ error: "Card entry opens in the Tyrebiter app." });
+  const unavailable = async (_s: string): Promise<PayResult> => ({ error: "Card entry opens in the Super Trucker app." });
   return { saveCard: unavailable, pay: unavailable };
 }

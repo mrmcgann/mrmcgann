@@ -352,7 +352,7 @@ export default function LiveRoomScreen() {
           </View>
         ) : null}
         </>)}
-        <T v="small" testID="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Tyrebiter as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it's passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The seller can't bid, and we never bid for the seller. The price and countdown here are what count. The auctioneer may also take bids by phone from registered bidders.</T>
+        <T v="small" testID="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Super Trucker as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it's passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The seller can't bid, and we never bid for the seller. The price and countdown here are what count. The auctioneer may also take bids by phone from registered bidders.</T>
       </Screen>
 
     </>

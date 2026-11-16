@@ -47,7 +47,7 @@ export function LotInteractive({ lot, fees, history, phone, sale = null, relist 
       )}
       <div className="soft" style={{ gap: 6 }}>
         <b style={{ fontSize: 17 }}>Buying safely.</b>
-        <span className="muted" style={{ fontSize: 14 }}>Pay Tyrebiter only, never the seller. Our bank details never change by email or SMS. If anything looks wrong, call {phone}.</span>
+        <span className="muted" style={{ fontSize: 14 }}>Pay Super Trucker only, never the seller. Our bank details never change by email or SMS. If anything looks wrong, call {phone}.</span>
         <ReportButton lotId={lot.id} signedIn={!!userId} />
       </div>
     </>

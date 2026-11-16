@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// Tells iOS which website links open in the Tyrebiter app, and lets iPhone passwords fill in the app.
+// Tells iOS which website links open in the Super Trucker app, and lets iPhone passwords fill in the app.
 // Needs APPLE_TEAM_ID (developer.apple.com > Membership). Until it's set this returns 404, so Apple doesn't cache a bad file.
 export const dynamic = "force-dynamic";
 

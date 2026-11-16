@@ -51,7 +51,7 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
       {!user ? (
         <div className="soft">
           <b>First, create your free account (or sign in).</b>
-          <span className="muted">We verify every seller&apos;s identity, just like every bidder. It keeps scammers off Tyrebiter.</span>
+          <span className="muted">We verify every seller&apos;s identity, just like every bidder. It keeps scammers off Super Trucker.</span>
           <div className="pill-row"><Link className="btn btn-blue" href={`/join?seller=1&next=${encodeURIComponent(here)}`}>Create account</Link><Link className="btn btn-soft" href={`/signin?next=${encodeURIComponent(here)}`}>Sign in</Link></div>
         </div>
       ) : !ready ? (
@@ -76,7 +76,7 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
 function Shell({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div className="wrap" style={{ maxWidth: 860, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 22 }}>
-      <span className="eyebrow" style={{ color: "var(--grape)" }}>Selling with Tyrebiter{title ? ` · ${title}` : ""}</span>
+      <span className="eyebrow" style={{ color: "var(--grape)" }}>Selling with Super Trucker{title ? ` · ${title}` : ""}</span>
       <h1 className="d2" style={{ fontSize: "clamp(38px,6vw,64px)" }}>Your seller agreement.</h1>
       <p className="lede" style={{ margin: 0 }}>Tell us about the vehicle honestly, confirm you own it, and tell us where to send the money. It takes about ten minutes.</p>
       {children}

@@ -15,7 +15,7 @@ export interface SendResult { ok: boolean; status: number; error?: string; test?
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 // Branded, simple HTML that renders well in every mail app.
-export function mailHtml(title: string, body: string, link?: string, linkLabel = "Open Tyrebiter", footer?: string) {
+export function mailHtml(title: string, body: string, link?: string, linkLabel = "Open Super Trucker", footer?: string) {
   // Links to our own site in the text become clickable (the text is escaped first).
   const site = env.siteUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const linkify = (t: string) => t.replace(new RegExp(`(${site}/[^\\s<]*)`, "g"), '<a href="$1" style="color:#2F5BFF">$1</a>');
@@ -23,7 +23,7 @@ export function mailHtml(title: string, body: string, link?: string, linkLabel =
   return `<!doctype html><html><body style="margin:0;background:#F5F5F7;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" style="max-width:560px;background:#FFFFFF;border-radius:20px" cellpadding="0" cellspacing="0"><tr><td style="padding:32px 28px">
-<div style="font-size:22px;font-weight:800;letter-spacing:-0.03em;margin-bottom:22px">Tyrebiter<span style="color:#2F5BFF">.</span></div>
+<div style="font-size:22px;font-weight:800;letter-spacing:-0.03em;margin-bottom:22px">Super Trucker<span style="color:#2F5BFF">.</span></div>
 <h1 style="font-size:24px;line-height:1.25;margin:0 0 16px;color:#1D1D1F;letter-spacing:-0.02em">${esc(title)}</h1>
 ${paras}
 ${link ? `<p style="margin:22px 0 6px"><a href="${esc(link)}" style="display:inline-block;background:#2F5BFF;color:#FFFFFF;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:999px">${esc(linkLabel)}</a></p>` : ""}

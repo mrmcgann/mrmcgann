@@ -49,7 +49,7 @@ export default function Account() {
         <Button testID="account-join" title="Join free" onPress={() => router.push("/join")} />
         <Button kind="soft" title="Sign in" onPress={() => router.push("/signin")} />
         {help}
-        <T v="small" style={{ textAlign: "center" }}>Tyrebiter {APP_VERSION}</T>
+        <T v="small" style={{ textAlign: "center" }}>Super Trucker {APP_VERSION}</T>
       </Screen>
     );
   }
@@ -109,7 +109,7 @@ export default function Account() {
       <Divider />
       <Button kind="soft" title="Sign out" onPress={signOut} />
       <Text accessibilityRole="button" onPress={() => router.push("/delete-account")} style={s.delete}>Delete my account</Text>
-      <T v="small" style={{ textAlign: "center" }}>Tyrebiter {APP_VERSION}</T>
+      <T v="small" style={{ textAlign: "center" }}>Super Trucker {APP_VERSION}</T>
     </Screen>
   );
 }

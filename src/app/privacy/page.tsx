@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PRIVACY as RAW, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Privacy policy", description: "What personal information Tyrebiter collects, why, who we share it with, how long we keep it, and how to see, correct or delete it.", alternates: { canonical: "/privacy" } };
+export const metadata: Metadata = { title: "Privacy policy", description: "What personal information Super Trucker collects, why, who we share it with, how long we keep it, and how to see, correct or delete it.", alternates: { canonical: "/privacy" } };
 
 export default async function Privacy() {
   const PRIVACY = fillLegal(RAW, await getSettingsCached(), { text: true });
@@ -10,7 +10,7 @@ export default async function Privacy() {
     <div className="wrap">
       <div className="center hero" style={{ paddingBottom: 0 }}>
         <h1 className="d2">Privacy policy.</h1>
-        <p className="lede">How Tyrebiter collects, uses and protects your information under the Privacy Act 1988.</p>
+        <p className="lede">How Super Trucker collects, uses and protects your information under the Privacy Act 1988.</p>
       </div>
       <div className="notice" style={{ margin: "32px auto 0", maxWidth: 880 }}>Draft for review by an Australian lawyer before launch.</div>
       <div style={{ maxWidth: 760, margin: "48px auto 0", display: "flex", flexDirection: "column", gap: 36 }}>

@@ -16,7 +16,7 @@ export function useWatch() {
     const on = await toggleWatch(lotId);
     if (on && !(await getPref("watchAsked", false))) {
       await setPref("watchAsked", true);
-      void askForPush(); // "Tyrebiter would like to send you notifications" – in context: they just started watching
+      void askForPush(); // "Super Trucker would like to send you notifications" – in context: they just started watching
     }
   }, [signedIn, toggleWatch, path]);
   return { watched, toggle };

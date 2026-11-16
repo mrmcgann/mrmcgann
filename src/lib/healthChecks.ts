@@ -361,7 +361,7 @@ export function overall(checks: { status: Status }[]): { status: Status; title: 
 /** What admins are told when a check breaks or recovers (null: no alert). Only failures alert; warnings wait for the page. */
 export function alertFor(change: { key: string; from: Status | null; to: Status; title: string; detail?: string | null; alerted?: boolean }, siteUrl: string):
   { title: string; body: string; urgent: boolean } | null {
-  if (change.to === "fail") return { title: `Tyrebiter problem: ${change.title}`, body: `${change.title}.${change.detail ? ` ${change.detail}` : ""}\n\nOpen Site health to see what to do, or ask Claude about it: ${siteUrl}/admin/health`, urgent: true };
+  if (change.to === "fail") return { title: `Super Trucker problem: ${change.title}`, body: `${change.title}.${change.detail ? ` ${change.detail}` : ""}\n\nOpen Site health to see what to do, or ask Claude about it: ${siteUrl}/admin/health`, urgent: true };
   if (change.from === "fail" && change.alerted && (change.to === "ok" || change.to === "warn")) return { title: `Fixed: ${change.title}`, body: `This is back to normal: ${change.title}.\n\n${siteUrl}/admin/health`, urgent: false };
   return null;
 }

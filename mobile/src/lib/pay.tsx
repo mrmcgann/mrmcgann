@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 import { StripeProvider, useStripe } from "@stripe/stripe-react-native";
 import { STRIPE_PK } from "./env";
 
-// Cards are entered in Stripe's own payment sheet: Tyrebiter never sees the card number.
+// Cards are entered in Stripe's own payment sheet: Super Trucker never sees the card number.
 // Buying a vehicle is a physical-goods purchase, so App Store in-app purchase doesn't apply.
 export function PayProvider({ children }: { children: ReactNode }) {
   if (!STRIPE_PK) return <>{children}</>;
   return (
-    <StripeProvider publishableKey={STRIPE_PK} urlScheme="tyrebiter">
+    <StripeProvider publishableKey={STRIPE_PK} urlScheme="supertrucker">
       <>{children}</>
     </StripeProvider>
   );
@@ -20,8 +20,8 @@ export function usePayments() {
   async function run(intent: { setupIntentClientSecret: string } | { paymentIntentClientSecret: string }): Promise<PayResult> {
     const init = await initPaymentSheet({
       ...intent,
-      merchantDisplayName: "Tyrebiter",
-      returnURL: "tyrebiter://stripe-redirect",
+      merchantDisplayName: "Super Trucker",
+      returnURL: "supertrucker://stripe-redirect",
       appearance: { colors: { primary: "#2F5BFF" }, shapes: { borderRadius: 14 } },
     });
     if (init.error) return { error: init.error.message };

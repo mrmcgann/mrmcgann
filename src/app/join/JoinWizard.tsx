@@ -285,7 +285,7 @@ export function JoinWizard() {
           <>
             {errors.card && <div className="notice bad">{errors.card}</div>}
             <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} onClick={startCard} disabled={busy}>{busy ? "Loading…" : p?.payment_method_id ? "Replace card" : me.config.stripe ? "Add a card" : "Add a test card (test mode)"}</button>
-            <span className="hint">Cards are handled by Stripe. Tyrebiter never sees or stores your card number.</span>
+            <span className="hint">Cards are handled by Stripe. Super Trucker never sees or stores your card number.</span>
           </>
         )}
       </div>
@@ -302,7 +302,7 @@ export function JoinWizard() {
         {(idState === "failed" || p?.id_status === "failed") && <div className="notice bad">We couldn&apos;t verify your ID, or the name and date of birth didn&apos;t match your details. Check your details and try again.</div>}
         {errors.id && <div className="notice bad">{errors.id}</div>}
         <button className="btn btn-blue" style={{ height: 60, fontSize: 18 }} onClick={startId} disabled={busy}>{busy ? "Opening…" : me.config.stripe ? "Verify my ID" : "Verify ID (test mode)"}</button>
-        <span className="hint">ID checks are handled securely by Stripe Identity. Tyrebiter keeps the result, not a copy of your document.</span>
+        <span className="hint">ID checks are handled securely by Stripe Identity. Super Trucker keeps the result, not a copy of your document.</span>
         <button className="linkbtn" style={{ alignSelf: "center", color: "var(--muted)" }} onClick={finish}>Verify later</button>
       </div>
     );

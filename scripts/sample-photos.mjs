@@ -19,7 +19,7 @@ const OUT = path.join(ROOT, 'public', 'sample-photos');
 const SQL = path.join(ROOT, 'supabase', 'sample-photos.sql');
 const DRY = process.argv.includes('--dry');
 const API = 'https://commons.wikimedia.org/w/api.php';
-const UA = 'TyrebiterSamplePhotos/1.0 (sample data for a vehicle auction site; contact: help@tyrebiter.com.au)';
+const UA = 'SuperTruckerSamplePhotos/1.0 (sample data for a vehicle auction site; contact: help@tyrebiter.com.au)';
 const FREE = /^(cc0|public domain|pd|cc by(-sa)? \d(\.\d)?( [a-z]+)?|cc-by(-sa)?-\d(\.\d)?)/i;
 
 // What to look for. Searches are tried in order; the first good photos win.

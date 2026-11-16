@@ -6,7 +6,7 @@ import { GRADES } from "@/lib/grades";
 import { env } from "@/lib/env";
 import { HelpSearch } from "./HelpSearch";
 
-export const metadata: Metadata = { title: "Help centre", description: "How bidding, paying, transferring ownership and collecting work at Tyrebiter, with answers to common questions from buyers and sellers.", alternates: { canonical: "/help" } };
+export const metadata: Metadata = { title: "Help centre", description: "How bidding, paying, transferring ownership and collecting work at Super Trucker, with answers to common questions from buyers and sellers.", alternates: { canonical: "/help" } };
 
 export default async function Help() {
   const HELP = fillLegal(RAW, await getSettingsCached(), { text: true });
@@ -15,7 +15,7 @@ export default async function Help() {
       <div className="center hero" style={{ paddingBottom: 0 }}>
         <span className="eyebrow" style={{ color: "var(--blue)" }}>Help centre</span>
         <h1 className="d2">How can we help?</h1>
-        <p className="lede">Everything about buying and selling on Tyrebiter, in plain English.</p>
+        <p className="lede">Everything about buying and selling on Super Trucker, in plain English.</p>
         <HelpSearch items={HELP.flatMap(([id, title, qs]) => qs.map(([q, a]) => ({ section: title, id, q, a })))} />
       </div>
       <div className="four" style={{ marginTop: 40 }}>

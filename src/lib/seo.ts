@@ -5,7 +5,7 @@ import { CAT, STATE_NAMES, canonicalMake, modelsFor } from "./vehicles.ts";
 import { CHECK_KEYS } from "./listing.ts";
 import type { Lot } from "./types";
 
-export const SITE_NAME = "Tyrebiter";
+export const SITE_NAME = "Super Trucker";
 /** Sales in the last 18 months count towards a make or model page (same window as the price range). */
 export const SOLD_WINDOW_DAYS = 548;
 

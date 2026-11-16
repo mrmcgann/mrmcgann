@@ -97,7 +97,7 @@ export default function InvoiceScreen() {
           <LineItem k="Total" v={money(d.total, true)} bold />
           <LineItem k="Includes GST of" v={money(d.gstTotal, true)} />
         </View>
-        <T v="small">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller. No surcharge.</T>
+        <T v="small">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Super Trucker as agent for the seller. No surcharge.</T>
         <LinkText title="Download the PDF ›" onPress={() => downloadAndShare(d.pdfUrl, `${inv.ref}.pdf`).catch((e) => setMsg({ ok: false, text: errText(e) }))} />
       </View>
 

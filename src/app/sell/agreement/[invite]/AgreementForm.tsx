@@ -126,14 +126,14 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
           ))}
         </div>
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" name="owner" style={{ width: 20, height: 20, flexShrink: 0 }} /><span>I own this vehicle, or I&apos;m authorised by every owner (or the company or trust) to sell it, and my answers above are true.</span></label>
-        <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" name="agree" style={{ width: 20, height: 20, flexShrink: 0 }} /><span>I&apos;ve read and agree to the Seller Agency Agreement above, and appoint Tyrebiter to sell the vehicle for me on those terms.</span></label>
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" name="agree" style={{ width: 20, height: 20, flexShrink: 0 }} /><span>I&apos;ve read and agree to the Seller Agency Agreement above, and appoint Super Trucker to sell the vehicle for me on those terms.</span></label>
         {!noDraw ? (
           <div className="sf-block"><span className="sf-label">Your signature</span><SignaturePad onChange={setSig} testId="agreement-signature" />
             <span className="hint">Use your finger, a stylus or the mouse. <button type="button" className="linkbtn" style={{ fontSize: 14 }} onClick={() => { setNoDraw(true); setSig(null); }}>Can&apos;t sign in the box?</button></span></div>
         ) : <div className="notice">You&apos;ll sign with your typed name below. <button type="button" className="linkbtn" onClick={() => setNoDraw(false)}>Draw my signature instead</button></div>}
         <label className="field"><span>Type your full legal name</span><input className="input" name="signedName" required placeholder={legalName} autoComplete="off" /><span className="hint">With your signature, this is how you sign. We record the date, time and device.</span></label>
         {err && <div className="notice bad">{err}</div>}
-        <button className="btn btn-blue" disabled={busy}>{busy ? "Signing…" : "Sign and send to Tyrebiter"}</button>
+        <button className="btn btn-blue" disabled={busy}>{busy ? "Signing…" : "Sign and send to Super Trucker"}</button>
       </section>
     </form>
   );

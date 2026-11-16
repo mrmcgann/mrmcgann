@@ -85,7 +85,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <div className="tot"><span>Total</span><span>{money(Number(inv.total) + Number(inv.storage_fee || 0), true)}</span></div>
             <div><span className="muted">Includes GST of</span><span>{money(gstTotal, true)}</span></div>
           </div>
-          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Tyrebiter as agent for the seller{inv.sold_via === "after_auction" ? ", after the auction, by agreement" : ""}. No surcharge.</span>
+          <span className="hint">{inv.lots.gst_status === "inc" ? "The vehicle price includes GST (the seller is GST-registered)." : "Private sale: no GST on the vehicle price."} Sold by Super Trucker as agent for the seller{inv.sold_via === "after_auction" ? ", after the auction, by agreement" : ""}. No surcharge.</span>
           {afterOffer?.id && <a className="blue no-print" href={`/api/offers/${afterOffer.id}/contract`} target="_blank" rel="noreferrer" style={{ fontWeight: 700, fontSize: 15 }} data-testid="invoice-contract">Your signed contract of sale ›</a>}
         </div>
 

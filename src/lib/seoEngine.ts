@@ -23,7 +23,7 @@ export const indexNowKey = () => process.env.INDEXNOW_KEY || createHash("sha256"
 async function fetchPage(url: string, timeoutMs = 15000) {
   const started = Date.now();
   try {
-    const r = await fetch(url, { headers: { "User-Agent": "TyrebiterSEOAudit/1.0 (+self-check)" }, signal: AbortSignal.timeout(timeoutMs), redirect: "manual", cache: "no-store" });
+    const r = await fetch(url, { headers: { "User-Agent": "SuperTruckerSEOAudit/1.0 (+self-check)" }, signal: AbortSignal.timeout(timeoutMs), redirect: "manual", cache: "no-store" });
     const html = r.headers.get("content-type")?.includes("html") ? await r.text() : "";
     return { status: r.status, ms: Date.now() - started, html, bytes: html.length };
   } catch {

@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     if (d[k] == null || d[k] === "") continue;
     details[k] = typeof d[k] === "number" && Number.isFinite(d[k]) ? (d[k] as number) : clip(d[k], k === "notes" ? 500 : 80);
   }
-  if (kind === "transport" && lot) details.collect_from = `Tyrebiter depot, ${lot.suburb}, ${lot.state}`;
+  if (kind === "transport" && lot) details.collect_from = `Super Trucker depot, ${lot.suburb}, ${lot.state}`;
   if (kind === "warranty" && lot) {
     const { data: odo } = await admin.from("lots").select("odometer").eq("id", lot.id).maybeSingle();
     if (odo?.odometer != null) details.odometer = `${Number(odo.odometer).toLocaleString("en-AU")} km`;
@@ -104,11 +104,11 @@ export async function POST(req: Request) {
   const lines = [
     `Reference: ${lead.ref}`, `Name: ${name}`, `Mobile: ${phone}`, `Email: ${email}`, postcode ? `${kind === "transport" ? "Deliver to postcode" : "Postcode"}: ${postcode}` : "",
     ...Object.entries(details).map(([k, v]) => `${k.replace(/_/g, " ")}: ${["amount", "deposit", "balloon"].includes(k) ? money(Number(v)) : v}`),
-    kind === "inspection" && lot ? `The vehicle is with its owner${area ? ` in ${area}` : ""}. Tyrebiter arranges a time with the owner and sends you the address. The owner's details are confidential: never give them to the buyer, and send your report to the buyer and to Tyrebiter.` : "",
+    kind === "inspection" && lot ? `The vehicle is with its owner${area ? ` in ${area}` : ""}. Super Trucker arranges a time with the owner and sends you the address. The owner's details are confidential: never give them to the buyer, and send your report to the buyer and to Super Trucker.` : "",
     "", `They agreed to: "${consent}"`, `Please contact them within 10 business days and quote ${lead.ref}.`,
   ].filter((l) => l !== "");
   const rows: Record<string, unknown>[] = [{
-    channel: "email", to_addr: priv?.lead_email || env.supportEmail, kind: "lead", title: `New Tyrebiter enquiry ${lead.ref}: ${KIND_NOUN[kind]}`,
+    channel: "email", to_addr: priv?.lead_email || env.supportEmail, kind: "lead", title: `New Super Trucker enquiry ${lead.ref}: ${KIND_NOUN[kind]}`,
     body: lines.join("\n"), link: null, dedupe_key: `lead:${lead.id}:partner`, priority: 2,
   }, {
     user_id: user.id, channel: "email", to_addr: email, kind: "account", title: `We've passed your details to ${partner.name}`,

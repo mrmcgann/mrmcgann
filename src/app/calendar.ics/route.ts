@@ -6,8 +6,8 @@ import { env } from "@/lib/env";
 // Calendar apps that subscribe to this address pick up new sales by themselves.
 export async function GET() {
   const cal = await getCalendarCached();
-  const body = icsCalendar("Tyrebiter auctions", saleEvents(cal.sales, env.siteUrl));
+  const body = icsCalendar("Super Trucker auctions", saleEvents(cal.sales, env.siteUrl));
   return new Response(body, {
-    headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="tyrebiter-auctions.ics"', "Cache-Control": "public, max-age=300, s-maxage=300" },
+    headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="supertrucker-auctions.ics"', "Cache-Control": "public, max-age=300, s-maxage=300" },
   });
 }

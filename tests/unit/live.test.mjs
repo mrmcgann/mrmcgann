@@ -77,7 +77,7 @@ const ev = saleEvents([{ id: 7, slug: 'fleet-x', title: 'Fleet, utes', mode: 'li
   { id: 8, slug: 'council', title: 'Council', mode: 'timed', state: null, starts_at: null, live_status: 'scheduled', seller_label: null, first_end: '2026-11-02T08:00:00Z', last_end: '2026-11-02T09:00:00Z', count: 30 }], 'https://tyrebiter.com.au');
 ok('ics: a live sale starts at its start time and links to the room', ev[0].start === '2026-11-01T00:00:00Z' && ev[0].url === 'https://tyrebiter.com.au/live/fleet-x' && /^Live auction/.test(ev[0].title));
 ok('ics: a fleet sale spans its closing window', ev[1].start === '2026-11-02T08:00:00Z' && ev[1].end === '2026-11-02T09:00:00Z' && ev[1].url.endsWith('/sales/council'));
-const ics = icsCalendar('Tyrebiter auctions', ev, '2026-10-21T00:00:00Z');
+const ics = icsCalendar('Super Trucker auctions', ev, '2026-10-21T00:00:00Z');
 ok('ics: a valid calendar with two events and reminders', ics.startsWith('BEGIN:VCALENDAR\r\n') && ics.trimEnd().endsWith('END:VCALENDAR') && (ics.match(/BEGIN:VEVENT/g) || []).length === 2 && /DTSTART:20261101T000000Z/.test(ics) && /TRIGGER:-PT30M/.test(ics));
 ok('ics: long lines folded at 75 characters', ics.split('\r\n').every((l) => l.length <= 75), ics.split('\r\n').find((l) => l.length > 75));
 ok('calendar day label', calDay('2026-10-22') === 'Thu 22 Oct', calDay('2026-10-22'));

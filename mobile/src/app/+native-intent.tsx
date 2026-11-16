@@ -1,6 +1,6 @@
 import { appPath } from "~/lib/links";
 
-// Universal links (https://tyrebiter.com.au/lot/10432) and tyrebiter:// links open
+// Universal links (https://tyrebiter.com.au/lot/10432) and supertrucker:// links open
 // the matching screen. Website-only pages open the home screen.
 export function redirectSystemPath({ path }: { path: string; initial: boolean }) {
   try {

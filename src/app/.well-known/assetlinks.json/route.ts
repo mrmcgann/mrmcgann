@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// Tells Android which website links open in the Tyrebiter app, and shares saved passwords with it.
+// Tells Android which website links open in the Super Trucker app, and shares saved passwords with it.
 // Needs ANDROID_CERT_SHA256: the SHA-256 fingerprints from Play Console > App integrity > App signing
 // (the app signing key and the upload key), comma separated. Until it's set this returns 404.
 export const dynamic = "force-dynamic";

@@ -23,5 +23,5 @@ export async function GET(req: Request) {
     const p = (Array.isArray(r.partners) ? r.partners[0] : r.partners) as { name: string } | null;
     return [r.ref, r.created_at, p?.name, r.kind, r.status, r.name, r.email, r.phone, r.postcode, r.lot_id, r.details, r.price, r.revenue, r.sent_at].map(cell).join(",");
   });
-  return new Response([head.join(","), ...rows].join("\n"), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="tyrebiter-leads-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "no-store" } });
+  return new Response([head.join(","), ...rows].join("\n"), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="supertrucker-leads-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "no-store" } });
 }

@@ -3,16 +3,16 @@ import Link from "next/link";
 import { WEBSITE_TERMS, WEBSITE_TERMS_VERSION_LABEL, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 
-export const metadata: Metadata = { title: "Website terms", description: "The rules for using the Tyrebiter website and app: your account, fair use, our content, and when an account can be suspended.", alternates: { canonical: "/website-terms" } };
+export const metadata: Metadata = { title: "Website terms", description: "The rules for using the Super Trucker website and app: your account, fair use, our content, and when an account can be suspended.", alternates: { canonical: "/website-terms" } };
 
 export default async function WebsiteTerms() {
   const clauses = fillLegal(WEBSITE_TERMS, await getSettingsCached());
   return (
     <div className="wrap" style={{ maxWidth: 820, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 28 }}>
-      <span className="eyebrow" style={{ color: "var(--grape)" }}>Using Tyrebiter</span>
+      <span className="eyebrow" style={{ color: "var(--grape)" }}>Using Super Trucker</span>
       <h1 className="d2">Website terms.</h1>
       <p className="lede" style={{ margin: 0 }}>The rules for using the website and app: your account, fair use, our content, and when an account can be suspended.</p>
-      <div className="notice">{WEBSITE_TERMS_VERSION_LABEL}. Draft for review by an Australian lawyer before launch. Items in [brackets] need Tyrebiter&apos;s details.</div>
+      <div className="notice">{WEBSITE_TERMS_VERSION_LABEL}. Draft for review by an Australian lawyer before launch. Items in [brackets] need Super Trucker&apos;s details.</div>
       {clauses.map(([id, title, paras]) => (
         <section key={id} id={id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <h2 style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>{title}</h2>

@@ -92,14 +92,14 @@ export default function Sell() {
 
   const intro = (
     <View style={{ gap: 14 }}>
-      <T v="eyebrow" style={{ color: C.grape }}>Sell with Tyrebiter</T>
+      <T v="eyebrow" style={{ color: C.grape }}>Sell with Super Trucker</T>
       <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your driveway.</Text></Text>
       <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Send us your phone photos and a short video. We check them and the papers, then auction it live to buyers across Australia. Nobody comes to your place, and buyers never learn who you are: once it's paid for, our transport partner picks it up.</T>
       <View style={s.band}><CarArt type="ute" width={240} /></View>
       <Button testID="sell-start" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
       {[["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Your photos and video", "Phone photos and a short walkaround video (we tell you what to film). We check them and the papers from here.", C.sun],
         ["3", "Live auction", "Offered by our auctioneer to registered buyers nationwide, with an estimate on the listing. You can lower your reserve until the hammer falls.", C.lime], ["4", "No viewings", "Buyers never visit, and never get your name or address. If a bidder orders a mechanical inspection, we call you to agree a time for our partner mechanic.", C.sky],
-        ["5", "Pickup and settlement", "The buyer pays Tyrebiter, then our transport partner picks it up and the buyer collects it from our depot. You're paid within 3 business days of their collection.", C.grape]].map(([n, h, b, c]) => (
+        ["5", "Pickup and settlement", "The buyer pays Super Trucker, then our transport partner picks it up and the buyer collects it from our depot. You're paid within 3 business days of their collection.", C.grape]].map(([n, h, b, c]) => (
         <View key={n} style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
           <View style={[s.dot, { backgroundColor: c }]}><Text style={[s.dotText, n === "5" && { color: "#FFFFFF" }]}>{n}</Text></View>
           <View style={{ flex: 1 }}><T v="title">{h}</T><T v="muted">{b}</T></View>

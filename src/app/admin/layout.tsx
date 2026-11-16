@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="wrap admin-shell">
       <nav className="side-nav" aria-label="Admin" style={{ display: "flex" }}>
-        <span className="h">Tyrebiter admin</span>
+        <span className="h">Super Trucker admin</span>
         {nav.map(([href, label]) => <Link key={href} href={href}>{label}{href === "/admin/health" && !!broken && <span className="navdot" aria-label={`${broken} broken`} title={`${broken} broken`} />}</Link>)}
       </nav>
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 28 }}>{children}</div>

@@ -184,7 +184,7 @@ export default async function Home() {
       <section className="wrap">
         <div className="sellband">
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Tyrebiter</span>
+            <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Super Trucker</span>
             <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your driveway.</span></h2>
             <p style={{ fontSize: 21, fontWeight: 500 }}>Send us photos and a short video from your phone. We check them and the papers, put it in our next live auction Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
             <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap" }}>

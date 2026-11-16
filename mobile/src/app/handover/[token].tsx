@@ -45,7 +45,7 @@ export default function Handover() {
           <Soft>
             <T v="body">Collection time: <T v="strong">{h.confirmed_for}</T></T>
             <T v="body">Collected by: <T v="strong">{h.who}</T></T>
-            {[`Check their photo ID matches ${h.who}.`, "Ask them for the 6-digit release code. Don't hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Tyrebiter.", "Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.", "Enter the code, the odometer and the keys handed over below."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
+            {[`Check their photo ID matches ${h.who}.`, "Ask them for the 6-digit release code. Don't hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Super Trucker.", "Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.", "Enter the code, the odometer and the keys handed over below."].map((t, i) => <T key={i} v="body">{i + 1}. {t}</T>)}
           </Soft>
           <Field label={`Release code from ${h.who}`} value={code} onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" inputStyle={{ fontSize: 28, letterSpacing: 6 }} />
           <Field label="Odometer now (km)" value={odo} onChangeText={setOdo} keyboardType="number-pad" />

@@ -195,7 +195,7 @@ ok('ago: words', ago(30_000) === '30 seconds' && ago(10 * 60_000) === '10 minute
 
 // ---------- alerts ----------
 const a1 = alertFor({ key: 'clock.running', from: 'ok', to: 'fail', title: 'The auction clock has stopped', detail: 'Auctions aren\'t closing.' }, 'https://tyrebiter.com.au');
-ok('alert: failure is urgent, links to the page', a1 && a1.urgent && /^Tyrebiter problem: The auction clock has stopped/.test(a1.title) && a1.body.includes('https://tyrebiter.com.au/admin/health'));
+ok('alert: failure is urgent, links to the page', a1 && a1.urgent && /^Super Trucker problem: The auction clock has stopped/.test(a1.title) && a1.body.includes('https://tyrebiter.com.au/admin/health'));
 ok('alert: recovery after an alert', alertFor({ key: 'x', from: 'fail', to: 'ok', title: 'Fine again', alerted: true }, 's')?.urgent === false);
 ok('alert: no recovery message if nobody was told', alertFor({ key: 'x', from: 'fail', to: 'ok', title: 'Fine', alerted: false }, 's') === null);
 ok('alert: warnings wait for the page', alertFor({ key: 'x', from: 'ok', to: 'warn', title: 'Hmm' }, 's') === null);
@@ -221,7 +221,7 @@ const pub = issueBody({ task: 'Fix it.', error: err, fixId: 3, siteUrl: 's', pub
 ok('public repository: no message or stack posted', !pub.includes("Cannot read 'title'") && !pub.includes('at a (x.js') && /error #7/.test(pub) && /Seen: 42 times/.test(pub), pub);
 ok('public repository: title without the message', issueTitle('x', err, null, true) === 'Fix: TypeError on /lot/:id');
 ok('public repository: check details left out', !issueBody({ task: 'Fix it.', check: { key: 'messages.sms', area: 'Messages', status: 'fail', title: 'Texts are failing', detail: 'The latest reason: x' }, fixId: 1, siteUrl: 's', publicRepo: true }).includes('The latest reason'));
-ok('issue: fix id marker', body.includes('<!-- tyrebiter-fix:12 -->'));
+ok('issue: fix id marker', body.includes('<!-- supertrucker-fix:12 -->'));
 ok('issue: facts', /Seen: 42 times/.test(errorFacts(err)) && /release abc1234/.test(errorFacts(err)) && /browser: Safari/.test(errorFacts(err)));
 ok('issue: title', issueTitle('x', err).startsWith('Fix: TypeError: Cannot read') && issueTitle('x', err).length <= 120);
 ok('issue: title for a check', issueTitle('x', null, { key: 'security.rls', area: 'Security', status: 'fail', title: '1 table without row-level security: x' }) === 'Fix: 1 table without row-level security: x');

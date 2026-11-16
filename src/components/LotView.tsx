@@ -138,7 +138,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               </div>
               {lot.runs && <p className="hint" style={{ margin: 0 }}>{RUNS_HINT[lot.runs]}</p>}
               {isElectrified(lot.fuel) && lot.ev_battery_soh != null && lot.ev_battery_report && <p className="hint" style={{ margin: 0 }}>Battery health from an independent test. <a className="blue" href={lot.ev_battery_report} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Battery certificate ›</a></p>}
-              <p className="hint">VIN, registration and PPSR are checked by Tyrebiter against the official records before listing. Odometer and hours readings are from the seller&apos;s photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
+              <p className="hint">VIN, registration and PPSR are checked by Super Trucker against the official records before listing. Odometer and hours readings are from the seller&apos;s photo of the dash or meter; whether they show the true distance can’t be verified. Registration rules differ by state: <Link className="blue" href="/terms#t-states" style={{ fontWeight: 700 }}>rego and plates ›</Link></p>
             </div>
 
             <div className="lotsec" style={{ gap: 28 }}>
@@ -208,7 +208,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (
                   <div className="check" key={k}><span className="tick" style={{ background: ours ? "var(--mint)" : "var(--sun)" }}>{ours ? <Tick /> : <b style={{ fontSize: 14 }}>i</b>}</span><span style={{ display: "flex", flexDirection: "column" }}><b>{k}</b><span className="muted" style={{ fontSize: 14 }}>{v}</span></span></div>
                 ))}
-                <p className="hint" style={{ marginTop: 12 }}>Green: checked by Tyrebiter. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We&apos;re never at the vehicle. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
+                <p className="hint" style={{ marginTop: 12 }}>Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We&apos;re never at the vehicle. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
               </div>
             </div>
 
@@ -273,7 +273,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 {warrantySign(lot.statutory_warranty) && <b style={{ fontSize: 16 }} data-testid="warranty-sign">{warrantySign(lot.statutory_warranty)}</b>}
                 {coolingOffSign(lot.state) && <b style={{ fontSize: 16 }} data-testid="cooling-sign">{coolingOffSign(lot.state)}</b>}
                 <span>{premiumLabel(fl)}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</span>
-                <span>Sold in a live auction, under the hammer, by Tyrebiter as agent for the owner. Only registered, verified bidders can bid. <Link className="blue" href="/terms#t-live" style={{ fontWeight: 700 }}>Auction rules ›</Link></span>
+                <span>Sold in a live auction, under the hammer, by Super Trucker as agent for the owner. Only registered, verified bidders can bid. <Link className="blue" href="/terms#t-live" style={{ fontWeight: 700 }}>Auction rules ›</Link></span>
               </div>
             )}
             {["live", "scheduled", "offers", "referred"].includes(lot.status) && (

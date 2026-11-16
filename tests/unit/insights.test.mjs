@@ -59,7 +59,7 @@ ok('path: handover and agreement tokens never stored', cleanPath('/handover/abc1
 ok('path: invoice ids never stored', cleanPath('/account/invoices/4cfafcef-c412-4920-abaf-319f2cb2940f') === '/account/invoices/:private');
 ok('path: lot ids and normal pages kept', cleanPath('/lot/10432') === '/lot/10432' && cleanPath('/for-sale/utes/qld') === '/for-sale/utes/qld' && cleanPath('/makes/toyota/landcruiser-70') === '/makes/toyota/landcruiser-70');
 ok('rate limit: one key per IPv6 /64', ipKey('2001:db8:1:2:aaaa:bbbb:cccc:dddd') === ipKey('2001:db8:1:2:1:2:3:4') && ipKey('203.0.113.9') === '203.0.113.9');
-ok('app agents: iOS and Android HTTP clients, not browsers', isAppAgent('Tyrebiter/12 CFNetwork/1568 Darwin/24.0') && isAppAgent('okhttp/4.12.0') && !isAppAgent('Mozilla/5.0 (Windows NT 10.0) Chrome/129'));
+ok('app agents: iOS and Android HTTP clients, not browsers', isAppAgent('Super%20Trucker/12 CFNetwork/1568 Darwin/24.0') && isAppAgent('okhttp/4.12.0') && !isAppAgent('Mozilla/5.0 (Windows NT 10.0) Chrome/129'));
 ok('query: trimmed and capped', cleanQuery('  toyota   hilux  ') === 'toyota hilux' && cleanQuery('x'.repeat(300)).length === 120 && cleanQuery('') === null);
 
 // ---------- metrics maths ----------
@@ -138,7 +138,7 @@ ok('audit: few photos, missing model, short description, no odometer, title with
 ok('audit: no photo is urgent', lotIssues({ ...auditLot, cover_path: null }).some((i) => i.kind === 'lot_no_photo' && i.severity === 'act'));
 ok('audit: a complete listing is clean', lotIssues({ ...auditLot, title: '2019 Toyota HiLux', model: 'HiLux', odometer: 1, take_len: 400, photos: 10, videos: 1 }).length === 0);
 ok('audit: keys are stable per listing and kind', lotIssues(auditLot).every((i) => i.key === `${i.kind}:lot:5`));
-const good = '<html><head><title>2019 Toyota HiLux · 85,000 km · Tyrebiter</title><meta name="description" content="Online auction: 2019 Toyota HiLux SR5, 85,000 km, automatic, diesel, in Paddington QLD. Current bid $24,500."><link rel="canonical" href="x"><script type="application/ld+json">{}</script></head><body><h1>x</h1></body></html>';
+const good = '<html><head><title>2019 Toyota HiLux · 85,000 km · Super Trucker</title><meta name="description" content="Online auction: 2019 Toyota HiLux SR5, 85,000 km, automatic, diesel, in Paddington QLD. Current bid $24,500."><link rel="canonical" href="x"><script type="application/ld+json">{}</script></head><body><h1>x</h1></body></html>';
 ok('page check: a good page passes', pageIssues('/lot/1', { status: 200, ms: 300, html: good, bytes: good.length }, { indexable: true, structured: true }).length === 0, JSON.stringify(pageIssues('/lot/1', { status: 200, ms: 300, html: good, bytes: good.length }, { indexable: true, structured: true })));
 ok('page check: broken page', pageIssues('/x', { status: 500, ms: 10, html: '', bytes: 0 }, { indexable: true, structured: true })[0].kind === 'page_status');
 const bad = '<html><head><meta name="robots" content="noindex"></head><body><h1>a</h1><h1>b</h1></body></html>';

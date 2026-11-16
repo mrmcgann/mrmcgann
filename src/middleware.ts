@@ -10,7 +10,7 @@ const PROTECTED = ["/account", "/watchlist", "/admin", "/sell/dashboard", "/secu
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   if (path.startsWith("/api/")) {
-    if (crossSite({ method: request.method, headers: request.headers, cookieNames: request.cookies.getAll().map((c) => c.name), host: request.nextUrl.host })) return NextResponse.json({ error: "This request didn't come from the Tyrebiter site." }, { status: 403 });
+    if (crossSite({ method: request.method, headers: request.headers, cookieNames: request.cookies.getAll().map((c) => c.name), host: request.nextUrl.host })) return NextResponse.json({ error: "This request didn't come from the Super Trucker site." }, { status: 403 });
     return NextResponse.next();
   }
   const needsAuth = PROTECTED.some((p) => path.startsWith(p));

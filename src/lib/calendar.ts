@@ -20,7 +20,7 @@ function fold(line: string) {
 }
 
 export function icsCalendar(name: string, events: IcsEvent[], now = new Date().toISOString()): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Tyrebiter//Auction calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsText(name)}`];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Super Trucker//Auction calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsText(name)}`];
   for (const e of events) {
     const end = e.end && new Date(e.end) > new Date(e.start) ? e.end : new Date(new Date(e.start).getTime() + 60 * 60_000).toISOString();
     lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(e.start)}`, `DTEND:${stamp(end)}`,
