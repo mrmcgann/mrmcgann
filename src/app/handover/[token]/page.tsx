@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { rulesFor, permitLine } from "@/lib/transfer";
 import { HandoverForm } from "./HandoverForm";
+import { licenceCheckLine } from "@/lib/vehicles";
 
 export const metadata: Metadata = { title: "Hand over the vehicle", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -13,11 +14,11 @@ export default async function Handover({ params }: { params: Promise<{ token: st
   const { token } = await params;
   const db = supabaseAdmin();
   const { data: c } = /^[0-9a-f]{32}$/.test(token)
-    ? await db.from("collections").select("status, confirmed_for, collector_name, buyer_id, lot_id, invoice_id, collected_at, lots(title, keys, rego_state, state, collect_from)").eq("seller_token", token).maybeSingle()
+    ? await db.from("collections").select("status, confirmed_for, collector_name, buyer_id, lot_id, invoice_id, collected_at, lots(title, keys, rego_state, state, collect_from, licence_class)").eq("seller_token", token).maybeSingle()
     : { data: null };
   if (!c) return <div className="wrap" style={{ maxWidth: 640, padding: "60px 16px" }}><div className="notice bad">This handover link isn&apos;t valid. Call us on {env.phone}.</div></div>;
   const { data: b } = await db.from("profiles").select("first_name, last_name").eq("id", c.buyer_id).single();
-  const lot = c.lots as unknown as { title: string; keys: number | null; rego_state: string | null; state: string | null; collect_from?: string | null };
+  const lot = c.lots as unknown as { title: string; keys: number | null; rego_state: string | null; state: string | null; collect_from?: string | null; licence_class?: string | null };
   const fromSeller = lot?.collect_from !== "depot";
   const who = c.collector_name || `${b?.first_name || ""} ${b?.last_name || ""}`.trim();
   // Whether this one is leaving without plates decides what the person at the gate has to establish. Letting an
@@ -85,6 +86,7 @@ export default async function Handover({ params }: { params: Promise<{ token: st
             <ol className="steps-mini">
               {fromSeller && <li>Before they arrive: take out your toll tag, fuel cards and belongings, and sign it out of your apps and paired phones.</li>}
               <li>Check their photo ID matches <b>{who}</b>.</li>
+              {!noPlates && <li>{licenceCheckLine(lot?.licence_class)}</li>}
               <li>Ask them for the 6-digit release code. Don&apos;t hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Super Trucker.</li>
               <li>Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.</li>
               {noPlates && <li><b>Unregistered:</b> see how it&apos;s going. {canPermit ? "If they're driving it, ask for the permit and write its number down below." : "It's written off, so it can only go on a truck or a trailer."}</li>}

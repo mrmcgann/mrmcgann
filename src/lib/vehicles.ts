@@ -229,6 +229,15 @@ export const TRANS: [string, string][] = [["auto", "Automatic"], ["manual", "Man
 export const DRIVES: [string, string][] = [["2WD", "2WD"], ["4WD", "4WD"], ["AWD", "AWD"]];
 export const LICENCES: [string, string][] = [["C", "Car licence"], ["LR", "Light rigid (LR)"], ["MR", "Medium rigid (MR)"], ["HR", "Heavy rigid (HR)"], ["HC", "Heavy combination (HC)"], ["MC", "Multi combination (MC)"]];
 
+/** For the handover: whoever drives a truck away needs this class or higher (C, LR, MR, HR, HC, MC). Handing the keys
+ *  to a driver without it can make the person who hands them over part of the offence, so the owner checks it. */
+export function licenceCheckLine(licenceClass?: string | null): string {
+  const label = LICENCES.find(([k]) => k === licenceClass)?.[1];
+  return label && licenceClass !== "C"
+    ? `If they're driving it away, check their driver licence is ${label} or higher. If it isn't, don't give them the keys: they need a driver who has it, or a float.`
+    : "If they're driving it away, check their driver licence covers it. If it doesn't, don't give them the keys: they need a driver who does, or a float.";
+}
+
 /** Every make that sells in a category (or all makes), in popularity order. */
 export function makesFor(cat?: string | null) {
   return Object.keys(MAKES).filter((m) => !cat || cat === "cheap" || MAKES[m][cat as CategoryKey]);
