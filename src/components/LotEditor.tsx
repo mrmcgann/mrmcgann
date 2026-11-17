@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { BACKDROPS, GRADES, STATES } from "@/lib/grades";
-import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, CONFIGURATIONS, CAB_LABEL, SUSPENSION_LABEL, makesFor, modelsFor } from "@/lib/vehicles";
+import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, CONFIGURATIONS, CAB_LABEL, SUSPENSION_LABEL, BRAKES, TRUCK_FEATURES, makesFor, modelsFor } from "@/lib/vehicles";
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
@@ -94,7 +94,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
       "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order",
-      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on", "plates_note", "in_person_viewing", "configuration", "gcm_kg", "tare_kg", "engine_hp", "cab", "suspension", "emissions"];
+      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on", "plates_note", "in_person_viewing", "configuration", "gcm_kg", "tare_kg", "engine_hp", "cab", "suspension", "emissions",
+      "gearbox", "rear_axles", "brakes", "wheelbase_mm", "fuel_capacity_l", "body_size"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     // how it's seen and collected: set by the database on a new listing, never sent blank
     if (f.collect_from === "seller" || f.collect_from === "depot") out.collect_from = f.collect_from;
@@ -103,7 +104,10 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
     out.sale_order = f.sale_order === "" || f.sale_order == null ? null : Number(f.sale_order);
     // in a live auction the closing time belongs to the auctioneer (and the estimate to the clock): never write it from here
     if (f.live_state) delete out.ends_at;
-    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id", "estimate_low", "estimate_high"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(String(f[k]).replace(/[^0-9.]/g, ""));
+    // the fitted features are a list from TRUCK_FEATURES; none ticked is "not stated"
+    out.features = Array.isArray(f.features) && f.features.length ? f.features : null;
+    for (const k of ["year", "odometer", "seats", "keys", "buy_now_price", "start_price", "gvm_kg", "engine_cc", "hours", "berths", "length_m", "ev_battery_soh", "sale_id", "estimate_low", "estimate_high",
+      "gcm_kg", "tare_kg", "engine_hp", "wheelbase_mm", "fuel_capacity_l"]) out[k] = f[k] === "" || f[k] == null ? (k === "start_price" ? 100 : null) : Number(String(f[k]).replace(/[^0-9.]/g, ""));
     for (const k of ["stolen_clear", "service_books", "lams", "statutory_warranty"]) out[k] = f[k] === "" || f[k] == null ? null : f[k] === true || f[k] === "true";
     out.transport_fee = f.transport_fee === "" || f.transport_fee == null ? null : Math.round(Number(String(f.transport_fee).replace(/[^0-9.]/g, "")) * 100) / 100;
     out.write_off_status = f.write_off_status || "unknown";
@@ -397,6 +401,25 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
               {sel("suspension", "Rear suspension", [["", "–"], ...Object.entries(SUSPENSION_LABEL)])}
             </div>
             {inp("emissions", "Emissions standard", { placeholder: "e.g. Euro 5 (ADR 80/03)", maxLength: 40 })}
+            <div className="grid3">
+              {inp("gearbox", "Gearbox", { placeholder: "e.g. Eaton 18-speed manual", maxLength: 60 })}
+              {inp("rear_axles", "Rear axles", { placeholder: "e.g. Tandem drive, 4.3:1, diff locks", maxLength: 80 })}
+              {sel("brakes", "Brakes", [["", "–"], ...BRAKES])}
+            </div>
+            <div className="grid3">
+              {inp("wheelbase_mm", "Wheelbase (mm)", { inputMode: "numeric", placeholder: "e.g. 5530" })}
+              {inp("fuel_capacity_l", "Fuel capacity (litres)", { inputMode: "numeric", placeholder: "e.g. 400" })}
+              {inp("body_size", "Body size", { placeholder: "e.g. 8.6 m × 2.48 m, 10 pallets", maxLength: 80 })}
+            </div>
+            <div className="field" data-testid="truck-features-edit"><span>Fitted (tick what it has; the listing shows these)</span>
+              <span className="chipset" style={{ flexWrap: "wrap" }}>
+                {TRUCK_FEATURES.map(([k, label]) => {
+                  const list = Array.isArray(f.features) ? (f.features as string[]) : [];
+                  const on = list.includes(k);
+                  return <button type="button" key={k} className={on ? "on" : ""} aria-pressed={on} onClick={() => setF({ ...f, features: on ? list.filter((x) => x !== k) : [...list, k] })}>{label}</button>;
+                })}
+              </span>
+            </div>
           </div>
         )}
         <div className="grid2" data-testid="collect-mode">
@@ -500,7 +523,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="listing-checks">
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Listing checks (from the seller&apos;s photos, video and records)</h2>
-        <p className="hint">We&apos;re never at the vehicle. Tick each one only after checking it against the seller&apos;s photos and walkaround video and the records (rego, PPSR, VIN). If something can&apos;t be seen, ask the seller for another photo or a short video; don&apos;t tick it. All are needed to publish, buyers see them as checked by Super Trucker, and your name is recorded. A fact changed once it&apos;s live is shown on the listing as a correction and sent to bidders and watchers.</p>
+        <p className="hint">Listing checks are remote: we don&apos;t visit to list it. Tick each one only after checking it against the seller&apos;s photos and walkaround video and the records (rego, PPSR, VIN). If something can&apos;t be seen, ask the seller for another photo or a short video; don&apos;t tick it. All are needed to publish, buyers see them as checked by Super Trucker, and your name is recorded. A fact changed once it&apos;s live is shown on the listing as a correction and sent to bidders and watchers.</p>
         <label className="field" style={{ maxWidth: 420 }}><span>Starts and drives?</span><select className="input" value={String(f.runs || "")} onChange={(e) => setF({ ...f, runs: e.target.value || null })} data-testid="runs"><option value="">Choose…</option>{Object.entries(RUNS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {LISTING_CHECKS.map(([k, label]) => (

@@ -1,5 +1,6 @@
 import { getFeesCached, getSettingsCached } from "@/lib/cache";
 import { env, has } from "@/lib/env";
+import { mechanicFee, mechanicOn } from "@/lib/inspections";
 
 // Settings the app reads at start-up. "minVersion" (settings key "app") lets us ask
 // people on a very old build to update, e.g. after a change to the terms or the API:
@@ -24,6 +25,8 @@ export async function GET() {
     liveOnly: (settings.auction as { live_only?: boolean } | undefined)?.live_only === true,
     // business days to pay for a vehicle won (the live room's conditions say it)
     payDays: Number((settings.auction as { payment_days?: number } | undefined)?.payment_days) || 2,
+    // our mobile mechanic: whether it's taking bookings, and its fee (including GST)
+    mechanic: { on: mechanicOn(settings.selling as { mechanic?: unknown }), fee: mechanicFee(settings.selling as { mechanic_fee?: unknown }) },
   }, {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600", "CDN-Cache-Control": "public, s-maxage=300" },
   });

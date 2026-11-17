@@ -10,7 +10,7 @@ import { dateTime, km, money } from "@/lib/format";
 import { buyNowPayLine } from "@/lib/deposits";
 import { warrantySign } from "@/lib/listing";
 import { coolingOffSign } from "@/lib/afterAuction";
-import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate, passedInTop } from "@/lib/estimate";
 import { liveLine, quickBids, resultLine, secondsLeft, type LiveLot, type LiveMedia, type LiveSale } from "@/lib/live";
 import { auctionConditions, CONDITIONS_ACK } from "@/lib/conditions";
 import { api, ApiError, errText, pub } from "~/lib/api";
@@ -278,7 +278,7 @@ export default function LiveRoomScreen() {
         {cur ? (
           <View style={s.box} testID="live-console" onLayout={(e) => { boxY.current = e.nativeEvent.layout.y; seenCheck(); }}>
             {hasEstimate(cur) && f ? <T v="body" testID="live-estimate" style={{ fontSize: 15 }}>Estimate <Text style={{ fontFamily: F.bold }}>{estimateText(cur)}</Text> · all-in <Text style={{ fontFamily: F.bold }}>{estimateAllInText(cur, f)}</Text></T> : null}
-            {f ? <T v="small" testID="live-terms">{warrantySign(cur.statutory_warranty) ? `${warrantySign(cur.statutory_warranty)} ` : ""}{coolingOffSign(cur.state) ? `${coolingOffSign(cur.state)} ` : ""}{premiumLabel(f)}, plus GST and the admin fee, applies.</T> : null}
+            {f ? <T v="small" testID="live-terms">{warrantySign(cur.statutory_warranty) ? `${warrantySign(cur.statutory_warranty)} ` : ""}{coolingOffSign(cur.state) ? `${coolingOffSign(cur.state)} ` : ""}{premiumLabel(f)}, plus GST{Number(f.admin_fee) > 0 ? " and the admin fee" : ""}, applies.</T> : null}
             <Pressable onPress={() => router.push(`/lot/${cur.id}`)}><Text style={s.link}>Full listing and condition report ›</Text></Pressable>
             {open || (cur.status === "sold" && !afterSold) ? (
               <View>
@@ -310,7 +310,7 @@ export default function LiveRoomScreen() {
             ) : topPassed ? (
               <Soft bg={C.sun} testID="live-top-passed" style={{ gap: 6 }}>
                 <T v="strong" style={{ fontSize: 19 }}>You were the highest bidder.</T>
-                <T v="body" style={{ fontSize: 15 }}>Bidding didn't reach the seller's reserve, so it wasn't sold and you don't owe anything. One of our consultants will be in touch.</T>
+                <T v="body" style={{ fontSize: 15 }}>{passedInTop(Number(cur.current_bid) || null)}</T>
               </Soft>
             ) : null}
             {note ? <Notice kind={note.kind} testID="live-note">{note.text}</Notice> : null}

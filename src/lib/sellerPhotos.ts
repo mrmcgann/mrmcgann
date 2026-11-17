@@ -5,7 +5,7 @@ import { MEDIA_MAX } from "@/lib/videos";
 
 const ANGLES = ["Front 3/4", "Side", "Rear 3/4", "Rear"];
 
-// The photos the seller sent with the sell form become the draft listing's photos: we're never at the vehicle. Each is
+// The photos the seller sent with the sell form become the draft listing's photos: we list without visiting. Each is
 // copied from the private appraisal bucket to the public listing bucket with everything but the picture removed
 // (stripImageMetadata: EXIF and its GPS, XMP, IPTC, comments), whatever the seller's browser did. Anything that isn't a
 // JPEG, PNG or WebP stays private. Room is kept for the walkaround video (10 photos and videos in all). Staff then check

@@ -8,6 +8,7 @@ import { Modal } from "@/components/Modal";
 import { BidConfirm } from "@/components/BidConfirm";
 import { DepositShort } from "@/components/deposit/DepositNeed";
 import { CarArt } from "@/components/CarArt";
+import { CAT } from "@/lib/vehicles";
 import { LiveMedia } from "@/components/LiveMedia";
 import { lotFees, payMode, priceBreakdown } from "@/lib/fees";
 import { dateTime, km, money } from "@/lib/format";
@@ -15,7 +16,7 @@ import { photoUrl } from "@/lib/photos";
 import { buyNowPayLine } from "@/lib/deposits";
 import { warrantySign } from "@/lib/listing";
 import { coolingOffSign } from "@/lib/afterAuction";
-import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
+import { allInMoney, estimateAllInText, estimateText, hasEstimate, passedInTop } from "@/lib/estimate";
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, type LiveLot, type LiveMedia as Media, type LiveSale } from "@/lib/live";
 import { auctionConditions, CONDITIONS_ACK } from "@/lib/conditions";
 import type { Fees, Lot } from "@/lib/types";
@@ -181,8 +182,8 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
   // passed in under the hammer and sold later by agreement (migration 26): the room still shows the auction's result
   const afterSold = !!cur && cur.status === "sold" && cur.sold_via === "after_auction";
   const won = closed && cur!.status === "sold" && !afterSold && !!userId && (cur!.winner_id ?? cur!.leader_id) === userId;
-  // passed in below the reserve: its highest bidder is told a consultant will be in touch (where its state allows,
-  // about buying it after the auction; otherwise about the next one)
+  // passed in below the reserve: its highest bidder is told one of our sales consultants will be in touch (trucks are
+  // never sold after the auction, so the call is about whether it'll be in a later one: passedInTop in estimate.ts)
   const topPassed = closed && cur!.status === "passed" && !!userId && cur!.bid_count > 0 && cur!.leader_id === userId;
   const bidHere = !!cur && !!myMax[cur.id];
   const soldAllIn = cur && cur.status === "sold" ? priceBreakdown(Number(cur.sold_price) || 0, lotFeesNow).total : 0;
@@ -290,7 +291,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
           {(() => {
             // the vehicle that's up (or, before the start, the first one), named above its photos and the seller's video
             const shown = cur ?? room.next[0] ?? null;
-            if (!shown) return <div className="lv-photo"><CarArt type="car" /></div>;
+            if (!shown) return <div className="lv-photo"><CarArt type="truck" /></div>;
             const m = room.media && room.media.lot_id === shown.id ? room.media : null;
             return (
               <>
@@ -311,7 +312,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
             <>
               <div className="lv-est">
                 {hasEstimate(cur) && <span data-testid="live-estimate">Estimate <b>{estimateText(cur)}</b> · all-in <b>{estimateAllInText(cur, lotFeesNow)}</b></span>}
-                <span className="hint" style={{ margin: 0 }} data-testid="live-terms">{warrantySign(cur.statutory_warranty) ? <b>{warrantySign(cur.statutory_warranty)} </b> : null}{coolingOffSign(cur.state) ? <b>{coolingOffSign(cur.state)} </b> : null}{premiumLabel(lotFeesNow)}, plus GST and the admin fee, applies.</span>
+                <span className="hint" style={{ margin: 0 }} data-testid="live-terms">{warrantySign(cur.statutory_warranty) ? <b>{warrantySign(cur.statutory_warranty)} </b> : null}{coolingOffSign(cur.state) ? <b>{coolingOffSign(cur.state)} </b> : null}{premiumLabel(lotFeesNow)}, plus GST{Number(lotFeesNow.admin_fee) > 0 ? " and the admin fee" : ""}, applies.</span>
               </div>
               {open || (cur.status === "sold" && !afterSold) ? (
                 <div className="lv-price">
@@ -348,7 +349,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
               ) : topPassed ? (
                 <div className="lv-result top" role="status" data-testid="live-top-passed">
                   <b>You were the highest bidder.</b>
-                  <span>Bidding didn&apos;t reach the seller&apos;s reserve, so it wasn&apos;t sold and you don&apos;t owe anything. One of our consultants will be in touch.</span>
+                  <span>{passedInTop(Number(cur!.current_bid) || null)}</span>
                 </div>
               ) : null}
               {note && <div className={`notice ${note.kind}`} role="status" data-testid="live-note">{note.text}</div>}
@@ -384,7 +385,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
           <div className="lv-rail">
             {room.next.map((l) => (
               <Link key={l.id} className="lv-card" href={`/lot/${l.id}`} data-testid="live-next">
-                <span className="lv-thumb">{l.cover_path ? <img src={photoUrl(l.cover_path)} alt="" /> : <CarArt type="car" />}</span>
+                <span className="lv-thumb" style={l.cover_path ? undefined : { background: `var(--${CAT[l.category]?.backdrop || "panel"})` }}>{l.cover_path ? <img src={photoUrl(l.cover_path)} alt="" /> : <CarArt type={CAT[l.category]?.silhouette || "car"} />}</span>
                 <b>{l.title}</b>
                 <span className="muted" style={{ fontSize: 14 }}>{l.sale_order ? `Lot ${l.sale_order} · ` : ""}{hasEstimate(l) ? `Estimate ${estimateText(l)} · ` : ""}{l.bid_count ? `${money(l.current_bid)} early bid` : `From ${money(l.start_price)}`} · about {new Date(l.ends_at || Date.now()).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
                 <span className="blue" style={{ fontSize: 14, fontWeight: 700 }}>Bid early ›</span>
@@ -405,7 +406,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
 
       </>)}
 
-      <p className="hint lv-small" data-testid="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Super Trucker as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it&apos;s passed in and nobody owes anything. Each bid is binding unless you withdraw it before the hammer falls. The price shown is the bid before fees; the all-in amount is what you&apos;d pay. The seller can&apos;t bid, and we never bid for the seller. The auctioneer may also take bids by phone from registered bidders, and settles any dispute about a bid from the bids recorded here (Terms of Sale, section 6). Vehicles are sold as is, where is: check the seller&apos;s photos and video, and order a mechanical inspection before the sale if you want one.</p>
+      <p className="hint lv-small" data-testid="live-rules">Only registered bidders (a verified mobile and ID) can bid. Each vehicle is sold under the hammer by Super Trucker as agent for its owner: when the countdown ends, the highest bid buys it if it meets the reserve; if not, it&apos;s passed in, nobody owes anything, and the highest bidder hears from one of our sales consultants. Each bid is binding unless you withdraw it before the hammer falls. The price shown is the bid before fees; the all-in amount is what you&apos;d pay. The seller can&apos;t bid, and we never bid for the seller. The auctioneer may also take bids by phone from registered bidders, and settles any dispute about a bid from the bids recorded here (Terms of Sale, section 6). Vehicles are sold as is, where is: check the seller&apos;s photos and video, and before the sale inspect it yourself by appointment or book our mobile mechanic.</p>
 
       {dock && cur && (
         <div className="lv-dock" role="region" aria-label="Bid on the vehicle that's up" data-testid="live-dock">

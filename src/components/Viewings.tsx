@@ -3,12 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { useViewer } from "@/components/Viewer";
-import { MAX_SLOTS, PARTS, STATUS_LABEL, VIEWING_HOW, VIEWING_OFF, dayLabel, slotLabel, viewingDays, whenLabel, type Slot, type Viewing } from "@/lib/viewings";
+import { MAX_SLOTS, PARTS, STATUS_LABEL, VIEWING_OFF, dayLabel, slotLabel, viewingDays, whenLabel, type Slot, type Viewing } from "@/lib/viewings";
+import { INSPECT_YOURSELF } from "@/lib/inspections";
 
-// "View it by appointment": the buyer offers up to three times, we agree one with the owner and only then send the
-// address. Asking needs a verified account (the owner is told who's coming) and the buyer's agreement to how
-// introductions work (viewingAck, recorded on the booking by request_viewing). Mechanical inspections sit beside
-// this (MechanicalInspection in Partners.tsx).
+// "Inspect it yourself" (a viewing by appointment): the buyer offers up to three times, we agree one with the owner and
+// only then send the address. Asking needs a verified account (the owner is told who's coming) and the buyer's
+// agreement to how introductions work (viewingAck, recorded on the booking by request_viewing). The other way to
+// inspect it, our mobile mechanic, sits beside this (Mechanic.tsx).
 export function Viewings({ lotId, title, suburb, state, inPerson, auctionAt, open }: {
   lotId: number; title: string; suburb: string; state: string; inPerson: boolean; auctionAt: string | null; open: boolean;
 }) {
@@ -30,13 +31,14 @@ export function Viewings({ lotId, title, suburb, state, inPerson, auctionAt, ope
     void load();
   }
 
-  if (!inPerson) return <div className="vw-opt" data-testid="viewing-off"><b style={{ fontSize: 17 }}>Viewing.</b><span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>{VIEWING_OFF}</span></div>;
+  if (!inPerson) return <div className="vw-opt insp-card" data-testid="viewing-off"><b style={{ fontSize: 17 }}>{INSPECT_YOURSELF.title}.</b><span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>{VIEWING_OFF}</span></div>;
   return (
-    <div className="vw-opt" id="viewings" data-testid="viewing">
-      <b style={{ fontSize: 17 }}>View it by appointment.</b>
-      <span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>Where it&apos;s kept, near {suburb}{state ? `, ${state}` : ""}. {VIEWING_HOW.join(" ")}</span>
+    <div className="vw-opt insp-card" id="viewings" data-testid="viewing">
+      <div className="insp-head"><b style={{ fontSize: 17 }}>{INSPECT_YOURSELF.title}.</b><span className="insp-price">{INSPECT_YOURSELF.price}</span></div>
+      <ul className="insp-lines">{INSPECT_YOURSELF.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+      <span className="muted" style={{ fontSize: 14 }}>Where it&apos;s kept, near {suburb}{state ? `, ${state}` : ""}.</span>
       {current ? <Booked v={current} state={state} onCancel={() => cancel(current.id)} />
-        : open ? <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)} data-testid="viewing-ask">Ask to view it</button>
+        : open ? <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)} data-testid="viewing-ask">Book a time</button>
         : <span className="hint">Viewings close the day before the auction.</span>}
       {mine.filter((m) => !["requested", "confirmed"].includes(m.status)).slice(0, 3).map((m) => (
         <span key={m.id} className="hint">Viewing {m.ref}: {STATUS_LABEL[m.status] || m.status}{m.status === "declined" && m.staff_note ? `. ${m.staff_note}` : ""}</span>

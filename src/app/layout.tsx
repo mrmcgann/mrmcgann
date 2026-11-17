@@ -10,6 +10,7 @@ import { Tracker } from "@/components/Tracker";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { SiteSettingsProvider } from "@/components/SiteSettings";
 import { getSettingsCached } from "@/lib/cache";
+import { navMenus, sellCategories } from "@/lib/vehicles";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 const APP_STORE_ID = /id(\d{6,12})/.exec(process.env.NEXT_PUBLIC_APP_STORE_URL || "")?.[1];
@@ -17,7 +18,7 @@ const fraunces = Fraunces({ subsets: ["latin"], style: ["italic"], weight: ["500
 
 export const metadata: Metadata = {
   title: { default: "Super Trucker · Live online truck auctions", template: "%s · Super Trucker" },
-  description: "Live online truck auctions in Queensland, New South Wales and Western Australia. View by appointment, an estimate on every listing, PPSR searched, all-in prices shown.",
+  description: "Live online truck auctions in Queensland. Inspect it yourself or send our mobile mechanic, an estimate on every listing, PPSR searched, all-in prices shown.",
   metadataBase: new URL(env.siteUrl),
   // iPhone Safari shows an "Open in the app" banner once the app is on the App Store.
   ...(APP_STORE_ID ? { itunes: { appId: APP_STORE_ID } } : {}),
@@ -35,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {env.testMode && (
           <div className="demo">Test mode: <b>no real payments, SMS or ID checks.</b> Use SMS code 123456.</div>
         )}
-        <Header />
+        <Header menus={navMenus(sellCategories(settings.selling as { categories?: unknown } | undefined))} />
         <main className="page">{children}</main>
         <Footer />
         <CompareTray />

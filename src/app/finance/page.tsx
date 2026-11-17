@@ -6,8 +6,8 @@ import { REFERRER_NOTE } from "@/lib/partners";
 import { FinanceTool } from "./FinanceTool";
 
 export const metadata: Metadata = {
-  title: "Car finance",
-  description: "Work out repayments on any car, ute, truck, motorbike, caravan or boat, then compare lenders and brokers side by side.",
+  title: "Truck finance",
+  description: "Work out repayments on a truck, then compare lenders and brokers side by side.",
 };
 export const revalidate = 300;
 
@@ -22,7 +22,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   return (
     <div className="wrap" style={{ maxWidth: 1080, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 28 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
-        <span className="eyebrow" style={{ color: "var(--blue)" }}>Car finance</span>
+        <span className="eyebrow" style={{ color: "var(--blue)" }}>Truck finance</span>
         <h1 className="d2">Finance your next vehicle.</h1>
         <p className="lede" style={{ margin: 0 }}>Work out your repayments, then compare lenders and brokers side by side. Get pre-approved before you bid, so you know exactly what you can spend.</p>
       </div>

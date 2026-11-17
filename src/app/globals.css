@@ -49,6 +49,9 @@ p{margin:0}
 .nav-group:hover .nav-menu,.nav-group:focus-within .nav-menu{display:flex}
 .nav-menu a{padding:12px 14px;border-radius:12px;font-weight:600;font-size:15px;white-space:nowrap}
 .nav-menu a:hover{background:var(--panel)}
+/* one category (trucks): its many types in two columns */
+.nav-menu:has(> a:nth-child(9)){display:none;grid-template-columns:repeat(2,minmax(190px,1fr));column-gap:4px}
+.nav-group:hover .nav-menu:has(> a:nth-child(9)),.nav-group:focus-within .nav-menu:has(> a:nth-child(9)){display:grid}
 .nav-right{display:flex;align-items:center;gap:4px;margin-left:auto}
 .icon-btn{width:44px;height:44px;border:0;background:transparent;border-radius:22px;display:flex;align-items:center;justify-content:center;position:relative}
 .icon-btn:hover{background:var(--panel)}
@@ -69,7 +72,8 @@ p{margin:0}
 .sheet-head{margin:16px 0 0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 @media (max-width:920px){.nav-links{display:none}.menu-btn{display:flex}.hide-sm{display:none!important}}
 /* small phones: logo, search, watchlist, join and menu all fit without scrolling sideways */
-@media (max-width:420px){.nav-in{gap:8px}.nav-right{gap:0}.nav-right .icon-btn{width:40px;height:40px}.nav-right .pill{padding:0 14px}}
+@media (max-width:420px){.nav-in{gap:8px}.nav-right{gap:0}.nav-right .icon-btn{width:40px;height:40px}.nav-right .pill{padding:0 14px}.nav-right .hide-xs{display:none}}
+/* the watchlist is in the phone menu, so its header icon gives way on the narrowest phones (no sideways scrolling) */
 
 /* buttons */
 .btn{height:54px;padding:0 30px;border-radius:27px;border:0;font-size:17px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:10px;white-space:nowrap;transition:transform .15s ease,background .15s ease}
@@ -1008,6 +1012,25 @@ a.dep-row:hover b:first-child{color:var(--blue)}
 .vw-day{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
 .vw-dl{font-weight:700;font-size:15px;min-width:110px}
 .vw-admin{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+/* book an inspection: two ways side by side (inspect it yourself / our mobile mechanic) */
+.insp{display:flex;flex-direction:column;gap:12px}
+.insp-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:860px){.insp-grid{grid-template-columns:1fr 1fr}}
+.insp-card{min-width:0}
+.insp-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.insp-price{font-weight:800;font-size:14px;padding:4px 12px;border-radius:999px;background:var(--mint);color:var(--ink);white-space:nowrap}
+.insp-price.mech{background:var(--sun)}
+.insp-lines{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:1.5;color:var(--ink2)}
+.insp-more{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:16px;background:#FFFFFF}
+/* a truck's details in groups, like the truck sites */
+.tspec{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:760px){.tspec{grid-template-columns:1fr 1fr}}
+.tspec-g{border-radius:24px;background:var(--panel);padding:18px 22px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tspec-g h3{font-size:17px;font-weight:800;margin:0 0 4px}
+.tspec-g .rows{gap:0}
+.tfeat{display:flex;flex-wrap:wrap;gap:8px}
+.tfeat span{padding:6px 12px;border-radius:999px;background:#FFFFFF;border:1px solid var(--line);font-size:14px;font-weight:600}
+.reserve-note{font-size:13px;line-height:1.45;color:var(--muted)}
 .inspected-box{display:flex;gap:14px;align-items:flex-start;padding:18px 20px;border-radius:20px;background:#E9F8EE}
 .inspected-box .tick{width:28px;height:28px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .tag.inspected{background:var(--mint);color:var(--ink)}

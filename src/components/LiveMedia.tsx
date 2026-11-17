@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { CarArt } from "@/components/CarArt";
+import { CAT } from "@/lib/vehicles";
 import { photoUrl, videoUrl } from "@/lib/photos";
 import type { LotPhoto, LotVideo } from "@/lib/types";
 
@@ -41,7 +42,7 @@ export function LiveMedia({ lotId, title, category, photos, videos, externalVide
   if (!n) {
     return (
       <div className="lv-media">
-        <div className="lv-frame lv-empty"><CarArt type={category === "motorbikes" ? "bike" : "car"} /></div>
+        <div className="lv-frame lv-empty" style={{ background: `var(--${CAT[category]?.backdrop || "panel"})` }}><CarArt type={CAT[category]?.silhouette || "car"} /></div>
         {externalVideo ? <a className="blue" href={externalVideo} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Watch the seller&apos;s video ›</a> : null}
       </div>
     );

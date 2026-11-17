@@ -1,4 +1,5 @@
 import { viewingError } from "@/lib/viewings";
+import { inspectionError } from "@/lib/inspections";
 import { transportError } from "@/lib/transport";
 import { liveError } from "@/lib/live";
 import "server-only";
@@ -15,6 +16,8 @@ export function friendly(message: string | undefined) {
   if (m.includes("not_signed_in")) return "Sign in to continue.";
   const viewing = viewingError(m);
   if (viewing) return viewing;
+  const inspection = inspectionError(m);
+  if (inspection) return inspection;
   const transport = transportError(m);
   if (transport) return transport;
   const live = liveError(m);

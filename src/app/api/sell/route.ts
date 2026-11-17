@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { currentUser } from "@/lib/auth";
-import { CAT, sellCategories } from "@/lib/vehicles";
+import { CAT, sellCategories, sellStates } from "@/lib/vehicles";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
@@ -26,9 +26,12 @@ export async function POST(req: Request) {
   try { b = JSON.parse(raw || "{}"); } catch { return fail("Couldn't read that.", 400); }
   const { errors, value: v } = validateSell(b);
   if (Object.keys(errors).length) return json({ errors }, 400);
-  // only what we sell now (settings selling.categories)
-  const sellable = sellCategories((await getSettingsCached()).selling as { categories?: unknown } | undefined);
+  // only what we sell now, where we sell it (settings selling.categories and selling.states: Queensland first)
+  const selling = (await getSettingsCached()).selling as { categories?: unknown; states?: unknown } | undefined;
+  const sellable = sellCategories(selling);
   if (!sellable.includes(v.category)) return json({ errors: { category: `We only sell ${sellable.map((c) => CAT[c]?.label.toLowerCase() || c).join(", ")} for now.` } }, 400);
+  const where = sellStates(selling);
+  if (!where.includes(String(v.state || "").toUpperCase())) return json({ errors: { state: `We're selling trucks kept in ${where.join(", ")} for now, with more states to come. Call us and we'll let you know when we open in yours.` } }, 400);
   const signature = cleanSignature(b.signature);
   if (!(await allow(`sell:${await clientIp()}`, 6, 3600))) return fail("Too many requests from here. Please call us instead.", 429);
 
@@ -107,7 +110,7 @@ export async function POST(req: Request) {
   ]);
   kickOutbox();
   const subject = `Your Super Trucker sell form ${row.ref}: a copy of what you signed`;
-  const text = `Hi ${v.name.split(" ")[0]},\n\nThanks for choosing Super Trucker to sell your ${facts[0][1]}. Your reference is ${row.ref}.\n\nWhat happens next:\n1. We call you within 1 business day to talk through the price guide and your ${v.reserve_type === "reserve" ? "reserve" : "no-reserve sale"}.\n2. We text you a link to verify your identity (about 2 minutes in your browser), add the bank account we pay you into and a photo of the registration papers, and confirm the agreement.\n3. You send us a short walkaround video (we'll tell you exactly what to film) and any photos still missing. We check them and the papers from here: we're never at your place. Then it goes into our next live auction, with an estimate on the listing.\n4. Verified buyers can view it at your place by appointment: we agree every visit with you first and tell you who's coming. Every sale goes through us.\n5. Once the buyer has paid us in full, they collect it from you with a release code, at a time we agree with you. Never take money from anyone.\n\nA copy of the Seller Agency Agreement you signed is attached. Questions? Call ${env.phone}.`;
+  const text = `Hi ${v.name.split(" ")[0]},\n\nThanks for choosing Super Trucker to sell your ${facts[0][1]}. Your reference is ${row.ref}.\n\nWhat happens next:\n1. We call you within 1 business day to talk through the price guide and your ${v.reserve_type === "reserve" ? "reserve" : "no-reserve sale"}.\n2. We text you a link to verify your identity (about 2 minutes in your browser), add the bank account we pay you into and a photo of the registration papers, and confirm the agreement.\n3. You send us a short walkaround video (we'll tell you exactly what to film) and any photos still missing. We check them and the papers from here: we don't need to visit to list it. Then it goes into our next live auction, with an estimate on the listing.\n4. Verified buyers can view it at your place by appointment: we agree every visit with you first and tell you who's coming. Every sale goes through us.\n5. Once the buyer has paid us in full, they collect it from you with a release code, at a time we agree with you. Never take money from anyone.\n\nA copy of the Seller Agency Agreement you signed is attached. Questions? Call ${env.phone}.`;
   after(async () => {
     await sendEmail({
       to: v.email, subject, text, html: mailHtml(subject, text, `${env.siteUrl}/sell`, "About selling with Super Trucker"),

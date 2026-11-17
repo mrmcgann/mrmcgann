@@ -3,7 +3,9 @@
 Settled 23 October 2026 from primary sources (Acts, regulations, regulators' guidance and cases), with selling after
 the auction, state by state, added on 26 October 2026 (section 5), and re-settled for Super Trucker on 15 to 17 November
 2026: trucks only, launching in Queensland, New South Wales and Western Australia, viewed by appointment and collected
-where they're kept (sections 15 to 18, and the changes marked "Super Trucker" in sections 1 and 5 to 14). Each position below
+where they're kept (sections 15 to 18, and the changes marked "Super Trucker" in sections 1 and 5 to 14). On 17 November
+2026: Queensland first, then New South Wales and Western Australia (sections 5 and 18); our own mobile mechanic as the
+second way to inspect a truck (section 19); and the words when a truck is passed in below the reserve (section 1). Each position below
 is built into the engine (the database), the wording (`src/content/legal.ts`, `src/lib/listing.ts` and friends), or
 both. If a rule changes in one place, change it in the other, and update this register.
 
@@ -15,15 +17,16 @@ listed at the end.
 
 Super Trucker (a Queensland company) sells trucks for their owners, as their agent, in live online auctions conducted
 by a licensed auctioneer, at the fall of the hammer: to start, trucks only (settings `selling.categories`) kept in
-Queensland, New South Wales and Western Australia (`selling.states`). Every listing has an auction estimate. A truck
+Queensland (`selling.states`), then New South Wales and Western Australia. Every listing has an auction estimate. A truck
 passed in (or whose buyer didn't pay) goes into a later auction: trucks are never sold privately after the auction,
 because a goods vehicle is covered by the consumer guarantees at any price outside an auction (section 15). Super
 Trucker never gives a statutory warranty: none applies to an owner's truck sold at auction in any of the three states,
-and a trade owner's vehicle (which could carry one) isn't listed. Super Trucker is never at the truck: the owner
-supplies the photos and walkaround video, and staff check them against the registration record, the PPSR search and the
-papers. The truck stays where it's kept. Verified members can view it there by appointment: Super Trucker agrees each
-visit with the owner, sends the member the address and the owner the member's name, and keeps a record of the
-introduction. Under the owner's 90-day exclusive authority, and the member's agreement at booking, a sale around Super
+and a trade owner's vehicle (which could carry one) isn't listed. Super Trucker lists a truck without visiting it: the
+owner supplies the photos and walkaround video, and staff check them against the registration record, the PPSR search
+and the papers. The truck stays where it's kept. There are two ways to inspect it before the auction. Verified members
+can inspect it themselves there by appointment: Super Trucker agrees each visit with the owner, sends the member the
+address and the owner the member's name, and keeps a record of the introduction. Or they book Super Trucker's mobile
+mechanic, a paid service, and get the report; anything it finds goes on the listing for every bidder (section 19). Under the owner's 90-day exclusive authority, and the member's agreement at booking, a sale around Super
 Trucker to someone it introduced owes it the premium it would have earned (section 16). After payment in full, the buyer
 collects the truck from the owner with a release code (section 17). Older listings sold on the earlier depot model keep
 it (`lots.collect_from` 'depot'), and the sections that describe it stay for them.
@@ -37,6 +40,7 @@ it (`lots.collect_from` 'depot'), and the sections that describe it stay for the
 | A sale after the auction: ss 51 to 53 apply; ss 54 to 59 apply to a supply "in trade or commerce", so to a business seller's vehicle. A private owner's sale of their own vehicle isn't made in trade or commerce just because an agent makes it for them, so for a private seller we say they may not apply, and that any guarantee that does apply can't be excluded. We never say they're excluded. | `consumerRights('after', …)` on the offer page, the contract and the invoice; Terms s 4 | ACL ss 51 to 59, 29(1)(m), 64; Williams v Pisano [2015] NSWCA 177 (a private owner's sale isn't conduct in trade or commerce, and engaging an agent doesn't make it a business dealing); Concrete Constructions (NSW) Pty Ltd v Nelson (1990) 169 CLR 594 |
 | Misleading conduct law always applies; nothing excludes non-excludable rights. | Terms ss 4, 13; Website terms s 1 | ACL ss 18, 29, 64 |
 | No Buy Now, tenders, offers instead of the auction, or referrals: the auction comes first, and below the reserve the vehicle is passed in, never referred. After a pass-in (or a buyer's default), a sale by agreement is possible only on the seller's written agreement to the price at the time, by a written offer the buyer signs, in a state that allows it (section 5); otherwise, and in Victoria always, the vehicle goes into the next live auction for its state. The passed-in highest bidder is told one of our consultants will be in touch. | `buy_now`, `make_offer`, `seller_decide`, `admin_accept`, `respond_second_chance` refuse; `close_one_lot` passes in below the reserve; `admin_after_offer`, `respond_after_offer`; `queue_status_notices`, `queue_passed_followup`, `relist_auto` | ACL s 2; Motor Car Traders Act 1986 (Vic), CAV "Motor car auction house guidelines"; MDCA Regulation 2014 (Qld) s 30(2)(a) (after goods are passed in, the auctioneer may disclose a bidder's identity to the seller "to enable negotiation") |
+| Passed in below the reserve: nobody owes anything, and the highest bidder hears from one of our sales consultants "about it, including whether it'll be offered at a later auction". The words promise no private sale (trucks are never sold after the auction, section 15) and no negotiation. A consultant who calls a bidder or a seller about a vehicle is selling it for its owner, so in Queensland they are a registered motor salesperson employed by the dealer, or the licensee: registration lets an employee sell or negotiate the sale of used vehicles for the dealer, including on consignment, and a salesperson can only work as an employee (a contractor needs their own dealer licence). | `passed_in_top_text()` (migration 38) = `PASSED_IN_TOP`/`passedInTop()` and `RESERVE_NOTE` (`src/lib/estimate.ts`), held together by `tests/unit/inspections.test.mjs`; room conditions (`src/lib/conditions.ts`); Terms s 6; Help | MDCA Act 2014 (Qld) (motor salesperson registration certificates); Queensland Government, "Register as a motor salesperson" and "Apply for a motor dealer licence"; ACL s 18 |
 | No cooling-off period for a sale by auction. A sale after the auction gets the state's cooling-off where it has one (section 5). | Terms summary, ss 4, 6 | Qld: "Buying at auction" (no cooling-off at auction); ACT Sale of Motor Vehicles Act 1977 s 25B(7); CAV auction guidance |
 
 ## 2. Auction rules (Sale of Goods Acts and auctioneer regulation)
@@ -63,7 +67,7 @@ it (`lots.collect_from` 'depot'), and the sections that describe it stay for the
 | A vehicle passed in and relisted gets a fresh estimate with fresh grounds: the old one (which bidding didn't reach) isn't carried over. | `admin_relist` (estimate and its basis left out) | ACL s 4 |
 | The all-in amount is shown beside every estimate and bid, at least as prominently. | LotCard, BidPanel, live room, home page, compare, watchlist and the app's equivalents (same size and weight) | ACL s 48 (single price; s 48(5) prominence) |
 
-## 4. Remote checking (we're never at the vehicle)
+## 4. Remote checking (we list without visiting the vehicle)
 
 | Position | Built in | Source |
 | --- | --- | --- |
@@ -74,9 +78,10 @@ it (`lots.collect_from` 'depot'), and the sections that describe it stay for the
 
 ## 5. Licensing and consignment, state by state
 
-Super Trucker launches in Queensland, New South Wales and Western Australia only (`selling.states`; `lot_collect_rules`
-refuses to publish anywhere else). The other states' rows stay for when they're added. For trucks in the three launch
-states, see also section 18.
+Super Trucker launches in Queensland only (`selling.states` ["QLD"], migration 38; `lot_collect_rules` refuses to
+publish anywhere else, and the sell form takes only trucks kept in Queensland), then New South Wales and Western
+Australia. The other states' rows stay for when they're added. For trucks in Queensland, New South Wales and Western
+Australia, see also section 18.
 
 | State | Position | Source |
 | --- | --- | --- |
@@ -330,12 +335,33 @@ without being unfair. Both sides agree to the same thing, in plain words, before
 
 ## 18. Trucks in Queensland, New South Wales and Western Australia
 
+Queensland first: the launch sells only trucks kept in Queensland (`selling.states` ["QLD"]). The New South Wales and
+Western Australia rows are settled and built in, ready for when those licences are held; the database test checks their
+rules with the setting widened, so opening a state is a settings change.
+
 | State | Position | Source |
 | --- | --- | --- |
 | Queensland | As section 5: the motor dealer licence covers selling trucks for their owners, by auction conducted by its employed licensed chattel auctioneer. A truck over 4.5 t transfers on a certificate of inspection (section 7). Heavy Vehicle National Law applies on the road. | MDCA Act 2014 (Qld) ss 14, 40(2); section 7; Heavy Vehicle National Law (Queensland) |
 | New South Wales | As section 5, with the inspection report rule for auctioning a registered vehicle with its plates on (section 7). Heavy Vehicle National Law applies on the road. | MDRA 2013 (NSW) ss 55-59; Heavy Vehicle National Law (NSW) |
 | Western Australia | Trucks are "goods vehicles", a class prescribed for the dealer laws, so dealing in them (including selling them for their owners) needs a WA motor vehicle dealer's licence, with consignment approval and a trust account as in section 5. Conducting auctions needs an auctioneer's licence under the Auction Sales Act 1973 (a general licence, granted by a magistrate; $592 for 2026-27), which isn't in the earlier version of this register: we take the cautious reading that it's needed for auctions of trucks kept in Western Australia even when the auctioneer is in Brisbane. Part III doesn't apply to our auctions because we don't list a trade owner's vehicle (sections 6, 12). A temporary movement permit lasts 48 hours, costs $32.40, is arranged by phone (13 11 56) or in person for a heavy vehicle, carries no load, and is only for a trip to a repairer, an inspection or licensing (or to another state to be licensed), never just to drive it home or for parts. The Heavy Vehicle National Law doesn't apply: Western Australia's own road traffic laws do. | Motor Vehicle Dealers Act 1973 (WA) s 5(3); Motor Vehicle Dealers (Prescribed Vehicles) Regulations 1974 (WA) r 3; MVDA s 32(1) ("trade owner"); Auction Sales Act 1973 (WA); WA Department of Transport "Temporary movement permits"; Road Traffic (Vehicles) Act 2012 (WA) s 13 |
 | All three | Whoever drives a truck away needs the licence class for its GVM (LR, MR, HR, HC, MC), which every listing shows; that, the mass and dimension rules and any permit are the buyer's. Trailers are a separate category and stay off (`selling.categories`): add them only with their own rules (registration, certificates, the goods-vehicle guarantees). | Terms s 10; `LICENCES`; `lot_publish_check` (GVM required for trucks and buses) |
+
+## 19. Our mobile mechanic
+
+The second way to inspect a truck before the auction (the first is a viewing, section 16). Super Trucker supplies the
+inspection to the member who books it, for a fee, while selling the truck for its owner, so the service is built around
+that conflict being disclosed and neutralised.
+
+| Position | Built in | Source |
+| --- | --- | --- |
+| A service Super Trucker supplies: a verified member books it on the listing (up to three mornings or afternoons, to the day before the auction), staff agree a time with the owner and the mechanic, the member pays the fee (setting `selling.mechanic_fee`, $495 including GST by default) by bank transfer by a set time or the booking lapses, the mechanic goes, and the report goes to the member. Nobody is charged before a time is booked. | `mechanic_inspections`, `request_inspection`, `admin_inspection`, `inspection_sweep()` (migration 38); `src/lib/inspections.ts`; Terms s 5 (`#t-mechanic`); Help | Contract; ACL s 18 (what it is and costs, before booking) |
+| What it is and isn't: a look over and a run of the engine where the truck is kept, underneath where it's safe, the fitted equipment worked where it can be; no road test, nothing taken apart, and not a safety certificate or certificate of inspection (only an approved inspection station issues those). The report is the mechanic's opinion on the day and says what they could and couldn't check. It doesn't change the as is, where is basis of sale and isn't a promise by us or the owner about the truck. | `inspectionAck` = `inspection_ack_text()` (stored on the booking, held together by the database test); `MECHANIC_CHECKS`, `MECHANIC_LIMITS`; Terms s 5 | ACL ss 18, 29; Transport Operations (Road Use Management) legislation (Qld) (certificates only from approved inspection stations) |
+| The conflict: we sell the truck as the owner's agent and engage the mechanic. Disclosed before booking, and neutralised: the owner is told what the mechanic finds (our duty to our principal), and the booking can't be closed until staff confirm the listing's damage and wear shows anything that needs attention, so every bidder has it. A fault our own mechanic found, kept from other bidders while we sell the truck, would be misleading by silence. The full report stays the booker's. | `admin_inspection('done')` refuses without `p_faults` (`inspection_faults_listed`); flaws via `lot_flaws` + `announce_flaw_changes()`; the owner's notice; Terms s 5; seller agreement s 7; `SELLER_ACKS.inspection` | ACL s 18; Miller & Associates Insurance Broking Pty Ltd v BMW Australia Finance Ltd [2010] HCA 31 (silence misleads where there's a reasonable expectation of disclosure); the agent's duty to inform the principal |
+| Due care and skill, and its limit: the inspection carries the guarantees of due care and skill and fitness for a disclosed purpose. Where the service isn't of a kind ordinarily acquired for personal, domestic or household use, liability for a failure is limited to supplying it again or paying the cost of that; the clause says "where the law allows it", and nothing limits a right that can't be limited. | Terms s 5; the tax invoice | ACL ss 60, 61, 64, 64A (including 64A(3): not where reliance isn't fair or reasonable) |
+| Cancelling: free before payment; a full refund until 24 hours before the visit; inside 24 hours the fee is kept (the mechanic's time is committed), except that it's refunded in full whenever we, the owner or the mechanic call it off, the owner doesn't give access, or the truck is withdrawn or sold first (the clock cancels those). Refunds go to the paying account within 2 business days. A pre-estimate of the cost of a late cancellation, not a penalty. | `cancel_inspection` (`inspection_too_late`), `admin_inspection('cancel')` (refund due), `inspection_sweep()`; `cancelTerms()`; Terms s 5 | Paciocco v ANZ [2016] HCA 28; ACL ss 23-25 (a term reasonably necessary to protect a legitimate interest) |
+| A tax invoice for every paid booking (our ABN, the description, the GST-inclusive fee and the GST in it). | `inspectionInvoicePdf`, `/api/inspections/[id]/invoice` | A New Tax System (Goods and Services Tax) Act 1999 s 29-70 |
+| Privacy: the mechanic gets the address where the truck is kept and the owner's directions, for the inspection only; the owner is told the time and the booking reference, never the member's name (there's no introduction, unlike a viewing). The report is served only to the member who booked it, through a link that lasts 5 minutes. | `admin_inspection` notices; `/api/inspections/[id]/report`; Privacy policy | Privacy Act 1988 (APPs 6, 11) |
+| Who can do it: Queensland has no licensing scheme for motor repairers or pre-purchase inspectors (New South Wales and Western Australia license repairers: check before offering it there). The mechanic works on the owner's site, so our work health and safety duties go with them, and our insurance must cover the service. | Launch list | Work Health and Safety Act 2011 (Qld) s 19; Motor Dealers and Repairers Act 2013 (NSW); Motor Vehicle Repairers Act 2003 (WA) |
 
 ## Governing law
 
@@ -349,7 +375,14 @@ says nothing takes away the protections of the buyer's or seller's own state.
   auctions; New South Wales, a motor dealer licence (tell Fair Trading it trades online, and show the number on the site
   and ads); Western Australia, a motor vehicle dealer's licence covering goods vehicles (with consignment approval) and
   an auctioneer's licence under the Auction Sales Act 1973 (section 18). List only in states where they're held.
+- For the Queensland launch, only the Queensland licences are needed; New South Wales and Western Australia wait until
+  theirs are held (switch them on in `selling.states`).
 - The licensed auctioneer, whose name goes on each live sale.
+- The sales consultants who call bidders and sellers: each a registered motor salesperson employed by the company (a
+  contractor can't do it under a salesperson's registration), or the licensee (section 1).
+- The mobile mechanic service (section 19): qualified heavy-vehicle mechanics (employed, or engaged under a written
+  agreement), the report template (what was checked, what couldn't be, photos), the fee (`selling.mechanic_fee`), and
+  insurance that covers it (public liability and professional indemnity).
 - The trust account(s) for buyer and seller money in each launch state, and the audit arrangements each requires.
 - The company's legal name, ABN, GST registration and business address (environment settings). The legal name
   shows as "[Company name Pty Ltd]" until it's set, and Site health should refuse to go live with it.
@@ -360,8 +393,8 @@ says nothing takes away the protections of the buyer's or seller's own state.
 - The SMS sender: since 1 July 2026 a branded sender ID must be registered on the ACMA's SMS Sender ID Register (through
   Twilio) or messages show as "Unverified", and an alphanumeric sender ID is at most 11 characters, so "Super Trucker"
   won't fit: register "SuperTruckr" (or send from a number) once the business name is registered.
-- Public liability and professional indemnity insurance for the business (nobody attends viewings or handovers, but
-  the business still arranges them).
+- Public liability and professional indemnity insurance for the business (nobody from Super Trucker attends viewings
+  or handovers, but the business arranges them, and its mobile mechanic does go to the truck).
 - Only if depot listings are used again: the transport partner and depot agreements and in-transit insurance.
 - Watch items for later states: Victoria's tighter auction-house rules (announced 11 July 2026); each other state's
   "use or permit" offence for unregistered vehicles (section 14).
@@ -423,3 +456,10 @@ says nothing takes away the protections of the buyer's or seller's own state.
 - Slattery Grays user agreement (cl 5.3 permits; cl 8 collection and storage): https://slatteryauctions.com.au/legal/user-agreement
 - Manheim, How to Buy Cars and Commercial Vehicles at Auction (permits available at their sites): https://www.manheim.com.au/opalcmsassets/manheim/brochures/how-to-buy-cars-and-commercial-vehicles-at-auction.pdf
 - Grays, Unregistered Vehicles (buyer obtains the permit; carrier avoids the need): https://support.grays.com/hc/en-au/articles/900004985823-Unregistered-Vehicles
+- Queensland Government, apply for a motor dealer licence (no auctions without a chattel auctioneer licence): https://www.qld.gov.au/law/laws-regulated-industries-and-accountability/queensland-laws-and-regulations/regulated-industries-and-licensing/regulated-industries-licensing-and-legislation/motor-industry-regulation/get-a-motor-licence-or-registration/apply-for-a-motor-dealer-licence
+- Queensland Government, motor licences and registration (motor salespersons are registered, and work only as employees): https://www.qld.gov.au/law/laws-regulated-industries-and-accountability/queensland-laws-and-regulations/regulated-industries-and-licensing/regulated-industries-licensing-and-legislation/motor-industry-regulation/get-a-motor-licence-or-registration
+- RACQ, the facts about safety certificates (a certificate from an approved inspection station isn't a mechanical inspection): https://www.racq.com.au/articles/car-maintenance/the-facts-about-car-safety-certificates
+- Consumer Protection WA, motor vehicle repairers licensing: https://consumerprotection.wa.gov.au/motor-vehicle-repairers-licensing
+- Competition and Consumer Act 2010 (Cth), Schedule 2 (Australian Consumer Law) ss 60, 61, 64A: https://www.legislation.gov.au/C2004A00109/latest/text
+- Miller & Associates Insurance Broking Pty Ltd v BMW Australia Finance Ltd [2010] HCA 31: https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/2010/31.html
+- A New Tax System (Goods and Services Tax) Act 1999 (Cth) s 29-70 (tax invoices): https://www.legislation.gov.au/C2004A00446/latest/text

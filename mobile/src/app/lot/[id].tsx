@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { gradeInfo } from "@/lib/grades";
 import { km } from "@/lib/format";
-import { CAT, kindLabel, LICENCES, truckSpecs } from "@/lib/vehicles";
+import { CAT, kindLabel, LICENCES, truckDetails, truckFeatures, truckSpecs } from "@/lib/vehicles";
 import type { Disclosures, Lot } from "@/lib/types";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -27,6 +27,7 @@ import { C, F } from "~/ui/theme";
 import { LISTING_CHECKS, PHOTO_CHECK, REMOTE_REPORT, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine, warrantySign } from "@/lib/listing";
 import { NO_VIEWINGS, VIEW_BY_APPOINTMENT, checkIt, collectFrom, depotPlace, premiumLabel } from "@/lib/transport";
 import { ViewingBox } from "~/ui/Viewing";
+import { MechanicBox } from "~/ui/Mechanic";
 import { coolingOffSign } from "@/lib/afterAuction";
 import { certLine } from "@/lib/transfer";
 import { lotFees } from "@/lib/fees";
@@ -229,10 +230,28 @@ export default function LotScreen() {
           ) : null}
         </View>
 
-        <View style={s.pad}>
-          <T v="d3">Specifications.</T>
-          <View>{show(specs).map(([k, v]) => <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{String(v)}</T></View>)}</View>
-        </View>
+        {lot.category === "trucks" ? (
+          <View style={s.pad} testID="truck-details">
+            <T v="d3">Specifications.</T>
+            {truckDetails(lot, depotPlace(lot) ? (atSeller ? depotPlace(lot) : `Our depot in ${depotPlace(lot)}`) : null, atSeller ? "Where it's kept" : "Collect from").map((g) => (
+              <View key={g.key} style={{ gap: 2, marginTop: 6 }}>
+                <T v="strong" style={{ fontSize: 17 }}>{g.title}</T>
+                {g.rows.map(([k, v]) => <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>)}
+              </View>
+            ))}
+            {truckFeatures(lot.features).length ? (
+              <View style={{ gap: 6, marginTop: 8 }} testID="truck-features">
+                <T v="strong" style={{ fontSize: 17 }}>Fitted</T>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>{truckFeatures(lot.features).map((f) => <Text key={f} style={s.feat}>{f}</Text>)}</View>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View style={s.pad}>
+            <T v="d3">Specifications.</T>
+            <View>{show(specs).map(([k, v]) => <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{String(v)}</T></View>)}</View>
+          </View>
+        )}
 
         <View style={s.pad}>
           <T v="d3">Checks.</T>
@@ -242,7 +261,7 @@ export default function LotScreen() {
               <View style={{ flex: 1 }}><T v="strong">{k}</T><T v="small">{v}</T></View>
             </View>
           ))}
-          <T v="small">Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We're never at the vehicle. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
+          <T v="small">Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We list it without visiting it. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/listing-promise`)}>How we check listings ›</Text></T>
         </View>
 
         {show(declared).length ? (
@@ -265,11 +284,13 @@ export default function LotScreen() {
           <View style={s.pad} testID="check-it">
             <T v="d3">How to check it.</T>
             <T v="muted">{atSeller ? (lot.in_person_viewing ? VIEW_BY_APPOINTMENT : "The owner can't host viewings for this one, so the listing is how you see it.") : `${NO_VIEWINGS} The seller's name and address stay private.`}</T>
-            <View>{checkIt(lot).map(([t, d], i) => (
+            <View>{checkIt(lot, { mechanic: config?.mechanic?.on !== false }).map(([t, d], i) => (
               <View key={t} style={s.checkRow}><View style={s.checkNum}><Text style={s.checkNumText}>{i + 1}</Text></View><View style={{ flex: 1, gap: 2 }}><T v="strong">{t}</T><T v="muted" style={{ fontSize: 15, lineHeight: 21 }}>{d}</T></View></View>
             ))}</View>
             {atSeller ? <ViewingBox lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} auctionAt={sale?.mode === "live" && sale.starts_at ? sale.starts_at : lot.ends_at} open={["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting"} /> : null}
-            <MechanicalInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder />
+            {config?.mechanic?.on !== false
+              ? <MechanicBox lotId={lot.id} title={lot.title} state={lot.state || ""} auctionAt={sale?.mode === "live" && sale.starts_at ? sale.starts_at : lot.ends_at} open={["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting"} />
+              : <MechanicalInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder />}
           </View>
         ) : null}
 
@@ -339,6 +360,7 @@ const s = StyleSheet.create({
   fill: { height: "100%", borderRadius: 5 },
   flawImg: { width: 96, height: 72, borderRadius: 12 },
   spec: { flexDirection: "row", justifyContent: "space-between", gap: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  feat: { fontFamily: F.bold, fontSize: 14, color: C.ink, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, overflow: "hidden", borderWidth: 1, borderColor: C.line, backgroundColor: "#FFFFFF" },
   tick: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", marginTop: 1 },
   checkRow: { flexDirection: "row", gap: 12, alignItems: "flex-start", paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
   checkNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", marginTop: 1 },

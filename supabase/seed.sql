@@ -91,22 +91,22 @@ insert into public.partners (kind, slug, name, licence, blurb, price_from, turna
   ('inspection', 'sample-inspections', 'Sample Mobile Inspections', null, 'An independent mechanic inspects the vehicle where it is and sends you a written report with photos.', 249, 'Usually within 2 business days', null, 'Sample: Super Trucker receives $30 from the inspection provider for each inspection.', true, true, 1);
 insert into public.partner_private (partner_id, lead_email) select id, 'partners@tyrebiter.com.au' from public.partners where sample;
 
--- More sample trucks, one in each state we sell in, for the way the site runs now (collected from the seller).
+-- More sample trucks, around Queensland where we sell first, for the way the site runs now (collected from the seller).
 -- The older database checks run with the depot settings and don't get these.
 insert into public.lots (id, status, title, short_title, subtitle, vehicle_type, category, kind, year, make, model, variant, body, engine, transmission, fuel, odometer, colour, seats, keys, suburb, state, postcode, backdrop, take, owner_note, service_history, known_faults, roadworthy_note, ppsr_clear, visual_grade, grade_paint, grade_interior, grade_tyres, start_price, current_bid, bid_count, starts_at, ends_at, gvm_kg, registration, rego_plate, rego_state, rego_expiry, plates_note, vin)
 select v.* from (values
-(10701,'live','2017 Hino 500 Series FG 1628 Curtainsider','2017 Hino 500 Curtainsider','10-pallet curtainsider with a tailgate loader. One owner.','truck','trucks','curtainsider',2017,'Hino','500 Series','FG 1628','Curtainsider','7.7L turbo-diesel','Auto','Diesel',412000,'White',3,2,'Wetherill Park','NSW','2164','sky',
+(10701,'live','2017 Hino 500 Series FG 1628 Curtainsider','2017 Hino 500 Curtainsider','10-pallet curtainsider with a tailgate loader. One owner.','truck','trucks','curtainsider',2017,'Hino','500 Series','FG 1628','Curtainsider','7.7L turbo-diesel','Auto','Diesel',412000,'White',3,2,'Wacol','QLD','4076','sky',
  'Hino 500 Series FG 1628 with a 10-pallet curtainsider body and a 1,500 kg tailgate loader. Allison automatic. One owner from new on metro distribution work, serviced by the Hino dealer.',
  'Our metro delivery truck since new. Replaced by a bigger unit.','Dealer serviced, books with the truck','Curtain on the driver''s side has two patches','Not included',true,'B','B','B','B',20000,20000,0, now(), now() + interval '2 days', 16000,
- 'registered','SMPL01','NSW',(current_date + interval '5 months')::date, null::text, 'JHDFG8JPKXXX00701'),
-(10702,'live','2015 Isuzu FVZ 1400 Tipper','2015 Isuzu FVZ Tipper','6x4 tipper, 10 m³ body. Hoist and PTO serviced this year.','truck','trucks','tipper',2015,'Isuzu','FVZ','1400','Tipper','7.8L turbo-diesel','Manual','Diesel',386000,'White',3,2,'Welshpool','WA','6106','lime',
- 'Isuzu FVZ 1400 6x4 tipper with a 10 cubic metre steel body, two-way tailgate and a tarp. Nine-speed manual. Worked on civil jobs around Perth, with the hoist and PTO serviced this year.',
+ 'registered','SMPL01','QLD',(current_date + interval '5 months')::date, null::text, 'JHDFG8JPKXXX00701'),
+(10702,'live','2015 Isuzu FVZ 1400 Tipper','2015 Isuzu FVZ Tipper','6x4 tipper, 10 m³ body. Hoist and PTO serviced this year.','truck','trucks','tipper',2015,'Isuzu','FVZ','1400','Tipper','7.8L turbo-diesel','Manual','Diesel',386000,'White',3,2,'Yatala','QLD','4207','lime',
+ 'Isuzu FVZ 1400 6x4 tipper with a 10 cubic metre steel body, two-way tailgate and a tarp. Nine-speed manual. Worked on civil jobs around the Gold Coast, with the hoist and PTO serviced this year.',
  'Bought for a subdivision contract that has finished.','Serviced every 20,000 km, records with the truck','Body floor is worn and has been plated','Not included',true,'C','C','B','B',30000,30000,0, now(), now() + interval '2 days 3 hours', 24000,
- 'registered','SMPL02','WA',(current_date + interval '7 months')::date, null::text, 'JALFVZ34PF7000702'),
-(10703,'live','2012 Volvo FH16 600 Prime Mover','2012 Volvo FH16 600','6x4 prime mover, I-Shift. Sold unregistered.','truck','trucks','prime-mover',2012,'Volvo','FH','16 600','Prime mover','16.1L turbo-diesel','Auto','Diesel',1240000,'Blue',2,2,'Dubbo','NSW','2830','blueberry',
- 'Volvo FH16 600 6x4 prime mover with the I-Shift automated gearbox, a sleeper cab and a hydraulic kit. It ran B-double livestock work out of western New South Wales. Sold unregistered.',
+ 'registered','SMPL02','QLD',(current_date + interval '7 months')::date, null::text, 'JALFVZ34PF7000702'),
+(10703,'live','2012 Volvo FH16 600 Prime Mover','2012 Volvo FH16 600','6x4 prime mover, I-Shift. Sold unregistered.','truck','trucks','prime-mover',2012,'Volvo','FH','16 600','Prime mover','16.1L turbo-diesel','Auto','Diesel',1240000,'Blue',2,2,'Roma','QLD','4455','blueberry',
+ 'Volvo FH16 600 6x4 prime mover with the I-Shift automated gearbox, a sleeper cab and a hydraulic kit. It ran B-double livestock work out of Roma, in western Queensland. Sold unregistered.',
  'Came off the road when we downsized the fleet.','Fleet workshop records with the truck','Air leak at the driver''s seat; dash warning light for the AdBlue level sensor','Not included',true,'C','C','C','C',25000,25000,0, now(), now() + interval '2 days 6 hours', 26500,
- 'unregistered',null,null,null::date, 'The registration lapsed in June 2026 and the plates were handed in to Service NSW (receipt on file).', 'YV2XTY0D6CB000703'),
+ 'unregistered',null,null,null::date, 'The registration lapsed in June 2026 and the plates were handed in to Transport and Main Roads (receipt on file).', 'YV2XTY0D6CB000703'),
 (10704,'live','2019 Fuso Canter 815 Tilt Tray','2019 Fuso Canter Tilt Tray','4.5 m tilt tray with a winch. Car and small machine recovery.','truck','trucks','tilt-tray',2019,'Mitsubishi Fuso','Canter','815','Tilt tray','3.0L turbo-diesel','Auto','Diesel',142000,'White',3,2,'Rocklea','QLD','4106','tangerine',
  'Fuso Canter 815 with a 4.5 metre steel tilt tray, a 9,000 lb winch and tie-down rails. Duonic automated gearbox. Used for car and small machine recovery around Brisbane.',
  'Selling one of two trays as the work has dropped off.','Serviced on time, books with the truck','Tray paint is scraped from normal use','Not included',true,'B','B','B','B',30000,30000,0, now(), now() + interval '2 days 9 hours', 8000,
@@ -119,10 +119,17 @@ from (values (10701, '4x2', 20000, 7900, 280, 'day', 'spring', 'Euro 5 (ADR 80/0
              (10703, '6x4', 90000, 10200, 600, 'sleeper', 'air', 'Euro 5 (ADR 80/03)'),
              (10704, '4x2', 11500, 4100, 150, 'day', 'spring', 'Euro 5 (ADR 80/03)')) v(id, cfg, gcm, tare, hp, cab, susp, em)
 where t.id = v.id;
+-- and the rest of what truck buyers look for (migration 38)
+update public.lots t set gearbox = v.gb, rear_axles = v.ax, brakes = v.br, wheelbase_mm = v.wb, fuel_capacity_l = v.fuel, body_size = v.body, features = v.feat
+from (values (10701, 'Allison 6-speed automatic', 'Single drive', 'abs_drum', 5530, 200, '8.6 m × 2.48 m, 10 pallets', array['aircon', 'uhf', 'engine_brake', 'tailgate_loader']),
+             (10702, '9-speed manual', 'Tandem drive, diff locks', 'abs_drum', 4800, 300, '10 m³ steel body', array['aircon', 'engine_brake', 'diff_locks', 'pto', 'tow_coupling']),
+             (10703, 'Volvo I-Shift 12-speed', 'Tandem drive, hub reduction', 'abs_disc_drum', 3800, 1100, null, array['aircon', 'uhf', 'cruise', 'retarder', 'diff_locks', 'fifth_wheel', 'bullbar', 'fridge']),
+             (10704, 'Duonic 6-speed dual clutch', 'Single drive', 'abs_disc', 3850, 100, '4.5 m × 2.2 m steel tilt tray', array['aircon', 'uhf', 'reversing_camera'])) v(id, gb, ax, br, wb, fuel, body, feat)
+where t.id = v.id;
 insert into public.lot_private (lot_id, reserve_price, seller_name, seller_phone, seller_address, pickup_notes)
 select v.id, v.reserve, 'Sample Seller', '0400000000', v.addr, 'Ask for the workshop office. Closed shoes on site.' from (values
-  (10701, 46000, 'Sample address, Wetherill Park NSW 2164'), (10702, 65000, 'Sample address, Welshpool WA 6106'),
-  (10703, 52000, 'Sample address, Dubbo NSW 2830'), (10704, 60000, 'Sample address, Rocklea QLD 4106')
+  (10701, 46000, 'Sample address, Wacol QLD 4076'), (10702, 65000, 'Sample address, Yatala QLD 4207'),
+  (10703, 52000, 'Sample address, Roma QLD 4455'), (10704, 60000, 'Sample address, Rocklea QLD 4106')
 ) v(id, reserve, addr) where exists (select 1 from public.lots l where l.id = v.id);
 insert into public.lot_flaws (lot_id, title, note, sort)
 select v.id, v.title, v.note, v.sort from (values
@@ -216,8 +223,8 @@ begin
   perform public.live_estimates(v_sale);
 end $$;
 
--- Only what we sell, where we sell it: with the catalogue set to trucks in Queensland, New South Wales and Western
--- Australia, the other sample vehicles go, and the sample auction is renumbered. (The older database checks run with
+-- Only what we sell, where we sell it: with the catalogue set to trucks in Queensland (where we sell first), the
+-- other sample vehicles go, and the sample auction is renumbered. (The older database checks run with
 -- every category and state switched on, so nothing is removed there.)
 delete from public.lots where not (category = any(public.selling_categories())) or not (upper(state) = any(public.selling_states()));
 update public.lots l set sale_order = o.n from (select id, row_number() over (order by sale_order, id) n from public.lots where sale_id is not null) o

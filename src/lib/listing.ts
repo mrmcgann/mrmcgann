@@ -4,8 +4,8 @@
 // wrong build year and transmission, features the cars didn't have, and damage and dashboard warning lights left out.
 // These checks are how we make sure that doesn't happen here.
 //
-// We're never at the vehicle. The seller sends the photos and the walkaround video (we tell them what to film), so every
-// check is a check of what they sent against the official records (registration, PPSR, VIN) and against itself. What
+// We list a vehicle without visiting it. The seller sends the photos and the walkaround video (we tell them what to
+// film), so every listing check is a check of what they sent against the official records (registration, PPSR, VIN) and against itself. What
 // comes from the seller is labelled as the seller's and passed on as they gave it; "checked" is used only for what we
 // check ourselves (an agent who passes on the owner's information without adopting it, and says so, isn't making it
 // their own statement: Butcher v Lachlan Elder Realty [2004] HCA 60). The legal basis for every rule here is in
@@ -42,7 +42,7 @@ export const RUNS_HINT: Record<string, string> = {
 };
 
 /** Where the condition report comes from. */
-export const REMOTE_REPORT = "Prepared from the seller's photos and walkaround video, the records we check (registration, PPSR and VIN) and the seller's written declarations. We're never at the vehicle: nobody from Super Trucker sees it in person before it's sold.";
+export const REMOTE_REPORT = "Prepared from the seller's photos and walkaround video, the records we check (registration, PPSR and VIN) and the seller's written declarations. We list it without visiting it: to see it in person, inspect it yourself or book our mobile mechanic.";
 /** What we do with the seller's photos and video. */
 export const PHOTO_CHECK = "Taken by the seller for this listing. We check they show this vehicle and nothing that identifies the seller, and we remove the camera's location.";
 

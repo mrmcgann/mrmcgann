@@ -54,7 +54,7 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(ld) }} />
-      <LotView bundle={bundle} fees={fees} similar={similar} history={history} partners={partners} finance={(settings.finance || {}) as FinanceSettings} />
+      <LotView bundle={bundle} fees={fees} similar={similar} history={history} partners={partners} finance={(settings.finance || {}) as FinanceSettings} selling={(settings.selling || {}) as Record<string, unknown>} />
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SearchBar } from "@/components/SearchBar";
-import { CATEGORY_GROUPS, groupCats } from "@/lib/vehicles";
+import type { NavMenu } from "@/lib/vehicles";
 
 export function AccountMenu({ first, email, todo, admin, seller = false }: { first: string; email: string; todo: number; admin: boolean; seller?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -44,7 +44,7 @@ export function AccountMenu({ first, email, todo, admin, seller = false }: { fir
   );
 }
 
-export function MobileMenu() {
+export function MobileMenu({ menus }: { menus: NavMenu[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -53,18 +53,18 @@ export function MobileMenu() {
       </button>
       {open && (
         <div className="sheet wrap" style={{ position: "absolute", left: 0, right: 0, top: 60, background: "#FFFFFF", borderBottom: "1px solid var(--line)" }} onClick={() => setOpen(false)}>
-          {CATEGORY_GROUPS.map((g) => (
+          {menus.map((g) => (
             <div key={g.key} className="sheet-group">
               <p className="sheet-head">{g.label}</p>
-              {groupCats(g).map((c) => <Link key={c.key} href={`/auctions?cat=${c.key}`}>{c.label}</Link>)}
+              {g.items.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
             </div>
           ))}
           <Link href="/auctions?ending=today">Ending today</Link>
           <Link href="/calendar">Auction calendar</Link>
           <Link href="/auctions?view=closed">Results</Link>
           <Link href="/sell">Sell your vehicle</Link>
-          <Link href="/finance">Car finance</Link>
-          <Link href="/insurance">Car insurance</Link>
+          <Link href="/finance">Finance</Link>
+          <Link href="/insurance">Insurance</Link>
           <Link href="/watchlist">Watchlist</Link>
           <Link href="/help">Help</Link>
         </div>

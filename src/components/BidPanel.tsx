@@ -14,7 +14,7 @@ import { premiumLabel, feesLine } from "@/lib/transport";
 import { DepositNeed, DepositShort } from "@/components/deposit/DepositNeed";
 import { buyNowPayLine } from "@/lib/deposits";
 import { consumerRights } from "@/lib/listing";
-import { ESTIMATE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
+import { ESTIMATE_NOTE, RESERVE_NOTE, allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
 import { relistBackLine } from "@/lib/relist";
 
 type Live = Pick<Lot, "status" | "current_bid" | "bid_count" | "ends_at" | "reserve_met" | "leader_id" | "decision_by" | "winner_id" | "sold_price" | "sold_via" | "buy_now_price" | "live_state">;
@@ -305,7 +305,7 @@ export function BidPanel(props: {
     body = (
       <div className="soft" style={{ background: props.relist ? "var(--sun)" : "var(--panel)" }} data-testid="passed-in">
         <b>Passed in.</b>
-        <span className="muted">{lot.not_offered ? "The auction finished before it was offered, so it wasn't sold and nobody owes anything." : live.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "It wasn't sold."}{props.relist ? "" : " It may be offered at a later auction: watch it, or save a search, to hear when."}</span>
+        <span className="muted">{lot.not_offered ? "The auction finished before it was offered, so it wasn't sold and nobody owes anything." : live.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything. Its highest bidder hears from one of our sales consultants." : "It wasn't sold."}{props.relist ? "" : " It may be offered at a later auction: watch it, or save a search, to hear when."}</span>
         {props.relist && (
           <>
             <span style={{ fontWeight: 700 }} data-testid="relisted">{relistBackLine(props.relist.sale?.starts_at)}</span>
@@ -329,6 +329,7 @@ export function BidPanel(props: {
             ? <span className="tag" style={{ background: "var(--mint)" }}>Winning · your max {money(myMax)}</span>
             : <span className="tag" style={{ background: "var(--berry)" }}>Outbid · your max {money(myMax)}</span>)}
         </div>
+        {lot.has_reserve && !live.reserve_met && !ended && <span className="reserve-note" data-testid="reserve-note">{RESERVE_NOTE}</span>}
         {hasEstimate(lot) && !ended && (
           <div className="estbox" data-testid="estimate">
             <div className="big2">

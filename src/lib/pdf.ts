@@ -154,6 +154,34 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   return { bytes: await doc.save(), filename: `SuperTrucker-${inv.ref}.pdf` };
 }
 
+// Tax invoice for our mobile mechanic's inspection: a service Super Trucker supplies (a taxable supply), paid by the
+// member who booked it. A GST-inclusive fee, so the GST is one eleventh of it.
+export async function inspectionInvoicePdf(id: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
+  const db = supabaseAdmin();
+  const { data: i } = await db.from("mechanic_inspections").select("*, lots(title, suburb, state)").eq("id", id).maybeSingle();
+  if (!i || !i.paid_at) return null;
+  const { data: who } = await db.from("profiles").select("first_name, last_name, email, company_name, abn").eq("id", i.user_id).single();
+  const lot = (i.lots || {}) as { title?: string; suburb?: string; state?: string };
+  const fee = Number(i.fee), gst = Math.round((fee / 11) * 100) / 100;
+  const { doc, sheet: s } = await newSheet();
+  s.text("Tax invoice", 50, 26, { bold: true }); s.line(26);
+  s.text(`Invoice ${i.ref}`, 50, 11, { bold: true }); s.text(`Issued ${day(i.paid_at)}`, 0, 10, { right: 545 }); s.line(24);
+  s.text("Billed to", 50, 9, { color: MUTED }); s.text("Service", 300, 9, { color: MUTED }); s.line(14);
+  const left = [who?.company_name, `${who?.first_name || ""} ${who?.last_name || ""}`.trim(), who?.abn ? `ABN ${who.abn}` : null, who?.email].filter(Boolean) as string[];
+  const right = ["Mobile mechanic inspection", lot.title, `Lot ${i.lot_id}, ${[lot.suburb, lot.state].filter(Boolean).join(", ")}`, i.starts_at ? `Booked for ${when(i.starts_at)}` : null].filter(Boolean) as string[];
+  for (let k = 0; k < Math.max(left.length, right.length); k++) { if (left[k]) s.text(left[k], 50, 10); if (right[k]) s.text(right[k], 300, 10); s.line(14); }
+  s.line(14); s.rule();
+  s.row("Mobile mechanic inspection, with a written report", aud(fee));
+  s.rule();
+  s.row("Total (AUD, includes GST)", aud(fee), { bold: true });
+  s.row("GST included", aud(gst));
+  s.line(10);
+  s.row("Status", i.refunded_at ? `REFUNDED ${day(i.refunded_at)}` : `PAID ${day(i.paid_at)}`, { bold: true });
+  s.line(10); s.rule();
+  s.wrap(`The inspection is a service supplied by ${env.legalName}: a look over and a run of the engine where the vehicle is kept, with no road test and nothing taken apart, and the mechanic's opinion on the day. It's supplied with due care and skill under the Australian Consumer Law; where the law allows, our liability is limited to doing it again or refunding its fee. Super Trucker sells the vehicle as the owner's agent, and what the mechanic finds is added to the listing for every bidder.`, 50, 495, 8);
+  return { bytes: await doc.save(), filename: `SuperTrucker-${i.ref}.pdf` };
+}
+
 // Certificate of sale: the buyer's proof that they own the vehicle. For an unregistered vehicle it's
 // the ownership record (a bill of sale from the auction house); for a registered one it goes with the
 // transfer of registration.

@@ -42,7 +42,7 @@ export const OWNER_TYPES: [string, string][] = [["individual", "Me"], ["joint", 
 export const TRANSMISSIONS: [string, string][] = [["Auto", "Automatic"], ["Manual", "Manual"], ["CVT", "CVT (automatic)"], ["Automated manual", "Dual-clutch or automated manual"]];
 export const FUELS = ["Petrol", "Diesel", "Hybrid", "Electric", "LPG", "Other"];
 
-/** We're never at the vehicle, so the seller's photos and video are the listing. How to take them (sell form, seller
+/** We list without visiting the vehicle, so the seller's photos and video are the listing. How to take them (sell form, seller
  *  dashboard, agreement, Help). */
 export const PHOTO_RULES = [
   "Taken by you in the last 14 days, in daylight, with the whole vehicle in the frame.",
@@ -232,7 +232,7 @@ export function agreementPrefill(disclosures: Record<string, unknown> | null | u
  *  server checks all four). Used by the agreement form and /api/seller/sign. */
 export const SELLER_ACKS: [string, string][] = [
   ["pickup", "Buyers view it at the address above by appointment, and the buyer collects it from there once they've paid Super Trucker in full. Super Trucker agrees every visit with me first and tells me who's coming. Until the handover I'll keep it there, insured, parked and in the condition it was listed."],
-  ["inspection", "I'll let visitors look it over and hear it run, with no road test. If a bidder orders a mechanical inspection, I'll give Super Trucker's partner mechanic access at a time we agree; they may start it, run it and look underneath where they safely can."],
-  ["video", "I'll send Super Trucker the photos and a walkaround video for the listing, taken by me in the last 14 days and showing the vehicle as it is (no edits or filters). Super Trucker is never at the vehicle and relies on them, and checks them before they go up."],
+  ["inspection", "I'll let visitors look it over and hear it run, with no road test. If a bidder books Super Trucker's mobile mechanic, I'll give the mechanic access at a time we agree; they may start it, run it and look underneath where they safely can. Super Trucker tells me what they find and adds any fault to the listing."],
+  ["video", "I'll send Super Trucker the photos and a walkaround video for the listing, taken by me in the last 14 days and showing the vehicle as it is (no edits or filters). Super Trucker lists it without visiting it, relies on them, and checks them before they go up."],
   ["no_contact", "Every sale goes through Super Trucker. I won't discuss price or a private sale with a visitor or anyone else, and if anyone asks to buy it direct I'll say no and tell Super Trucker. If it's sold another way while my authority lasts, or later to someone Super Trucker introduced, I'll pay the buyer's premium Super Trucker would have earned (section 2)."],
 ];

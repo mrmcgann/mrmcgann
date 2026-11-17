@@ -2,10 +2,11 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { MobileMenu, SearchButton } from "@/components/HeaderClient";
 import { HeaderUser } from "@/components/HeaderUser";
-import { CATEGORY_GROUPS, groupCats } from "@/lib/vehicles";
+import { navMenus, type NavMenu } from "@/lib/vehicles";
 
-// Static header (cached with the page); the signed-in parts render in the browser.
-export function Header() {
+// Static header (cached with the page); the signed-in parts render in the browser. The menus are only what we sell
+// (settings selling.categories, read by the layout): with trucks alone, the truck types.
+export function Header({ menus = navMenus(["trucks"]) }: { menus?: NavMenu[] }) {
   return (
     <header className="nav">
       <div className="wrap nav-in">
@@ -14,11 +15,11 @@ export function Header() {
           {/* Each group is a menu of its own categories: a search filters on one category at a time, so the group's
               own link goes to everything. Opened by hover and by keyboard focus, with no JavaScript, which keeps
               this header static and cached. Under 1100px it is hidden and MobileMenu lists the same categories. */}
-          {CATEGORY_GROUPS.map((g) => (
+          {menus.map((g) => (
             <div className="nav-group" key={g.key}>
-              <Link href="/auctions" className="nav-group-top">{g.label}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 9 7 7 7-7" /></svg></Link>
+              <Link href={g.href} className="nav-group-top">{g.label}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 9 7 7 7-7" /></svg></Link>
               <div className="nav-menu">
-                {groupCats(g).map((c) => <Link key={c.key} href={`/auctions?cat=${c.key}`}>{c.label}</Link>)}
+                {g.items.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
               </div>
             </div>
           ))}
@@ -30,7 +31,7 @@ export function Header() {
         <div className="nav-right">
           <SearchButton />
           <HeaderUser />
-          <MobileMenu />
+          <MobileMenu menus={menus} />
         </div>
       </div>
     </header>

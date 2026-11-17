@@ -52,11 +52,57 @@ export const CAT: Record<string, Category> = Object.fromEntries(CATEGORIES.map((
 export const CONFIGURATIONS = ["4x2", "4x4", "6x2", "6x4", "6x6", "8x4", "10x4"];
 export const CAB_LABEL: Record<string, string> = { day: "Day cab", sleeper: "Sleeper cab", crew: "Crew cab" };
 export const SUSPENSION_LABEL: Record<string, string> = { air: "Airbag", spring: "Spring", mixed: "Airbag and spring" };
+/** Brakes and fitted features (migration 38), word for word with truck_detail_label() in the database. */
+export const BRAKES: [string, string][] = [["abs_disc", "ABS, disc"], ["abs_drum", "ABS, drum"], ["abs_disc_drum", "ABS, disc front and drum rear"],
+  ["disc", "Disc"], ["drum", "Drum"], ["disc_drum", "Disc front, drum rear"]];
+export const BRAKES_LABEL: Record<string, string> = Object.fromEntries(BRAKES);
+export const TRUCK_FEATURES: [string, string][] = [["aircon", "Air conditioning"], ["uhf", "UHF radio"], ["cruise", "Cruise control"],
+  ["engine_brake", "Engine brake"], ["retarder", "Retarder"], ["diff_locks", "Diff locks"], ["pto", "PTO"], ["tow_coupling", "Tow coupling"],
+  ["fifth_wheel", "Fifth wheel"], ["tailgate_loader", "Tailgate loader"], ["crane", "Crane"], ["reversing_camera", "Reversing camera"],
+  ["bullbar", "Bullbar"], ["fridge", "Cab fridge"]];
+export const FEATURE_LABEL: Record<string, string> = Object.fromEntries(TRUCK_FEATURES);
+/** A truck's fitted features, in the order of the list. */
+export const truckFeatures = (features?: string[] | null) => TRUCK_FEATURES.filter(([k]) => (features || []).includes(k)).map(([, label]) => label);
+
+export type TruckLot = {
+  year?: number | null; make?: string | null; model?: string | null; variant?: string | null; category?: string | null; kind?: string | null;
+  body?: string | null; engine?: string | null; transmission?: string | null; fuel?: string | null; odometer?: number | null; hours?: number | null;
+  colour?: string | null; seats?: number | null; keys?: number | null; gvm_kg?: number | null; registration?: string | null;
+  rego_state?: string | null; rego_expiry?: string | null; id?: number | null;
+  configuration?: string | null; gcm_kg?: number | null; tare_kg?: number | null; engine_hp?: number | null; cab?: string | null;
+  suspension?: string | null; emissions?: string | null; gearbox?: string | null; rear_axles?: string | null; brakes?: string | null;
+  wheelbase_mm?: number | null; fuel_capacity_l?: number | null; body_size?: string | null; features?: string[] | null;
+};
+const kgs = (n?: number | null) => (n ? `${n.toLocaleString("en-AU")} kg` : null);
 /** The truck rows for a listing's specifications (empty values left out by the caller). */
-export function truckSpecs(l: { configuration?: string | null; gcm_kg?: number | null; tare_kg?: number | null; engine_hp?: number | null; cab?: string | null; suspension?: string | null; emissions?: string | null }): [string, string | null][] {
-  const kg = (n?: number | null) => (n ? `${n.toLocaleString("en-AU")} kg` : null);
-  return [["Configuration", l.configuration || null], ["GCM", kg(l.gcm_kg)], ["Tare", kg(l.tare_kg)], ["Power", l.engine_hp ? `${l.engine_hp} hp` : null],
+export function truckSpecs(l: TruckLot): [string, string | null][] {
+  return [["Configuration", l.configuration || null], ["GCM", kgs(l.gcm_kg)], ["Tare", kgs(l.tare_kg)], ["Power", l.engine_hp ? `${l.engine_hp} hp` : null],
     ["Cab", l.cab ? CAB_LABEL[l.cab] || l.cab : null], ["Rear suspension", l.suspension ? SUSPENSION_LABEL[l.suspension] || l.suspension : null], ["Emissions", l.emissions || null]];
+}
+
+export type SpecGroup = { key: string; title: string; rows: [string, string][] };
+/** A truck's details the way truck buyers read them (the truck sites' "listing details" and "further details"): the
+ *  listing itself, the engine and driveline, weights and size, and the cab. Empty rows are left out, and so is an
+ *  empty group. `where` is the place line the listing already shows ("Wacol, QLD"), under `whereLabel`. */
+export function truckDetails(l: TruckLot, where?: string | null, whereLabel = "Where it's kept"): SpecGroup[] {
+  const regoUntil = l.rego_expiry ? new Date(`${String(l.rego_expiry).slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-AU", { month: "short", year: "numeric", timeZone: "UTC" }) : null;
+  const rego = l.registration === "unregistered" ? "Sold without plates"
+    : l.registration === "registered" ? [`Registered${l.rego_state ? ` in ${l.rego_state}` : ""}`, regoUntil ? `until ${regoUntil}` : null].filter(Boolean).join(", ") : null;
+  const groups: [string, string, [string, string | number | null | undefined][]][] = [
+    ["listing", "Listing details", [["Year", l.year], ["Make", l.make], ["Model", [l.model, l.variant].filter(Boolean).join(" ")],
+      ["Type", kindLabel(l.category, l.kind)], ["Odometer", l.odometer != null ? `${l.odometer.toLocaleString("en-AU")} km` : null],
+      ["Hours", l.hours != null ? `${l.hours.toLocaleString("en-AU")} hrs` : null], ["Registration", rego], [whereLabel, where], ["Lot", l.id]]],
+    ["driveline", "Engine and driveline", [["Engine", l.engine], ["Power", l.engine_hp ? `${l.engine_hp} hp` : null], ["Fuel", l.fuel],
+      ["Fuel capacity", l.fuel_capacity_l ? `${l.fuel_capacity_l.toLocaleString("en-AU")} litres` : null], ["Emissions", l.emissions],
+      ["Transmission", l.transmission], ["Gearbox", l.gearbox], ["Configuration", l.configuration], ["Rear axles", l.rear_axles],
+      ["Rear suspension", l.suspension ? SUSPENSION_LABEL[l.suspension] || l.suspension : null], ["Brakes", l.brakes ? BRAKES_LABEL[l.brakes] || l.brakes : null]]],
+    ["weights", "Weights and size", [["GVM", kgs(l.gvm_kg)], ["GCM", kgs(l.gcm_kg)], ["Tare", kgs(l.tare_kg)],
+      ["Wheelbase", l.wheelbase_mm ? `${l.wheelbase_mm.toLocaleString("en-AU")} mm` : null], ["Body", l.body], ["Body size", l.body_size]]],
+    ["cab", "Cab", [["Cab", l.cab ? CAB_LABEL[l.cab] || l.cab : null], ["Seats", l.seats], ["Keys", l.keys], ["Colour", l.colour]]],
+  ];
+  return groups.map(([key, title, rows]) => ({ key, title,
+    rows: rows.filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => [k, String(v)] as [string, string]) }))
+    .filter((g) => g.rows.length > 0);
 }
 
 /** The categories we sell now (settings selling.categories; trucks to start). Unknown names are dropped, and an empty
@@ -67,6 +113,15 @@ export function sellCategories(selling?: { categories?: unknown } | null): Categ
   return ok.length ? ok : ["trucks"];
 }
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
+
+/** The states we sell in now (settings selling.states; Queensland to start, then New South Wales and Western
+ *  Australia). Unknown codes are dropped, and an empty or missing setting means Queensland. */
+const STATE_CODES = ["QLD", "NSW", "VIC", "WA", "SA", "TAS", "ACT", "NT"];
+export function sellStates(selling?: { states?: unknown } | null): string[] {
+  const raw = Array.isArray(selling?.states) ? (selling!.states as unknown[]) : [];
+  const ok = [...new Set(raw.map((x) => String(x).toUpperCase()).filter((x) => STATE_CODES.includes(x)))];
+  return ok.length ? ok : ["QLD"];
+}
 
 /** How the ten categories are grouped in the menus (the header, the phone sheet). Browsing only: a search still
  *  filters on one category at a time (`cat`), so a group is a menu of its categories, never a filter of its own.
@@ -79,6 +134,20 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
 ];
 /** The categories of a group, in the order they're listed. */
 export const groupCats = (g: CategoryGroup): Category[] => g.cats.map((k) => CAT[k]).filter(Boolean);
+
+/** The menus for the header and the phone menu: only what we sell. With one category (trucks), its types are the
+ *  menu, the way the truck sites list prime movers, tippers and curtainsiders; with several, the groups, trimmed to
+ *  the categories we sell. Each item is [label, link]. */
+export type NavMenu = { key: string; label: string; href: string; items: [string, string][] };
+export function navMenus(selling: CategoryKey[]): NavMenu[] {
+  const cats = selling.filter((k) => CAT[k]);
+  if (cats.length === 1) {
+    const c = CAT[cats[0]];
+    return [{ key: c.key, label: c.label, href: `/auctions?cat=${c.key}`, items: [[`All ${c.label.toLowerCase()}`, `/auctions?cat=${c.key}`], ...c.kinds.map(([k, l]) => [l, `/auctions?cat=${c.key}&type=${k}`] as [string, string])] }];
+  }
+  return CATEGORY_GROUPS.map((g) => ({ key: g.key, label: g.label, href: "/auctions", items: groupCats(g).filter((c) => cats.includes(c.key)).map((c) => [c.label, `/auctions?cat=${c.key}`] as [string, string]) }))
+    .filter((m) => m.items.length > 0);
+}
 export const VEHICLE_TYPES: VehicleType[] = ["car", "ute", "truck", "van", "bus", "bike", "caravan", "boat", "trailer", "tractor"];
 
 export function kindLabel(cat: string | null | undefined, kind: string | null | undefined) {

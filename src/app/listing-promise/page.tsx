@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "How we check listings",
-  description: "We're never at the vehicle: before it's listed we check the seller's photos and video against the papers, rego and PPSR: VIN, build date, odometer photo, transmission, fuel, features, warning lights, damage and privacy.",
+  description: "We list without visiting the vehicle: before it's listed we check the seller's photos and video against the papers, rego and PPSR: VIN, build date, odometer photo, transmission, fuel, features, warning lights, damage and privacy.",
 };
 
 // Our listing promise. Plain facts about what we check, what we don't, and what happens if we get it wrong.

@@ -94,7 +94,7 @@ export function blankLocation(moov: Uint8Array): number {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Photos the seller sends with the sell form go onto their listing (we're never at the vehicle). The form redraws
+// Photos the seller sends with the sell form go onto their listing (we list without visiting). The form redraws
 // them in the browser, but the server doesn't rely on that: before a photo is copied to the public listing, everything
 // but the picture is removed here. JPEG: the APP1 to APP15 segments (EXIF with GPS, XMP, IPTC and the rest) and comments
 // go, except ICC colour profiles and Adobe colour information; JFIF stays. PNG: text, EXIF and time chunks go. WebP:

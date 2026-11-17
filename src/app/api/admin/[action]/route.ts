@@ -496,7 +496,7 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
           ...(disc.finance === "yes" ? { finance_owing: Number(disc.finance_amount) || null, lender_name: (disc.lender_name as string) || null, lender_ref: (disc.lender_ref as string) || null } : {}),
         });
         await db.from("appraisals").update({ lot_id: lot!.id, status: "booked" }).eq("id", b.appraisalId);
-        // the seller's photos become the draft's photos (we're never at the vehicle), with everything but the picture removed
+        // the seller's photos become the draft's photos (we list without visiting), with everything but the picture removed
         const photos = await copySellerPhotos(db, Array.isArray(ap.photo_paths) ? ap.photo_paths : [], lot!.id);
         return json({ ok: true, lotId: lot!.id, photos });
       }
@@ -542,6 +542,24 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (!["confirm", "decline", "done", "no_show"].includes(what)) return fail("Unknown step.");
       const { error } = await supabase.rpc("admin_viewing", { p_id: String(b.id || ""), p_action: what,
         p_starts: what === "confirm" ? (b.startsAt ? String(b.startsAt) : null) : null, p_host: null, p_note: String(b.note || "").trim().slice(0, 500) || null });
+      if (error) return fail(friendly(error.message));
+      return done();
+    }
+    case "inspection": {
+      // Our mobile mechanic (migration 38): book the time agreed with the owner (the member is sent the amount to pay,
+      // the owner the time), record the payment, close it with the report once the listing shows what was found,
+      // decline, cancel (a refund if it was paid) or record the refund. The rules are in admin_inspection.
+      const what = String(b.do || "");
+      if (!["book", "paid", "done", "decline", "cancel", "refunded"].includes(what)) return fail("Unknown step.");
+      const { error } = await supabase.rpc("admin_inspection", {
+        p_id: String(b.id || ""), p_action: what,
+        p_starts: what === "book" && b.startsAt ? String(b.startsAt) : null,
+        p_mechanic: what === "book" ? String(b.mechanic || "").trim().slice(0, 120) : null,
+        p_note: String(b.note || "").trim().slice(0, 500) || null,
+        p_report: what === "done" ? String(b.report || "") : null,
+        p_summary: what === "done" ? String(b.summary || "").trim().slice(0, 2000) : null,
+        p_faults: what === "done" ? b.faults === true : false,
+      });
       if (error) return fail(friendly(error.message));
       return done();
     }

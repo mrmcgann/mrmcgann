@@ -52,3 +52,14 @@ export const estimateAllInText = (l: WithEstimate, fees: Fees) => {
 /** Under every estimate: what it is and isn't. */
 export const ESTIMATE_NOTE =
   "Our estimate of where the hammer will fall, from recent sales of similar vehicles and what the seller has shown and told us. It's a guide, not a valuation or a promise: it may sell for more or less. The seller's reserve is never above the low end.";
+
+/** Below the reserve when the hammer falls: what happens, beside the estimate and the reserve sign (web and app). A
+ *  sales consultant is a registered motor salesperson (or the licensee): see docs/legal-basis.md section 1. Nothing
+ *  here promises a sale after the auction: trucks are never sold after one (after_auction_check 'heavy'). */
+export const RESERVE_NOTE =
+  "If bidding doesn't reach the reserve, the truck is passed in: it isn't sold, and nobody owes anything. The highest bidder hears from one of our sales consultants.";
+/** What the highest bidder reads when it's passed in (the room and the notice), word for word with
+ *  passed_in_top_text() in the database (migration 38) after "Bidding reached $X. ". */
+export const PASSED_IN_TOP =
+  "That's below the seller's reserve, so it's passed in: it isn't sold, and you don't owe anything. One of our sales consultants will be in touch about it, including whether it'll be offered at a later auction.";
+export const passedInTop = (highest?: number | null) => (highest ? `Bidding reached ${money(highest)}. ${PASSED_IN_TOP}` : PASSED_IN_TOP);

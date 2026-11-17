@@ -115,6 +115,10 @@ export interface Lot {
   /** Truck specifications (migration 37): axle configuration ("6x4"), GCM and tare (kg), power (hp), cab, rear suspension, emissions standard. */
   configuration?: string | null; gcm_kg?: number | null; tare_kg?: number | null; engine_hp?: number | null;
   cab?: "day" | "sleeper" | "crew" | null; suspension?: "air" | "spring" | "mixed" | null; emissions?: string | null;
+  /** More of what truck buyers look for (migration 38): gearbox, rear axles, brakes, wheelbase (mm), fuel capacity (litres),
+   *  body size, and fitted features (keys of TRUCK_FEATURES in vehicles.ts). All key facts once it's live. */
+  gearbox?: string | null; rear_axles?: string | null; brakes?: string | null; wheelbase_mm?: number | null;
+  fuel_capacity_l?: number | null; body_size?: string | null; features?: string[] | null;
   /** the depot the buyer collects from, for a listing collected from a depot (lots.suburb/state/postcode are then the depot's) */
   depot_id?: string | null;
   /** the transport from the seller to the depot (before GST), part of the buyer's premium; locked when bidding opens */

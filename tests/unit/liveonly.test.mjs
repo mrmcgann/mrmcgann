@@ -50,13 +50,14 @@ ok('warranty: none for a private owner\'s vehicle at auction (QLD)', /none appli
 ok("warranty: the ACT's duty to repair applies at auction, so we don't list a vehicle it could cover", /ACT: the dealer's duty to repair applies even at auction/.test(warrantyGuide('ACT', 'private', 'cars')) && /we don't list a vehicle it could cover/.test(warrantyGuide('ACT', 'private', 'cars')) && !/duty to repair/.test(warrantyGuide('ACT', 'private', 'motorbikes')));
 ok("warranty: a motor dealer's own vehicle may carry one, so we don't list it", /Class A or B/.test(warrantyGuide('NSW', 'business', 'cars')) && /don't list it/.test(warrantyGuide('NSW', 'business', 'cars')));
 
-// We're never at the vehicle: every check and word says so
+// We list without visiting the vehicle: every check and word says so (our mobile mechanic goes only when a bidder books it)
 ok('remote: the checks are of the seller\'s photos, video and the records', LISTING_CHECKS.length === 11 && LISTING_CHECKS.every(([, staff]) => !/on the vehicle itself|walkaround and visual|at the walkaround/i.test(staff)) && LISTING_CHECKS.filter(([, staff]) => /seller's (photo|video)|photos|video/.test(staff)).length >= 8);
 ok('remote: the run check is from the video', /seller's video/.test(LISTING_CHECKS.find(([k]) => k === 'runs')[1]) && /seller's video/.test(RUNS_HINT.drives) && !/when we checked it/.test(Object.values(RUNS_HINT).join(' ')));
-ok('remote: the condition report says where it comes from', /seller's photos and walkaround video/.test(REMOTE_REPORT) && /never at the vehicle/.test(REMOTE_REPORT));
+ok('remote: the condition report says where it comes from', /seller's photos and walkaround video/.test(REMOTE_REPORT) && /We list it without visiting it/.test(REMOTE_REPORT) && /book our mobile mechanic/.test(REMOTE_REPORT));
 ok('remote: the photos are the seller\'s, checked, with the location removed', /Taken by the seller/.test(PHOTO_CHECK) && /remove the camera's location/.test(PHOTO_CHECK));
 ok('seller: what to photograph and film', PHOTO_RULES.length === 4 && /last 14 days/.test(PHOTO_RULES[0]) && /no filters/.test(PHOTO_RULES[1]) && /house numbers/.test(PHOTO_RULES[2]) && MORE_SHOTS.length >= 5 && VIDEO_STEPS.length === 5 && /from cold/.test(VIDEO_STEPS[0]) && /warning lights/.test(VIDEO_STEPS[1]));
-ok('seller: they promise the photos and video are theirs, recent and unedited', /photos and a walkaround video/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]) && /last 14 days/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]) && /never at the vehicle/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]));
+ok('seller: they promise the photos and video are theirs, recent and unedited', /photos and a walkaround video/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]) && /last 14 days/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]) && /lists it without visiting it/.test(SELLER_ACKS.find(([k]) => k === 'video')[1]));
+ok('seller: our mobile mechanic gets access when a bidder books it, and the owner hears what it found', /Super Trucker's mobile mechanic/.test(SELLER_ACKS.find(([k]) => k === 'inspection')[1]) && /adds any fault to the listing/.test(SELLER_ACKS.find(([k]) => k === 'inspection')[1]) && /no road test/.test(SELLER_ACKS.find(([k]) => k === 'inspection')[1]));
 
 // The engine's live-only refusals in plain words
 for (const [code, words] of [['live_only:every vehicle is sold under the hammer, so it can\'t be offered to the next bidder', 'Every vehicle is sold under the hammer'],

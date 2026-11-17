@@ -16,7 +16,7 @@ export function HeaderUser() {
           {unread > 0 && <span className="badge">{unread > 99 ? "99+" : unread}</span>}
         </Link>
       )}
-      <Link className="icon-btn" href="/watchlist" aria-label={`Watchlist, ${watchCount} vehicles`}>
+      <Link className="icon-btn hide-xs" href="/watchlist" aria-label={`Watchlist, ${watchCount} vehicles`}>
         <HeartIcon size={19} />{watchCount > 0 && <span className="badge">{watchCount}</span>}
       </Link>
       {user ? (

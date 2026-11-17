@@ -31,25 +31,30 @@ export const TRANSPORT_STATUS: Record<TransportStatus, string> = {
 };
 
 /** How buyers check a truck that's viewed where it's kept (the listing, the Help page and the app). [title, what it is]
- *  We are never at the vehicle, so nothing here says we looked at it: the viewing is how a buyer sees it in person. */
+ *  We list it without visiting it, so nothing here says we looked at it to list it. A buyer sees it in person by
+ *  inspecting it themselves or by booking our mobile mechanic (./inspections.ts). */
 export const CHECK_IT_VIEW: [string, string][] = [
-  ["View it by appointment", "Ask for a time on the listing. We agree one with the owner and send you the address. Bring photo ID, and a mechanic if you like. Look it over and hear it run; no road test."],
+  ["Inspect it yourself", "Book a time on the listing. We agree one with the owner and send you the address. Bring photo ID, and your own mechanic if you like. Look it over and hear it run; no road test."],
+  ["Or send our mobile mechanic", "Book our heavy-vehicle mechanic on the listing, for a set fee. They inspect it where it's kept and send you a written report with photos; you don't need to be there. Anything they find goes on the listing for every bidder."],
   ["The owner's photos and walkaround video", "Taken by the owner for this listing, to our shot list: every side, the cab, the dash with the ignition on and the engine running. We check them before they go up."],
-  ["Our report", "Built from those photos and the video, the records we check (registration, PPSR, VIN and the write-off registers) and the owner's signed answers. A guide, not a mechanical inspection: nobody from Super Trucker sees it in person."],
+  ["Our report", "Built from those photos and the video, the records we check (registration, PPSR, VIN and the write-off registers) and the owner's signed answers. A guide, made without visiting the truck: it isn't a mechanical inspection."],
   ["Ask us anything", "Ask on the listing or call your consultant. We put it to the owner and answer where every bidder can see it."],
 ];
 /** The same for a listing collected from a depot, where buyers never visit. */
 export const CHECK_IT: [string, string][] = [
-  ["Our condition report", "Built from the seller's photos and walkaround video, the records we check (registration, PPSR, VIN and the write-off registers) and the seller's signed answers. A guide, not a mechanical inspection: nobody from Super Trucker sees it in person."],
+  ["Our condition report", "Built from the seller's photos and walkaround video, the records we check (registration, PPSR, VIN and the write-off registers) and the seller's signed answers. A guide, made without visiting the vehicle: it isn't a mechanical inspection."],
   ["The walkaround video", "The seller films a walkaround for us, and we check it before it goes on the listing."],
-  ["A mechanical inspection", "Order one from our partner mechanic before you bid. They inspect it where it's kept and email you their report; you pay them for it. You don't attend, and the seller's details stay private."],
+  ["Our mobile mechanic", "Book our mechanic on the listing before you bid, for a set fee. They inspect it where it's kept and send you their report. You don't attend, and the seller's details stay private."],
   ["Ask us anything", "Ask on the listing or call your consultant. We check with the seller and answer, so you never need to contact them."],
 ];
 export const NO_VIEWINGS = "No viewings or test drives: vehicles stay with their owners until they're sold, and buyers never visit.";
 export const VIEW_BY_APPOINTMENT = "View it by appointment where it's kept. The listing shows the suburb; the address goes only to a verified member with a confirmed booking.";
-/** The steps for this listing. */
-export const checkIt = (lot: { collect_from?: string | null; in_person_viewing?: boolean | null }) =>
-  collectFrom(lot) === "seller" ? (lot.in_person_viewing === false ? CHECK_IT_VIEW.slice(1) : CHECK_IT_VIEW) : CHECK_IT;
+/** The steps for this listing: without the viewing when the owner can't host one, and without our mechanic when
+ *  it isn't taking bookings (setting selling.mechanic). */
+export const checkIt = (lot: { collect_from?: string | null; in_person_viewing?: boolean | null }, o: { mechanic?: boolean } = {}) => {
+  const steps = collectFrom(lot) === "seller" ? (lot.in_person_viewing === false ? CHECK_IT_VIEW.slice(1) : CHECK_IT_VIEW) : CHECK_IT;
+  return o.mechanic === false ? steps.filter(([t]) => !/mechanic/i.test(t)) : steps;
+};
 
 /** "Eagle Farm, QLD" (the depot's suburb), for the listing. */
 export const depotPlace = (d: { suburb?: string | null; state?: string | null } | null | undefined) =>
@@ -131,8 +136,8 @@ export function sellerTransportLine(t: Pick<SellerTransport, "status" | "pickup_
 export const shortDay = (day: string) => new Date(`${day.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).replace(",", "");
 
 /** What the bidder agrees to about seeing it and collecting it, in the as-is acknowledgement (after "sold as is, where is:"). */
-export const ACK_CHECK = "I can't view it, the condition report is a guide only (I can order a mechanical inspection through Super Trucker, at my cost, before I bid), and I collect it from Super Trucker's depot";
-export const ACK_CHECK_VIEW = "I could view it by appointment before bidding, Super Trucker's report is a guide only (nobody from Super Trucker has seen it in person), and I collect it from where it's kept, at my cost";
+export const ACK_CHECK = "I can't view it, the condition report is a guide only (I can book Super Trucker's mobile mechanic, at my cost, before I bid), and I collect it from Super Trucker's depot";
+export const ACK_CHECK_VIEW = "I could inspect it myself by appointment or book Super Trucker's mobile mechanic before bidding, Super Trucker's report is a guide only (made without visiting the vehicle), and I collect it from where it's kept, at my cost";
 export const ackCheck = (lot: { collect_from?: string | null } | null | undefined) => (collectFrom(lot) === "seller" ? ACK_CHECK_VIEW : ACK_CHECK);
 
 /** Plain words for the database's refusals (null when it isn't one of them). */

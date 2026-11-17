@@ -61,14 +61,17 @@ ok('errors: a step out of order reads as a sentence', transportError('ERROR: tra
 ok('errors: others are left alone', transportError('something else') === null);
 
 // Checking a vehicle: by appointment where it's kept (Super Trucker), or without seeing it (the depot way)
-ok('check it (view): four ways, the viewing first, and nothing says we looked at it', CHECK_IT_VIEW.length === 4 && /appointment/.test(CHECK_IT_VIEW[0][0]) && CHECK_IT_VIEW.every(([t, d]) => !/we (inspect|walk around|photograph|visit)|our (inspector|staff) (inspect|look)/i.test(t + d)) && /no road test/.test(CHECK_IT_VIEW[0][1]));
-ok('check it: by the listing’s mode, and no viewing step when the owner can’t host one', checkIt({ collect_from: 'seller', in_person_viewing: true }) === CHECK_IT_VIEW && checkIt({ collect_from: 'seller', in_person_viewing: false }).length === 3 && checkIt({ collect_from: 'depot' }) === CHECK_IT);
+ok('check it (view): five ways, inspect it yourself first, then our mechanic, and nothing says we looked at it to list it', CHECK_IT_VIEW.length === 5 && /Inspect it yourself/.test(CHECK_IT_VIEW[0][0]) && /Book a time/.test(CHECK_IT_VIEW[0][1])
+  && /mobile mechanic/.test(CHECK_IT_VIEW[1][0]) && /every bidder/.test(CHECK_IT_VIEW[1][1]) && CHECK_IT_VIEW.every(([t, d]) => !/we (inspect|walk around|photograph|visit)|our (inspector|staff) (inspect|look)/i.test(t + d))
+  && /no road test/.test(CHECK_IT_VIEW[0][1]) && /made without visiting/.test(CHECK_IT_VIEW[3][1]));
+ok('check it: by the listing’s mode, no viewing step when the owner can’t host one, no mechanic when it isn’t booking', checkIt({ collect_from: 'seller', in_person_viewing: true }) === CHECK_IT_VIEW && checkIt({ collect_from: 'seller', in_person_viewing: false }).length === 4
+  && checkIt({ collect_from: 'depot' }) === CHECK_IT && checkIt({ collect_from: 'seller' }, { mechanic: false }).length === 4 && checkIt({ collect_from: 'seller' }, { mechanic: false }).every(([t]) => !/mechanic/i.test(t)));
 ok('check it (depot): we never claim to inspect it ourselves', CHECK_IT.every(([t, d]) => !/we (walk around|inspect)/i.test(t + d)));
-ok('ack: viewing by appointment, a guide only, collected from where it is kept', /view it by appointment/.test(ACK_CHECK_VIEW) && /guide only/.test(ACK_CHECK_VIEW) && /collect it from where it's kept/.test(ACK_CHECK_VIEW) && ackCheck({ collect_from: 'seller' }) === ACK_CHECK_VIEW && ackCheck({ collect_from: 'depot' }) === ACK_CHECK);
+ok('ack: inspect it yourself or our mechanic, a guide only, collected from where it is kept', /inspect it myself by appointment or book Super Trucker's mobile mechanic/.test(ACK_CHECK_VIEW) && /guide only/.test(ACK_CHECK_VIEW) && /collect it from where it's kept/.test(ACK_CHECK_VIEW) && ackCheck({ collect_from: 'seller' }) === ACK_CHECK_VIEW && ackCheck({ collect_from: 'depot' }) === ACK_CHECK);
 ok('errors: where it is collected from is fixed once bidding opens', /can't change once bidding has opened/.test(transportError('ERROR: collect_locked') || ''));
-ok('ack: no viewing, a guide only, an inspection at their cost, collected from our depot', /can't view it/.test(ACK_CHECK) && /guide only/.test(ACK_CHECK) && /mechanical inspection/.test(ACK_CHECK) && /at my cost/.test(ACK_CHECK) && /depot/.test(ACK_CHECK));
+ok('ack: no viewing, a guide only, our mechanic at their cost, collected from our depot', /can't view it/.test(ACK_CHECK) && /guide only/.test(ACK_CHECK) && /mobile mechanic/.test(ACK_CHECK) && /at my cost/.test(ACK_CHECK) && /depot/.test(ACK_CHECK));
 ok('check it: four ways, none of them a visit', CHECK_IT.length === 4 && CHECK_IT.every(([t, d]) => !/viewing|visit the seller|test drive/i.test(t + d)));
-ok('check it: the inspection is paid to the mechanic and the seller stays private', /you pay them/.test(CHECK_IT[2][1]) && /seller's details stay private/.test(CHECK_IT[2][1]));
+ok('check it (depot): our mechanic, booked on the listing, and the seller stays private', /Book our mechanic on the listing/.test(CHECK_IT[2][1]) && /seller's details stay private/.test(CHECK_IT[2][1]));
 ok('no viewings, in one line', /^No viewings or test drives/.test(NO_VIEWINGS));
 
 // Putting it in the buyer's name. A boat is not a road vehicle: its registration belongs to the state's marine

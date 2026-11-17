@@ -2,15 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { MAX_SLOTS, PARTS, STATUS_LABEL, VIEWING_HOW, VIEWING_OFF, dayLabel, slotLabel, viewingDays, whenLabel, type Slot, type Viewing } from "@/lib/viewings";
+import { MAX_SLOTS, PARTS, STATUS_LABEL, VIEWING_OFF, dayLabel, slotLabel, viewingDays, whenLabel, type Slot, type Viewing } from "@/lib/viewings";
+import { INSPECT_YOURSELF } from "@/lib/inspections";
 import { api, errText } from "~/lib/api";
 import { SITE } from "~/lib/env";
 import { useSession } from "~/lib/session";
 import { Button, Check, Field, LinkText, Notice, Pill, Sheet, Soft, T } from "./kit";
 import { F } from "./theme";
 
-/** "View it by appointment", where the truck is kept. Same rules and words as the website (src/lib/viewings.ts and
- *  src/components/Viewings.tsx); the database enforces them and records what the member agreed to (viewingAck). */
+/** "Inspect it yourself": a viewing by appointment, where the truck is kept. Same rules and words as the website
+ *  (src/lib/viewings.ts and src/components/Viewings.tsx); the database enforces them and records what the member agreed
+ *  to (viewingAck). The other way, our mobile mechanic, is MechanicBox (./Mechanic.tsx). */
 export function ViewingBox({ lotId, title, suburb, state, inPerson, auctionAt, open }: {
   lotId: number; title: string; suburb: string; state: string; inPerson: boolean; auctionAt: string | null; open: boolean;
 }) {
@@ -28,11 +30,14 @@ export function ViewingBox({ lotId, title, suburb, state, inPerson, auctionAt, o
     if (Platform.OS === "web") { if (confirm("Cancel this viewing?")) void go(); return; }
     Alert.alert("Cancel this viewing?", "We'll let the owner know.", [{ text: "Keep it", style: "cancel" }, { text: "Cancel it", style: "destructive", onPress: () => void go() }]);
   };
-  if (!inPerson) return <Soft style={{ gap: 8 }} testID="viewing-off"><T v="strong" style={{ fontSize: 17 }}>Viewing.</T><T v="muted">{VIEWING_OFF}</T></Soft>;
+  if (!inPerson) return <Soft style={{ gap: 8 }} testID="viewing-off"><T v="strong" style={{ fontSize: 17 }}>{INSPECT_YOURSELF.title}.</T><T v="muted">{VIEWING_OFF}</T></Soft>;
   return (
     <Soft style={{ gap: 8 }} testID="viewing">
-      <T v="strong" style={{ fontSize: 17 }}>View it by appointment.</T>
-      <T v="muted">Where it's kept, near {suburb}{state ? `, ${state}` : ""}. {VIEWING_HOW.join(" ")}</T>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <T v="strong" style={{ fontSize: 17 }}>{INSPECT_YOURSELF.title}.</T><Badge text={INSPECT_YOURSELF.price} tone="mint" />
+      </View>
+      {INSPECT_YOURSELF.lines.map((l) => <T key={l} v="muted">• {l}</T>)}
+      <T v="small">Where it's kept, near {suburb}{state ? `, ${state}` : ""}.</T>
       {current ? (
         <View style={{ gap: 4 }} testID="viewing-booked">
           <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{current.status === "confirmed" && current.starts_at
@@ -40,12 +45,17 @@ export function ViewingBox({ lotId, title, suburb, state, inPerson, auctionAt, o
             : <><Text style={{ fontFamily: F.bold }}>Asked for </Text>{current.slots.map(slotLabel).join("; ")}. We'll agree a time with the owner and text you.</>}</T>
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}><T v="small">Reference {current.ref}</T><LinkText title="Cancel" onPress={() => cancel(current.id)} style={{ fontSize: 13 }} /></View>
         </View>
-      ) : open ? <Button testID="viewing-ask" small kind="dark" title="Ask to view it" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} />
+      ) : open ? <Button testID="viewing-ask" small kind="dark" title="Book a time" onPress={() => setForm(true)} style={{ alignSelf: "flex-start", marginTop: 4 }} />
         : <T v="small">Viewings close the day before the auction.</T>}
       {mine.filter((m) => !["requested", "confirmed"].includes(m.status)).slice(0, 3).map((m) => <T key={m.id} v="small">Viewing {m.ref}: {STATUS_LABEL[m.status] || m.status}{m.status === "declined" && m.staff_note ? `. ${m.staff_note}` : ""}</T>)}
       {form ? <BookSheet lotId={lotId} title={title} auctionAt={auctionAt} ack={ack} onClose={() => setForm(false)} onDone={() => { setForm(false); void load(); }} /> : null}
     </Soft>
   );
+}
+
+/** The price beside an option's name ("Free", "$495 incl. GST"). */
+export function Badge({ text, tone }: { text: string; tone: "mint" | "sun" }) {
+  return <Text style={{ fontFamily: F.heavy, fontSize: 13, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, overflow: "hidden", color: "#1D1D1F", backgroundColor: tone === "mint" ? "#3DDC97" : "#FFC93C" }}>{text}</Text>;
 }
 
 function BookSheet({ lotId, title, auctionAt, ack, onClose, onDone }: { lotId: number; title: string; auctionAt: string | null; ack: string; onClose: () => void; onDone: () => void }) {

@@ -12,7 +12,8 @@ import { gradeInfo } from "@/lib/grades";
 import { dateTime, km, money } from "@/lib/format";
 import { DamageMap } from "@/components/DamageMap";
 import { ZONE_LABEL } from "@/lib/damage";
-import { CAT, kindLabel, LICENCES, truckSpecs } from "@/lib/vehicles";
+import { CAT, kindLabel, LICENCES, truckDetails, truckFeatures, truckSpecs } from "@/lib/vehicles";
+import { mechanicFee, mechanicOn } from "@/lib/inspections";
 import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
 import { lotCrumbs } from "@/lib/seo";
@@ -21,6 +22,7 @@ import { env } from "@/lib/env";
 import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine } from "@/lib/listing";
 import { NO_VIEWINGS, VIEW_BY_APPOINTMENT, checkIt, collectFrom, depotPlace, premiumLabel } from "@/lib/transport";
 import { Viewings } from "@/components/Viewings";
+import { Mechanic } from "@/components/Mechanic";
 import { certLine } from "@/lib/transfer";
 import { hasEstimate } from "@/lib/estimate";
 import { REMOTE_REPORT, PHOTO_CHECK, warrantySign } from "@/lib/listing";
@@ -45,8 +47,8 @@ export const regoTag = (lot: Lot) => (lot.registration === "unregistered" ? "Unr
 
 // The vehicle page. Identical for every visitor (so it can be cached at the edge);
 // personal parts are in <LotInteractive> and <LotQuestions>, which load in the browser.
-export function LotView({ bundle, fees, similar, history, partners = [], finance = {}, preview = false }: {
-  bundle: LotBundle; fees: Fees; similar: Lot[]; history: Hist; partners?: Partner[]; finance?: FinanceSettings; preview?: boolean;
+export function LotView({ bundle, fees, similar, history, partners = [], finance = {}, selling = {}, preview = false }: {
+  bundle: LotBundle; fees: Fees; similar: Lot[]; history: Hist; partners?: Partner[]; finance?: FinanceSettings; selling?: Record<string, unknown>; preview?: boolean;
 }) {
   const { lot, photos, flaws, questions, watchers, videos, consultant, corrections = [], sale = null, depot = null } = bundle;
   const g = gradeInfo(lot.visual_grade);
@@ -80,12 +82,16 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
     ["Known faults", d.known_faults || lot.known_faults],
   ];
   const questionsOpen = ["live", "scheduled", "referred", "offers"].includes(lot.status);
+  const isTruck = lot.category === "trucks";
   const vehicle = `${lot.title} (lot ${lot.id})`;
   const atEstimate = !lot.buy_now_price && hasEstimate(lot) && !lot.bid_count;
   const price = lot.buy_now_price || (atEstimate ? Number(lot.estimate_low) : Math.max(lot.current_bid || 0, lot.start_price || 0));
   const allIn = price ? priceBreakdown(price, lotFees(fees, lot)).total : 0;
   const est = ["live", "scheduled", "offers", "referred"].includes(lot.status) ? listingEstimate(allIn, partners, finance) : null;
   const inspector = partners.find((p) => p.kind === "inspection" && p.accepts_leads) || null;
+  // book an inspection, two ways: inspect it yourself (a viewing, where the owner hosts them) or our mobile mechanic
+  const mechOn = mechanicOn(selling as { mechanic?: unknown }), mechFee = mechanicFee(selling as { mechanic_fee?: unknown });
+  const inspectOpen = ["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting";
   const hasInsurers = partners.some((p) => p.kind === "insurance");
   const hasWarranty = partners.some((p) => p.kind === "warranty");
   const transporter = partners.find((p) => p.kind === "transport" && p.accepts_leads) || null;
@@ -149,7 +155,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <h2 className="d3">Condition report.</h2>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 20px", borderRadius: 20, background: "var(--panel)" }}>
                 <span style={{ width: 28, height: 28, borderRadius: 14, background: "var(--sun)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>i</span>
-                <span style={{ fontSize: 15, lineHeight: 1.55 }} data-testid="report-basis"><b>A guide only.</b> {REMOTE_REPORT} It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : atSeller ? (lot.in_person_viewing ? "View it by appointment before you bid, and bring a mechanic if you like." : "Ask us anything before you bid.") : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
+                <span style={{ fontSize: 15, lineHeight: 1.55 }} data-testid="report-basis"><b>A guide only.</b> {REMOTE_REPORT} It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : mechOn ? (atSeller && lot.in_person_viewing ? "Before you bid, inspect it yourself by appointment or book our mobile mechanic." : "Before you bid, you can book our mobile mechanic.") : atSeller ? (lot.in_person_viewing ? "View it by appointment before you bid, and bring a mechanic if you like." : "Ask us anything before you bid.") : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
               </div>
               {lot.inspected_at && (
                 <div className="inspected-box" id="inspected" data-testid="inspected-box">
@@ -191,14 +197,33 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               )}
             </div>
 
-            <div className="two">
-              <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Specifications.</h2>
+            {isTruck && (
+              <div className="lotsec" id="specs" style={{ gap: 14 }} data-testid="truck-details">
+                <h2 className="d3" style={{ fontSize: 40 }}>Specifications.</h2>
+                <div className="tspec">
+                  {truckDetails(lot, place ? (atSeller ? place : `Our depot in ${place}`) : null, atSeller ? "Where it's kept" : "Collect from").map((g) => (
+                    <div className="tspec-g" key={g.key} data-group={g.key}>
+                      <h3>{g.title}</h3>
+                      <div className="rows">{g.rows.map(([k, v]) => <div key={k}><span className="muted">{k}</span><b style={{ textAlign: "right" }}>{v}</b></div>)}</div>
+                    </div>
+                  ))}
+                </div>
+                {truckFeatures(lot.features).length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <b style={{ fontSize: 17 }}>Fitted.</b>
+                    <div className="tfeat" data-testid="truck-features">{truckFeatures(lot.features).map((f) => <span key={f}>{f}</span>)}</div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className={isTruck ? "" : "two"}>
+              {!isTruck && <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Specifications.</h2>
                 <div className="rows">
                   {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body], ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive], ...truckSpecs(lot),
                     ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null], ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], [atSeller ? "Where it's kept" : "Collect from", place ? (atSeller ? place : `Our depot in ${place}`) : null], ["Lot", lot.id]] as [string, unknown][])
                     .filter(([, v]) => v !== null && v !== "" && v !== undefined).map(([k, v]) => <div key={k}><span className="muted">{k}</span><b>{String(v)}</b></div>)}
                 </div>
-              </div>
+              </div>}
               <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Checks.</h2>
                 {([
                   ["PPSR search", lot.ppsr_checked_at ? `Searched ${new Date(lot.ppsr_checked_at).toLocaleDateString("en-AU")}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}. ${lot.ppsr_clear === false ? lot.ppsr_note || "Finance recorded: paid out from the sale proceeds" : "No finance or write-off recorded"}` : lot.ppsr_clear == null ? "Pending" : lot.ppsr_clear ? "No finance owing or write-off recorded at listing" : lot.ppsr_note || "See note", true],
@@ -212,7 +237,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 ] as ([string, string, boolean] | null)[]).filter((r): r is [string, string, boolean] => r != null).map(([k, v, ours]) => (
                   <div className="check" key={k}><span className="tick" style={{ background: ours ? "var(--mint)" : "var(--sun)" }}>{ours ? <Tick /> : <b style={{ fontSize: 14 }}>i</b>}</span><span style={{ display: "flex", flexDirection: "column" }}><b>{k}</b><span className="muted" style={{ fontSize: 14 }}>{v}</span></span></div>
                 ))}
-                <p className="hint" style={{ marginTop: 12 }}>Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We&apos;re never at the vehicle. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
+                <p className="hint" style={{ marginTop: 12 }}>Green: checked by Super Trucker. Yellow: from the seller (their photos, video and written declarations), passed on as they gave it. We list it without visiting it. <Link className="blue" href="/listing-promise" style={{ fontWeight: 700 }}>How we check listings ›</Link></p>
               </div>
             </div>
 
@@ -237,12 +262,21 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                 <h2 className="d3" style={{ fontSize: 40 }}>How to check it.</h2>
                 <p className="muted" style={{ margin: 0 }}>{atSeller ? (lot.in_person_viewing ? VIEW_BY_APPOINTMENT : "The owner can't host viewings for this one, so the listing is how you see it.") : <>{NO_VIEWINGS} The seller&apos;s name and address stay private.</>}</p>
                 <div className="checkit">
-                  {checkIt(lot).map(([t, d], i) => (
+                  {checkIt(lot, { mechanic: mechOn }).map(([t, d], i) => (
                     <div key={t} className="checkit-row"><span className="checkit-n" aria-hidden="true">{i + 1}</span><span style={{ display: "flex", flexDirection: "column", gap: 2 }}><b>{t}</b><span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>{d}</span></span></div>
                   ))}
                 </div>
-                {!preview && atSeller && <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} auctionAt={auctionAt} open={["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting"} />}
-                {!preview && <MechanicalInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={questionsOpen} />}
+                {!preview && (atSeller || mechOn) && (
+                  <div className="insp" id="inspect" data-testid="inspect-options">
+                    <h3 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 0" }}>Book an inspection.</h3>
+                    <span className="muted" style={{ fontSize: 15, marginTop: -6 }}>{atSeller && mechOn ? "Two ways to see it before the auction: go yourself, or send our mechanic." : "See it before the auction."}</span>
+                    <div className="insp-grid">
+                      {atSeller && <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} auctionAt={auctionAt} open={inspectOpen} />}
+                      {mechOn && <Mechanic lotId={lot.id} title={lot.title} state={lot.state || ""} auctionAt={auctionAt} open={inspectOpen} fee={mechFee} />}
+                    </div>
+                  </div>
+                )}
+                {!preview && !mechOn && <MechanicalInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={questionsOpen} />}
               </div>
             )}
 

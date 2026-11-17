@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
 export const revalidate = 600;
 export const metadata: Metadata = {
   title: "Browse vehicles by make",
-  description: "Trucks for sale by live online auction in Queensland, New South Wales and Western Australia, by make and model.",
+  description: "Trucks for sale by live online auction in Queensland, by make and model.",
   alternates: { canonical: `${env.siteUrl}/makes` },
 };
 

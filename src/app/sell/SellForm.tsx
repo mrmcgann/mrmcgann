@@ -67,7 +67,7 @@ async function shrink(file: File): Promise<Blob> {
 // Sell your vehicle: one form, top to bottom. What it is (the plate or VIN fills in what we can), how it's going,
 // guided photos laid out exactly like the listing will show them, reserve or no reserve, how to reach them, then the
 // Seller Agency Agreement to read, tick and sign with a finger. Checked here and again on the server (validateSell).
-export function SellForm({ clauses, phone, categories = ["trucks"] }: { clauses: Clause[]; phone: string; categories?: CategoryKey[] }) {
+export function SellForm({ clauses, phone, categories = ["trucks"], states = ["QLD"] }: { clauses: Clause[]; phone: string; categories?: CategoryKey[]; states?: string[] }) {
   const v = useViewer();
   // only what we sell now (settings selling.categories), starting on the first of them
   const [f, setF] = useState<Fields>({ ...BLANK, category: categories.includes(BLANK.category) ? BLANK.category : categories[0] });
@@ -273,7 +273,7 @@ export function SellForm({ clauses, phone, categories = ["trucks"] }: { clauses:
         <ol className="sf-next">
           <li><b>We call you within 1 business day</b> with a price guide{done.reserve ? " and to talk through your reserve" : " and to confirm you're happy with no reserve"}.</li>
           <li><b>You verify your ID.</b> We text you a link: about 2 minutes in your browser, plus a photo of the rego papers and the account we pay you into.</li>
-          <li><b>You send us a short walkaround video</b> (we tell you exactly what to film) and any photos still missing. We check them and the papers from here: we&apos;re never at your place. Then it goes into our next live auction, with an estimate on the listing.</li>
+          <li><b>You send us a short walkaround video</b> (we tell you exactly what to film) and any photos still missing. We check them and the papers from here: we don&apos;t need to visit to list it. Then it goes into our next live auction, with an estimate on the listing.</li>
           <li><b>Viewings by appointment only.</b> We agree every visit with you and tell you who&apos;s coming. Once the buyer has paid us in full, they collect it from you with a release code.</li>
         </ol>
         <div className="pill-row"><Link className="btn btn-dark" href="/auctions">Browse auctions</Link><Link className="btn" style={{ background: "#FFFFFF" }} href="/seller-agreement">Read the agreement again</Link></div>
@@ -336,6 +336,7 @@ export function SellForm({ clauses, phone, categories = ["trucks"] }: { clauses:
                 <option value="" disabled>State</option>{REGO_STATES.map((s) => <option key={s}>{s}</option>)}
               </select>
               {err("state")}
+              {f.state && !states.includes(f.state) && !errs.state && <span className="hint" data-testid="sell-state-hint">We&apos;re selling trucks kept in {states.join(", ")} for now. Call us and we&apos;ll tell you when we open in {f.state}.</span>}
             </label>
           </div>
           <label className="field"><span>{f.registration === "registered" ? "VIN (optional, fills in more)" : "VIN or chassis number"}</span>
@@ -450,7 +451,7 @@ export function SellForm({ clauses, phone, categories = ["trucks"] }: { clauses:
 
         {/* 3. Photos, laid out exactly like the listing gallery */}
         <Part n={3} id="sf-photos" title="Add your photos." colour="lime" done={partDone(PARTS[2].owns)}
-          sub="These become your listing's photos: we're never at the vehicle. Phone photos are perfect, in daylight, the whole vehicle in each one.">
+          sub="These become your listing's photos: we don't come out to photograph it. Phone photos are perfect, in daylight, the whole vehicle in each one.">
           <div className={`sf-shots n${Math.min(5, Math.max(1, slots.length))}${errs.photos ? " sf-miss" : ""}`} aria-label="Your photos, laid out the way your listing shows them">
             {slots.map(([k, label, hint], i) => {
               const s = shots.find((x) => x.slot === k);

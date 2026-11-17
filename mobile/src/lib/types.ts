@@ -30,6 +30,8 @@ export interface AppConfig {
   stores?: { ios: string | null; android: string | null };
   /** every vehicle is sold in a live auction (no timed auctions, Buy Now, tenders or offers) */
   liveOnly?: boolean; payDays?: number;
+  /** our mobile mechanic (migration 38): taking bookings, and its fee including GST */
+  mechanic?: { on: boolean; fee: number };
 }
 
 // bidder_mask is a made-up, name-shaped string (never the real name), shown blurred.

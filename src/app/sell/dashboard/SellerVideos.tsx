@@ -63,7 +63,7 @@ export function SellerVideos({ lotId, videos, canAdd }: { lotId: number; videos:
       <b>Video</b>
       {live.length === 0 && (
         <div className="muted" style={{ fontSize: 15, display: "flex", flexDirection: "column", gap: 6 }} data-testid="video-steps">
-          <span>We&apos;re never at your vehicle, so your walkaround video is how buyers (and we) see it run. Film in landscape, in daylight, for 1 to 3 minutes:</span>
+          <span>We don&apos;t visit to list it, so your walkaround video is how buyers (and we) see it run. Film in landscape, in daylight, for 1 to 3 minutes:</span>
           <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 3 }}>{VIDEO_STEPS.map((t) => <li key={t}>{t}</li>)}</ol>
           <span>{PHOTO_RULES[2]} {PHOTO_RULES[3]}</span>
         </div>

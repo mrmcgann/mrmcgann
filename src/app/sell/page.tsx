@@ -3,7 +3,7 @@ import { SellForm } from "./SellForm";
 import { PHOTO_RULES, VIDEO_STEPS } from "@/lib/sellForm";
 import { HELP as RAW, SELLER_AGREEMENT, fillLegal, legalValues } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
-import { CAT, sellCategories } from "@/lib/vehicles";
+import { CAT, sellCategories, sellStates } from "@/lib/vehicles";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Sell your truck", description: "Sell your truck in a live online auction to verified buyers. One short form, your phone photos and a short video. Buyers view it at your place by appointment, pay us first, then collect it from you." };
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Sell your truck", description: "Sell
 const steps = (v: Record<string, string>) => [
   ["1", "Fill in and sign", "What it is, how it's going, your phone photos, reserve or no reserve, then sign with your finger. About 10 minutes.", "tangerine"],
   ["2", "We call you", "Within 1 business day, with the auction estimate we'd put on it. Then you verify your ID in your browser: about 2 minutes.", "sun"],
-  ["3", "Your video, our checks", "You film a short walkaround (we tell you exactly what). We check your photos, video and papers from here: we're never at your place.", "lime"],
+  ["3", "Your video, our checks", "You film a short walkaround (we tell you exactly what). We check your photos, video and papers from here: we don't need to visit to list it.", "lime"],
   ["4", "Viewings and the auction", "Verified buyers can view it at your place by appointment: we agree every visit with you and tell you who's coming. Then our auctioneer offers it in a live online auction, with the estimate on the listing. You can lower your reserve until the hammer falls.", "sky"],
   ["5", "Handover and payout", `The buyer pays Super Trucker in full first. Then they collect it from you with a release code, at a time we agree with you. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
 ];
@@ -33,7 +33,7 @@ export default async function Sell() {
         <p className="lede">Send us your phone photos and a short video. We check them and the papers, write the listing and put it in our next live auction. Verified buyers view it at your place by appointment, and the buyer collects it from you once they&apos;ve paid us in full. We sell {what} kept in {v.SELL_STATES}.</p>
       </div>
       <div className="sf-wrap" id="appraisal">
-        <SellForm clauses={clauses} phone={env.phone} categories={cats} />
+        <SellForm clauses={clauses} phone={env.phone} categories={cats} states={sellStates(settings.selling as { states?: unknown } | undefined)} />
       </div>
 
       <section id="how-sell">
@@ -45,7 +45,7 @@ export default async function Sell() {
         <div className="panel" data-testid="sell-remote">
           <div className="center" style={{ gap: 16, marginBottom: 48 }}>
             <h2 className="d2">Your phone. <span className="serif">Our checks.</span></h2>
-            <p className="lede">We&apos;re never at your vehicle: your photos and video are the listing. We check every one against the papers, the rego and the PPSR search before it goes up, and say on the listing what came from you and what we checked.</p>
+            <p className="lede">We don&apos;t visit to list it: your photos and video are the listing. We check every one against the papers, the rego and the PPSR search before it goes up, and say on the listing what came from you and what we checked.</p>
           </div>
           <div className="two" style={{ gap: 24 }}>
             <div className="soft bg-lime" style={{ gap: 12 }}>

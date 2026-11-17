@@ -5,8 +5,8 @@ import { REFERRER_NOTE } from "@/lib/partners";
 import { InsuranceTool } from "./InsuranceTool";
 
 export const metadata: Metadata = {
-  title: "Car insurance",
-  description: "Compare car, ute, truck, motorbike, caravan and boat insurance side by side, then get a quote.",
+  title: "Truck insurance",
+  description: "Compare truck insurance side by side, then get a quote.",
 };
 
 const COVER: [string, string][] = [
@@ -26,7 +26,7 @@ export default async function InsurancePage({ searchParams }: { searchParams: Pr
   return (
     <div className="wrap" style={{ maxWidth: 1080, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 28 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
-        <span className="eyebrow" style={{ color: "var(--grape)" }}>Car insurance</span>
+        <span className="eyebrow" style={{ color: "var(--grape)" }}>Truck insurance</span>
         <h1 className="d2">Arrange cover before you collect.</h1>
         <p className="lede" style={{ margin: 0 }}>The vehicle is your responsibility from handover. Compare what insurers offer side by side, then get a quote.</p>
       </div>
