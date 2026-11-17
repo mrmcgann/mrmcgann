@@ -123,6 +123,19 @@ export function sellStates(selling?: { states?: unknown } | null): string[] {
   return ok.length ? ok : ["QLD"];
 }
 
+/** What we sell, in a word for sentences ("Sell your truck"): the category's own word when we sell one category,
+ *  otherwise "vehicle". */
+export function sellNoun(cats: CategoryKey[]): string {
+  return cats.length === 1 && CAT[cats[0]] ? CAT[cats[0]].one : "vehicle";
+}
+
+/** Where the vehicles we sell are kept, in words: "Queensland", or "Queensland, New South Wales and Western
+ *  Australia". Never "Australia-wide" while we sell in some states only. */
+export function sellPlace(states: string[]): string {
+  const names = (states.length ? states : ["QLD"]).map((s) => STATE_NAMES[s] || s);
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** How the ten categories are grouped in the menus (the header, the phone sheet). Browsing only: a search still
  *  filters on one category at a time (`cat`), so a group is a menu of its categories, never a filter of its own.
  *  Every category belongs to exactly one group, which `tests/unit/search.test.mjs` checks. */

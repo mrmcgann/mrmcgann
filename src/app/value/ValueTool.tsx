@@ -3,12 +3,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { CATEGORIES, makesFor, modelsFor } from "@/lib/vehicles";
 import { money } from "@/lib/format";
+import { useSellCategories } from "@/components/SiteSettings";
 
 const YEARS = Array.from({ length: 40 }, (_, i) => new Date().getFullYear() - i);
 type Est = { count: number; low?: number; mid?: number; high?: number };
 
 export function ValueTool() {
-  const [cat, setCat] = useState("cars");
+  // only what we sell: with one category (trucks to start) there's no type to choose
+  const sold = useSellCategories();
+  const cats = CATEGORIES.filter((c) => sold.includes(c.key));
+  const [cat, setCat] = useState<string>(cats[0]?.key || "trucks");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
@@ -27,7 +31,7 @@ export function ValueTool() {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <form className="soft" onSubmit={check} style={{ gap: 14 }} data-testid="value-form">
         <div className="row2">
-          <label className="field"><span>Type</span><select className="input" value={cat} onChange={(e) => { setCat(e.target.value); setMake(""); setModel(""); setR(null); }} style={{ background: "#FFFFFF" }}>{CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
+          {cats.length > 1 && <label className="field"><span>Type</span><select className="input" value={cat} onChange={(e) => { setCat(e.target.value); setMake(""); setModel(""); setR(null); }} style={{ background: "#FFFFFF" }}>{cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>}
           <label className="field"><span>Year (optional)</span><select className="input" value={year} onChange={(e) => { setYear(e.target.value); setR(null); }} style={{ background: "#FFFFFF" }}><option value="">Any year</option>{YEARS.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
         </div>
         <div className="row2">

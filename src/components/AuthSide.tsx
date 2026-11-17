@@ -6,7 +6,7 @@ export const JSTEPS: [number, string, string][] = [
   [5, "Verify ID", "Driver licence or passport, and a selfie"], [4, "Bidding deposit", "Refundable, by PayID or bank transfer"],
 ];
 
-const PERKS = ["Watchlist with ending-soon and outbid alerts", "Saved searches that ping you on a match", "Auto-bid up to your max, even while you sleep", "Track your own car's sale, bid by bid"];
+const PERKS = ["Watchlist with ending-soon and outbid alerts", "Saved searches that ping you on a match", "Auto-bid up to your max, even while you sleep", "Track your own sale, bid by bid"];
 
 export function AuthSide({ heading, step, done, steps, perks = PERKS, note = "Joining is free. Registering, watching and bidding cost nothing. Fees only apply to a vehicle you win." }: { heading: React.ReactNode; step?: number; done?: number[]; steps?: number[]; perks?: string[]; note?: string }) {
   return (

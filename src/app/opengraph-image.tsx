@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { RING } from "@/components/Logo";
 
 // The picture shown when the site is shared (vehicle pages use the vehicle's own photo).
-export const alt = "Super Trucker: car and truck auctions Australia-wide";
+export const alt = "Super Trucker: live online truck auctions";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -17,8 +17,8 @@ export default function OpenGraphImage() {
           <span style={{ fontSize: 72, fontWeight: 800, letterSpacing: "-0.04em", color: "#111111" }}>super trucker</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <span style={{ fontSize: 76, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.02, color: "#111111" }}>Car, ute and truck auctions, Australia-wide.</span>
-          <span style={{ fontSize: 34, color: "#555555" }}>Live auctions. An estimate on every listing. All-in prices shown.</span>
+          <span style={{ fontSize: 76, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.02, color: "#111111" }}>Live online truck auctions.</span>
+          <span style={{ fontSize: 34, color: "#555555" }}>An estimate on every listing. All-in prices shown.</span>
         </div>
       </div>
     ),

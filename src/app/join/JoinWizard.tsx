@@ -15,6 +15,8 @@ import { DepositPay } from "@/components/deposit/DepositPay";
 import type { Bank } from "@/components/deposit/PayBox";
 import { depositSteps, joinSteps } from "@/lib/deposits";
 import { safePath } from "@/lib/safePath";
+import { sellNoun } from "@/lib/vehicles";
+import { useSellCategories } from "@/components/SiteSettings";
 
 type Me = { user: { id: string; email: string } | null; profile: Profile | null; missing: number[];
   config: { stripe: boolean; testMode: boolean; sms: boolean; payId?: boolean; bank?: Bank; payMode?: "transfer" | "deposit" | "card" } };
@@ -38,6 +40,7 @@ const H = ({ t, sub }: { t: string; sub?: React.ReactNode }) => (
 );
 
 export function JoinWizard() {
+  const noun = sellNoun(useSellCategories());
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ? safePath(params.get("next")) : "";
@@ -318,7 +321,7 @@ export function JoinWizard() {
   return (
     <div className="wrap">
       <div className="join">
-        <AuthSide heading={<>Your next car is <span className="serif" style={{ color: "var(--sun)" }}>already here.</span></>} step={step >= 1 && step <= 5 ? step : 5} done={done} steps={joinSteps(p?.pay_mode ?? me?.config.payMode)} />
+        <AuthSide heading={<>Your next {noun} is <span className="serif" style={{ color: "var(--sun)" }}>already here.</span></>} step={step >= 1 && step <= 5 ? step : 5} done={done} steps={joinSteps(p?.pay_mode ?? me?.config.payMode)} />
         <div className="formwrap">{form}</div>
       </div>
     </div>

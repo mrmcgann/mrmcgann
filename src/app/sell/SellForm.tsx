@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CATEGORIES, CAT, makesFor, modelsFor, type CategoryKey } from "@/lib/vehicles";
+import { CATEGORIES, CAT, makesFor, modelsFor, sellNoun, type CategoryKey } from "@/lib/vehicles";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useViewer } from "@/components/Viewer";
 import { CarArt } from "@/components/CarArt";
@@ -299,7 +299,7 @@ export function SellForm({ clauses, phone, categories = ["trucks"], states = ["Q
     <div className="sf-grid">
       <form ref={formRef} className="sf" onSubmit={submit} noValidate data-testid="sell-form">
         <div className="sf-intro">
-          <h2 className="d3">Sell your vehicle.</h2>
+          <h2 className="d3">Sell your {sellNoun(categories)}.</h2>
           <p className="muted">About 10 minutes. Six short parts, then you sign at the bottom. Nothing goes live until we&apos;ve called you and you&apos;ve verified your ID.</p>
           {restored && <div className="notice" role="status">We kept what you typed last time (not the photos or signature). <button type="button" className="linkbtn" onClick={startAgain}>Start again</button></div>}
         </div>
@@ -362,11 +362,11 @@ export function SellForm({ clauses, phone, categories = ["trucks"], states = ["Q
           <div className="row3">
             {input("year", "Year", { inputMode: "numeric", maxLength: 4, placeholder: "2018" })}
             {input("make", "Make", { list: "sf-makes", autoComplete: "off", placeholder: "Toyota" })}
-            {input("model", "Model", { list: "sf-models", autoComplete: "off", placeholder: "HiLux" })}
+            {input("model", "Model", { list: "sf-models", autoComplete: "off", placeholder: f.category === "trucks" ? "FVZ 1400" : "HiLux" })}
           </div>
           <datalist id="sf-makes">{makesFor(f.category).map((x) => <option key={x} value={x} />)}</datalist>
           <datalist id="sf-models">{modelsFor(f.make, f.category).map((x) => <option key={x} value={x} />)}</datalist>
-          {input("variant", "Variant or badge (optional)", { placeholder: "SR5 (4x4)", autoComplete: "off" })}
+          {input("variant", "Variant or badge (optional)", { placeholder: f.category === "trucks" ? "Long (6x4)" : "SR5 (4x4)", autoComplete: "off" })}
           <div className="sf-row3">
             <label className="field"><span>Transmission</span><select className="input" value={f.transmission} onChange={(e) => set("transmission", e.target.value)} data-testid="sell-transmission"><option value="">Not sure</option>{TRANSMISSIONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             <label className="field"><span>Fuel</span><select className="input" value={f.fuel} onChange={(e) => set("fuel", e.target.value)} data-testid="sell-fuel"><option value="">Not sure</option>{FUELS.map((x) => <option key={x}>{x}</option>)}</select></label>

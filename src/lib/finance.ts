@@ -59,6 +59,6 @@ export const COMPARISON_WARNING = "WARNING: This comparison rate is true only fo
 
 // Insurance features shown side by side. Facts from each insurer, never a rating or recommendation.
 export const INSURANCE_FEATURES: [string, string][] = [
-  ["agreed_value", "Agreed or market value"], ["new_car_replacement", "New car replacement"], ["choice_of_repairer", "Choice of repairer"],
-  ["hire_car", "Hire car"], ["excess_from", "Basic excess from"], ["monthly_payments", "Pay monthly"], ["roadside", "Roadside assistance"],
+  ["agreed_value", "Agreed or market value"], ["new_car_replacement", "New vehicle replacement"], ["choice_of_repairer", "Choice of repairer"],
+  ["hire_car", "Hire vehicle"], ["excess_from", "Basic excess from"], ["monthly_payments", "Pay monthly"], ["roadside", "Roadside assistance"],
 ];

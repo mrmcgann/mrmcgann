@@ -24,7 +24,7 @@ export const LISTING_CHECKS: [string, string, string][] = [
   ["runs", "The seller's video shows it starting and moving under its own power, or the listing says it doesn't (or wasn't tested)", "Start and drive checked on video"],
   ["damage", "All damage visible in the seller's photos and video is listed as a flaw, with a photo", "Visible damage listed"],
   ["photos", "Photos and video are of this vehicle, taken for this listing (the plate or VIN in shot; no stock or old photos)", "Photos taken for this listing"],
-  ["privacy", "Nothing in the photos, video or words shows who the seller is or where they live (their house or street, mail, people, other cars' plates)", "Photos show only the vehicle"],
+  ["privacy", "Nothing in the photos, video or words shows who the seller is or where they live (their house or street, mail, people, other vehicles' plates)", "Photos show only the vehicle"],
 ];
 export const CHECK_KEYS = LISTING_CHECKS.map(([k]) => k);
 

@@ -69,7 +69,7 @@ export default async function Sell() {
       <section id="fees">
         <div className="center" style={{ gap: 14, marginBottom: 40 }}><h2 className="d2">Simple fees.</h2><p className="lede">Agreed before we list. No sale, no commission.</p></div>
         <div className="fees">
-          <div className="bg-sun"><span style={{ fontSize: 18, fontWeight: 700 }}>Listing</span><b>$0</b><span>A live online auction, Australia-wide, with an estimate on the listing.</span></div>
+          <div className="bg-sun"><span style={{ fontSize: 18, fontWeight: 700 }}>Listing</span><b>$0</b><span>A live online auction to buyers Australia-wide, with an estimate on the listing.</span></div>
           <div className="bg-sky"><span style={{ fontSize: 18, fontWeight: 700 }}>Checks &amp; condition report</span><b>$0</b><span>We check your photos and video, write the condition report and do the PPSR search.</span></div>
           <div className="bg-grape" style={{ color: "#FFFFFF" }}><span style={{ fontSize: 18, fontWeight: 700 }}>Seller fee</span><b>{v.SELLER_FEE.startsWith("none") ? "$0" : v.SELLER_FEE.split(" of")[0]}</b><span>{v.SELLER_FEE.startsWith("none") ? "Buyers pay our fees. You receive the sale price, less any finance we pay out." : "Only when it sells."}</span></div>
         </div>

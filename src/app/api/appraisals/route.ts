@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/auth";
-import { CAT } from "@/lib/vehicles";
+import { CAT, sellCategories } from "@/lib/vehicles";
+import { getSettingsCached } from "@/lib/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
   const err: Record<string, string> = {};
   const registration = b.registration === "unregistered" ? "unregistered" : "registered";
   const rego = normalizePlate(b.rego), vin = normalizeVin(b.vin), state = String(b.state || "").toUpperCase();
-  const kind = CAT[b.kind] ? b.kind : "cars";
+  // only what we sell now (settings selling.categories: trucks to start), as the full sell form (/api/sell) does
+  const sellable = sellCategories((await getSettingsCached()).selling as { categories?: unknown } | undefined);
+  const kind = CAT[b.kind] ? b.kind : sellable[0];
+  if (!sellable.includes(kind)) err.kind = `We only sell ${sellable.map((c) => CAT[c]?.label.toLowerCase() || c).join(", ")} for now.`;
   const usage = CAT[kind]?.usage;
   if (registration === "registered" && !isPlate(rego)) err.rego = "Enter the plate.";
   if (!(REGO_STATES as readonly string[]).includes(state)) err.state = "Choose a state.";

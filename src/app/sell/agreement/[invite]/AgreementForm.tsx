@@ -72,7 +72,7 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
 
       <section className="formcard">
         <h2 className="d3" style={{ fontSize: 30 }}>3. About the vehicle.</h2>
-        <p className="muted" style={{ margin: 0 }}>Answer honestly. Your answers are shown to buyers, and you&apos;re legally responsible for them. Being upfront sells cars: buyers bid more when there are no surprises.</p>
+        <p className="muted" style={{ margin: 0 }}>Answer honestly. Your answers are shown to buyers, and you&apos;re legally responsible for them. Being upfront pays: buyers bid more when there are no surprises.</p>
         {YN.map(([k, q, det]) => (
           <div key={k} style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 10, borderBottom: "1px solid var(--line)" }}>
             <b style={{ fontSize: 16 }}>{q}</b>

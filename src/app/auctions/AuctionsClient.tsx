@@ -10,7 +10,7 @@ import { SearchFilterPanel } from "@/components/SearchFilters";
 import { CATEGORIES, CAT } from "@/lib/vehicles";
 import { SORTS, describeParts, filtersFromParams, heading, toQueryString, type Facets, type FilterKey, type SearchFilters } from "@/lib/search";
 import { track } from "@/components/Tracker";
-import { useLiveOnly } from "@/components/SiteSettings";
+import { useLiveOnly, useSellCategories } from "@/components/SiteSettings";
 
 type Data = { lots: Lot[]; hasMore: boolean; page: number; facets: Facets | null; fees?: Fees };
 
@@ -22,11 +22,17 @@ const CHIP_REMOVES: Partial<Record<FilterKey, FilterKey[]>> = { make: ["make", "
 // so the page itself is static and costs nothing to serve.
 export function AuctionsClient() {
   const liveOnly = useLiveOnly();
+  // what we sell: with one category (trucks to start) its types take the place of the category bar, and every search
+  // asks for that category, so the counts by type come back with it
+  const sold = useSellCategories();
+  const shownCats = CATEGORIES.filter((c) => sold.includes(c.key));
+  const only = shownCats.length === 1 ? shownCats[0] : null;
   const sp = useSearchParams();
   const router = useRouter();
   const f = useMemo(() => filtersFromParams(new URLSearchParams(sp.toString())), [sp]);
   const page = Math.max(1, Number(sp.get("page")) || 1);
   const key = toQueryString(f, { page: page > 1 ? String(page) : "" });
+  const fetchKey = only && !f.cat ? toQueryString({ ...f, cat: only.key }, { page: page > 1 ? String(page) : "" }) : key;
   const [data, setData] = useState<Data | null>(null);
   const [err, setErr] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -36,9 +42,9 @@ export function AuctionsClient() {
   useEffect(() => {
     let live = true;
     setErr(false);
-    fetch(`/api/lots/search?${key}`).then((r) => r.json()).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
+    fetch(`/api/lots/search?${fetchKey}`).then((r) => r.json()).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
-  }, [key]);
+  }, [fetchKey]);
 
   const href = (next: SearchFilters, p = 1) => { const s = toQueryString(next, { page: p > 1 ? String(p) : "" }); return `/auctions${s ? `?${s}` : ""}`; };
   const set = (patch: SearchFilters) => {
@@ -74,22 +80,29 @@ export function AuctionsClient() {
       <div className="srch-head">
         <h1 className="d3">{heading(f)}</h1>
         <SearchBar initial={f.q || ""} />
-        <nav className="srch-cats" aria-label="Categories">
+        {only ? <nav className="srch-cats" aria-label="Types">
+          <Link href={href(Object.fromEntries(Object.entries(f).filter(([k]) => k !== "cat" && !CAT_KEYS.includes(k as FilterKey))))} className={!f.type ? "on" : ""}>All {facets?.cats && <small>{(facets.cats[only.key] || 0).toLocaleString("en-AU")}</small>}</Link>
+          {only.kinds.filter(([k]) => (facets?.types?.[k] || 0) > 0 || f.type === k).map(([k, l]) => (
+            <Link key={k} href={href({ ...Object.fromEntries(Object.entries(f).filter(([x]) => !CAT_KEYS.includes(x as FilterKey))), cat: only.key, type: k })} className={f.type === k ? "on" : ""}>
+              {l} {facets?.types && <small>{(facets.types[k] || 0).toLocaleString("en-AU")}</small>}
+            </Link>
+          ))}
+        </nav> : <nav className="srch-cats" aria-label="Categories">
           <Link href={href({ ...f, cat: undefined, type: undefined })} className={!f.cat ? "on" : ""}>All {facets?.cats && <small>{Object.values(facets.cats).reduce((a, b) => a + b, 0).toLocaleString("en-AU")}</small>}</Link>
-          {CATEGORIES.map((c) => (
+          {shownCats.map((c) => (
             <Link key={c.key} href={href({ ...Object.fromEntries(Object.entries(f).filter(([k]) => !CAT_KEYS.includes(k as FilterKey))), cat: c.key })} className={f.cat === c.key ? "on" : ""}>
               {c.short} {facets?.cats && <small>{(facets.cats[c.key] || 0).toLocaleString("en-AU")}</small>}
             </Link>
           ))}
           <Link href={href({ ...f, cat: "cheap", type: undefined })} className={f.cat === "cheap" ? "on" : ""}>Under $5k {facets?.cheap != null && <small>{facets.cheap.toLocaleString("en-AU")}</small>}</Link>
-        </nav>
+        </nav>}
       </div>
 
       <div className="srch-grid">
         <SearchFilterPanel f={f} facets={facets} set={set} />
         <div style={{ minWidth: 0 }}>
           <div className="srch-bar">
-            <span className="count" aria-live="polite">{total == null ? "Searching…" : `${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`}</span>
+            <span className="count" aria-live="polite">{total == null ? "Searching…" : `${total.toLocaleString("en-AU")} ${total === 1 ? (only?.one || "vehicle") : `${only?.one || "vehicle"}s`}`}</span>
             {chips.map(([k, label]) => <button key={k} type="button" className="active-chip" onClick={() => remove(k)} aria-label={`Remove ${label}`}>{label}<span aria-hidden="true">×</span></button>)}
             {filtersOn && <button type="button" className="linkbtn" onClick={() => router.replace("/auctions", { scroll: false })}>Clear all</button>}
             <div className="srch-sort">
@@ -101,7 +114,7 @@ export function AuctionsClient() {
           </div>
           <div className="pill-row" style={{ marginBottom: 22 }}>
             <Link className={`pill ${!f.view ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: undefined })}>Live</Link>
-            <Link className={`pill ${f.view === "offers" ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: "offers" })}>Make an offer</Link>
+            {!liveOnly && <Link className={`pill ${f.view === "offers" ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: "offers" })}>Make an offer</Link>}
             <Link className={`pill ${f.view === "closed" ? "pill-dark" : "pill-soft"}`} href={href({ ...f, view: "closed" })}>Recently closed</Link>
             {filtersOn && <SaveSearchButton query={f} label={parts.join(" · ")} />}
           </div>
@@ -136,7 +149,7 @@ export function AuctionsClient() {
             <div className="bd"><SearchFilterPanel f={f} facets={facets} set={set} /></div>
             <div className="ft">
               {filtersOn && <button className="btn btn-soft" style={{ flex: 1 }} onClick={() => router.replace("/auctions", { scroll: false })}>Clear all</button>}
-              <button className="btn btn-blue" style={{ flex: 2 }} onClick={() => setDrawer(false)}>{total == null ? "Show vehicles" : `Show ${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`}</button>
+              <button className="btn btn-blue" style={{ flex: 2 }} onClick={() => setDrawer(false)}>{total == null ? `Show ${only?.one || "vehicle"}s` : `Show ${total.toLocaleString("en-AU")} ${total === 1 ? (only?.one || "vehicle") : `${only?.one || "vehicle"}s`}`}</button>
             </div>
           </div>
         </div>

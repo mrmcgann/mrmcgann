@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CATEGORIES } from "@/lib/vehicles";
+import { CATEGORIES, sellNoun, sellPlace, type CategoryKey } from "@/lib/vehicles";
 import { dateTime, money } from "@/lib/format";
 import { lotFees, priceBreakdown } from "@/lib/fees";
 import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/estimate";
@@ -15,6 +15,8 @@ import { LotCard, shownPrice } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F, backdrop, darkBackdrop } from "~/ui/theme";
 
+const TRUCK_TRY: [string, string][] = [["Tipper under $60k", "cat=trucks&type=tipper&max=60000"], ["Prime movers", "cat=trucks&type=prime-mover"], ["Curtainsiders", "cat=trucks&type=curtainsider"], ["Light truck on a car licence", "cat=trucks&lic=C"], ["Tilt trays", "cat=trucks&type=tilt-tray"]];
+const TRUCK_TILES: [string, string, string][] = [["prime-mover", "Prime movers", "lime"], ["tipper", "Tippers", "tangerine"], ["curtainsider", "Curtainsiders", "sky"], ["tray", "Tray trucks", "sun"], ["tilt-tray", "Tilt trays", "mint"]];
 const TRY: [string, string][] = [["HiLux under 30k", "make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "cat=motorbikes&lams=1"], ["Caravan sleeps 4", "cat=caravans&berths=4"], ["Tipper on a car licence", "cat=trucks&type=tipper&lic=C"], ["First car under $5k", "cat=cars&max=5000"]];
 
 export default function Home() {
@@ -31,6 +33,11 @@ export default function Home() {
   const unread = me?.profile?.unread || 0;
   const f = data?.featured;
   const liveOnly = !!config?.liveOnly;
+  // what we sell and where it's kept (settings selling.categories / selling.states): trucks in Queensland to start
+  const sold = (config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[];
+  const trucksOnly = sold.length === 1 && sold[0] === "trucks";
+  const place = sellPlace(config?.sell?.states || ["QLD"]);
+  const cats = CATEGORIES.filter((c) => sold.includes(c.key));
   // the featured vehicle's price: its estimate (or bid) and the all-in amount, in the same size
   const ff = f && config?.fees ? lotFees(config.fees, f) : null;
   const fPrice = f ? (f.live_state === "waiting" && hasEstimate(f)
@@ -58,17 +65,22 @@ export default function Home() {
           </Pressable>
         ))}
         <View style={{ gap: 12 }}>
-          <T v="eyebrow" style={{ color: C.urgent }}>Live auctions · Australia-wide</T>
-          <Text style={s.hero}>Every car.{"\n"}Beautifully <Text style={s.heroSerif}>sold.</Text></Text>
-          <T v="muted">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, with an auction estimate on every listing. The seller's photos and video checked by us, PPSR searched, and always the all-in price.</T>
+          <T v="eyebrow" style={{ color: C.urgent }}>Live auctions · {place}</T>
+          {trucksOnly ? <>
+            <Text style={s.hero}>Every truck.{"\n"}Properly <Text style={s.heroSerif}>sold.</Text></Text>
+            <T v="muted">Live online truck auctions in {place}, with an auction estimate on every listing. Inspect it yourself or send our mobile mechanic, PPSR searched, and always the all-in price.</T>
+          </> : <>
+            <Text style={s.hero}>Every car.{"\n"}Beautifully <Text style={s.heroSerif}>sold.</Text></Text>
+            <T v="muted">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery in {place}, with an auction estimate on every listing. The seller's photos and video checked by us, PPSR searched, and always the all-in price.</T>
+          </>}
         </View>
         <Pressable testID="home-search" accessibilityRole="search" accessibilityLabel="Search vehicles" onPress={() => router.push("/search?focus=1")} style={s.search}>
           <Icon name="search" color={C.muted} />
-          <Text style={s.searchText} numberOfLines={1}>Try “HiLux under 30k in QLD”</Text>
+          <Text style={s.searchText} numberOfLines={1}>{trucksOnly ? "Try “tipper under 60k”" : "Try “HiLux under 30k in QLD”"}</Text>
         </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ marginHorizontal: -20 }}>
           <View style={{ width: 12 }} />
-          {[...TRY, [liveOnly ? "At auction today" : "Ending today", "ending=today"] as [string, string]].map(([l, q]) => (
+          {[...(trucksOnly ? TRUCK_TRY : TRY), [liveOnly ? "At auction today" : "Ending today", "ending=today"] as [string, string]].map(([l, q]) => (
             <Pressable key={q} accessibilityRole="button" onPress={() => router.push(`/search?${q}`)} style={s.try}><Text style={s.tryText}>{l}</Text></Pressable>
           ))}
           <View style={{ width: 12 }} />
@@ -76,8 +88,21 @@ export default function Home() {
 
         <View style={{ gap: 12 }}>
           <T v="h">Browse.</T>
-          <View style={s.grid}>
-            {CATEGORIES.map((c) => (
+          {trucksOnly ? <View style={s.grid}>
+            <Pressable testID="cat-trucks" accessibilityRole="button" accessibilityLabel={`All trucks, ${data?.cats?.trucks || 0} live`} onPress={() => router.push("/search?cat=trucks")} style={[s.tile, { backgroundColor: C.berry }]}>
+              <View style={{ alignItems: "center", marginTop: 6 }}><CarArt type="truck" width={118} /></View>
+              <Text style={s.tileText} numberOfLines={1}>All trucks</Text>
+              <Text style={s.tileCount}>{data ? `${(data.cats.trucks || 0).toLocaleString("en-AU")} live` : " "}</Text>
+            </Pressable>
+            {TRUCK_TILES.map(([k, label, bg]) => (
+              <Pressable key={k} testID={`type-${k}`} accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push(`/search?cat=trucks&type=${k}`)} style={[s.tile, { backgroundColor: backdrop(bg) }]}>
+                <View style={{ alignItems: "center", marginTop: 6 }}><CarArt type="truck" width={118} /></View>
+                <Text style={[s.tileText, darkBackdrop(bg) && { color: "#FFFFFF" }]} numberOfLines={1}>{label}</Text>
+                <Text style={[s.tileCount, darkBackdrop(bg) && { color: "rgba(255,255,255,0.8)" }]}>Browse ›</Text>
+              </Pressable>
+            ))}
+          </View> : <View style={s.grid}>
+            {cats.map((c) => (
               <Pressable key={c.key} testID={`cat-${c.key}`} accessibilityRole="button" accessibilityLabel={`${c.label}, ${data?.cats?.[c.key] || 0} live`} onPress={() => router.push(`/search?cat=${c.key}`)} style={[s.tile, { backgroundColor: backdrop(c.backdrop) }]}>
                 <View style={{ alignItems: "center", marginTop: 6 }}><CarArt type={c.silhouette} width={118} /></View>
                 <Text style={[s.tileText, darkBackdrop(c.backdrop) && { color: "#FFFFFF" }]} numberOfLines={1}>{c.short}</Text>
@@ -88,7 +113,7 @@ export default function Home() {
               <Text style={[s.tileText, { fontSize: 26, lineHeight: 28 }]}>Under{"\n"}$5,000</Text>
               <Text style={s.tileCount}>{data ? `${data.cheap.toLocaleString("en-AU")} live` : " "}</Text>
             </Pressable>
-          </View>
+          </View>}
         </View>
 
         {err && !data ? <Empty title="Can't reach Super Trucker." sub={err}><Button title="Try again" onPress={load} /></Empty> : null}
@@ -120,9 +145,9 @@ export default function Home() {
 
         <View style={s.sell}>
           <T v="eyebrow" style={{ color: C.sun }}>Sell with Super Trucker</T>
-          <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>From your driveway.</Text></Text>
-          <Text style={s.sellBody}>Send us photos and a short video from your phone. We check them, auction it live Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
-          <Button testID="home-sell" kind="white" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
+          <Text style={s.sellTitle}>Sold properly. <Text style={{ fontFamily: F.serif, color: C.sun }}>{trucksOnly ? "From where it's parked." : "From your driveway."}</Text></Text>
+          <Text style={s.sellBody}>Send us photos and a short video from your phone. We check them, auction it live to buyers Australia-wide and handle every enquiry. You're paid once the buyer has paid and collected.</Text>
+          <Button testID="home-sell" kind="white" title={`Sell your ${sellNoun(sold)}`} onPress={() => router.push("/appraisal")} />
         </View>
       </Screen>
     </View>

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { facetsCached, getFeesCached, searchLotsCached } from "@/lib/cache";
+import { facetsCached, getFeesCached, getSettingsCached, searchLotsCached } from "@/lib/cache";
 import { LotCard } from "@/components/LotCard";
-import { CAT, STATE_NAMES, type CategoryKey } from "@/lib/vehicles";
+import { CAT, STATE_NAMES, sellPlace, sellStates, type CategoryKey } from "@/lib/vehicles";
 import { money } from "@/lib/format";
 import { searchHref } from "@/lib/search";
 import type { Lot } from "@/lib/types";
@@ -12,8 +12,11 @@ import { env } from "@/lib/env";
 // results only: no made-up counts, prices or claims. Pages with nothing on them aren't indexed.
 export async function forSaleData(cat: CategoryKey, state: string | null) {
   const f = { cat, ...(state ? { state } : {}) };
-  const [live, closed, facets, fees] = await Promise.all([searchLotsCached(f), searchLotsCached({ ...f, view: "closed" }), facetsCached(f), getFeesCached()]);
-  return { live: live as Lot[], sold: (closed as Lot[]).filter((l) => l.status === "sold" && l.sold_price).slice(0, 8), facets, fees };
+  const [live, closed, facets, fees, settings] = await Promise.all([searchLotsCached(f), searchLotsCached({ ...f, view: "closed" }), facetsCached(f), getFeesCached(),
+    getSettingsCached().catch(() => ({} as Record<string, Record<string, unknown>>))]);
+  // where we sell (settings selling.states): never "across Australia" while it's some states only
+  const place = sellPlace(sellStates(settings.selling as { states?: unknown } | undefined));
+  return { live: live as Lot[], sold: (closed as Lot[]).filter((l) => l.status === "sold" && l.sold_price).slice(0, 8), facets, fees, place };
 }
 
 export function forSaleTitle(cat: CategoryKey, state: string | null) {
@@ -24,7 +27,7 @@ export function forSaleTitle(cat: CategoryKey, state: string | null) {
 export function ForSalePage({ cat, state, data }: { cat: CategoryKey; state: string | null; data: Awaited<ReturnType<typeof forSaleData>> }) {
   const c = CAT[cat];
   const where = state ? STATE_NAMES[state] : "Australia";
-  const { live, sold, facets, fees } = data;
+  const { live, sold, facets, fees, place } = data;
   const makes = Object.entries(facets.makes || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const states = Object.entries(facets.states || {}).sort((a, b) => b[1] - a[1]);
   return (
@@ -34,10 +37,10 @@ export function ForSalePage({ cat, state, data }: { cat: CategoryKey; state: str
         ...(live.length ? [itemListJsonLd(live, env.siteUrl)] : []),
       ]) }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 820 }}>
-        <span className="eyebrow" style={{ color: "var(--urgent)" }}>{state ? <><Link href={`/for-sale/${cat}`}>{c.label}</Link> · {where}</> : "Online auctions · Australia-wide"}</span>
+        <span className="eyebrow" style={{ color: "var(--urgent)" }}>{state ? <><Link href={`/for-sale/${cat}`}>{c.label}</Link> · {where}</> : `Live auctions · ${place}`}</span>
         <h1 className="d2" data-testid="forsale-title">{forSaleTitle(cat, state)}.</h1>
         <p className="lede" style={{ margin: 0 }}>
-          {live.length ? `${live.length}${live.length > 48 ? "+" : ""} ${live.length === 1 ? c.one : c.label.toLowerCase()} up for auction online${state ? ` in ${where}` : " across Australia"} right now.` : `No ${c.label.toLowerCase()} are up for auction${state ? ` in ${where}` : ""} right now. Save a search and we'll tell you when one is listed.`}
+          {live.length ? `${live.length}${live.length > 48 ? "+" : ""} ${live.length === 1 ? c.one : c.label.toLowerCase()} up for auction online in ${state ? where : place} right now.` : `No ${c.label.toLowerCase()} are up for auction${state ? ` in ${where}` : ""} right now. Save a search and we'll tell you when one is listed.`}
           {" "}Each one has an auction estimate, the seller&apos;s photos and walkaround video (checked by us against the papers and records), a PPSR search and its all-in price. View it by appointment where it&apos;s kept or call the vehicle&apos;s consultant, bid early or live, and collect it from the seller once you&apos;ve paid us in full.
         </p>
         {makes.length > 0 && <div className="pill-row">{makes.map(([m, n]) => <Link key={m} className="pill pill-soft" href={searchHref({ cat, make: m, ...(state ? { state } : {}) })}>{m} ({n})</Link>)}</div>}

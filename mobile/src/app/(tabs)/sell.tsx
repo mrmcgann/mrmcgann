@@ -19,6 +19,7 @@ import { C, F } from "~/ui/theme";
 import { sellerHandoverLine, sellerTransportLine, type SellerCollection, type SellerTransport } from "@/lib/transport";
 import type { SellerAfterView } from "@/lib/afterAuction";
 import { SellerAfter } from "~/ui/SellerAfter";
+import { sellNoun, type CategoryKey } from "@/lib/vehicles";
 
 const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
 const STATUS: Record<string, [string, string]> = {
@@ -36,7 +37,8 @@ type Decision = { lotId: number; kind: "referral" | "offer"; offerId?: string; a
 
 export default function Sell() {
   const insets = useSafeAreaInsets();
-  const { signedIn, me } = useSession();
+  const { signedIn, me, config } = useSession();
+  const noun = sellNoun((config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[]);
   const uid = me?.user?.id;
   const [items, setItems] = useState<Item[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +98,7 @@ export default function Sell() {
       <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your yard.</Text></Text>
       <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Send us your phone photos and a short video. We check them and the papers, then auction your truck live. Verified buyers view it at your place by appointment, and the buyer collects it from you once they've paid us in full.</T>
       <View style={s.band}><CarArt type="truck" width={240} /></View>
-      <Button testID="sell-start" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
+      <Button testID="sell-start" title={`Sell your ${noun}`} onPress={() => router.push("/appraisal")} />
       {[["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Your photos and video", "Phone photos and a short walkaround video (we tell you what to film). We check them and the papers from here.", C.sun],
         ["3", "Live auction", "Offered by our auctioneer to registered buyers nationwide, with an estimate on the listing. You can lower your reserve until the hammer falls.", C.lime], ["4", "Viewings by appointment", "We agree every visit with you first and tell you who's coming. Looking and listening only, no road test. Every sale goes through us.", C.sky],
         ["5", "Handover and settlement", "The buyer pays Super Trucker in full, then collects it from you with a release code at a time we agree with you. You're paid once their claim window closes.", C.grape]].map(([n, h, b, c]) => (

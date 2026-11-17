@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor, modelsFor } from "@/lib/vehicles";
+import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor, modelsFor, type CategoryKey } from "@/lib/vehicles";
 import { ENDINGS, HOW_SOLD, WRITE_OFFS, type Facets, type SearchFilters } from "@/lib/search";
 import { GRADES } from "@/lib/grades";
 import { Button, Check, Select, Sheet, T } from "./kit";
@@ -9,6 +9,7 @@ import { C, F } from "./theme";
 const YEARS = Array.from({ length: 45 }, (_, i) => String(new Date().getFullYear() + 1 - i));
 const PRICES = [1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 75000, 100000, 150000, 250000];
 const KMS = [10000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000];
+const BIG_KMS = [100000, 200000, 300000, 500000, 750000, 1000000, 1500000]; // trucks, buses: a million km is ordinary
 const HOURS = [100, 250, 500, 1000, 2000, 5000, 10000];
 const CCS = [50, 125, 250, 300, 400, 500, 650, 750, 900, 1000, 1200, 1800];
 const LENGTHS = [3, 4, 5, 6, 7, 8, 10, 12, 15];
@@ -21,15 +22,25 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
   visible: boolean; onClose: () => void; f: SearchFilters; facets: Facets | null; set: (patch: SearchFilters) => void; total: number | null; onClear: () => void;
 }) {
   // every vehicle in a live auction: nothing to choose about how it's sold, no Buy Now, and "ending" is when it's offered
-  const liveOnly = !!useSession().config?.liveOnly;
-  const cat = f.cat && f.cat !== "cheap" ? CAT[f.cat] : null;
+  const config = useSession().config;
+  const liveOnly = !!config?.liveOnly;
+  // only what we sell, where we sell it (the website's filters do the same): with one category its types take the
+  // category's place, and with one state there's no place to choose
+  const sold = (config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[];
+  const states = config?.sell?.states?.length ? config.sell.states : ["QLD"];
+  const shownCats = CATEGORIES.filter((c) => sold.includes(c.key));
+  const only = shownCats.length === 1 ? shownCats[0] : null;
+  const catKey = f.cat && f.cat !== "cheap" ? f.cat : only?.key;
+  const cat = catKey ? CAT[catKey] : null;
+  const kms = catKey === "trucks" || catKey === "buses" ? BIG_KMS : KMS;
+  const noun = only?.one || "vehicle";
   const extras = cat ? cat.extras : [];
   const usage = cat ? cat.usage : "km";
   const liveMakes = Object.entries(facets?.makes || {}).sort((a, b) => b[1] - a[1]).map(([m]) => m);
-  const allMakes = [...liveMakes, ...makesFor(f.cat).filter((m) => !liveMakes.includes(m)).sort()];
+  const allMakes = [...liveMakes, ...makesFor(catKey).filter((m) => !liveMakes.includes(m)).sort()];
   if (f.make && !allMakes.includes(f.make)) allMakes.unshift(f.make);
   const liveModels = Object.entries(facets?.models || {}).filter(([k]) => f.make && k.toLowerCase().startsWith(f.make.toLowerCase() + "|")).sort((a, b) => b[1] - a[1]).map(([k]) => k.split("|")[1]);
-  const models = [...liveModels, ...modelsFor(f.make, f.cat).filter((m) => !liveModels.some((x) => x.toLowerCase() === m.toLowerCase()))];
+  const models = [...liveModels, ...modelsFor(f.make, catKey).filter((m) => !liveModels.some((x) => x.toLowerCase() === m.toLowerCase()))];
   if (f.model && !models.some((m) => m.toLowerCase() === f.model!.toLowerCase())) models.unshift(f.model);
 
   const chips = (key: keyof SearchFilters, opts: [string, string][], counts?: Record<string, number>) => (
@@ -49,17 +60,17 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
     <Sheet visible={visible} onClose={onClose} title="Filters" scroll testID="filters"
       footer={<View style={{ flexDirection: "row", gap: 10 }}>
         <Button kind="soft" title="Clear all" onPress={onClear} style={{ flex: 1 }} />
-        <Button testID="filters-show" title={total == null ? "Show vehicles" : `Show ${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`} onPress={onClose} style={{ flex: 2 }} />
+        <Button testID="filters-show" title={total == null ? `Show ${noun}s` : `Show ${total.toLocaleString("en-AU")} ${total === 1 ? noun : `${noun}s`}`} onPress={onClose} style={{ flex: 2 }} />
       </View>}>
-      <Select label="Category" value={f.cat || ""} placeholder={`All vehicles${n(facets?.total)}`}
-        options={[...CATEGORIES.map((c) => [c.key, c.label + n(facets?.cats?.[c.key] || 0)] as [string, string]), ["cheap", "Under $5,000" + n(facets?.cheap)]]}
-        onChange={(v) => { const p: SearchFilters = { cat: v, km: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set(p); }} />
-      {cat ? <Select label="Type" value={f.type || ""} placeholder={`Any ${cat.one} type`} options={cat.kinds.map(([k, l]) => [k, l + n(facets?.types?.[k] || 0)] as [string, string])} onChange={(v) => set({ type: v })} /> : null}
+      {!only ? <Select label="Category" value={f.cat || ""} placeholder={`All vehicles${n(facets?.total)}`}
+        options={[...shownCats.map((c) => [c.key, c.label + n(facets?.cats?.[c.key] || 0)] as [string, string]), ["cheap", "Under $5,000" + n(facets?.cheap)]]}
+        onChange={(v) => { const p: SearchFilters = { cat: v, km: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set(p); }} /> : null}
+      {cat ? <Select label="Type" value={f.type || ""} placeholder={`Any ${cat.one} type`} options={cat.kinds.map(([k, l]) => [k, l + n(facets?.types?.[k] || 0)] as [string, string])} onChange={(v) => set(only ? { cat: v ? only.key : "", type: v } : { type: v })} /> : null}
       <Select label="Make" value={f.make || ""} placeholder="Any make" options={allMakes.map((m) => [m, m + n(facets?.makes?.[m] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ make: v, model: "" })} />
       {f.make ? <Select label="Model" value={f.model || ""} placeholder="Any model" options={models.map((m) => [m, m + n(facets?.models?.[`${f.make}|${m}`] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ model: v })} /> : null}
       {pair("min", "max", "Price from", "Price to", PRICES.map((p) => [String(p), $(p)]), "No min", "No max")}
       {pair("ymin", "ymax", "Year from", "Year to", YEARS.map((y) => [y, y]), "Any", "Any")}
-      {usage === "km" ? <Select label="Kilometres" value={f.km || ""} placeholder="Any kilometres" options={KMS.map((k) => [String(k), `Under ${k.toLocaleString("en-AU")} km`])} onChange={(v) => set({ km: v })} /> : null}
+      {usage === "km" ? <Select label="Kilometres" value={f.km || ""} placeholder="Any kilometres" options={kms.map((k) => [String(k), `Under ${k.toLocaleString("en-AU")} km`])} onChange={(v) => set({ km: v })} /> : null}
       {usage === "hours" || extras.includes("hours") ? <Select label="Engine hours" value={f.hrs || ""} placeholder="Any hours" options={HOURS.map((h) => [String(h), `Under ${h.toLocaleString("en-AU")} hrs`])} onChange={(v) => set({ hrs: v })} /> : null}
       {extras.includes("cc") ? <>
         {pair("ccmin", "ccmax", "Engine size from", "Engine size to", CCS.map((c) => [String(c), `${c} cc`]), "Any", "Any")}
@@ -71,7 +82,7 @@ export function FilterSheet({ visible, onClose, f, facets, set, total, onClear }
       {usage !== "none" ? <View style={{ gap: 8 }}><T v="label">Transmission</T>{chips("trans", TRANS, facets?.trans)}</View> : null}
       {f.cat !== "trailers" && f.cat !== "caravans" ? <View style={{ gap: 8 }}><T v="label">Fuel</T>{chips("fuel", FUELS, facets?.fuels)}</View> : null}
       {!cat || extras.includes("drive") ? <View style={{ gap: 8 }}><T v="label">Drive</T>{chips("drive", DRIVES, facets?.drives)}</View> : null}
-      <Select label="Location" value={f.state || ""} placeholder="All of Australia" options={Object.entries(STATE_NAMES).map(([k, l]) => [k, l + n(facets?.states?.[k] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ state: v })} />
+      {states.length > 1 ? <Select label="Location" value={f.state || ""} placeholder="Anywhere we sell" options={states.map((k) => [k, (STATE_NAMES[k] || k) + n(facets?.states?.[k] ?? (facets ? 0 : undefined))] as [string, string])} onChange={(v) => set({ state: v })} /> : null}
       <View style={{ gap: 8 }}><T v="label">Seller</T>{chips("seller", [["private", "Private"], ["business", "Business"]])}</View>
       <View style={{ gap: 8 }}><T v="label">Registration</T>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</View>
       <View style={{ gap: 8 }}><T v="label">Condition</T>{chips("runs", [["drives", "Starts and drives"]])}</View>

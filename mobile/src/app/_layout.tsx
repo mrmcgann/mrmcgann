@@ -20,6 +20,7 @@ import { reportAppError, setTrackedMember, trackView, watchAppErrors } from "~/l
 import { Button, T } from "~/ui/kit";
 import { LogoMark } from "~/ui/art";
 import { C, F } from "~/ui/theme";
+import { sellNoun, type CategoryKey } from "@/lib/vehicles";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 watchAppErrors();
@@ -99,7 +100,7 @@ function Shell() {
         <Stack.Screen name="deposit" options={{ title: "Bidding deposit" }} />
         <Stack.Screen name="signin" options={{ title: "Sign in" }} />
         <Stack.Screen name="forgot" options={{ title: "Reset password" }} />
-        <Stack.Screen name="appraisal" options={{ title: "Sell your vehicle" }} />
+        <Stack.Screen name="appraisal" options={{ title: `Sell your ${sellNoun((config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[])}` }} />
       </Stack>
     </>
   );

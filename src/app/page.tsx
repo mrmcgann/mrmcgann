@@ -48,7 +48,7 @@ export default async function Home() {
       <div className="wrap">
         <div className="center hero">
           <span className="eyebrow" style={{ color: "var(--urgent)", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
+            <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · {where}
           </span>
           {trucksOnly ? <>
             <h1 className="d1">Every truck.<br />Properly <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>

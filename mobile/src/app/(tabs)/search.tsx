@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CATEGORIES, CAT } from "@/lib/vehicles";
+import { CATEGORIES, CAT, type CategoryKey } from "@/lib/vehicles";
 import { SORTS, cleanFilters, describe, describeParts, heading, parseQuery, suggest, toQueryString, type Facets, type FilterKey, type SearchFilters, type Suggestion } from "@/lib/search";
 import { trackSearch } from "~/lib/track";
 import { api, errText, pub } from "~/lib/api";
@@ -47,7 +47,12 @@ export default function Search() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<Record<string, string>>();
   const paramKey = JSON.stringify(params);
-  const { signedIn } = useSession();
+  const { signedIn, config } = useSession();
+  // what we sell (settings selling.categories): with one category (trucks to start) its types take the place of the
+  // category pills, and every search asks for that category, so the counts by type come back with it
+  const sold = (config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[];
+  const shownCats = CATEGORIES.filter((c) => sold.includes(c.key));
+  const only = shownCats.length === 1 ? shownCats[0] : null;
   const { watched, toggle } = useWatch();
   const [f, setF] = useState<SearchFilters>(() => fromParams(params));
   const [text, setText] = useState(f.q || "");
@@ -73,10 +78,10 @@ export default function Search() {
   useEffect(() => { if (focused && !allFacets) pub<Facets>("/api/lots/facets").then(setAllFacets).catch(() => undefined); }, [focused, allFacets]);
 
   const load = useCallback(async (page = 1) => {
-    const qs = toQueryString(f, { page: page > 1 ? String(page) : "", ...(page > 1 ? { facets: "0" } : {}) });
+    const qs = toQueryString(only && !f.cat ? { ...f, cat: only.key } : f, { page: page > 1 ? String(page) : "", ...(page > 1 ? { facets: "0" } : {}) });
     const r = await pub<SearchResult>(`/api/lots/search${qs ? `?${qs}` : ""}`);
     return r;
-  }, [f]);
+  }, [f, only]);
 
   useEffect(() => {
     let live = true;
@@ -150,12 +155,17 @@ export default function Search() {
     <View style={{ gap: 14, paddingBottom: 6 }}>
       <T v="d3">{heading(f)}</T>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }} style={{ marginRight: -20 }}>
-        <Pill label="All" count={catTotal ?? undefined} on={!f.cat} onPress={() => { const p: SearchFilters = { cat: "", type: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set(p); }} />
-        {CATEGORIES.map((c) => <Pill key={c.key} label={c.short} count={facets?.cats ? facets.cats[c.key] || 0 : undefined} on={f.cat === c.key} onPress={() => { const p: SearchFilters = { cat: c.key, type: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set({ ...p, cat: c.key }); }} />)}
-        <Pill label="Under $5k" count={facets?.cheap ?? undefined} on={f.cat === "cheap"} onPress={() => set({ cat: "cheap", type: "" })} />
+        {only ? <>
+          <Pill label="All" count={facets?.cats ? facets.cats[only.key] || 0 : undefined} on={!f.type} onPress={() => { const p: SearchFilters = { cat: "", type: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set(p); }} />
+          {only.kinds.filter(([k]) => (facets?.types?.[k] || 0) > 0 || f.type === k).map(([k, l]) => <Pill key={k} label={l} count={facets?.types ? facets.types[k] || 0 : undefined} on={f.type === k} onPress={() => set({ cat: only.key, type: k })} />)}
+        </> : <>
+          <Pill label="All" count={catTotal ?? undefined} on={!f.cat} onPress={() => { const p: SearchFilters = { cat: "", type: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set(p); }} />
+          {shownCats.map((c) => <Pill key={c.key} label={c.short} count={facets?.cats ? facets.cats[c.key] || 0 : undefined} on={f.cat === c.key} onPress={() => { const p: SearchFilters = { cat: c.key, type: "" }; CAT_KEYS.forEach((k) => (p[k] = "")); set({ ...p, cat: c.key }); }} />)}
+          <Pill label="Under $5k" count={facets?.cheap ?? undefined} on={f.cat === "cheap"} onPress={() => set({ cat: "cheap", type: "" })} />
+        </>}
       </ScrollView>
       <View style={s.bar}>
-        <Text style={s.count} accessibilityLiveRegion="polite">{total == null ? "Searching…" : `${total.toLocaleString("en-AU")} ${total === 1 ? "vehicle" : "vehicles"}`}</Text>
+        <Text style={s.count} accessibilityLiveRegion="polite">{total == null ? "Searching…" : `${total.toLocaleString("en-AU")} ${total === 1 ? (only?.one || "vehicle") : `${only?.one || "vehicle"}s`}`}</Text>
         <Pressable testID="open-filters" accessibilityRole="button" onPress={() => setSheet(true)} style={s.filterBtn}>
           <Icon name="filter" size={18} color="#FFFFFF" /><Text style={s.filterText}>Filters{chips.length ? ` (${chips.length})` : ""}</Text>
         </Pressable>
@@ -170,7 +180,7 @@ export default function Search() {
           <Text accessibilityRole="button" onPress={() => { setF({}); setText(""); }} style={s.clear}>Clear all</Text>
         </View>
       ) : null}
-      <Segmented options={[["", "Live"], ["offers", "Make an offer"], ["closed", "Closed"]]} value={(f.view || "") as "" | "offers" | "closed"} onChange={(v) => set({ view: v })} />
+      <Segmented options={config?.liveOnly ? [["", "Live"], ["closed", "Closed"]] : [["", "Live"], ["offers", "Make an offer"], ["closed", "Closed"]]} value={(f.view || "") as "" | "offers" | "closed"} onChange={(v) => set({ view: v })} />
       <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-end" }}>
         <Select label="Sort" value={(f.sort || "ending") as string} placeholder="Closing soonest" options={SORTS.map(([v, l]) => [v, sortLabel(v, l)] as [string, string])} onChange={(v) => set({ sort: v === "ending" ? "" : v })} />
         {chips.length ? <Button small kind={saved === key ? "soft" : "dark"} title={saved === key ? "Saved ✓" : "Save search"} onPress={saved === key ? undefined : saveSearch} style={{ marginBottom: 6 }} /> : null}
@@ -185,8 +195,8 @@ export default function Search() {
         <View style={[s.searchBox, focused && s.searchFocus]}>
           <Icon name="search" color={C.muted} size={20} />
           <TextInput ref={input} testID="search-input" value={text} onChangeText={setText} onFocus={() => setFocused(true)} onSubmitEditing={submit}
-            placeholder="Try “LAMS bike” or “caravan sleeps 4”" placeholderTextColor={C.muted} returnKeyType="search" autoCorrect={false} autoCapitalize="none"
-            accessibilityLabel="Search cars, utes, trucks, motorbikes, caravans, boats and more" style={[s.searchInput, Platform.OS === "web" && ({ outlineStyle: "none" } as object)]} />
+            placeholder={only?.key === "trucks" ? "Try “tipper under 60k” or “Kenworth”" : "Try “LAMS bike” or “caravan sleeps 4”"} placeholderTextColor={C.muted} returnKeyType="search" autoCorrect={false} autoCapitalize="none"
+            accessibilityLabel={only ? `Search ${only.label.toLowerCase()}` : "Search cars, utes, trucks, motorbikes, caravans, boats and more"} style={[s.searchInput, Platform.OS === "web" && ({ outlineStyle: "none" } as object)]} />
           {text ? <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => { setText(""); input.current?.focus(); }} style={s.x}><Text style={{ fontSize: 16, color: C.ink2 }}>✕</Text></Pressable> : null}
         </View>
         {focused ? <Text accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setFocused(false); setText(f.q || ""); }} style={s.cancel}>Cancel</Text> : null}
@@ -215,7 +225,12 @@ export default function Search() {
               ))}
               <Text style={s.h}>Browse</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {CATEGORIES.map((c) => (
+                {only ? only.kinds.slice(0, 8).map(([k, l]) => (
+                  <Pressable key={k} accessibilityRole="button" onPress={() => apply({ cat: only.key, type: k }, l)} style={s.browse}>
+                    <Text style={s.sugText}>{l}</Text>
+                    <Text style={s.sugSub}> </Text>
+                  </Pressable>
+                )) : shownCats.map((c) => (
                   <Pressable key={c.key} accessibilityRole="button" onPress={() => apply({ cat: c.key }, c.label)} style={s.browse}>
                     <Text style={s.sugText}>{c.short}</Text>
                     <Text style={s.sugSub}>{allFacets?.cats ? `${(allFacets.cats[c.key] || 0).toLocaleString("en-AU")} live` : " "}</Text>

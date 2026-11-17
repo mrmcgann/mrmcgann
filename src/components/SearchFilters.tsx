@@ -2,11 +2,12 @@
 import { CATEGORIES, CAT, FUELS, TRANS, DRIVES, LICENCES, STATE_NAMES, makesFor, modelsFor } from "@/lib/vehicles";
 import { ENDINGS, HOW_SOLD, WRITE_OFFS, type Facets, type SearchFilters } from "@/lib/search";
 import { GRADES } from "@/lib/grades";
-import { useLiveOnly } from "@/components/SiteSettings";
+import { useLiveOnly, useSellCategories, useSellStates } from "@/components/SiteSettings";
 
 const YEARS = Array.from({ length: 45 }, (_, i) => new Date().getFullYear() + 1 - i);
 const PRICES = [1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 75000, 100000, 150000, 250000];
 const KMS = [10000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000];
+const BIG_KMS = [100000, 200000, 300000, 500000, 750000, 1000000, 1500000]; // trucks, buses: a million km is ordinary
 const HOURS = [100, 250, 500, 1000, 2000, 5000, 10000];
 const CCS = [50, 125, 250, 300, 400, 500, 650, 750, 900, 1000, 1200, 1800];
 const LENGTHS = [3, 4, 5, 6, 7, 8, 10, 12, 15];
@@ -17,15 +18,22 @@ const $ = (v: number) => "$" + v.toLocaleString("en-AU");
 export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets: Facets | null; set: (patch: SearchFilters) => void }) {
   // every vehicle in a live auction: nothing to choose about how it's sold, no Buy Now, and "ending" is when it's offered
   const liveOnly = useLiveOnly();
-  const cat = f.cat && f.cat !== "cheap" ? CAT[f.cat] : null;
+  // only what we sell, where we sell it: with one category its types take the category's place, and with one state
+  // there's no place to choose
+  const sold = useSellCategories(), states = useSellStates();
+  const shownCats = CATEGORIES.filter((c) => sold.includes(c.key));
+  const only = shownCats.length === 1 ? shownCats[0] : null;
+  const catKey = f.cat && f.cat !== "cheap" ? f.cat : only?.key;
+  const cat = catKey ? CAT[catKey] : null;
+  const kms = catKey === "trucks" || catKey === "buses" ? BIG_KMS : KMS;
   const extras = cat ? cat.extras : [];
   const usage = cat ? cat.usage : "km";
   // makes: the ones with vehicles live first, then the rest of the catalogue
   const liveMakes = Object.entries(facets?.makes || {}).sort((a, b) => b[1] - a[1]).map(([m]) => m);
-  const allMakes = [...liveMakes, ...makesFor(f.cat).filter((m) => !liveMakes.includes(m)).sort()];
+  const allMakes = [...liveMakes, ...makesFor(catKey).filter((m) => !liveMakes.includes(m)).sort()];
   if (f.make && !allMakes.includes(f.make)) allMakes.unshift(f.make);
   const liveModels = Object.entries(facets?.models || {}).filter(([k]) => f.make && k.toLowerCase().startsWith(f.make.toLowerCase() + "|")).sort((a, b) => b[1] - a[1]).map(([k, c]) => [k.split("|")[1], c] as [string, number]);
-  const models = [...liveModels.map(([m]) => m), ...modelsFor(f.make, f.cat).filter((m) => !liveModels.some(([x]) => x.toLowerCase() === m.toLowerCase()))];
+  const models = [...liveModels.map(([m]) => m), ...modelsFor(f.make, catKey).filter((m) => !liveModels.some(([x]) => x.toLowerCase() === m.toLowerCase()))];
   if (f.model && !models.some((m) => m.toLowerCase() === f.model!.toLowerCase())) models.unshift(f.model);
   const modelCount = (m: string) => facets?.models?.[`${f.make}|${m}`];
   const sel = (key: keyof SearchFilters, label: string, opts: [string, string][], any = "Any") => (
@@ -41,13 +49,15 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
   );
   return (
     <div className="filters">
-      <div className="fgrp"><b>Category</b>
-        <select className="input" aria-label="Category" value={f.cat || ""} onChange={(e) => set({ cat: e.target.value, type: "", lams: "", lic: "", berths: "", ccmin: "", ccmax: "", lenmin: "", lenmax: "", hrs: "", km: "" })}>
+      <div className="fgrp"><b>{only ? "Type" : "Category"}</b>
+        {!only && <select className="input" aria-label="Category" value={f.cat || ""} onChange={(e) => set({ cat: e.target.value, type: "", lams: "", lic: "", berths: "", ccmin: "", ccmax: "", lenmin: "", lenmax: "", hrs: "", km: "" })}>
           <option value="">All vehicles{n(facets?.total != null && !f.cat ? facets.total : undefined)}</option>
-          {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}{n(facets?.cats?.[c.key])}</option>)}
+          {shownCats.map((c) => <option key={c.key} value={c.key}>{c.label}{n(facets?.cats?.[c.key])}</option>)}
           <option value="cheap">Under $5,000{n(facets?.cheap)}</option>
-        </select>
-        {cat && sel("type", "Type", cat.kinds.map(([k, l]) => [k, l + n(facets?.types?.[k])] as [string, string]), `Any ${cat.one} type`)}
+        </select>}
+        {only && cat ? <select className="input" aria-label="Type" value={f.type || ""} onChange={(e) => set({ cat: e.target.value ? only.key : "", type: e.target.value })}>
+          <option value="">Any {cat.one} type</option>{cat.kinds.map(([k, l]) => <option key={k} value={k}>{l}{n(facets?.types?.[k])}</option>)}
+        </select> : cat && sel("type", "Type", cat.kinds.map(([k, l]) => [k, l + n(facets?.types?.[k])] as [string, string]), `Any ${cat.one} type`)}
       </div>
       <div className="fgrp"><b>Make &amp; model</b>
         <select className="input" aria-label="Make" value={f.make || ""} onChange={(e) => set({ make: e.target.value, model: "" })}>
@@ -63,7 +73,7 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
       <div className="fgrp"><b>Year</b>
         <div className="two">{sel("ymin", "Year from", YEARS.map((y) => [String(y), String(y)]), "From")}{sel("ymax", "Year to", YEARS.map((y) => [String(y), String(y)]), "To")}</div>
       </div>
-      {usage === "km" && <div className="fgrp"><b>Kilometres</b>{sel("km", "Maximum kilometres", KMS.map((k) => [String(k), `Under ${k.toLocaleString("en-AU")} km`]), "Any kilometres")}</div>}
+      {usage === "km" && <div className="fgrp"><b>Kilometres</b>{sel("km", "Maximum kilometres", kms.map((k) => [String(k), `Under ${k.toLocaleString("en-AU")} km`]), "Any kilometres")}</div>}
       {(usage === "hours" || extras.includes("hours")) && <div className="fgrp"><b>Engine hours</b>{sel("hrs", "Maximum engine hours", HOURS.map((h) => [String(h), `Under ${h.toLocaleString("en-AU")} hrs`]), "Any hours")}</div>}
       {extras.includes("cc") && <div className="fgrp"><b>Engine size</b>
         <div className="two">{sel("ccmin", "Engine size from", CCS.map((c) => [String(c), `${c} cc`]), "From")}{sel("ccmax", "Engine size to", CCS.map((c) => [String(c), `${c} cc`]), "To")}</div>
@@ -76,11 +86,11 @@ export function SearchFilterPanel({ f, facets, set }: { f: SearchFilters; facets
       {usage !== "none" && <div className="fgrp"><b>Transmission</b>{chips("trans", TRANS, facets?.trans)}</div>}
       {f.cat !== "trailers" && f.cat !== "caravans" && <div className="fgrp"><b>Fuel</b>{chips("fuel", FUELS, facets?.fuels)}</div>}
       {(!cat || extras.includes("drive")) && <div className="fgrp"><b>Drive</b>{chips("drive", DRIVES, facets?.drives)}</div>}
-      <div className="fgrp"><b>Location</b>
+      {states.length > 1 && <div className="fgrp"><b>Location</b>
         <select className="input" aria-label="State" value={f.state || ""} onChange={(e) => set({ state: e.target.value })}>
-          <option value="">All of Australia</option>{Object.entries(STATE_NAMES).map(([k, l]) => <option key={k} value={k}>{l}{n(facets?.states?.[k] ?? (facets ? 0 : undefined))}</option>)}
+          <option value="">Anywhere we sell</option>{states.map((k) => <option key={k} value={k}>{STATE_NAMES[k] || k}{n(facets?.states?.[k] ?? (facets ? 0 : undefined))}</option>)}
         </select>
-      </div>
+      </div>}
       <div className="fgrp"><b>Seller</b>{chips("seller", [["private", "Private"], ["business", "Business"]])}</div>
       <div className="fgrp"><b>Registration</b>{chips("rego", [["registered", "Registered"], ["unregistered", "Unregistered"]])}</div>
       <div className="fgrp"><b>Condition</b>{chips("runs", [["drives", "Starts and drives"]])}<label className="checkrow"><input type="checkbox" checked={f.inspected === "1"} onChange={(e) => set({ inspected: e.target.checked ? "1" : "" })} />Inspected by a mechanic</label></div>

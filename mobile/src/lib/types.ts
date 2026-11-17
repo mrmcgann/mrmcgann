@@ -32,6 +32,8 @@ export interface AppConfig {
   liveOnly?: boolean; payDays?: number;
   /** our mobile mechanic (migration 38): taking bookings, and its fee including GST */
   mechanic?: { on: boolean; fee: number };
+  /** what we sell and where it's kept (settings selling.categories / selling.states) */
+  sell?: { categories: string[]; states: string[] };
 }
 
 // bidder_mask is a made-up, name-shaped string (never the real name), shown blurred.

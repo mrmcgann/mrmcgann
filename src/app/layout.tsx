@@ -10,7 +10,7 @@ import { Tracker } from "@/components/Tracker";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { SiteSettingsProvider } from "@/components/SiteSettings";
 import { getSettingsCached } from "@/lib/cache";
-import { navMenus, sellCategories } from "@/lib/vehicles";
+import { navMenus, sellCategories, sellStates } from "@/lib/vehicles";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 const APP_STORE_ID = /id(\d{6,12})/.exec(process.env.NEXT_PUBLIC_APP_STORE_URL || "")?.[1];
@@ -28,15 +28,17 @@ export const viewport: Viewport = { themeColor: "#FFFFFF", width: "device-width"
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSettingsCached().catch(() => ({} as Record<string, Record<string, unknown>>));
+  const selling = settings.selling as { categories?: unknown; states?: unknown } | undefined;
+  const cats = sellCategories(selling), states = sellStates(selling);
   return (
     <html lang="en-AU" className={`${jakarta.variable} ${fraunces.variable}`}>
       <body>
         <ViewerProvider>
-        <SiteSettingsProvider liveOnly={settings.auction?.live_only === true}>
+        <SiteSettingsProvider liveOnly={settings.auction?.live_only === true} categories={cats} states={states}>
         {env.testMode && (
           <div className="demo">Test mode: <b>no real payments, SMS or ID checks.</b> Use SMS code 123456.</div>
         )}
-        <Header menus={navMenus(sellCategories(settings.selling as { categories?: unknown } | undefined))} />
+        <Header menus={navMenus(cats)} />
         <main className="page">{children}</main>
         <Footer />
         <CompareTray />

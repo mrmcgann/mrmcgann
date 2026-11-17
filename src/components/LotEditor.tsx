@@ -16,7 +16,7 @@ import { ZONES } from "@/lib/damage";
 import { cleanPhoto } from "@/lib/photoPrep";
 import { money } from "@/lib/format";
 import type { Depot } from "@/lib/types";
-import { useLiveOnly } from "@/components/SiteSettings";
+import { useLiveOnly, useSellCategories } from "@/components/SiteSettings";
 
 export interface SellerInfo {
   inviteUrl: string | null;
@@ -54,8 +54,10 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
   // Every vehicle is sold in a live auction (settings: auction.live_only): no timed end, Buy Now or tender here.
   // every vehicle in a live auction (from the root layout, so the editor never flashes the timed-auction fields)
   const liveOnly = useLiveOnly();
+  // only what we sell (settings selling.categories): a vehicle already in another category keeps it, so it shows
+  const sold = useSellCategories();
   const [f, setF] = useState<Row>({
-    status: "draft", title: "", short_title: "", subtitle: "", category: "cars", vehicle_type: "car", backdrop: "sun", featured: false,
+    status: "draft", title: "", short_title: "", subtitle: "", category: sold[0] || "trucks", vehicle_type: CAT[sold[0] || "trucks"]?.silhouette || "truck", backdrop: "sun", featured: false,
     start_price: 100, ...(lot || {}),
   });
   const [p, setP] = useState<Row>({ reserve_price: null, seller_name: "", seller_phone: "", seller_email: "", seller_address: "", seller_notes: "", pickup_notes: "", estimate_basis: "", ...(priv || {}) });
@@ -364,7 +366,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         {inp("title", "Title", { placeholder: "2009 Toyota Corolla Ascent" })}
         <div className="grid2">{inp("short_title", "Short title (big headline)", { placeholder: "2009 Toyota Corolla" })}{inp("subtitle", "One-line summary", { placeholder: "One owner. Every service stamped." })}</div>
         <div className="grid3">
-          <label className="field"><span>Category</span><select className="input" value={String(f.category || "cars")} onChange={(e) => { const c = CAT[e.target.value]; setF({ ...f, category: e.target.value, vehicle_type: c.silhouette, kind: c.kinds.some(([k]) => k === f.kind) ? f.kind : null }); }}>{CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
+          <label className="field"><span>Category</span><select className="input" value={String(f.category || sold[0] || "trucks")} onChange={(e) => { const c = CAT[e.target.value]; setF({ ...f, category: e.target.value, vehicle_type: c.silhouette, kind: c.kinds.some(([k]) => k === f.kind) ? f.kind : null }); }}>{CATEGORIES.filter((c) => sold.includes(c.key) || c.key === f.category).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
           <label className="field"><span>Type</span><select className="input" value={String(f.kind || "")} onChange={(e) => setF({ ...f, kind: e.target.value || null })}><option value="">–</option>{(CAT[String(f.category || "cars")]?.kinds || []).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><span className="hint">Shown in search filters.</span></label>
           {sel("vehicle_type", "Silhouette (no photos yet)", VEHICLE_TYPES.map((v) => [v, v[0].toUpperCase() + v.slice(1)] as [string, string]))}
           {sel("backdrop", "Backdrop colour", BACKDROPS.map((b) => [b, b[0].toUpperCase() + b.slice(1)]))}
@@ -560,7 +562,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <>
             <span className="muted" data-testid="media-count">{mediaUsed} of {MEDIA_MAX} used: up to 10 photos and videos, one of them a video. The first photo is the cover; the video shows second.</span>
             <div className="grid2">
-              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">The seller&apos;s photos, taken for this listing. Each one is redrawn, which removes the location the phone recorded. Nothing that shows the seller&apos;s house, street, neighbours or other cars&apos; plates.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
+              <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX}><b>Add photos</b><span className="hint">The seller&apos;s photos, taken for this listing. Each one is redrawn, which removes the location the phone recorded. Nothing that shows the seller&apos;s house, street, neighbours or other vehicles&apos; plates.</span><input type="file" multiple accept="image/*" hidden disabled={mediaUsed >= MEDIA_MAX} onChange={(e) => uploadPhotos(e.target.files)} /></label>
               {liveVideos.length === 0 ? (
                 <label className="drop" aria-disabled={mediaUsed >= MEDIA_MAX || vidProgress != null}><b>{vidProgress != null ? `Uploading video… ${vidProgress}%` : "Add a video"}</b><span className="hint">The seller&apos;s walkaround (starting it, the dash with the ignition on, moving it under its own power), MP4 (H.264) or MOV, up to 250 MB. Goes on the listing straight away, without the location the phone recorded.</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" hidden disabled={mediaUsed >= MEDIA_MAX || vidProgress != null} onChange={(e) => uploadVideo(e.target.files?.[0])} data-testid="editor-video" /></label>
               ) : (
@@ -630,7 +632,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           })()}</span>
         </div>
         <label className="field"><span>What the estimate is based on (private, required)</span>
-          <textarea className="input" value={(p.estimate_basis as string) ?? ""} onChange={setPriv("estimate_basis")} placeholder="e.g. Three 2018 HiLux SR5 utes with 120-150,000 km sold at auction in the last 60 days: $31,000, $33,500, $34,000. Condition from the seller's photos: average." data-testid="estimate-basis" />
+          <textarea className="input" value={(p.estimate_basis as string) ?? ""} onChange={setPriv("estimate_basis")} placeholder="e.g. Three 2014-2016 Isuzu FVZ tippers with 350-420,000 km sold at auction in the last 90 days: $64,000, $69,500, $72,000. Condition from the seller's photos and video: average." data-testid="estimate-basis" />
           <span className="hint">Kept on file, never shown. A statement about a future price needs reasonable grounds, and this record is them: recent comparable sales (ours or published results), price guides, and the condition shown. Keep the range honest: at most 25% wide (or $1,000), and never pitched low to draw bidders or high to please the seller.</span>
         </label>
         {f.collect_from === "depot" && (

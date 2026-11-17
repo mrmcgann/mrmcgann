@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SearchBar } from "@/components/SearchBar";
-import type { NavMenu } from "@/lib/vehicles";
+import { sellNoun, type NavMenu } from "@/lib/vehicles";
+import { useLiveOnly, useSellCategories } from "@/components/SiteSettings";
 
 export function AccountMenu({ first, email, todo, admin, seller = false }: { first: string; email: string; todo: number; admin: boolean; seller?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -46,6 +47,8 @@ export function AccountMenu({ first, email, todo, admin, seller = false }: { fir
 
 export function MobileMenu({ menus }: { menus: NavMenu[] }) {
   const [open, setOpen] = useState(false);
+  const liveOnly = useLiveOnly();
+  const noun = sellNoun(useSellCategories());
   return (
     <>
       <button className="icon-btn menu-btn" onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open}>
@@ -59,10 +62,10 @@ export function MobileMenu({ menus }: { menus: NavMenu[] }) {
               {g.items.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
             </div>
           ))}
-          <Link href="/auctions?ending=today">Ending today</Link>
+          <Link href="/auctions?ending=today">{liveOnly ? "At auction today" : "Ending today"}</Link>
           <Link href="/calendar">Auction calendar</Link>
           <Link href="/auctions?view=closed">Results</Link>
-          <Link href="/sell">Sell your vehicle</Link>
+          <Link href="/sell">Sell your {noun}</Link>
           <Link href="/finance">Finance</Link>
           <Link href="/insurance">Insurance</Link>
           <Link href="/watchlist">Watchlist</Link>

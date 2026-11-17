@@ -23,7 +23,7 @@ export function InsuranceTool({ insurers, lot, initial }: { insurers: Partner[];
       <div className="soft" style={{ gap: 14, background: "#FFFFFF", border: "1px solid var(--line)" }}>
         <div className="grid3">
           <label className="field"><span>Make</span><input className="input" value={make} onChange={(e) => setMake(e.target.value)} placeholder="e.g. Toyota" /></label>
-          <label className="field"><span>Model</span><input className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. HiLux" /></label>
+          <label className="field"><span>Model</span><input className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. FVZ 1400" /></label>
           <label className="field"><span>Year</span><input className="input" inputMode="numeric" maxLength={4} value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))} /></label>
         </div>
         <div className="grid2">

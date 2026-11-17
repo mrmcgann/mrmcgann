@@ -23,7 +23,7 @@ export const QUESTIONS: [key: string, question: string, details?: string][] = [
   ["flood", "Has it ever had flood or water damage?", "flood_details"],
   ["hail", "Does it have hail damage?", "hail_details"],
   ["modifications", "Has it been modified (lift, engine, suspension, towing, etc.)?", "modifications_details"],
-  ["previous_use", "Has it been used as a taxi, rideshare, hire car, driving-school or police vehicle?", "previous_use_details"],
+  ["previous_use", "Has it been used for hire or rental, as a taxi or rideshare, for driver training, or by the police?", "previous_use_details"],
   ["recalls", "Is there a safety recall on it that hasn't been fixed?", "recalls_details"],
   ["warning_lights", "Are any warning lights on the dash?", "warning_lights_details"],
   ["odometer_concerns", "Any reason to think the odometer isn't accurate (replaced cluster, tampering)?", "odometer_details"],
@@ -47,7 +47,7 @@ export const FUELS = ["Petrol", "Diesel", "Hybrid", "Electric", "LPG", "Other"];
 export const PHOTO_RULES = [
   "Taken by you in the last 14 days, in daylight, with the whole vehicle in the frame.",
   "Show it as it is: no filters, edits or old photos. Show the damage too: a buyer can claim if it isn't shown.",
-  "Nothing that shows who you are or where you live: no house numbers, street signs, letterboxes, people or other cars' plates. Your own plate is fine.",
+  "Nothing that shows who you are or where you live: no house numbers, street signs, letterboxes, people or other vehicles' plates. Your own plate is fine.",
   "We remove the place your phone records in each photo and video before anyone sees it.",
 ];
 /** The photos for the listing, after the guided ones. */

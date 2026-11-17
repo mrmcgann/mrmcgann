@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { CATEGORIES, CAT, makesFor, modelsFor } from "@/lib/vehicles";
+import { CATEGORIES, CAT, makesFor, modelsFor, sellNoun, type CategoryKey } from "@/lib/vehicles";
 import { expiryDate, normalizePlate, normalizeVin, REGO_STATES, vehicleLine, type RegoVehicle } from "@/lib/rego";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -38,7 +38,10 @@ function Suggest({ value, options, onPick, testID }: { value: string; options: s
  * (kilometres, condition) and how to reach them. No account needed.
  */
 export default function Appraisal() {
-  const { me } = useSession();
+  const { me, config } = useSession();
+  // only what we sell now (settings selling.categories: trucks to start)
+  const sold = (config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[];
+  const kinds = CATEGORIES.filter((c) => sold.includes(c.key));
   const p = me?.profile;
   const [registration, setRegistration] = useState<Registration>("registered");
   const [plate, setPlate] = useState("");
@@ -48,7 +51,7 @@ export default function Appraisal() {
   const [lookErr, setLookErr] = useState("");
   const [found, setFound] = useState<Found | null>(null);
   const [details, setDetails] = useState(false);
-  const [kind, setKind] = useState("cars");
+  const [kind, setKind] = useState<string>(kinds[0]?.key || "trucks");
   const [m, setM] = useState({ year: "", make: "", model: "", variant: "" });
   const [v, setV] = useState({ odometer: "", postcode: p?.postcode || "", description: "", name: [p?.first_name, p?.last_name].filter(Boolean).join(" "), mobile: p?.mobile || "", email: me?.user?.email || "" });
   const [photos, setPhotos] = useState<Picked[]>([]);
@@ -98,7 +101,7 @@ export default function Appraisal() {
     const fv = d.vehicle;
     setFound({ id: d.id, vehicle: fv, sources: d.sources || [], complete: !!d.complete });
     setM((x) => ({ year: fv.year ? String(fv.year) : x.year, make: fv.make || x.make, model: fv.model || x.model, variant: fv.variant || x.variant }));
-    if (fv.category && CAT[fv.category]) setKind(fv.category);
+    if (fv.category && CAT[fv.category] && sold.includes(fv.category as CategoryKey)) setKind(fv.category);
   }
 
   async function submit() {
@@ -142,7 +145,7 @@ export default function Appraisal() {
   return (
     <Screen keyboard testID="appraisal">
       <View style={{ gap: 4 }}>
-        <T v="d3">Sell your vehicle.</T>
+        <T v="d3">Sell your {sellNoun(sold)}.</T>
         <T v="muted">Start with the plate and VIN. We fill in what we can.</T>
       </View>
 
@@ -183,7 +186,7 @@ export default function Appraisal() {
         </View>
       ) : null}
 
-      {ready ? <Select testID="appraisal-kind" label="What is it?" value={kind} options={CATEGORIES.map((c) => [c.key, c.label] as [string, string])} placeholder="Cars" onChange={(k) => setKind(k || "cars")} /> : null}
+      {ready && kinds.length > 1 ? <Select testID="appraisal-kind" label="What is it?" value={kind} options={kinds.map((c) => [c.key, c.label] as [string, string])} placeholder={kinds[0]?.label} onChange={(k) => setKind(k || kinds[0]?.key || "trucks")} /> : null}
       {details ? (
         <>
           <View style={{ flexDirection: "row", gap: 10 }}>

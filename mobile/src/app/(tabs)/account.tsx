@@ -11,6 +11,7 @@ import { STEP_NAMES, useSession } from "~/lib/session";
 import { Button, Divider, Row, Screen, Soft, T, Tag } from "~/ui/kit";
 import { Icon, LogoMark } from "~/ui/art";
 import { C, F } from "~/ui/theme";
+import { sellNoun, type CategoryKey } from "@/lib/vehicles";
 
 type Inv = { id: string; ref: string; status: string; total: number; created_at: string; lots: { title: string } | null };
 const INV_TAG: Record<string, [string, string]> = {
@@ -44,7 +45,7 @@ export default function Account() {
     return (
       <Screen contentStyle={{ paddingTop: insets.top + 20 }} testID="account">
         <LogoMark size={40} />
-        <T v="d2">Your next car is <Text style={{ fontFamily: F.serif, color: C.blue }}>already here.</Text></T>
+        <T v="d2">Your next {sellNoun((config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[])} is <Text style={{ fontFamily: F.serif, color: C.blue }}>already here.</Text></T>
         <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Join free to bid, watch vehicles and get outbid alerts. Verify your mobile and ID once and you're ready for every auction. No deposit, no card.</T>
         <Button testID="account-join" title="Join free" onPress={() => router.push("/join")} />
         <Button kind="soft" title="Sign in" onPress={() => router.push("/signin")} />
