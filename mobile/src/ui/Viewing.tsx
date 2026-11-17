@@ -36,7 +36,7 @@ export function ViewingBox({ lotId, title, suburb, state, inPerson, auctionAt, o
       {current ? (
         <View style={{ gap: 4 }} testID="viewing-booked">
           <T v="body" style={{ fontSize: 15, lineHeight: 21 }}>{current.status === "confirmed" && current.starts_at
-            ? <><Text style={{ fontFamily: F.bold }}>Booked: {whenLabel(current.starts_at)}</Text> (Brisbane time). The address is in the text and email we sent you. Bring photo ID.</>
+            ? <><Text style={{ fontFamily: F.bold }}>Booked: {whenLabel(current.starts_at, state)}</Text>. The address is in the text and email we sent you. Bring photo ID.</>
             : <><Text style={{ fontFamily: F.bold }}>Asked for </Text>{current.slots.map(slotLabel).join("; ")}. We'll agree a time with the owner and text you.</>}</T>
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}><T v="small">Reference {current.ref}</T><LinkText title="Cancel" onPress={() => cancel(current.id)} style={{ fontSize: 13 }} /></View>
         </View>

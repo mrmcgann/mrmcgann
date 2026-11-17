@@ -2290,6 +2290,11 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   r = await as('service', `select body from notifications where user_id = '${U.A}' and title like 'Viewing booked:%' order by created_at desc limit 1`);
   ok('viewing: the member gets the address, the owner\'s notes and the rules, only now', /12 Sample Street, Rocklea QLD 4106/.test(r.rows?.[0]?.body || '') && r.rows[0].body.includes(VREF) && /Ask for Dave/.test(r.rows[0].body)
     && /no road test/.test(r.rows[0].body) && /every sale goes through Super Trucker/.test(r.rows[0].body) && /Gate 3/.test(r.rows[0].body), r.rows?.[0]?.body);
+  ok('viewing: the time is on the truck\'s own clock, named', /\(Queensland time\) at 12 Sample Street/.test(r.rows?.[0]?.body || ''), r.rows?.[0]?.body);
+  r = await as('service', `select local_when('2026-12-01 02:00+00', 'WA') wa, local_when('2026-11-30 23:00+00', 'NSW') nsw, local_when('2026-12-01 00:00+00', 'QLD') qld`);
+  ok('viewing times: Perth two hours behind, Sydney an hour ahead in summer, each named', r.rows?.[0]?.wa === 'Tuesday 1 December, 10:00 am (Perth time)' && r.rows[0].nsw === 'Tuesday 1 December, 10:00 am (Sydney time)' && r.rows[0].qld === 'Tuesday 1 December, 10:00 am (Queensland time)', JSON.stringify(r.rows || r.error));
+  r = await as('service', `update lots set configuration = 'six by four' where id = ${T1}`); ok('truck specs: a configuration is axles by driven axles', !!r.error, r.error);
+  r = await as('service', `update lots set cab = 'penthouse' where id = ${T1}`); ok('truck specs: the cab is day, sleeper or crew', !!r.error, r.error);
   r = await as('service', `select body from outbox where dedupe_key like 'viewing-seller:${VW}%' limit 1`);
   ok('viewing: the owner is told who is coming, by name, and that we introduced them', /Amy Ash will come to view it/.test(r.rows?.[0]?.body || '') && /We introduced them to you/.test(r.rows[0].body) && /section 2 of your agreement/.test(r.rows[0].body)
     && /say no and tell us/.test(r.rows[0].body) && !/0411111111/.test(r.rows[0].body), r.rows?.[0]?.body);
@@ -2403,6 +2408,8 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   ok('seed: collected from the seller: no depot, no tow in the premium, viewing by appointment, the address on file', lots.every((x) => x.collect_from === 'seller' && x.depot_id === null
     && Number(x.transport_fee || 0) === 0 && Number(x.tow) === 0 && x.in_person_viewing === true && !!x.seller_address), JSON.stringify(lots.map((x) => [x.id, x.collect_from, x.depot_id, x.transport_fee, x.tow, x.in_person_viewing])));
   ok('seed: the premium is 6%', lots.every((x) => Number(x.rate) === 0.06), JSON.stringify(lots.map((x) => x.rate)));
+  q = await sc.query(`select configuration, gcm_kg, cab, suspension, engine_hp from lots where id = 10703`);
+  ok('seed: the sample prime mover has its truck specifications', q.rows[0]?.configuration === '6x4' && q.rows[0].gcm_kg === 90000 && q.rows[0].cab === 'sleeper' && q.rows[0].suspension === 'air' && q.rows[0].engine_hp === 600, JSON.stringify(q.rows));
   ok('seed: the New South Wales truck sold without plates says why', lots.filter((x) => x.state === 'NSW' && x.registration === 'unregistered').every((x) => (x.plates_note || '').length > 10)
     && lots.some((x) => x.state === 'NSW' && x.registration === 'unregistered'), JSON.stringify(lots.map((x) => [x.id, x.state, x.registration, x.plates_note])));
   q = await sc.query(`select count(*)::int n from depots`); ok('seed: no sample depots', q.rows[0].n === 0, JSON.stringify(q.rows));

@@ -12,7 +12,7 @@ import { gradeInfo } from "@/lib/grades";
 import { dateTime, km, money } from "@/lib/format";
 import { DamageMap } from "@/components/DamageMap";
 import { ZONE_LABEL } from "@/lib/damage";
-import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
+import { CAT, kindLabel, LICENCES, truckSpecs } from "@/lib/vehicles";
 import { photoUrl } from "@/lib/photos";
 import { COMPARISON_WARNING, listingEstimate } from "@/lib/finance";
 import { lotCrumbs } from "@/lib/seo";
@@ -194,7 +194,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
             <div className="two">
               <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Specifications.</h2>
                 <div className="rows">
-                  {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body], ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
+                  {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body], ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive], ...truckSpecs(lot),
                     ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null], ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], [atSeller ? "Where it's kept" : "Collect from", place ? (atSeller ? place : `Our depot in ${place}`) : null], ["Lot", lot.id]] as [string, unknown][])
                     .filter(([, v]) => v !== null && v !== "" && v !== undefined).map(([k, v]) => <div key={k}><span className="muted">{k}</span><b>{String(v)}</b></div>)}
                 </div>

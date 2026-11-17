@@ -3,6 +3,7 @@ import { consumerRights, rightsLine, LISTING_CHECKS, CHECK_KEYS, RUNS, WRITE_OFF
 import { rowsToLots, importTemplate, IMPORT_COLUMNS } from '../../src/lib/importLots.ts';
 import { parseCsv, toCsv } from '../../src/lib/csv.ts';
 import { cleanFilters, parseQuery, describeParts } from '../../src/lib/search.ts';
+import { truckSpecs, sellCategories, CONFIGURATIONS } from '../../src/lib/vehicles.ts';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) pass++; else { fail++; console.log('FAIL', name, extra); } };
@@ -57,6 +58,13 @@ ok('filters: starts and drives', cleanFilters({ runs: 'drives' }).runs === 'driv
 ok('filters: sale is a number', cleanFilters({ sale: '12' }).sale === '12' && cleanFilters({ sale: 'x1' }).sale === undefined);
 ok('parser: "runs and drives"', parseQuery('hilux runs and drives').f.runs === 'drives', JSON.stringify(parseQuery('hilux runs and drives').f));
 ok('describe: starts and drives', describeParts({ runs: 'drives' }).includes('Starts and drives'));
+
+// Truck specifications on the listing, and what we sell
+const ts = Object.fromEntries(truckSpecs({ configuration: '6x4', gcm_kg: 90000, tare_kg: 10200, engine_hp: 600, cab: 'sleeper', suspension: 'air', emissions: 'Euro 5 (ADR 80/03)' }));
+ok('truck specs: the rows a truck buyer compares', ts.Configuration === '6x4' && ts.GCM === '90,000 kg' && ts.Tare === '10,200 kg' && ts.Power === '600 hp' && ts.Cab === 'Sleeper cab' && ts['Rear suspension'] === 'Airbag' && ts.Emissions === 'Euro 5 (ADR 80/03)', JSON.stringify(ts));
+ok('truck specs: nothing entered, nothing shown', truckSpecs({}).every(([, v]) => v === null));
+ok('truck specs: configurations are axles by driven axles', CONFIGURATIONS.every((c) => /^[0-9]{1,2}x[0-9]{1,2}$/.test(c)));
+ok('selling: trucks unless the setting says otherwise, and never an unknown category', JSON.stringify(sellCategories(undefined)) === '["trucks"]' && JSON.stringify(sellCategories({ categories: [] })) === '["trucks"]' && JSON.stringify(sellCategories({ categories: ['trucks', 'cars', 'spaceships'] })) === '["trucks","cars"]');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

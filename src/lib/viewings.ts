@@ -50,8 +50,33 @@ export function dayLabel(day: string) {
 }
 export const partLabel = (p: string) => PARTS.find((x) => x[0] === p)?.[1] || p;
 export const slotLabel = (s: Slot) => `${dayLabel(s.day)}, ${partLabel(s.part).toLowerCase()}`;
-export function whenLabel(iso: string) {
-  return new Date(iso).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+/** A viewing happens on the clock where the truck is kept: Perth is two hours behind Brisbane, and Sydney an hour
+ *  ahead in summer. The same zones as state_tz() in the database. */
+export const STATE_TZ: Record<string, string> = { QLD: "Australia/Brisbane", NSW: "Australia/Sydney", ACT: "Australia/Sydney", VIC: "Australia/Melbourne",
+  TAS: "Australia/Hobart", SA: "Australia/Adelaide", NT: "Australia/Darwin", WA: "Australia/Perth" };
+const TZ_LABEL: Record<string, string> = { "Australia/Brisbane": "Queensland time", "Australia/Sydney": "Sydney time", "Australia/Melbourne": "Melbourne time",
+  "Australia/Hobart": "Hobart time", "Australia/Adelaide": "Adelaide time", "Australia/Darwin": "Darwin time", "Australia/Perth": "Perth time" };
+export const stateTz = (state?: string | null) => STATE_TZ[String(state || "").toUpperCase()] || "Australia/Brisbane";
+/** "Tue 1 Dec, 10:00 am (Perth time)": in the time zone of the truck's state. */
+export function whenLabel(iso: string, state?: string | null) {
+  const tz = stateTz(state);
+  return `${new Date(iso).toLocaleString("en-AU", { timeZone: tz, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} (${TZ_LABEL[tz]})`;
+}
+/** The wall time in a zone for an instant, as if it were UTC (to work out the zone's offset at that instant). */
+function wallAsUtc(t: number, tz: string) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+  return Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
+}
+/** "2026-12-01T10:00", read on the clock where the truck is kept, as an instant (ISO). Null if it isn't a date and time. */
+export function localToIso(local: string, state?: string | null): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(local || ""));
+  if (!m) return null;
+  const tz = stateTz(state);
+  const want = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  let t = want;
+  for (let i = 0; i < 3; i++) t = want - (wallAsUtc(t, tz) - Math.floor(t / 1000) * 1000);
+  return new Date(t).toISOString();
 }
 
 /** Checks a request before it's sent (the database checks again). */

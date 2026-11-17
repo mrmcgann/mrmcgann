@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { gradeInfo } from "@/lib/grades";
 import { km } from "@/lib/format";
-import { CAT, kindLabel, LICENCES } from "@/lib/vehicles";
+import { CAT, kindLabel, LICENCES, truckSpecs } from "@/lib/vehicles";
 import type { Disclosures, Lot } from "@/lib/types";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
@@ -113,7 +113,7 @@ export default function LotScreen() {
   ];
   const specs: [string, unknown][] = [
     ["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body],
-    ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
+    ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive], ...truckSpecs(lot),
     ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null],
     ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], [atSeller ? "Where it's kept" : "Collect from", depotPlace(lot) ? (atSeller ? depotPlace(lot) : `Our depot in ${depotPlace(lot)}`) : null], ["Lot", lot.id],
   ];

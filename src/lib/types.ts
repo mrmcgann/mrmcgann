@@ -112,6 +112,9 @@ export interface Lot {
   collect_from?: "depot" | "seller";
   /** New South Wales: why a vehicle sold without plates has none */
   plates_note?: string | null;
+  /** Truck specifications (migration 37): axle configuration ("6x4"), GCM and tare (kg), power (hp), cab, rear suspension, emissions standard. */
+  configuration?: string | null; gcm_kg?: number | null; tare_kg?: number | null; engine_hp?: number | null;
+  cab?: "day" | "sleeper" | "crew" | null; suspension?: "air" | "spring" | "mixed" | null; emissions?: string | null;
   /** the depot the buyer collects from, for a listing collected from a depot (lots.suburb/state/postcode are then the depot's) */
   depot_id?: string | null;
   /** the transport from the seller to the depot (before GST), part of the buyer's premium; locked when bidding opens */

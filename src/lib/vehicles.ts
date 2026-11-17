@@ -48,6 +48,17 @@ export const CATEGORIES: Category[] = [
 
 export const CAT: Record<string, Category> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]));
 
+/** Truck specifications: the words for the listing and the choices in the editor (migration 37). */
+export const CONFIGURATIONS = ["4x2", "4x4", "6x2", "6x4", "6x6", "8x4", "10x4"];
+export const CAB_LABEL: Record<string, string> = { day: "Day cab", sleeper: "Sleeper cab", crew: "Crew cab" };
+export const SUSPENSION_LABEL: Record<string, string> = { air: "Airbag", spring: "Spring", mixed: "Airbag and spring" };
+/** The truck rows for a listing's specifications (empty values left out by the caller). */
+export function truckSpecs(l: { configuration?: string | null; gcm_kg?: number | null; tare_kg?: number | null; engine_hp?: number | null; cab?: string | null; suspension?: string | null; emissions?: string | null }): [string, string | null][] {
+  const kg = (n?: number | null) => (n ? `${n.toLocaleString("en-AU")} kg` : null);
+  return [["Configuration", l.configuration || null], ["GCM", kg(l.gcm_kg)], ["Tare", kg(l.tare_kg)], ["Power", l.engine_hp ? `${l.engine_hp} hp` : null],
+    ["Cab", l.cab ? CAB_LABEL[l.cab] || l.cab : null], ["Rear suspension", l.suspension ? SUSPENSION_LABEL[l.suspension] || l.suspension : null], ["Emissions", l.emissions || null]];
+}
+
 /** The categories we sell now (settings selling.categories; trucks to start). Unknown names are dropped, and an empty
  *  or missing setting means trucks, so a typo can never open the site to everything. */
 export function sellCategories(selling?: { categories?: unknown } | null): CategoryKey[] {

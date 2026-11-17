@@ -35,7 +35,7 @@ export function Viewings({ lotId, title, suburb, state, inPerson, auctionAt, ope
     <div className="vw-opt" id="viewings" data-testid="viewing">
       <b style={{ fontSize: 17 }}>View it by appointment.</b>
       <span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>Where it&apos;s kept, near {suburb}{state ? `, ${state}` : ""}. {VIEWING_HOW.join(" ")}</span>
-      {current ? <Booked v={current} onCancel={() => cancel(current.id)} />
+      {current ? <Booked v={current} state={state} onCancel={() => cancel(current.id)} />
         : open ? <button className="btn btn-dark" style={{ height: 46, fontSize: 15, alignSelf: "flex-start", marginTop: 4 }} onClick={() => setForm(true)} data-testid="viewing-ask">Ask to view it</button>
         : <span className="hint">Viewings close the day before the auction.</span>}
       {mine.filter((m) => !["requested", "confirmed"].includes(m.status)).slice(0, 3).map((m) => (
@@ -46,11 +46,11 @@ export function Viewings({ lotId, title, suburb, state, inPerson, auctionAt, ope
   );
 }
 
-function Booked({ v, onCancel }: { v: Viewing; onCancel: () => void }) {
+function Booked({ v, state, onCancel }: { v: Viewing; state: string; onCancel: () => void }) {
   return (
     <div className="vw-booked" data-testid="viewing-booked">
       {v.status === "confirmed" && v.starts_at
-        ? <span><b>Booked: {whenLabel(v.starts_at)}</b> (Brisbane time). The address is in the text and email we sent you. Bring photo ID.</span>
+        ? <span><b>Booked: {whenLabel(v.starts_at, state)}</b>. The address is in the text and email we sent you. Bring photo ID.</span>
         : <span><b>Asked for</b> {v.slots.map(slotLabel).join("; ")}. We&apos;ll agree a time with the owner and text you.</span>}
       <span className="muted" style={{ fontSize: 13 }}>Reference {v.ref}. <button className="linkbtn" style={{ fontSize: 13 }} onClick={onCancel}>Cancel</button></span>
     </div>
@@ -114,7 +114,7 @@ function BookForm({ lotId, title, auctionAt, ack, onClose, onDone }: { lotId: nu
   return (
     <Modal title="Ask to view it." onClose={onClose}>
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="viewing-form">
-        <span className="muted" style={{ fontSize: 15 }}>Pick up to three times that suit you, up to the day before the auction. We agree one with the owner and text you the address.</span>
+        <span className="muted" style={{ fontSize: 15 }}>Pick up to three times that suit you, up to the day before the auction, in the truck&apos;s local time. We agree one with the owner and text you the address.</span>
         {days.length === 0 ? <div className="notice bad">The auction is too close to book a viewing. Call us and we&apos;ll see what we can do.</div> : (
           <div className="vw-days" role="group" aria-label="Times that suit you">
             {days.map((d) => (

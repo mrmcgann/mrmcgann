@@ -41,7 +41,7 @@ export default async function Viewings() {
           <div key={r.id} className="vw-row">
             {head(r)}{member(r)}
             <span><span className="muted">Times that suit them:</span> {r.slots.map(slotLabel).join("; ")}{r.note ? <><br /><span className="muted">Note:</span> {r.note}</> : null}</span>
-            <ViewingConfirm id={r.id} />
+            <ViewingConfirm id={r.id} state={r.lots?.state || "QLD"} />
           </div>
         )) : <span className="muted">Nothing waiting.</span>}
       </div>
@@ -51,7 +51,7 @@ export default async function Viewings() {
         {b.length ? b.map((r) => (
           <div key={r.id} className="vw-row">
             {head(r)}{member(r)}
-            <span><b>{r.starts_at ? whenLabel(r.starts_at) : ""}</b>{r.staff_note ? <><br /><span className="muted">{r.staff_note}</span></> : null}</span>
+            <span><b>{r.starts_at ? whenLabel(r.starts_at, r.lots?.state) : ""}</b>{r.staff_note ? <><br /><span className="muted">{r.staff_note}</span></> : null}</span>
             <span className="pill-row">
               <AdminAction action="viewing" payload={{ id: r.id, do: "done" }} label="Done" tone="soft" />
               <AdminAction action="viewing" payload={{ id: r.id, do: "no_show" }} label="They didn't show" tone="soft" confirmText="Mark as missed?" />

@@ -1,10 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { localToIso, stateTz } from "@/lib/viewings";
 
 // Confirm a viewing time once the owner has agreed it, or say it can't be booked (the member sees the reason).
 // Confirming sends the member the address and the owner the member's name (admin_viewing).
-export function ViewingConfirm({ id }: { id: string }) {
+export function ViewingConfirm({ id, state }: { id: string; state: string }) {
+  // the owner agrees a time on their own clock, so it's entered and sent in the truck's state
+  const zone = stateTz(state).replace("Australia/", "");
   const router = useRouter();
   const [when, setWhen] = useState("");
   const [note, setNote] = useState("");
@@ -22,10 +25,10 @@ export function ViewingConfirm({ id }: { id: string }) {
   }
   return (
     <div className="vw-admin" data-testid={`viewing-actions-${id}`}>
-      <label className="field"><span>Time agreed with the owner (Brisbane)</span><input className="input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ height: 40 }} /></label>
+      <label className="field"><span>Time agreed with the owner ({zone} time)</span><input className="input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ height: 40 }} /></label>
       <label className="field" style={{ flex: "1 1 200px" }}><span>Note to the member (optional)</span><input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} style={{ height: 40 }} placeholder="e.g. Ask for Dave at the office" /></label>
       <span className="pill-row">
-        <button className="btn btn-blue" style={{ height: 40, fontSize: 14 }} disabled={busy || !when} onClick={() => send({ do: "confirm", startsAt: new Date(`${when}:00+10:00`).toISOString(), note })}>Confirm and send the address</button>
+        <button className="btn btn-blue" style={{ height: 40, fontSize: 14 }} disabled={busy || !when} onClick={() => { const at = localToIso(when, state); if (!at) { setMsg("Enter the date and time."); return; } void send({ do: "confirm", startsAt: at, note }); }}>Confirm and send the address</button>
         <button className="btn btn-soft" style={{ height: 40, fontSize: 14, color: "#B4123E" }} disabled={busy} onClick={() => setDeclining(!declining)}>Can&apos;t book</button>
       </span>
       {declining && (

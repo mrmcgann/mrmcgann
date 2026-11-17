@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { BACKDROPS, GRADES, STATES } from "@/lib/grades";
-import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@/lib/vehicles";
+import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, CONFIGURATIONS, CAB_LABEL, SUSPENSION_LABEL, makesFor, modelsFor } from "@/lib/vehicles";
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
@@ -94,7 +94,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
       "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order",
-      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on", "plates_note", "in_person_viewing"];
+      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on", "plates_note", "in_person_viewing", "configuration", "gcm_kg", "tare_kg", "engine_hp", "cab", "suspension", "emissions"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
     // how it's seen and collected: set by the database on a new listing, never sent blank
     if (f.collect_from === "seller" || f.collect_from === "depot") out.collect_from = f.collect_from;
@@ -384,6 +384,21 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <div className="grid2">{inp("berths", "Sleeps", { inputMode: "numeric" })}{inp("length_m", "Length (m)", { inputMode: "decimal" })}</div>
         </div>
         <div className="grid3">{inp("colour", "Colour")}{inp("seats", "Seats", { inputMode: "numeric" })}{inp("keys", "Keys", { inputMode: "numeric" })}</div>
+        {["trucks", "buses"].includes(String(f.category || "")) && (
+          <div className="field" data-testid="truck-specs"><span>Truck specifications (from the compliance plate, the papers and the seller&apos;s photos; shown on the listing)</span>
+            <div className="grid3">
+              {sel("configuration", "Configuration", [["", "–"], ...CONFIGURATIONS.map((c) => [c, c] as [string, string])])}
+              {inp("gcm_kg", "GCM (kg)", { inputMode: "numeric", placeholder: "e.g. 63000" })}
+              {inp("tare_kg", "Tare (kg)", { inputMode: "numeric" })}
+            </div>
+            <div className="grid3">
+              {inp("engine_hp", "Power (hp)", { inputMode: "numeric", placeholder: "e.g. 550" })}
+              {sel("cab", "Cab", [["", "–"], ...Object.entries(CAB_LABEL)])}
+              {sel("suspension", "Rear suspension", [["", "–"], ...Object.entries(SUSPENSION_LABEL)])}
+            </div>
+            {inp("emissions", "Emissions standard", { placeholder: "e.g. Euro 5 (ADR 80/03)", maxLength: 40 })}
+          </div>
+        )}
         <div className="grid2" data-testid="collect-mode">
           <label className="field"><span>Viewing and collection</span>
             <select className="input" value={String(f.collect_from || "seller")} disabled={!!id && !["draft", "scheduled"].includes(String(f.status))} onChange={(e) => setF({ ...f, collect_from: e.target.value, ...(e.target.value === "seller" ? { depot_id: null, transport_fee: 0 } : {}) })}>

@@ -1,6 +1,6 @@
 // Viewing a truck by appointment (the days a buyer can offer, the wording, what they agree to) and dealer ABNs.
 // node --experimental-strip-types tests/unit/viewings.test.mjs
-import { viewingDays, cleanSlots, viewingError, brisbaneToday, slotLabel, MAX_SLOTS, viewingAck, VIEWING_HOW, VIEWING_OFF } from '../../src/lib/viewings.ts';
+import { viewingDays, cleanSlots, viewingError, brisbaneToday, slotLabel, MAX_SLOTS, viewingAck, VIEWING_HOW, VIEWING_OFF, whenLabel, localToIso, stateTz } from '../../src/lib/viewings.ts';
 import { isAbn, cleanAbn, formatAbn } from '../../src/lib/abn.ts';
 
 let pass = 0, fail = 0;
@@ -44,6 +44,11 @@ ok('ABN: valid', isAbn('51 824 753 556') && isAbn('53004085616'));
 ok('ABN: a wrong digit is caught', !isAbn('51824753557') && !isAbn('12345678901'));
 ok('ABN: wrong length or letters', !isAbn('5182475355') && !isAbn('51a24753556') && !isAbn(''));
 ok('ABN: cleaned and formatted', cleanAbn(' 51-824 753 556 ') === '51824753556' && formatAbn('51824753556') === '51 824 753 556');
+
+// A viewing is on the truck's own clock: Perth two hours behind Brisbane, Sydney an hour ahead in summer
+ok('times: entered on the owner\'s clock, kept as the right instant', localToIso('2026-12-01T10:00', 'WA') === '2026-12-01T02:00:00.000Z' && localToIso('2026-12-01T10:00', 'NSW') === '2026-11-30T23:00:00.000Z' && localToIso('2026-12-01T10:00', 'QLD') === '2026-12-01T00:00:00.000Z' && localToIso('2026-07-01T10:00', 'NSW') === '2026-07-01T00:00:00.000Z');
+ok('times: shown with the state\'s own name', /10:00 am \(Perth time\)$/.test(whenLabel('2026-12-01T02:00:00.000Z', 'WA')) && /10:00 am \(Sydney time\)$/.test(whenLabel('2026-11-30T23:00:00.000Z', 'NSW')) && /\(Queensland time\)$/.test(whenLabel('2026-12-01T00:00:00.000Z')));
+ok('times: not a date and time, nothing', localToIso('', 'WA') === null && localToIso('tomorrow', 'NSW') === null && stateTz('zz') === 'Australia/Brisbane');
 
 console.log(`${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

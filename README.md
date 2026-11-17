@@ -112,8 +112,9 @@ With `NEXT_PUBLIC_TEST_MODE=true` the site runs without Stripe or Twilio: the SM
    32. `supabase/migrations/20261104000033_unregistered_handover.sql` and `20261104000034_exit_plan_upfront.sql` (an unregistered vehicle leaves only on a carrier, a trailer or a recorded permit)
    33. `supabase/migrations/20261104000035_cheapest_all_in.sql` (the all-in price under the market's at every price)
    34. `supabase/migrations/20261115000036_super_trucker.sql` (Super Trucker: trucks only in Queensland, New South Wales and Western Australia, viewing by appointment with the introduction record, collection from the seller, the New South Wales inspection report and Queensland's certificate of inspection, nothing sold after the auction for trucks, a 6% premium)
-   35. `supabase/seed.sql` (optional sample trucks, waiting in a sample live auction with sample estimates, plus a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
-   36. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
+   35. `supabase/migrations/20261117000037_viewing_times_truck_specs.sql` (viewing times on the truck's own clock, named; truck specifications: configuration, GCM, tare, power, cab, suspension, emissions)
+   36. `supabase/seed.sql` (optional sample trucks, waiting in a sample live auction with sample estimates, plus a sample consultant and sample partners; delete them before launch. The sample auction never runs by itself: start it from **Admin → Live auctions** to see how a sale runs)
+   37. Optional: `supabase/sample-photos.sql`, made by `npm run sample-photos` (see "Sample photos" below)
    (Or, with the Supabase CLI: `supabase db push`.)
 3. **Authentication → Sign In / Providers → Email**: leave **Confirm email** on. Every new member confirms their email with a 6-digit code before they can do anything else.
 4. **Authentication → Emails → Templates → Confirm signup**: replace the body with:

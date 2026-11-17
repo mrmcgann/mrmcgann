@@ -112,6 +112,13 @@ select v.* from (values
  'Selling one of two trays as the work has dropped off.','Serviced on time, books with the truck','Tray paint is scraped from normal use','Not included',true,'B','B','B','B',30000,30000,0, now(), now() + interval '2 days 9 hours', 8000,
  'registered','SMPL04','QLD',(current_date + interval '4 months')::date, null::text, 'JLFFEC71KKK000704')
 ) v where public.collection_mode() = 'seller';
+-- the truck specifications buyers compare first (migration 37)
+update public.lots t set configuration = v.cfg, gcm_kg = v.gcm, tare_kg = v.tare, engine_hp = v.hp, cab = v.cab, suspension = v.susp, emissions = v.em
+from (values (10701, '4x2', 20000, 7900, 280, 'day', 'spring', 'Euro 5 (ADR 80/03)'),
+             (10702, '6x4', 32000, 9800, 300, 'day', 'spring', 'Euro 5 (ADR 80/03)'),
+             (10703, '6x4', 90000, 10200, 600, 'sleeper', 'air', 'Euro 5 (ADR 80/03)'),
+             (10704, '4x2', 11500, 4100, 150, 'day', 'spring', 'Euro 5 (ADR 80/03)')) v(id, cfg, gcm, tare, hp, cab, susp, em)
+where t.id = v.id;
 insert into public.lot_private (lot_id, reserve_price, seller_name, seller_phone, seller_address, pickup_notes)
 select v.id, v.reserve, 'Sample Seller', '0400000000', v.addr, 'Ask for the workshop office. Closed shoes on site.' from (values
   (10701, 46000, 'Sample address, Wetherill Park NSW 2164'), (10702, 65000, 'Sample address, Welshpool WA 6106'),
