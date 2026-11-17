@@ -219,6 +219,11 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   ok('no "[LAWYER ...]" placeholders: every position is settled and in docs/legal-basis.md', found.length === 0, found.join(', '));
   const reg = fs.readFileSync(path.join(root, 'docs/legal-basis.md'), 'utf8');
   ok('register: the comparison rate warning is prescribed, with its regulation', /reg 99 \("Warnings about comparison rate"\)/.test(reg) && /National Consumer Credit Protection Regulations 2010/.test(reg));
+  ok('register: the Super Trucker positions are recorded with their sources', /## 15\. Trucks are never sold after the auction/.test(reg) && /Australian Consumer Law s 3\(1\)/.test(reg)
+    && /## 16\. Viewings and introductions/.test(reg) && /Paciocco v Australia and New Zealand Banking Group Ltd \[2016\] HCA 28/.test(reg)
+    && /Motor Dealers and Repairers Act 2013 \(NSW\) ss 55-59/.test(reg) && /Motor Dealers and Repairers Regulation 2025 \(NSW\) cl 55/.test(reg)
+    && /Motor Vehicle Dealers \(Prescribed Vehicles\) Regulations 1974 \(WA\) r 3/.test(reg) && /Auction Sales Act 1973/.test(reg)
+    && /certificate of inspection/.test(reg) && /SMS Sender ID Register/.test(reg));
   ok('the comparison rate warning is the prescribed words, unchanged', COMPARISON_WARNING === 'WARNING: This comparison rate is true only for the examples given and may not include all fees and charges. Different terms, fees or other loan amounts might result in a different comparison rate.');
 }
 console.log(`${pass} passed, ${fail} failed`);

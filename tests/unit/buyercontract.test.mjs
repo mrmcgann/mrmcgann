@@ -60,7 +60,7 @@ ok('wording: every state says no cooling-off applies to a sale by auction', STAT
 // what is still open is recorded, not silently assumed away
 const open = STATES.filter((s) => STATE_RULES[s].toConfirm);
 ok('open points: the unsettled states say what is unsettled', open.length > 0 && open.every((s) => STATE_RULES[s].toConfirm.length > 30));
-ok('open points: Queensland, New South Wales, South Australia and Tasmania are settled', ['QLD', 'NSW', 'SA', 'TAS'].every((s) => STATE_RULES[s].toConfirm === null));
+ok('open points: Queensland, New South Wales, Western Australia, South Australia and Tasmania are settled', ['QLD', 'NSW', 'SA', 'TAS', 'WA'].every((s) => STATE_RULES[s].toConfirm === null));
 
 // in step with the register
 const reg = fs.readFileSync(new URL('../../docs/legal-basis.md', import.meta.url), 'utf8');

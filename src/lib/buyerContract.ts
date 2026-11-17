@@ -74,9 +74,9 @@ export const STATE_RULES: Record<StateCode, StateRule> = {
     document: null,
     signed: false,
     namesOwner: false,
-    notice: "This vehicle was sold at auction by the owner's agent. The dealer's duty to repair under the Motor Vehicle Dealers Act 1973 (WA) does not apply to a vehicle sold at auction. No cooling-off period applies to a sale by auction.",
-    toConfirm: "Whether the Motor Vehicle Dealers (Sales) Regulations 1974 (WA) prescribe a notice for an auction buyer, as distinct from the Schedule 5 contract used for a sale by private treaty.",
-    source: "Motor Vehicle Dealers Act 1973 (WA) ss 5, 21, 32A-32D; Motor Vehicle Dealers (Sales) Regulations 1974 (WA)",
+    notice: "This vehicle was sold at auction by the owner's agent. The owner is not in the vehicle trade, so Part III of the Motor Vehicle Dealers Act 1973 (WA), including the dealer's duty to repair, does not apply to this sale. No cooling-off period applies to a sale by auction.",
+    toConfirm: null,
+    source: "Motor Vehicle Dealers Act 1973 (WA) s 32(1) (Part III, the sales provisions, doesn't apply to a sale by auction unless the vehicle is owned by a trade owner, so no prescribed buyer's notice or Schedule 5 contract applies to our auctions: we don't list a trade owner's vehicle in WA); ss 5, 21, 32A-32D (licensing and consignment); Motor Vehicle Dealers (Sales) Regulations 1974 (WA)",
   },
   ACT: {
     state: "ACT",

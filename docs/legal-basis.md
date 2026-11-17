@@ -1,7 +1,9 @@
 # Super Trucker: the legal basis, clause by clause
 
 Settled 23 October 2026 from primary sources (Acts, regulations, regulators' guidance and cases), with selling after
-the auction, state by state, added on 26 October 2026 (section 5). Each position below
+the auction, state by state, added on 26 October 2026 (section 5), and re-settled for Super Trucker on 15 to 17 November
+2026: trucks only, launching in Queensland, New South Wales and Western Australia, viewed by appointment and collected
+where they're kept (sections 15 to 18, and the changes marked "Super Trucker" in sections 1 and 5 to 14). Each position below
 is built into the engine (the database), the wording (`src/content/legal.ts`, `src/lib/listing.ts` and friends), or
 both. If a rule changes in one place, change it in the other, and update this register.
 
@@ -11,24 +13,26 @@ listed at the end.
 
 ## The model in one paragraph
 
-Super Trucker (a Queensland company) sells vehicles for their owners, as their agent, in live online auctions conducted
-by a licensed auctioneer, at the fall of the hammer. Every listing has an auction estimate. A vehicle passed in (or
-whose buyer didn't pay) can be sold afterwards by agreement, where the state allows it: the seller agrees the price in
-writing, a consultant offers it to a bidder, and the buyer signs the offer, with that state's protections for a
-dealer's sale (cooling-off, notices). Super Trucker never gives a statutory warranty or takes on a dealer's duty to repair:
-it sells only where none applies, so a vehicle one would cover isn't sold after the auction, and in the ACT (where the
-duty to repair applies even at auction) one it could cover isn't listed at all. Never in Victoria, where a consigned vehicle can only be sold
-at auction; in Tasmania and the Northern Territory only once the licence that covers it is held. Otherwise it goes into
-the next live auction for its state. Super Trucker is never at the vehicle: the seller supplies the photos and walkaround
-video, and staff check them against the registration record, the PPSR search and the papers. Buyers never see the
-vehicle or learn who the seller is. After payment, a transport partner takes the vehicle to a depot, where the buyer
-collects it.
+Super Trucker (a Queensland company) sells trucks for their owners, as their agent, in live online auctions conducted
+by a licensed auctioneer, at the fall of the hammer: to start, trucks only (settings `selling.categories`) kept in
+Queensland, New South Wales and Western Australia (`selling.states`). Every listing has an auction estimate. A truck
+passed in (or whose buyer didn't pay) goes into a later auction: trucks are never sold privately after the auction,
+because a goods vehicle is covered by the consumer guarantees at any price outside an auction (section 15). Super
+Trucker never gives a statutory warranty: none applies to an owner's truck sold at auction in any of the three states,
+and a trade owner's vehicle (which could carry one) isn't listed. Super Trucker is never at the truck: the owner
+supplies the photos and walkaround video, and staff check them against the registration record, the PPSR search and the
+papers. The truck stays where it's kept. Verified members can view it there by appointment: Super Trucker agrees each
+visit with the owner, sends the member the address and the owner the member's name, and keeps a record of the
+introduction. Under the owner's 90-day exclusive authority, and the member's agreement at booking, a sale around Super
+Trucker to someone it introduced owes it the premium it would have earned (section 16). After payment in full, the buyer
+collects the truck from the owner with a release code (section 17). Older listings sold on the earlier depot model keep
+it (`lots.collect_from` 'depot'), and the sections that describe it stay for them.
 
 ## 1. Sale by auction, and the consumer guarantees
 
 | Position | Built in | Source |
 | --- | --- | --- |
-| Every sale under the hammer is a "sale by auction": conducted by the owner's agent, in person or electronically. A sale after the auction isn't one, and is treated as the dealer's own private-treaty sale it is (section 5, "Selling after the auction"). | Live-only engine (migration 22); after-auction sales (migration 26, `sold_via` 'after_auction'); Terms ss 4, 6 | Australian Consumer Law (Sch 2, Competition and Consumer Act 2010) s 2, definition of "sale by auction" |
+| Every sale under the hammer is a "sale by auction": conducted by the owner's agent, in person or electronically. A sale after the auction isn't one, and is treated as the dealer's own private-treaty sale it is (section 5, "Selling after the auction"). Super Trucker: trucks, buses, trailers and machinery are never sold after the auction (section 15). | Live-only engine (migration 22); after-auction sales (migration 26, `sold_via` 'after_auction'); Terms ss 4, 6 | Australian Consumer Law (Sch 2, Competition and Consumer Act 2010) s 2, definition of "sale by auction" |
 | The guarantees of title, undisturbed possession and no undisclosed securities (ss 51 to 53) apply to every sale; acceptable quality, fitness for purpose, description and sample (ss 54 to 59) don't apply to sales by auction. | `consumerRights()`; Terms s 4; Help | ACL ss 51 to 59 (ss 54 to 59 apply only where "the supply does not occur by way of sale by auction"); ACCC, "Auctions" guidance |
 | A sale after the auction: ss 51 to 53 apply; ss 54 to 59 apply to a supply "in trade or commerce", so to a business seller's vehicle. A private owner's sale of their own vehicle isn't made in trade or commerce just because an agent makes it for them, so for a private seller we say they may not apply, and that any guarantee that does apply can't be excluded. We never say they're excluded. | `consumerRights('after', …)` on the offer page, the contract and the invoice; Terms s 4 | ACL ss 51 to 59, 29(1)(m), 64; Williams v Pisano [2015] NSWCA 177 (a private owner's sale isn't conduct in trade or commerce, and engaging an agent doesn't make it a business dealing); Concrete Constructions (NSW) Pty Ltd v Nelson (1990) 169 CLR 594 |
 | Misleading conduct law always applies; nothing excludes non-excludable rights. | Terms ss 4, 13; Website terms s 1 | ACL ss 18, 29, 64 |
@@ -70,6 +74,10 @@ collects it.
 
 ## 5. Licensing and consignment, state by state
 
+Super Trucker launches in Queensland, New South Wales and Western Australia only (`selling.states`; `lot_collect_rules`
+refuses to publish anywhere else). The other states' rows stay for when they're added. For trucks in the three launch
+states, see also section 18.
+
 | State | Position | Source |
 | --- | --- | --- |
 | Queensland | Motor dealer licence (corporation) plus a chattel auctioneer licence held by the employee who conducts the auctions; a corporation motor dealer may sell used vehicles by auction if the auction is conducted by its employed licensed chattel auctioneer. The motor dealer licence also covers selling a consigned vehicle by private treaty after the auction; the consultant who negotiates it is a registered motor salesperson (or the licensee). Trust account for consignment money (deposit by the end of the next business day). | Motor Dealers and Chattel Auctioneers Act 2014 (Qld) ss 14, 40(2), Part 5 (ss 151, 152: what a motor salesperson's registration authorises); Agents Financial Administration Act 2014 (Qld) ss 16, 22 |
@@ -86,6 +94,10 @@ s 10 (trust account); Terms s 1 (licences, `{{LICENCES}}` from settings) and s 8
 room show the licence line (`licenceLine()`).
 
 ### Selling after the auction, state by state
+
+Super Trucker: switched off for trucks, buses, trailers and machinery (`after_auction_check` 'heavy', unless
+`selling.after_auction_heavy`), for the reason in section 15. The analysis below stays for lighter vehicles, if they're
+ever sold again.
 
 A sale after the auction is a motor dealer's sale of a consigned vehicle by private treaty, not a sale by auction, so
 each state's rules for a dealer's sale apply to it. The vehicle's state is where it's consigned and collected (the
@@ -130,21 +142,25 @@ listing's state); a vehicle located or registered in Victoria is treated as Vict
 | --- | --- | --- |
 | Each listing and the live room state, before bidding opens, that no statutory warranty applies; listings and advertisements say "No statutory warranty", beside the price. | `lots.statutory_warranty` (publish check: stated, and never true), `warrantySign()`, LotCard, listing notice, live room | MDCA Act 2014 (Qld); MDCA Regulation 2014 (Qld) s 11 |
 | We never give a statutory warranty or take on a dealer's duty to repair (the owner's decision: Super Trucker sells only as the owner's agent). A private owner's vehicle sold at auction has none in QLD (consignment for a private seller excluded), NSW (auction with the dealer's notice), VIC, WA, SA, TAS, NT (auction sales excluded). The ACT duty to repair isn't lifted for auctions (only motorcycles) and has no consignment exclusion, so we don't list an ACT vehicle it could cover. A motor dealer's own vehicle can carry one, so we don't list one that would. | `lot_publish_check` (never `statutory_warranty`; in the ACT `warranty_free_for()`), `warrantyGuide()` for staff; Terms s 4 | Qld "Warranty for used cars"; NSW "Dealer guarantees and warranties"; MVDA 1973 (WA) s 32(1)(b); SHVDA 1995 (SA) s 23(3); ACT SMVA 1977 ss 23(1), 23(9), 25(4), 25A(5)(b) |
+| Super Trucker (trucks): none applies to an owner's truck sold at auction in any launch state. Queensland excludes a commercial vehicle from a "warranted vehicle" outright, as well as a consignment for an owner who isn't a licensee, so a truck is doubly outside it; the auctioneer still announces before the auction that no statutory warranty applies. New South Wales: the dealer guarantee doesn't apply to a sale at auction with the dealer's notice. Western Australia: Part III of the Act (with the duty to repair) doesn't apply to a sale by auction unless the vehicle is owned by a trade owner, and the duty to repair separately excludes a goods vehicle with one row of seats (a crew cab isn't excluded by that limb). A trade owner is a person who acquired the vehicle to resell it, so in Western Australia we don't list a trade owner's truck, and everywhere the seller declares whether they're a motor dealer or bought it to resell. | `lot_publish_check` (`statutory_warranty` never true); seller agreement ss 1, 6; Terms s 4; `warrantySign()` | MDCA Act 2014 (Qld) Sch 1 s 3 (definition of "warranted vehicle": excludes a commercial vehicle and a vehicle sold on consignment for a non-licensee), ss 145-146 (the auctioneer's statement); MDRA 2013 (NSW) s 67ff with the Form 11 auction notice; MVDA 1973 (WA) s 32(1) (Part III and sales by auction; "trade owner"), s 34 (duty to repair; goods vehicle with one row of seats) |
 | Sold after the auction, the auction exclusions fall away: the NSW dealer guarantee (a vehicle "sold by the motor dealer"; the Act has no consignment exclusion, so we treat it as applying), the WA, SA and ACT duty to repair and the Tasmanian and NT warranties apply to an eligible vehicle, and no contract can exclude them (Queensland still excludes a consignment for an owner who isn't a licensee). So we only sell after the auction where none applies: a vehicle is clear only well past the limits (two years past the age, because the law counts from build, compliance or first registration, which can come after the model year; over the distance; or a kind not covered), unknown counts as covered, and staff confirm from the papers that none applies (the owner isn't a motor dealer; the dates). Every offer and contract say no statutory warranty applies. | `warranty_free_for()` (migration 27) = `warrantyFree()`; `after_auction_check` ('warranty', 'warranty_unknown'); `admin_after_offer` (never with one); the staff confirmation on the lot page | Section 5, "Selling after the auction"; MDRA 2013 (NSW) ss 67-74; MVDA 1973 (WA) s 34, Sch 4 cl 9; SHVDA 1995 (SA) s 23; SMVA 1977 (ACT) ss 23-25; MVTA 2011 (Tas) ss 42-44 |
 
 ## 7. Safety and roadworthy certificates
 
 | State | Position | Source |
 | --- | --- | --- |
-| Queensland | Safety certificate needed to transfer a registered light vehicle (no auction exemption); private seller's certificate valid 2 months or 2,000 km. | qld.gov.au "Safety certificates" |
-| Victoria | RWC needed to transfer a registered vehicle (light trailers exempt), issued less than 30 days before the sale; a car at auction may be sold without one, but the buyer then needs it within 14 days, so here the seller supplies it. | VicRoads "Buy a registered vehicle", "Buying at auction"; CAV auction page |
-| ACT | Roadworthy inspection before transfer for vehicles up to 4.5 t more than 6 years old. | Access Canberra "Buying an ACT registered vehicle" |
-| NT, SA | NT light vehicles 7+ years; SA heavy vehicles and trailers 3+ years. | `src/lib/transfer.ts` (state pages, checked October 2026) |
-| NSW, WA, TAS | None needed to transfer a current registration. | Service NSW; WA DoT; Service Tasmania |
+| Queensland | A registered vehicle up to 4.5 t GVM needs a safety certificate to transfer the registration (no auction exemption); a private seller's is current 2 months or 2,000 km. A heavy vehicle over 4.5 t (and a bus) needs a certificate of inspection instead, current for 12 months; a vehicle in the NHVAS maintenance module needs one unless the buyer is in NHVAS too. The seller supplies it; the publish check needs its date (2 months for a safety certificate, 12 months for a certificate of inspection, counted back from the auction) or a written exemption. | qld.gov.au "Safety certificates", "Selling a used vehicle" (heavy vehicles, licensed tow trucks, buses: a certificate of inspection; NHVAS); Transport Operations (Road Use Management—Vehicle Standards and Safety) Regulation 2021 (Qld) Part 6 (inspection certificates; the "COI term"), carrying on s 28 of the 2010 Regulation (a certificate of inspection is current for a year) |
+| New South Wales | Nothing more is needed to transfer a current registration. But a dealer must not offer, display or sell by auction a registered vehicle with its number-plates on unless a current inspection report (issued in the 42 days before) is attached, and an online dealer "attaches" it by making it publicly available on the website; the s 57(2) "within 7 days" option was omitted in 2023. The rule doesn't apply where the registration was first issued or renewed within 90 days before the sale, or to a sale to a dealer, recycler or financier. A vehicle offered without plates needs the plates' surrender receipt (or the dealer's declaration of why they're off) shown with it. So: a registered NSW truck has its report photographed on the listing (`roadworthy_issued_on`, 42 days), or an "Exempt" note giving the 90-day renewal; otherwise it's sold unregistered with the reason shown (`plates_note`, 10+ characters). The rule follows where it's auctioned (`certState()`), not where it's registered. | Motor Dealers and Repairers Act 2013 (NSW) ss 55-59 (s 57(1); s 55(2) exemptions; s 59 plates surrendered); Motor Dealers and Repairers Amendment Act 2023 (NSW) (No 28, omitting s 57(2)); Motor Dealers and Repairers Regulation 2025 (NSW) cl 55 ("current" inspection report: 42 days), in force 1 September 2025 |
+| Western Australia | Nothing more is needed to transfer a current licence (registration). | WA Department of Transport "Selling a vehicle" |
+| Victoria (later) | RWC needed to transfer a registered vehicle (light trailers exempt), issued less than 30 days before the sale; a car at auction may be sold without one, but the buyer then needs it within 14 days, so here the seller supplies it. | VicRoads "Buy a registered vehicle", "Buying at auction"; CAV auction page |
+| ACT (later) | Roadworthy inspection before transfer for vehicles up to 4.5 t more than 6 years old. | Access Canberra "Buying an ACT registered vehicle" |
+| NT, SA (later) | NT light vehicles 7+ years; SA heavy vehicles and trailers 3+ years. | `src/lib/transfer.ts` (state pages, checked October 2026) |
+| TAS (later) | None needed to transfer a current registration. | Service Tasmania |
 
-Built in: `roadworthy_needed()` / `certNeeded()`; publish check (date on file, Victorian 30-day and Queensland 2-month
-rules, or a written exemption); `certLine()` on the listing; seller agreement s 6 (seller supplies and keeps it current);
-Terms s 10 (buyer may cancel if a lapsed certificate can't be renewed).
+Built in: `roadworthy_needed()` / `certNeeded()` / `certState()`; publish check (the date on file, with the Victorian
+30-day, Queensland 2-month and 12-month and New South Wales 42-day rules, or a written exemption; the New South Wales
+plates note); `certLine()` on the listing; `relistSteps()` (the rule for the new auction's date); seller agreement s 6
+(the seller supplies it and keeps it current); Terms s 10 (the buyer may cancel if a lapsed certificate can't be renewed).
 
 ## 8. Selling for an unnamed owner; GST
 
@@ -153,13 +169,14 @@ Terms s 10 (buyer may cancel if a lapsed certificate can't be renewed).
 | An agent may contract for a principal it doesn't name. Because the buyer can't deal with the owner, Super Trucker takes on payment, title, transport, the vehicle from pickup, and every promised refund. | Terms s 1; sale certificate "as agent for the owner" | General law of agency (unnamed principal) |
 | GST-registered sellers: Subdivision 153-B arrangement, so Super Trucker issues the buyer's tax invoice in its own name and the seller stays private. | Seller agreement s 14; invoice PDF footer | A New Tax System (Goods and Services Tax) Act 1999 Subdiv 153-B; GSTR 2000/37 |
 
-## 9. Privacy, transport, depot, uncollected goods
+## 9. Privacy, viewings, collection, uncollected goods
 
 | Position | Built in | Source |
 | --- | --- | --- |
-| Seller never identified to buyers; the pickup address goes only to staff, the transport partner and the partner mechanic. Transfer forms: each party gets only what their part of the state's form needs (e.g. the buyer's licence or customer number in NSW and Queensland, name and address in Victoria). | Migration 21; Terms ss 2, 14; Privacy | Privacy Act 1988 (APP small business exemption at $3m turnover, with exceptions); statutory privacy tort (from 10 June 2025); Service NSW notice of disposal; VicRoads selling a vehicle |
-| Transport in the buyer's premium, locked when bidding opens; our responsibility from pickup to handover, with due care and skill. | `lot_fees_snapshot`, `lot_transport_lock`; Terms ss 7, 9 | ACL ss 48, 60 |
-| Uncollected vehicles are dealt with under the depot state's uncollected goods law, after its notices. | Terms s 9 | Disposal of Uncollected Goods Act 1967 (Qld); Uncollected Goods Act 1995 (NSW); Australian Consumer Law and Fair Trading Act 2012 (Vic) Part 4.2; Disposal of Uncollected Goods Act 1970 (WA); Unclaimed Goods Act 1987 (SA); Disposal of Uncollected Goods Act 1968 (Tas); Uncollected Goods Act 1996 (ACT); Uncollected Goods Act 2004 (NT) |
+| Super Trucker: the listing never names the owner and shows the suburb, never the street. The address (with the owner's directions) goes only to a verified member whose viewing the owner has agreed, the buyer once their collection time is confirmed, and a partner mechanic a bidder sends; the owner agreed to that in the seller agreement (s 15). The owner is told the name of whoever is coming to view or collect, which the member agrees to when they book. Neither side gets the other's phone, email or home address. Transfer forms: each party gets only what their part of the state's form needs. The Queensland sale statement still names the owner after the hammer (section 12). | `invoice_pickup()` (address only once a collection is confirmed, buyer or admin only), `admin_viewing` (the address in the confirmation only), `seller_lot_collection()` (the collector's name, never their contact details), `lot_introductions()` (admins only); Privacy policy; Terms ss 2, 5, 14; seller agreement s 15 | Privacy Act 1988 (Cth) APPs 5 and 6 (notice at collection; use and disclosure for the primary purpose the person was told of; the small business exemption at $3m turnover, with exceptions); statutory tort for serious invasions of privacy (Privacy and Other Legislation Amendment Act 2024, from 10 June 2025) |
+| Viewings are for verified members only (mobile and ID verified, as for bidding), so an owner is never sent an anonymous stranger, and a stolen-truck scout can't book one without being identified. | `request_viewing` (`can_bid`) | Risk control; supports the reasonable care owed to the owner as our principal |
+| Older depot listings: the seller is never identified to buyers; the pickup address goes only to staff, the transport partner and the partner mechanic; transport is in the buyer's premium, locked when bidding opens, and our responsibility from pickup to handover. | Migration 21; `lot_fees_snapshot`, `lot_transport_lock` | ACL ss 48, 60 |
+| Uncollected trucks are dealt with under the law of the state they're in, after its notices: in the launch states, the Disposal of Uncollected Goods Act 1967 (Qld), the Uncollected Goods Act 1995 (NSW) and the Disposal of Uncollected Goods Act 1970 (WA). The truck is the owner's to keep until then, and storage is the owner's charge to the defaulting buyer. | Terms s 9 | Those Acts; the other states' Acts stay listed for later: Australian Consumer Law and Fair Trading Act 2012 (Vic) Part 4.2; Unclaimed Goods Act 1987 (SA); Disposal of Uncollected Goods Act 1968 (Tas); Uncollected Goods Act 1996 (ACT); Uncollected Goods Act 2004 (NT) |
 
 ## 10. Contract terms (unfair contract terms)
 
@@ -207,9 +224,12 @@ the ban. Where a state's own form is signed by the buyer, the acknowledgement is
 | A state we have not settled still gets the full Queensland-style statement, because it is the strictest: giving it everywhere can only be more than the minimum, never less. | `ruleFor()` falls back to QLD | — |
 | The buyer draws a signature, in every state, not only the two whose own form is signed. That is our own practice rather than a statutory requirement outside New South Wales and South Australia, and it does not make the sale conditional: refusing to record an acknowledgement without a drawing is a rule about our paperwork, and the buyer still owns the vehicle and still owes for it from the fall of the hammer. The strokes are stored as numbers and redrawn by us, never as an image the browser sends. | `acknowledge_sale` (`sign_draw`), `SignaturePad`, `cleanSignature`, the `invoices_ack_signature_shape` constraint | Electronic Transactions Act 1999 (Cth) s 10 (a signature by electronic means, with a reliable method of identifying the person: here the drawing plus the name matched against the verified account) |
 
-For the lawyer's final read: confirm whether Victoria, Western Australia, the ACT and the Northern Territory require
-a prescribed notice to an auction buyer (as distinct from the private-treaty forms in section 5), and confirm the
-Queensland reading above, which is the one place a seller's name reaches a buyer. `STATE_RULES[...].toConfirm` names
+Western Australia is settled (Super Trucker, November 2026): Part III of the Motor Vehicle Dealers Act 1973 (WA), with its
+prescribed notices and the Schedule 5 contract, doesn't apply to a sale by auction unless the vehicle is owned by a trade
+owner (s 32(1)), and we don't list a trade owner's vehicle there, so the auction buyer gets our statement with the
+state's notice and no prescribed form. For the lawyer's final read: confirm whether Victoria, the ACT and the Northern
+Territory require a prescribed notice to an auction buyer (as distinct from the private-treaty forms in section 5), when
+those states are added, and confirm the Queensland reading above, which is the one place a seller's name reaches a buyer. `STATE_RULES[...].toConfirm` names
 each open point in the code so it cannot be lost.
 
 ## 13. Putting it in the buyer's name: registration transfer
@@ -232,9 +252,20 @@ Before launch: read each state's vessel page and add the deadline and the fee, t
 above `VESSEL_RULES`; settle the ACT and the NT either way. The road table's own marker is the same job on the other
 half, and both are due again every few months because these pages move.
 
-## 14. Releasing an unregistered vehicle from our depot
+## 14. Releasing an unregistered vehicle at the handover
 
-Our exposure is not the buyer's failure to register. It is the moment our own staff hand over the keys.
+Our exposure is not the buyer's failure to register. It is the moment whoever holds the keys hands them over. Super
+Trucker: that's the owner, at their own place, using our handover page, so the same gate protects them (and the seller
+agreement s 7 tells them why). The depot wording below describes the earlier model and applies to its listings.
+
+In the launch states: Queensland makes it an offence to use, **or permit to be used**, an unregistered vehicle on a road
+(below); Western Australia makes it an offence for a vehicle's **responsible person** (its owner or licence holder), as
+well as its user, to use it on a road without a current licence, unless under a permit (Road Traffic (Vehicles) Act 2012
+(WA) s 4, with s 4(4) and the permits in s 13(1); a 15-day grace after a licence ends, Road Traffic (Vehicles)
+Regulations 2014 (WA) r 16); New South Wales makes it an offence to use an unregistered registrable vehicle on a road
+(Road Transport Act 2013 (NSW) s 68(1), 20 penalty units), with uninsured use a separate offence (Motor Accident
+Injuries Act 2017 (NSW) s 2.1). The handover page applies the same rule everywhere: no plates means a carrier, a float or
+trailer, or a permit number recorded before the keys change hands.
 
 | Position | Where it lives | Basis |
 | --- | --- | --- |
@@ -270,6 +301,42 @@ Before launch: confirm the equivalent "use or permit to be used" offence and its
 state we release vehicles in, and record them here. The shape is the same everywhere, but the section numbers,
 penalties and permit durations are not, and the depot screen's wording should not imply Queensland's everywhere.
 
+## 15. Trucks are never sold after the auction
+
+| Position | Built in | Source |
+| --- | --- | --- |
+| A vehicle or trailer acquired for use principally in the transport of goods on public roads is acquired "as a consumer" whatever it costs. So outside a sale by auction, the guarantees of acceptable quality, fitness for purpose and description can apply to a truck, including one a business sells to a business. Under the hammer they don't (they apply only where the supply isn't a sale by auction). | Terms s 4; `consumerRights()` | Australian Consumer Law s 3(1) (the goods-transport limb has no price ceiling), ss 54-59 |
+| So trucks, buses, trailers and machinery are never sold by private treaty after an auction: a sale we arranged after the auction would be our own dealer's sale, with guarantees we'd answer for and (in New South Wales, Western Australia and the ACT) dealer duties that can't be excluded. A truck that's passed in goes into a later auction; to sell on the day, the owner lowers the reserve before the hammer (by phone to the auctioneer if need be). | `after_auction_check` ('heavy'; setting `selling.after_auction_heavy`, off); Terms s 6 (`#t-after`, "Nothing is sold after the auction"); seller agreement ss 4, 12; Help | Section 5 ("Selling after the auction"); section 6 |
+
+## 16. Viewings and introductions: the exclusive authority and the introduction fee
+
+Buyers now meet owners, at viewings and at the handover, so the business needs a contract that keeps the sale with us
+without being unfair. Both sides agree to the same thing, in plain words, before they meet.
+
+| Position | Built in | Source |
+| --- | --- | --- |
+| The owner appoints us as exclusive agent for the 90 days of their authority. If the truck is sold any other way in that time, by anyone, to anyone, the owner pays the buyer's premium we would have earned on the price (the rate, plus GST, and our seller fee on it if there is one). For the `auction.exclusivity_days` (90) after the authority ends or a withdrawal, the same is payable on a sale to someone we introduced: anyone we named to them in writing, anyone who bid, anyone who found it through us. A clean withdrawal and a sale to someone we didn't introduce costs only the withdrawal fee. The owner says no to direct approaches and tells us the same day. | Seller agreement ss 1, 2, 8; `SELLER_ACKS.no_contact`; `lot_introductions()` (the record of every introduction); `legalValues` (`EXCLUSIVITY_DAYS`, `SELLER_FEE_ALSO`) | An exclusive sale authority with commission on any sale in its term is the standard consignment and agency form (and the written consignment authority the dealer laws require, section 5). Western Australia's prescribed Schedule 4 consignment terms prevail where they differ (seller agreement s 16) |
+| The member agrees, when they ask to view, ticking these exact words (`viewingAck`, stored on the booking with the terms version and time): we're introducing them; if they buy that truck from its owner other than through us, while it's listed or within the same period after, they pay the premium we would have earned on the price they paid; they won't make the owner an offer or ask them to deal direct; the address is for that viewing only; the owner is given their name. Every bidder agrees the same in Terms ss 5 and 18. | `request_viewing` (`viewing_ack`; `viewings.ack_text/ack_version/ack_at`), `viewing_ack_text()` held to the TypeScript wording by the database test; Terms ss 5 (`#t-intro`), 18; Website terms s 3 | Terms brought to a party's notice before the contract is made bind them: Oceanic Sun Line Special Shipping Co Inc v Fay (1988) 165 CLR 197; Electronic Transactions Act 1999 (Cth) s 8 (a transaction isn't invalid because it took place electronically) |
+| The amount is the fee we'd have earned and no more, payable once (from the buyer or the owner, never both), on the actual price (the low estimate only if the owner won't say), for a limited time, and only after an introduction we can prove. That keeps it proportionate to the legitimate interest it protects (the fee for the advertising, checks and introduction already given) rather than a penalty, and keeps it transparent and limited enough to survive the unfair-terms test in a consumer or small-business standard form. | Terms s 5; seller agreement s 2 ("what we lose ... and no more"; "We don't also collect it from the buyer") | Paciocco v Australia and New Zealand Banking Group Ltd [2016] HCA 28 (a stipulated sum is a penalty only if out of all proportion to the legitimate interest protected); ACL ss 23-25 (unfair terms: imbalance, legitimate interest, detriment; s 24(3) transparency; s 25(c) one-sided penalties as an example) |
+| Viewings: in person only (no video calls with an owner), verified members only, offered times from tomorrow to the day before the auction, one open request per truck, five open in all. Looking and listening only, no road test (an unregistered or uninsured truck, licence classes and the owner's insurance all argue against it). Nobody from Super Trucker attends. The yard is the owner's workplace: visitors follow its rules and answer for damage they cause; the owner keeps the site safe. What an owner says isn't part of the listing until we confirm it in writing and add it for every bidder. | `request_viewing`, `admin_viewing`, `viewing_sweep()`; Terms s 5; seller agreement s 7; Help | Work Health and Safety Act 2011 (Qld) and (NSW), Work Health and Safety Act 2020 (WA) ss 19-20 (a business owner is the person conducting the business at its yard, with duties to visitors); Civil Liability Act 2003 (Qld), 2002 (NSW), 2002 (WA) (a private owner's occupier's duty); ACL s 18 (an unconfirmed statement at a viewing isn't ours) |
+
+## 17. Collecting it from the seller
+
+| Position | Built in | Source |
+| --- | --- | --- |
+| After payment in full we lodge the owner's notice of disposal (or there's nothing to lodge, when it's sold unregistered). The buyer then books a time; we agree it with the owner; the buyer gets the address and a 6-digit release code, the owner the collector's name and the handover link. The owner checks photo ID against that name and hands over only when the code works; the buyer checks the truck first, and the code is their sign-off, starting the claim window. Never any money between them. | `transfer_clear()`, `collection_needs_transfer`, `collection_ready()` (seller branch), `/api/collections`, admin `confirm-collection` (seller branch), `complete_handover`, `seller_lot_collection()`, `invoice_pickup()`; Terms ss 9, 16; seller agreement s 7 | Contract (the Terms and the seller agreement); Sale of Goods Act 1896 (Qld) s 25, Sale of Goods Act 1923 (NSW) s 23, Sale of Goods Act 1895 (WA) s 20 (risk passes with property unless otherwise agreed: here it's agreed to pass at the handover, or at the end of the collection window) |
+| Until the handover the truck is the owner's risk and insured by them; we never hold it. The buyer's protection is the money: it stays in our trust account until the handover is done and the claim window closed, and something materially different at the yard means no code and a full refund. | Terms s 9; seller agreement ss 7, 10; payouts released only after collection and the claim window (`release_payouts()`) | Agents Financial Administration Act 2014 (Qld); Motor Dealers and Repairers Act 2013 (NSW) (consignment money); Motor Vehicle Dealers Act 1973 (WA) (consignment proceeds in trust) |
+| No storage until the truck is ready to collect, and none for a delay that's ours or the owner's; after the window, storage, then the uncollected goods law of the truck's state (section 9). | Terms s 9 | Section 9 |
+
+## 18. Trucks in Queensland, New South Wales and Western Australia
+
+| State | Position | Source |
+| --- | --- | --- |
+| Queensland | As section 5: the motor dealer licence covers selling trucks for their owners, by auction conducted by its employed licensed chattel auctioneer. A truck over 4.5 t transfers on a certificate of inspection (section 7). Heavy Vehicle National Law applies on the road. | MDCA Act 2014 (Qld) ss 14, 40(2); section 7; Heavy Vehicle National Law (Queensland) |
+| New South Wales | As section 5, with the inspection report rule for auctioning a registered vehicle with its plates on (section 7). Heavy Vehicle National Law applies on the road. | MDRA 2013 (NSW) ss 55-59; Heavy Vehicle National Law (NSW) |
+| Western Australia | Trucks are "goods vehicles", a class prescribed for the dealer laws, so dealing in them (including selling them for their owners) needs a WA motor vehicle dealer's licence, with consignment approval and a trust account as in section 5. Conducting auctions needs an auctioneer's licence under the Auction Sales Act 1973 (a general licence, granted by a magistrate; $592 for 2026-27), which isn't in the earlier version of this register: we take the cautious reading that it's needed for auctions of trucks kept in Western Australia even when the auctioneer is in Brisbane. Part III doesn't apply to our auctions because we don't list a trade owner's vehicle (sections 6, 12). A temporary movement permit lasts 48 hours, costs $32.40, is arranged by phone (13 11 56) or in person for a heavy vehicle, carries no load, and is only for a trip to a repairer, an inspection or licensing (or to another state to be licensed), never just to drive it home or for parts. The Heavy Vehicle National Law doesn't apply: Western Australia's own road traffic laws do. | Motor Vehicle Dealers Act 1973 (WA) s 5(3); Motor Vehicle Dealers (Prescribed Vehicles) Regulations 1974 (WA) r 3; MVDA s 32(1) ("trade owner"); Auction Sales Act 1973 (WA); WA Department of Transport "Temporary movement permits"; Road Traffic (Vehicles) Act 2012 (WA) s 13 |
+| All three | Whoever drives a truck away needs the licence class for its GVM (LR, MR, HR, HC, MC), which every listing shows; that, the mass and dimension rules and any permit are the buyer's. Trailers are a separate category and stay off (`selling.categories`): add them only with their own rules (registration, certificates, the goods-vehicle guarantees). | Terms s 10; `LICENCES`; `lot_publish_check` (GVM required for trucks and buses) |
+
 ## Governing law
 
 Queensland (where the business and the auctions are run from; business days and times are Brisbane's). Each document
@@ -277,25 +344,27 @@ says nothing takes away the protections of the buyer's or seller's own state.
 
 ## What only Super Trucker can supply before launch
 
-- The licences actually held, by state (settings `business.licences`; shown in the footer, the Terms and the live room).
-  Launch only in the states where the licence is held, or keep listings to those states.
-- The licensed chattel auctioneer (an employee in Queensland), whose name goes on each live sale.
-- The consultants who negotiate sales after the auction: a motor salesperson registration in Queensland and a
-  salesperson's licence in Western Australia (or the licensee does it). Tasmania and the Northern Territory stay off
-  until Super Trucker holds a trader (Tas) or dealer (NT) licence; then add them in Admin settings.
-- Western Australian sellers also sign the prescribed vehicle consignment contract (the Schedule 4 terms, which
-  prevail where they differ from our agreement), and the state's forms for each offer after the auction (NSW Forms 5
-  and 12, the SA notices and cooling-off agreement, WA Form 4 and the Schedule 5 sale contract, the ACT s 20 notice)
-  come from the regulators' own templates, filled in for the vehicle and attached to the offer.
-- Staff confirm, from each vehicle's papers, that no statutory warranty applies before an offer after the auction (the
-  owner isn't a motor dealer; its build, compliance and first registration dates and odometer), and don't list a motor
-  dealer's own vehicle that would carry one. We never give one, so there are no warranty repairs to budget for.
-- The trust account (bank, account name) for buyer and seller money, and the audit arrangements each state requires.
-- The ABN, GST registration and the business address in the environment settings.
-- Insurance for vehicles in transit and at the depot (Terms s 9 promises our responsibility either way).
-- The transport partner and depot agreements (confidentiality of sellers' addresses, care of vehicles).
-- Watch item: Victoria announced tighter auction-house rules on 11 July 2026 (odometer checks before sale, more powers
-  for Consumer Affairs Victoria); check the commencement and the regulations before launch.
+- The licences actually held in each launch state (settings `business.licences`; shown in the footer, the Terms and the
+  live room): Queensland, a motor dealer licence plus a chattel auctioneer licence held by the employee who conducts the
+  auctions; New South Wales, a motor dealer licence (tell Fair Trading it trades online, and show the number on the site
+  and ads); Western Australia, a motor vehicle dealer's licence covering goods vehicles (with consignment approval) and
+  an auctioneer's licence under the Auction Sales Act 1973 (section 18). List only in states where they're held.
+- The licensed auctioneer, whose name goes on each live sale.
+- The trust account(s) for buyer and seller money in each launch state, and the audit arrangements each requires.
+- The company's legal name, ABN, GST registration and business address (environment settings). The legal name
+  shows as "[Company name Pty Ltd]" until it's set, and Site health should refuse to go live with it.
+- The name "Super Trucker": search the Australian trade marks register (a United States "SUPERTRUCKER" mark exists; the
+  Australian register wasn't checked from here), register the business name with ASIC if the company trades under
+  it, and choose the domain. Until a new domain is set the site, emails and app links stay on tyrebiter.com.au
+  (`NEXT_PUBLIC_SITE_URL`, `EMAIL_FROM`, `NEXT_PUBLIC_SUPPORT_EMAIL`), and the app's bundle id stays au.com.tyrebiter.app.
+- The SMS sender: since 1 July 2026 a branded sender ID must be registered on the ACMA's SMS Sender ID Register (through
+  Twilio) or messages show as "Unverified", and an alphanumeric sender ID is at most 11 characters, so "Super Trucker"
+  won't fit: register "SuperTruckr" (or send from a number) once the business name is registered.
+- Public liability and professional indemnity insurance for the business (nobody attends viewings or handovers, but
+  the business still arranges them).
+- Only if depot listings are used again: the transport partner and depot agreements and in-transit insurance.
+- Watch items for later states: Victoria's tighter auction-house rules (announced 11 July 2026); each other state's
+  "use or permit" offence for unregistered vehicles (section 14).
 
 ## Sources
 
