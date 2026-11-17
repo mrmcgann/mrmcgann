@@ -7,7 +7,8 @@ import { Button, Check, Empty, Field, Loading, Notice, Screen, Soft, T } from "~
 
 type H = { status: string; confirmed_for: string | null; who: string; title: string; keys: number | null };
 
-/** The depot's handover: check ID, take the 6-digit release code, record odometer and keys. */
+/** The handover, by the seller (collected where it's kept) or the depot (older listings): check ID, take the 6-digit
+ *  release code, record odometer and keys. */
 export default function Handover() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const { config } = useSession();

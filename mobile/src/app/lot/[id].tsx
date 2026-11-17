@@ -25,7 +25,8 @@ import { LotCard } from "~/ui/LotCard";
 import { useWatch } from "~/ui/useWatch";
 import { C, F } from "~/ui/theme";
 import { LISTING_CHECKS, PHOTO_CHECK, REMOTE_REPORT, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine, warrantySign } from "@/lib/listing";
-import { CHECK_IT, NO_VIEWINGS, depotPlace, premiumLabel } from "@/lib/transport";
+import { NO_VIEWINGS, VIEW_BY_APPOINTMENT, checkIt, collectFrom, depotPlace, premiumLabel } from "@/lib/transport";
+import { ViewingBox } from "~/ui/Viewing";
 import { coolingOffSign } from "@/lib/afterAuction";
 import { certLine } from "@/lib/transfer";
 import { lotFees } from "@/lib/fees";
@@ -88,6 +89,8 @@ export default function LotScreen() {
   // Fields added to the bundle later; an older cached response may not have them yet.
   const videos = b.videos || [], consultant = b.consultant || null, finance = b.finance || null, inspector = b.inspector || null;
   const corrections = b.corrections || [], sale = b.sale || null, transporter = b.transporter || null;
+  // Super Trucker: viewed by appointment where it's kept and collected from the seller (older listings: our depot)
+  const atSeller = collectFrom(b.lot) === "seller";
   const checked = LISTING_CHECKS.filter(([k]) => (lot.verified || []).includes(k));
   const g = gradeInfo(lot.visual_grade);
   const d: Disclosures = lot.disclosures || {};
@@ -112,11 +115,11 @@ export default function LotScreen() {
     ["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body],
     ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
     ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null],
-    ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Collect from", depotPlace(lot) ? `Our depot in ${depotPlace(lot)}` : null], ["Lot", lot.id],
+    ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], [atSeller ? "Where it's kept" : "Collect from", depotPlace(lot) ? (atSeller ? depotPlace(lot) : `Our depot in ${depotPlace(lot)}`) : null], ["Lot", lot.id],
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
-    ["Taxi, rideshare, hire or police use", d.previous_use], ["Unfixed safety recall", d.recalls],
+    ["Previous use", d.previous_use], ["Unfixed safety recall", d.recalls],
     ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance], ["Known faults", d.known_faults || lot.known_faults],
   ];
@@ -141,7 +144,7 @@ export default function LotScreen() {
       <Screen refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await Promise.all([load(), loadMine()]); setRefreshing(false); }} contentStyle={{ paddingHorizontal: 0, gap: 22 }} testID="lot-screen">
         <Gallery photos={photos} videos={videos} externalVideo={lot.video_url} backdropKey={lot.backdrop} vehicleType={lot.vehicle_type} title={lot.title} />
         <View style={s.pad}>
-          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id}{depotPlace(lot) ? ` · Collect from ${depotPlace(lot)}` : ""}{tag ? ` · ${tag}` : ""}</T>
+          <T v="eyebrow" style={{ color: C.urgent }}>Lot {lot.id}{depotPlace(lot) ? ` · ${atSeller ? "Kept in" : "Collect from"} ${depotPlace(lot)}` : ""}{tag ? ` · ${tag}` : ""}</T>
           {sale && sale.mode === "live" && lot.live_state
             ? <LinkText testID="lot-sale" title={lot.live_state === "open" ? "Up now in the live auction ›" : lot.live_state === "waiting" ? `Live auction: ${sale.title}, ${dateTime(sale.starts_at)} ›` : `Offered in the live auction: ${sale.title} ›`} onPress={() => router.push(`/live/${sale.slug}`)} style={{ fontSize: 15 }} />
             : sale ? <LinkText testID="lot-sale" title={`Part of the ${sale.title} ›`} onPress={() => WebBrowser.openBrowserAsync(`${SITE}/sales/${sale.slug}`)} style={{ fontSize: 15 }} /> : null}
@@ -261,25 +264,34 @@ export default function LotScreen() {
         {["live", "scheduled", "offers", "referred"].includes(lot.status) ? (
           <View style={s.pad} testID="check-it">
             <T v="d3">How to check it.</T>
-            <T v="muted">{NO_VIEWINGS} The seller's name and address stay private.</T>
-            <View>{CHECK_IT.map(([t, d], i) => (
+            <T v="muted">{atSeller ? (lot.in_person_viewing ? VIEW_BY_APPOINTMENT : "The owner can't host viewings for this one, so the listing is how you see it.") : `${NO_VIEWINGS} The seller's name and address stay private.`}</T>
+            <View>{checkIt(lot).map(([t, d], i) => (
               <View key={t} style={s.checkRow}><View style={s.checkNum}><Text style={s.checkNumText}>{i + 1}</Text></View><View style={{ flex: 1, gap: 2 }}><T v="strong">{t}</T><T v="muted" style={{ fontSize: 15, lineHeight: 21 }}>{d}</T></View></View>
             ))}</View>
+            {atSeller ? <ViewingBox lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} auctionAt={sale?.mode === "live" && sale.starts_at ? sale.starts_at : lot.ends_at} open={["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting"} /> : null}
             <MechanicalInspection lotId={lot.id} title={lot.title} partner={inspector} consultantPhone={consultant?.phone || config?.phone || null} consultantName={consultant?.name || null} canOrder />
           </View>
         ) : null}
 
         <View style={s.pad}>
-          <T v="d3">Pickup & collection.</T>
+          <T v="d3">{atSeller ? "Viewing & collection." : "Pickup & collection."}</T>
           <View testID="collection-rows">
-            {([
+            {((atSeller ? [
+              ["Viewing", lot.in_person_viewing ? "By appointment, where it's kept. Looking and listening only: no road test" : "The owner can't host viewings for this one"],
+              ["Before collection", unreg ? "Payment in full" : "Payment in full; we lodge the seller's notice of disposal for them"],
+              ["Collect from", `${depotPlace(lot) ? `The seller, in ${depotPlace(lot)}` : "The seller"}${unreg ? ". Sold without plates: it leaves on a carrier, float or trailer, or under a permit" : ""}`],
+              ...(unreg && lot.plates_note ? [["Why it has no plates", lot.plates_note]] : []),
+              ["Address", "Sent with your confirmed viewing or collection time"],
+              ["Getting it home", "Yours to arrange: drive it (with the licence class for its GVM) or use a carrier. Nothing for transport is in our premium"],
+              ...(warrantyLine(lot.statutory_warranty) ? [["Statutory warranty", warrantyLine(lot.statutory_warranty) as string]] : []),
+            ] : [
               ["Viewings and test drives", "None: buyers never go to the seller's place"],
               ["Before collection", unreg ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"],
               ["Collect from", `${b.depot?.name ? `${b.depot.name}, ` : "Our depot, "}${depotPlace(lot)}${b.depot?.hours ? `. Open ${b.depot.hours}` : ""}${unreg ? ". By carrier, trailer or permit" : ""}`],
               ["Getting it there", `Once it's paid for, our transport partner picks it up from the seller and takes it to the depot${Number(lotFees(fees, lot).transport) > 0 ? `. The ${money(Number(lotFees(fees, lot).transport))} transport is in the buyer's premium` : ""}`],
               ["Address", "The depot's address comes with your confirmed collection time"],
               ...(warrantyLine(lot.statutory_warranty) ? [["Statutory warranty", warrantyLine(lot.statutory_warranty) as string]] : []),
-            ] as [string, string][]).map(([k, v]) => (
+            ]) as [string, string][]).map(([k, v]) => (
               <View key={k} style={s.spec}><T v="muted">{k}</T><T v="strong" style={{ flexShrink: 1, textAlign: "right" }}>{v}</T></View>
             ))}
           </View>

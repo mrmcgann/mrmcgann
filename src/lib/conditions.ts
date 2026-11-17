@@ -20,15 +20,15 @@ export function auctionConditions(o: { payMode: PayMode; payDays?: number }): Co
   const days = o.payDays ?? 2;
   return [
     { head: "We sell for the owner.", terms: "t-agent",
-      text: "Super Trucker sells each vehicle as its owner's agent, in an auction run by our licensed auctioneer. Your contract is with the owner, on our Terms of Sale. We keep the owner's details private and deal with everything for you." },
+      text: "Super Trucker sells each vehicle as its owner's agent, in an auction run by our licensed auctioneer. Your contract is with the owner, on our Terms of Sale. Every sale goes through us: if you buy a vehicle we introduced you to from its owner some other way, you owe us our buyer's premium." },
     { head: "As is, where is.", terms: "t-asis",
       text: "Every vehicle is sold in its condition when the hammer falls, with any faults that aren't described. Condition reports, grades and estimates are a guide only. There's no cooling-off period for a sale by auction." },
     { head: "We're never at the vehicle.", terms: "t-condition",
-      text: "The photos and walkaround video are the seller's, taken for the listing, and we check them against the records. There are no viewings or test drives. If you want a mechanic's opinion, order an inspection before the vehicle is offered." },
+      text: "The photos and walkaround video are the seller's, taken for the listing, and we check them against the records. You could view it by appointment before the auction (no road tests); what an owner told you at a viewing isn't part of the listing unless we confirmed it in writing." },
     { head: "Each tap is a bid.", terms: "t-live",
       text: "In this room, each tap of a bid button is a binding bid at that amount, plus the buyer's premium and fees, with the all-in total shown on the button. You can withdraw a bid until the hammer falls." },
     { head: "The hammer decides.", terms: "t-bidding",
-      text: "When the countdown ends, the highest bid buys the vehicle if it meets the reserve. Below the reserve it's passed in: it isn't sold and nobody owes anything, and if you were the highest bidder one of our consultants will be in touch. Where its state allows it (never in Victoria), the seller may then agree to sell it after the auction, by a written offer you'd sign: that isn't a sale by auction, and it comes with your state's protections." },
+      text: "When the countdown ends, the highest bid buys the vehicle if it meets the reserve. Below the reserve it's passed in: it isn't sold and nobody owes anything, and if you were the highest bidder one of our consultants will be in touch. A vehicle that's passed in goes into a later auction: we don't sell it privately in between." },
     payCondition(o.payMode, days),
     { head: "This page counts.", terms: "t-errors",
       text: "The price and countdown on this page are what count, and the auctioneer settles any dispute from the bids we record. We're not responsible for bids that don't reach us because of your device or connection, so leave an early bid on any vehicle that matters to you." },

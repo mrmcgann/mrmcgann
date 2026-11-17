@@ -36,9 +36,9 @@ export async function POST(req: Request) {
   if (!docs.length) return fail("Upload a photo of the registration papers (or proof of ownership).");
   const bsb = String(b.bank?.bsb || "").replace(/[^0-9]/g, ""), acct = String(b.bank?.account || "").replace(/[^0-9]/g, "");
   if (!/^\d{6}$/.test(bsb) || !/^\d{5,10}$/.test(acct) || !txt(b.bank?.name)) return fail("Check your bank details (account name, 6-digit BSB, account number).");
-  // where our transport partner picks it up, and what the seller agrees to about buyers and the pickup
+  // where it's kept (viewings and the handover happen there), and what the seller agrees to about them
   const pickup = txt(b.pickupAddress, 200);
-  if (pickup.length < 8) return fail("Add the address where our transport partner picks it up.");
+  if (pickup.length < 8) return fail("Add the address where the truck is kept.");
   const acks = SELLER_ACKS.map(([k]) => k).filter((k) => Array.isArray(b.acknowledgements) && b.acknowledgements.includes(k));
   if (acks.length < SELLER_ACKS.length) return fail("Tick each box about viewings, the handover and selling through us to agree to them.");
 

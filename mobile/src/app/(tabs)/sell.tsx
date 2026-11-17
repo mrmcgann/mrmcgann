@@ -16,7 +16,7 @@ import { CarArt } from "~/ui/art";
 import { SellerBids, SellerVideos } from "~/ui/SellerTools";
 import { SellerTransfer } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
-import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
+import { sellerHandoverLine, sellerTransportLine, type SellerCollection, type SellerTransport } from "@/lib/transport";
 import type { SellerAfterView } from "@/lib/afterAuction";
 import { SellerAfter } from "~/ui/SellerAfter";
 
@@ -26,7 +26,7 @@ const STATUS: Record<string, [string, string]> = {
   offers: ["Taking offers", C.sun], sold: ["Sold", C.lime], passed: ["Didn't sell", C.panel], cancelled: ["Withdrawn", C.panel],
 };
 type Offer = { id: string; amount: number; status: string; created_at: string };
-type Coll = { status: string; collected_at: string | null };
+type Coll = SellerCollection;
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
 type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null; pickup: SellerTransport | null; after: SellerAfterView | null };
 // Grouped like the website's seller dashboard: Pending, Active, Referred, Sold, Unsold.
@@ -93,13 +93,13 @@ export default function Sell() {
   const intro = (
     <View style={{ gap: 14 }}>
       <T v="eyebrow" style={{ color: C.grape }}>Sell with Super Trucker</T>
-      <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your driveway.</Text></Text>
-      <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Send us your phone photos and a short video. We check them and the papers, then auction it live to buyers across Australia. Nobody comes to your place, and buyers never learn who you are: once it's paid for, our transport partner picks it up.</T>
-      <View style={s.band}><CarArt type="ute" width={240} /></View>
+      <Text style={s.hero}>Sold properly.{"\n"}<Text style={{ fontFamily: F.serif, color: C.grape }}>From your yard.</Text></Text>
+      <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Send us your phone photos and a short video. We check them and the papers, then auction your truck live. Verified buyers view it at your place by appointment, and the buyer collects it from you once they've paid us in full.</T>
+      <View style={s.band}><CarArt type="truck" width={240} /></View>
       <Button testID="sell-start" title="Sell your vehicle" onPress={() => router.push("/appraisal")} />
       {[["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Your photos and video", "Phone photos and a short walkaround video (we tell you what to film). We check them and the papers from here.", C.sun],
-        ["3", "Live auction", "Offered by our auctioneer to registered buyers nationwide, with an estimate on the listing. You can lower your reserve until the hammer falls.", C.lime], ["4", "No viewings", "Buyers never visit, and never get your name or address. If a bidder orders a mechanical inspection, we call you to agree a time for our partner mechanic.", C.sky],
-        ["5", "Pickup and settlement", "The buyer pays Super Trucker, then our transport partner picks it up and the buyer collects it from our depot. You're paid within 3 business days of their collection.", C.grape]].map(([n, h, b, c]) => (
+        ["3", "Live auction", "Offered by our auctioneer to registered buyers nationwide, with an estimate on the listing. You can lower your reserve until the hammer falls.", C.lime], ["4", "Viewings by appointment", "We agree every visit with you first and tell you who's coming. Looking and listening only, no road test. Every sale goes through us.", C.sky],
+        ["5", "Handover and settlement", "The buyer pays Super Trucker in full, then collects it from you with a release code at a time we agree with you. You're paid once their claim window closes.", C.grape]].map(([n, h, b, c]) => (
         <View key={n} style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
           <View style={[s.dot, { backgroundColor: c }]}><Text style={[s.dotText, n === "5" && { color: "#FFFFFF" }]}>{n}</Text></View>
           <View style={{ flex: 1 }}><T v="title">{h}</T><T v="muted">{b}</T></View>
@@ -180,7 +180,15 @@ export default function Sell() {
                       </Notice>
                     ) : null}
                     {transfer?.status === "complete" && !pickup && !coll ? <T v="body">Ownership transferred.</T> : null}
-                    {coll?.status === "collected" ? <Notice kind="ok">{`The buyer collected it from our depot on ${dateLong(coll.collected_at)}.`}</Notice> : null}
+                    {l.collect_from !== "depot" && coll && coll.status !== "collected" && sellerHandoverLine(coll) ? (
+                      <Notice testID="seller-handover" style={{ gap: 6 }}>
+                        <T v="strong">{coll.status === "confirmed" ? "The handover." : "Collection."}</T>
+                        <T v="body">{sellerHandoverLine(coll)}</T>
+                        {coll.status === "confirmed" && coll.seller_token ? <Button small kind="dark" title="Open the handover page" testID="seller-handover-link" onPress={() => router.push(`/handover/${coll.seller_token}` as never)} style={{ alignSelf: "flex-start" }} /> : null}
+                        <T v="small">Keep it as it was listed, with all the keys. Never hand it to anyone else or take money from anyone: the buyer has paid us.</T>
+                      </Notice>
+                    ) : null}
+                    {coll?.status === "collected" ? <Notice kind="ok">{l.collect_from === "depot" ? `The buyer collected it from our depot on ${dateLong(coll.collected_at)}.` : `Handed over${coll.collector ? ` to ${coll.collector}` : ""} on ${dateLong(coll.collected_at)}.`}</Notice> : null}
                     {p ? (
                       <Soft>
                         <T v="strong">Payout: {money(p.net_amount, true)}</T>

@@ -15,7 +15,7 @@ import { InsureBox } from "~/ui/Partners";
 import { PayRows } from "~/ui/Deposit";
 import { TransferStep } from "~/ui/Transfer";
 import { C, F } from "~/ui/theme";
-import { buyerTransportLine } from "@/lib/transport";
+import { buyerPickupLine, buyerTransportLine } from "@/lib/transport";
 
 const TIMES: [string, string][] = [["Morning (8 am – 12 pm)", "Morning (8 am – 12 pm)"], ["Afternoon (12 – 4 pm)", "Afternoon (12 – 4 pm)"]];
 const REASONS: [string, string][] = [
@@ -75,6 +75,9 @@ export default function InvoiceScreen() {
   const where = job?.depot_suburb ? `our depot in ${job.depot_suburb}, ${job.depot_state}` : inv.lots?.suburb ? `our depot in ${inv.lots.suburb}, ${inv.lots.state}` : "our depot";
   const changeOpen = job?.condition_ok === false && !job.buyer_decision && !job.sale_cancelled;
   const canBook = fullyPaid && owned && (!hasPickup || (job?.status === "at_depot" && !(job.condition_ok === false && job.buyer_decision !== "proceed")));
+  // Super Trucker: collected from the seller, where it's kept (older listings: our depot). Missing from older servers.
+  const fromSeller = d.collectFrom === "seller";
+  const sp = d.sellerPickup ?? null;
   async function decide(proceed: boolean) {
     setBusy(true); setMsg(null);
     try { await api("/api/transport", { body: { invoiceId: inv.id, proceed } }); await load(); }
@@ -109,7 +112,7 @@ export default function InvoiceScreen() {
           <T v="strong">{Number(inv.deposit_applied) > 0 ? `${money(inv.deposit_applied || 0, true)} of your bidding deposit has gone towards it. Balance due: ${money(inv.balance_due, true)}.` : `Pay ${money(inv.balance_due, true)} by ${dateLong(inv.due_at)}.`}</T>
           <T v="body">{`Pay by PayID or bank transfer${Number(inv.deposit_applied) > 0 ? ` by ${dateLong(inv.due_at)}` : ""}, from an account in your name (or your lender can pay us if you're using finance). Use your invoice number as the reference.`}</T>
           <PayRows amount={Number(inv.balance_due)} reference={d.bank.reference} crn={d.bank.crn} bank={d.bank} payIdOn={!!me?.config.payId} requestUrl={`/api/invoices/${inv.id}/payid`} requestLabel={`Get a PayID for ${money(inv.balance_due, true)}`}
-            note="Once it clears, we confirm it here and by text. Then our transport partner brings it to our depot, and we take you through the transfer of ownership and collection." />
+            note={fromSeller ? "Once it clears, we confirm it here and by text, lodge the seller's notice of disposal, and you book a time to collect it from the seller." : "Once it clears, we confirm it here and by text. Then our transport partner brings it to our depot, and we take you through the transfer of ownership and collection."} />
         </Soft>
       ) : inv.status === "deposit_paid" && d.bank ? (
         <Soft bg={C.sun}>
@@ -135,7 +138,35 @@ export default function InvoiceScreen() {
 
       {fullyPaid && transfer ? <TransferStep invoiceId={inv.id} invoiceRef={inv.ref} t={transfer} title={inv.lots.title} category={inv.lots.category} consultantPhone={d.seller.phone} certificateUrl={d.certificateUrl} onDone={load} /> : null}
 
-      {paidCard ? (
+      {paidCard && fromSeller ? (
+        <Soft testID="collection">
+          <T v="h">Collection.</T>
+          {!fullyPaid ? <T v="body">{`Once it's paid for, we lodge the seller's notice of disposal for them, and you book a time to collect it from the seller${sp?.suburb ? ` in ${sp.suburb}, ${sp.state}` : ""}. The address and your release code come once the time is agreed.`}</T> : null}
+          {fullyPaid && !c && !d.canBook ? <T v="body" testID="pickup-wait">We're lodging the seller's notice of disposal. We'll text you as soon as you can book a time to collect it.</T> : null}
+          {(fullyPaid && !c && d.canBook) || (fullyPaid && c?.status === "requested") ? (
+            <>
+              {!c ? <T v="body" testID="pickup-line">{`${buyerPickupLine({ suburb: sp?.suburb || inv.lots?.suburb || null, state: sp?.state || inv.lots?.state || null, address: null })}${inv.collect_by ? ` Collect it by ${dateLong(inv.collect_by)}.` : ""} Pick a time and we'll agree it with the seller.`}</T> : null}
+              <BookCollection invoiceId={inv.id} existing={c} hours={null} fromSeller onDone={load} />
+            </>
+          ) : null}
+          {c?.status === "confirmed" ? (
+            <>
+              <Notice kind="ok">{`Confirmed: ${c.confirmed_for}`}</Notice>
+              <T v="body">Collect from: <Text style={{ fontFamily: F.bold }} testID="pickup-address">{d.address || "the address in the text and email we sent you"}</Text></T>
+              {sp?.notes ? <T v="muted">{sp.notes}</T> : null}
+              {d.address ? <LinkText title="Open in Maps ›" onPress={() => Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(d.address!)}`)} /> : null}
+              <T v="body">Your release code. Give it to the seller only once you{c.collector_name ? ` (or ${c.collector_name})` : ""} have checked the truck:</T>
+              <Text testID="release-code" selectable style={s.code}>{c.release_code}</Text>
+              {[`Bring photo ID${c.collector_name ? ` (${c.collector_name} brings theirs)` : ""}. The seller checks it against the name we gave them.`, "Check the truck against the listing before you give the code. Photograph anything that's different.", "Give the seller the code. They enter it on our handover page: the code is your sign-off.", `Something materially different (new damage, a missing key, parts removed, it won't start)? Don't give the code: call us on ${d.seller.phone} from the yard. You can cancel for a full refund.`, "Never pay the seller anything. From the handover it's yours: insure it before you move it."].map((t, i) => <T key={i} v="body">{`${i + 1}. ${t}`}</T>)}
+            </>
+          ) : null}
+          {c?.status === "collected" ? <Notice kind="ok">{`Collected ${dateLong(c.collected_at)}.${inv.claim_until && new Date(inv.claim_until).getTime() > Date.now() ? ` If something is materially different from the listing, you can claim until ${dateLong(inv.claim_until)}.` : ""}`}</Notice> : null}
+          {d.overdueDays > 0 && !inv.collected_at ? <Notice kind="bad">{`The collection window ended ${dateLong(inv.collect_by)}. Storage of ${money(d.storagePerDay)} a day applies (${money(d.overdueDays * d.storagePerDay)} so far), payable before release.`}</Notice> : null}
+          <T v="small">The address is for collecting it only. Any question about the truck, ask us: every sale goes through Super Trucker.</T>
+        </Soft>
+      ) : null}
+
+      {paidCard && !fromSeller ? (
         <Soft testID="collection">
           <T v="h">Pickup and collection.</T>
           {!fullyPaid ? <T v="body">{`Once it's paid for, our transport partner picks it up from the seller and takes it to ${where}. You collect it there once the transfer of ownership is done.`}</T> : null}
@@ -197,7 +228,7 @@ export default function InvoiceScreen() {
   );
 }
 
-function BookCollection({ invoiceId, existing, hours, onDone }: { invoiceId: string; existing: InvoiceDetail["collection"]; hours: string | null; onDone: () => void }) {
+function BookCollection({ invoiceId, existing, hours, fromSeller = false, onDone }: { invoiceId: string; existing: InvoiceDetail["collection"]; hours: string | null; fromSeller?: boolean; onDone: () => void }) {
   const days: [string, string][] = [];
   for (let i = 1; days.length < 7 && i < 14; i++) {
     const dd = new Date(Date.now() + i * 86400000);
@@ -221,7 +252,7 @@ function BookCollection({ invoiceId, existing, hours, onDone }: { invoiceId: str
   }
   return (
     <View style={{ gap: 12 }}>
-      {existing ? <Notice>{`Requested: ${existing.preferred_day}, ${existing.preferred_time.toLowerCase()}. We're confirming it with the depot. You can change it below until then.`}</Notice> : null}
+      {existing ? <Notice>{`Requested: ${existing.preferred_day}, ${existing.preferred_time.toLowerCase()}. We're confirming it with ${fromSeller ? "the seller" : "the depot"}. You can change it below until then.`}</Notice> : null}
       <Select label="Day" value={day} options={days} placeholder="Pick a day" onChange={(v) => setDay(v || days[0][0])} />
       <Select label="Time" value={time} options={TIMES} placeholder="Pick a time" onChange={(v) => setTime(v || TIMES[0][0])} />
       <Segmented options={[["me", "I'll collect"], ["someone", "Someone else"], ["carrier", "Transport co."]]} value={who} onChange={setWho} />
@@ -230,7 +261,7 @@ function BookCollection({ invoiceId, existing, hours, onDone }: { invoiceId: str
         <Field label="Their mobile (we text them the code)" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" inputStyle={{ backgroundColor: "#FFFFFF" }} />
       </> : null}
       {who === "carrier" ? <Field label="Carrier booking reference" value={ref} onChangeText={setRef} inputStyle={{ backgroundColor: "#FFFFFF" }} /> : null}
-      <T v="small">{`${hours ? `The depot is open ${hours}. ` : ""}Whoever collects must show photo ID matching the name here, and give the depot team your release code.`}</T>
+      <T v="small">{`${hours && !fromSeller ? `The depot is open ${hours}. ` : ""}Whoever collects must show photo ID matching the name here, and give ${fromSeller ? "the seller" : "the depot team"} your release code.${fromSeller ? " Bring what it needs to move: a driver licensed for its class, or a carrier or float." : ""}`}</T>
       {err ? <Notice kind="bad">{err}</Notice> : null}
       <Button kind="dark" title={existing ? "Update request" : "Request this time"} busy={busy} onPress={submit} />
     </View>

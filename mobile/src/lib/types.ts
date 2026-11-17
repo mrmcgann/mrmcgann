@@ -108,7 +108,13 @@ export interface InvoiceDetail {
   collection: { id: string; status: string; preferred_day: string; preferred_time: string; confirmed_for: string | null; collector_name: string | null; release_code: string; collected_at: string | null } | null;
   /** The pickup from the seller to our depot (never the seller's details). Missing from older servers. */
   pickup?: import("@/lib/transport").BuyerTransport | null;
-  /** The depot's street address, once the collection time is confirmed. */
+  /** How it's collected: from the seller where it's kept, or (older listings) our depot. Missing from older servers. */
+  collectFrom?: "seller" | "depot";
+  /** From the seller: the suburb, and the street address and directions once a collection time is confirmed. */
+  sellerPickup?: import("@/lib/transport").BuyerPickup | null;
+  /** From the seller: whether a collection time can be booked yet (the seller's notice of disposal is lodged). */
+  canBook?: boolean | null;
+  /** The street address (the seller's, or the depot's), once the collection time is confirmed. */
   address: string | null;
   claims: { id: string; reason: string; status: string; resolution: string | null; created_at: string }[];
   canClaim: boolean;

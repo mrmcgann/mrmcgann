@@ -48,9 +48,9 @@ for (const mode of ['transfer', 'deposit']) {
   const all = cs.map((c) => c.head + ' ' + c.text).join(' ');
   ok(`conditions (${mode}): every point names the section of the Terms it comes from`, cs.every((c) => terms.includes(`'${c.terms}'`) || terms.includes(`id="${c.terms}"`)), cs.map((c) => c.terms).join());
   ok(`conditions (${mode}): as is, where is; never at the vehicle; each tap a bid; withdraw until the hammer; passed in; consultant; pay on time; consumer rights`,
-    /As is, where is/.test(all) && /no viewings or test drives/.test(all) && /each tap of a bid button is a binding bid/.test(all) && /withdraw a bid until the hammer falls/.test(all)
+    /As is, where is/.test(all) && /view it by appointment before the auction \(no road tests\)/.test(all) && /isn't part of the listing unless we confirmed it in writing/.test(all) && /each tap of a bid button is a binding bid/.test(all) && /withdraw a bid until the hammer falls/.test(all)
     && /passed in: it isn't sold and nobody owes anything/.test(all) && /one of our consultants will be in touch/.test(all) && /within 2 business days/.test(all) && /Australian Consumer Law/.test(all), all);
-  ok(`conditions (${mode}): a sale after the auction is by a written offer, isn't by auction, never in Victoria`, /the seller may then agree to sell it after the auction, by a written offer you'd sign: that isn't a sale by auction/.test(all) && /never in Victoria/.test(all), all);
+  ok(`conditions (${mode}): passed in goes to a later auction, never a private sale; every sale through us`, /goes into a later auction: we don't sell it privately in between/.test(all) && /Every sale goes through us/.test(all) && /owe us our buyer's premium/.test(all), all);
   ok(`conditions (${mode}): never "no warranty" or "non-refundable"`, !/no warranty|non-refundable/i.test(all));
 }
 ok('conditions: the deposit wording only with deposits', /deposit/.test(auctionConditions({ payMode: 'deposit' }).map((c) => c.text).join()) && !/deposit/.test(auctionConditions({ payMode: 'transfer' }).map((c) => c.text).join()));

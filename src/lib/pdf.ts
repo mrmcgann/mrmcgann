@@ -2,6 +2,9 @@ import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+
+/** The site's own address, without the https://, for the paperwork. */
+const siteHost = () => env.siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
 import { consumerRights, type SellerType } from "@/lib/listing";
 import { afterWarrantyLine, coolingLine, stateTime, STATE_NAMES, type AfterOffer, type AfterRule } from "@/lib/afterAuction";
 import { ruleFor, namesOwner, odometerLine, engineLine, soldLine, ACK_TEXT, ackNote } from "@/lib/buyerContract";
@@ -97,7 +100,7 @@ async function newSheet() {
 // Tax invoice for a buyer (our fees are taxable supplies; the vehicle is sold as the seller's agent).
 export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
   const db = supabaseAdmin();
-  const { data: inv } = await db.from("invoices").select("*, lots(title, vin, rego_plate, rego_state, suburb, state, gst_status, statutory_warranty, ppsr_checked_at, ppsr_cert_no)").eq("id", invoiceId).maybeSingle();
+  const { data: inv } = await db.from("invoices").select("*, lots(title, vin, rego_plate, rego_state, suburb, state, gst_status, statutory_warranty, ppsr_checked_at, ppsr_cert_no, collect_from)").eq("id", invoiceId).maybeSingle();
   if (!inv) return null;
   const { data: buyer } = await db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, email, company_name, abn").eq("id", inv.buyer_id).single();
   const lot = inv.lots || {};
@@ -109,7 +112,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   s.text("Billed to", 50, 9, { color: MUTED }); s.text("Vehicle", 300, 9, { color: MUTED }); s.line(14);
   const biz = (inv.buyer_business as { name?: string | null; abn?: string | null } | null) || { name: buyer?.company_name, abn: buyer?.abn };
   const left = [biz.name, `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim(), biz.abn ? `ABN ${biz.abn}` : null, buyer?.street, [buyer?.suburb, buyer?.state, buyer?.postcode].filter(Boolean).join(" "), buyer?.email].filter(Boolean);
-  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Collect from our depot in ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "auction" ? "live auction" : inv.sold_via === "after_auction" ? "agreement after the auction" : inv.sold_via}`].filter(Boolean);
+  const right = [lot.title, `Lot ${inv.lot_id}`, lot.vin ? `VIN ${lot.vin}` : null, lot.rego_plate ? `Rego ${lot.rego_plate} (${lot.rego_state || ""})` : null, `Collect from ${lot.collect_from === "depot" ? "our depot" : "the seller"} in ${lot.suburb || ""}, ${lot.state || ""}`, `Sold by ${inv.sold_via === "buy_now" ? "Buy Now" : inv.sold_via === "auction" ? "live auction" : inv.sold_via === "after_auction" ? "agreement after the auction" : inv.sold_via}`].filter(Boolean);
   const after = inv.sold_via === "after_auction" ? await afterSaleOf(invoiceId) : null;
   for (let i = 0; i < Math.max(left.length, right.length); i++) { if (left[i]) s.text(left[i], 50, 10); if (right[i]) s.text(right[i], 300, 10); s.line(14); }
   s.line(14); s.rule();
@@ -144,7 +147,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   }
   s.row("Status", inv.status === "paid" ? "PAID IN FULL" : inv.status === "deposit_paid" ? (bank ? (fromDeposit > 0 ? "Deposit applied, balance due" : "Payment due") : "Deposit paid, balance due") : inv.status.replace("_", " "), { bold: true });
   s.line(10); s.rule();
-  s.wrap(`Super Trucker sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (tyrebiter.com.au/terms). The vehicle price is held in our trust account and paid to the seller. The buyer's premium (which includes the transport from the seller to our depot) and administration fee are taxable supplies made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and this tax invoice covers the vehicle too: we're treated as its supplier under Subdivision 153-B of the GST Act.`, 50, 495, 8);
+  s.wrap(`Super Trucker sells this vehicle as agent for the seller, as is, where is, under our Terms of Sale (${siteHost()}/terms). The vehicle price is held in our trust account and paid to the seller. ${Number(inv.transport) > 0 ? "The buyer's premium (which includes the transport from the seller to our depot)" : "The buyer's premium"}${Number(inv.admin_fee) > 0 ? " and administration fee are taxable supplies" : " is a taxable supply"} made by ${env.legalName}. Where the seller is GST-registered, the vehicle price includes GST and this tax invoice covers the vehicle too: we're treated as its supplier under Subdivision 153-B of the GST Act.`, 50, 495, 8);
   s.line(4);
   s.wrap(buyerNotice(lot, after), 50, 495, 8);
 
@@ -156,7 +159,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
 // transfer of registration.
 export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
   const db = supabaseAdmin();
-  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, sold_via, status, paid_at, lots(title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state, statutory_warranty, ppsr_checked_at, ppsr_cert_no)").eq("id", invoiceId).maybeSingle();
+  const { data: inv } = await db.from("invoices").select("id, ref, lot_id, buyer_id, price, sold_via, status, paid_at, lots(collect_from, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state, statutory_warranty, ppsr_checked_at, ppsr_cert_no)").eq("id", invoiceId).maybeSingle();
   if (!inv || inv.status !== "paid") return null;
   const lot = (inv.lots || {}) as unknown as Record<string, string | number | null>;
   const [{ data: buyer }, { data: t }] = await Promise.all([
@@ -184,11 +187,11 @@ export async function saleCertificatePdf(invoiceId: string): Promise<{ bytes: Ui
     ["Registration status", unreg || t?.buyer_choice === "unregistered" ? "Sold unregistered, without plates" : `Registered${lot.rego_expiry ? `, expires ${day(String(lot.rego_expiry))}` : ""}. To be transferred to the buyer.`],
     [lot.hours != null ? "Hours (as indicated)" : "Odometer (as indicated)", lot.hours != null ? `${Number(lot.hours).toLocaleString("en-AU")} hours` : lot.odometer != null ? `${Number(lot.odometer).toLocaleString("en-AU")} km` : "Not recorded"],
     ["Sale price", aud(Number(inv.price))], ["Sold by", soldBy(inv.sold_via)],
-    ["Statutory warranty", after ? (after.warranty ? "Applies (see your contract)" : "None") : (lot.statutory_warranty as unknown) === true ? "Applies (see your paperwork)" : "None"], ["Collected from", `Our depot in ${lot.suburb || ""}, ${lot.state || ""}`],
+    ["Statutory warranty", after ? (after.warranty ? "Applies (see your contract)" : "None") : (lot.statutory_warranty as unknown) === true ? "Applies (see your paperwork)" : "None"], ["Collect from", lot.collect_from === "depot" ? `Our depot in ${lot.suburb || ""}, ${lot.state || ""}` : `The seller, in ${lot.suburb || ""}, ${lot.state || ""}`],
   ];
   for (const [k, v] of rows) s.row(k, safe(v));
   s.line(10); s.rule();
-  s.wrap(`${env.legalName} sold this vehicle as agent for its owner under our Terms of Sale (tyrebiter.com.au/terms), and has received payment in full. Ownership passes to the buyer named above. ${unreg ? "The vehicle is unregistered and must not be driven on a road without a permit; move it by carrier or trailer, or under a permit from the state transport authority. To register it, the new owner applies to their state transport authority with this certificate and any inspection that state requires." : "The registration is transferred to the buyer through the state transport authority before collection."} Keep this certificate with the vehicle's papers.`, 50, 495, 9);
+  s.wrap(`${env.legalName} sold this vehicle as agent for its owner under our Terms of Sale (${siteHost()}/terms), and has received payment in full. Ownership passes to the buyer named above. ${unreg ? "The vehicle is unregistered and must not be driven on a road without a permit; move it by carrier or trailer, or under a permit from the state transport authority. To register it, the new owner applies to their state transport authority with this certificate and any inspection that state requires." : "We lodge the seller's notice of disposal; the buyer puts the registration into their own name with their state's transport authority within the time it allows."} Keep this certificate with the vehicle's papers.`, 50, 495, 9);
   s.line(4);
   s.wrap(buyerNotice(lot, after), 50, 495, 8);
   s.line(8);
@@ -296,7 +299,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   const { data: o } = await db.from("second_chance_offers").select("*").eq("id", offerId).eq("kind", "after_auction").maybeSingle();
   if (!o) return null;
   const [{ data: lot }, { data: buyer }, { data: price }, { data: rows }] = await Promise.all([
-    db.from("lots").select("id, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state, seller_type, gst_status, ppsr_checked_at, ppsr_cert_no").eq("id", o.lot_id).maybeSingle(),
+    db.from("lots").select("collect_from, id, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, suburb, state, seller_type, gst_status, ppsr_checked_at, ppsr_cert_no").eq("id", o.lot_id).maybeSingle(),
     db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, email, company_name, abn").eq("id", o.user_id).maybeSingle(),
     db.rpc("lot_price_breakdown", { p_lot: o.lot_id, p_price: o.amount }),
     db.from("settings").select("key, value").in("key", ["business", "auction", "fees", "selling"]),
@@ -348,7 +351,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   row("Engine number", lot.engine_no || "Not recorded");
   row("Registration", unreg ? "Unregistered: sold without plates" : `${lot.rego_plate || ""} (${lot.rego_state || ""})${lot.rego_expiry ? `, expires ${day(lot.rego_expiry)}` : ""}`);
   row(lot.hours != null ? "Hours (as indicated)" : "Odometer (as indicated)", lot.hours != null ? `${Number(lot.hours).toLocaleString("en-AU")} hours` : lot.odometer != null ? `${Number(lot.odometer).toLocaleString("en-AU")} km` : "Not recorded");
-  row("Collect it from", `Our depot in ${lot.suburb || ""}, ${lot.state || ""}`);
+  row("Collect it from", lot.collect_from === "depot" ? `Our depot in ${lot.suburb || ""}, ${lot.state || ""}` : `The seller, in ${lot.suburb || ""}, ${lot.state || ""}`);
   if (lot.ppsr_checked_at) row("PPSR search", `${day(lot.ppsr_checked_at)}${lot.ppsr_cert_no ? `, certificate ${lot.ppsr_cert_no}` : ""}`);
 
   head("The price");
@@ -380,7 +383,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   para("Any term of this contract or our terms that purports to exclude, restrict or waive a right you have under your state's motor dealer laws or the Australian Consumer Law is void, unless that law allows it.");
 
   head("Payment, transfer and collection");
-  para(`Once the sale is final (when you sign, or when your cooling-off period ends), we email your tax invoice. Pay the all-in price by PayID or bank transfer within ${v.PAY_DAYS} business days, quoting the invoice number, from an account in your name (or your lender pays us). We never change our bank details by email or text. Ownership passes to you when we receive full payment. Then our transport partner brings the vehicle to the depot, the registration is transferred into your name, and you collect it with a release code. Our Terms of Sale (tyrebiter.com.au/terms) apply to this sale as they do to a sale by auction, except where this contract or your state's law says otherwise.`);
+  para(`Once the sale is final (when you sign, or when your cooling-off period ends), we email your tax invoice. Pay the all-in price by PayID or bank transfer within ${v.PAY_DAYS} business days, quoting the invoice number, from an account in your name (or your lender pays us). We never change our bank details by email or text. Ownership passes to you when we receive full payment. Then our transport partner brings the vehicle to the depot, the registration is transferred into your name, and you collect it with a release code. Our Terms of Sale (${siteHost()}/terms) apply to this sale as they do to a sale by auction, except where this contract or your state's law says otherwise.`);
 
   head("Paperwork with this contract");
   para(docs.length ? docs.map((d, i) => `${i + 1}. ${d.name}`).join("   ") : `None: in ${STATE_NAMES[st] || st || "this state"}, this contract is the paperwork.`, 9, INK);
@@ -403,7 +406,7 @@ export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint
     .eq("id", invoiceId).maybeSingle();
   if (!inv || inv.sold_via === "after_auction") return null; // an after-auction sale has its own signed contract
   const [{ data: lot }, { data: buyer }, { data: rows }] = await Promise.all([
-    db.from("lots").select("id, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, build_date, compliance_date, suburb, state, seller_type, statutory_warranty, write_off_status, ppsr_checked_at, ppsr_cert_no, disclosures, sale_id, sold_at").eq("id", inv.lot_id).maybeSingle(),
+    db.from("lots").select("collect_from, id, title, year, make, model, variant, body, colour, vin, engine_no, rego_plate, rego_state, rego_expiry, registration, odometer, hours, build_date, compliance_date, suburb, state, seller_type, statutory_warranty, write_off_status, ppsr_checked_at, ppsr_cert_no, disclosures, sale_id, sold_at").eq("id", inv.lot_id).maybeSingle(),
     db.from("profiles").select("first_name, last_name, street, suburb, state, postcode, email, company_name, abn").eq("id", inv.buyer_id).maybeSingle(),
     db.from("settings").select("key, value").in("key", ["business", "fees", "selling"]),
   ]);
@@ -484,7 +487,7 @@ export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint
   para("Any term of this contract or our terms that purports to exclude, restrict or waive a right you have under your state's motor dealer laws or the Australian Consumer Law is void, unless that law allows it.");
 
   head("Paying, transfer and collection");
-  para(`Pay the all-in total by PayID, bank transfer or BPAY within ${v.PAY_DAYS} business days, quoting ${inv.ref}, from an account in your name (or your lender pays us). We never change our bank details by email or text. Ownership passes to you when we receive payment in full. Our transport partner then brings the vehicle to our depot in ${lot.suburb || ""}, ${lot.state || ""}, the registration is transferred into your name, and you collect it with a release code.`);
+  para(`Pay the all-in total by PayID, bank transfer or BPAY within ${v.PAY_DAYS} business days, quoting ${inv.ref}, from an account in your name (or your lender pays us). We never change our bank details by email or text. Ownership passes to you when we receive payment in full. ${lot.collect_from === "depot" ? `Our transport partner then brings the vehicle to our depot in ${lot.suburb || ""}, ${lot.state || ""}, and you collect it there with a release code.` : `We then lodge the seller's notice of disposal, agree a collection time with the seller and send you the address and a release code: you collect it from the seller in ${lot.suburb || ""}, ${lot.state || ""}, check it against the listing, then give the code. Never pay the seller anything.`} You put the registration into your own name with your state's transport authority within the time it allows.`);
 
   head(rule.signed && rule.document ? `Signed: ${rule.document}` : "Acknowledgement");
   para(ACK_TEXT, 9, INK);
