@@ -1,9 +1,10 @@
 import "server-only";
 import crypto from "crypto";
 import { env } from "@/lib/env";
+import { signingSecret } from "@/lib/secret";
 
 // Tamper-proof links (unsubscribe, manage alerts) that work without signing in.
-const secret = () => env.linkSecret || env.supabaseServiceKey || "supertrucker-dev-secret";
+const secret = () => signingSecret("links");
 const mac = (payload: string) => crypto.createHmac("sha256", secret()).update(payload).digest("base64url").slice(0, 22);
 
 export function sign(payload: string) {

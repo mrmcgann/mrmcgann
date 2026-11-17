@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { softSecret } from "@/lib/secret";
 import { classifySource, cleanPath, cleanQuery, deviceOf, hostOf, ipKey, isAppAgent, isBot, pageOf, regionOf } from "@/lib/traffic";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
 
   const path = cleanPath(b.p);
   const { page, lotId } = pageOf(path);
-  const visitor = createHash("sha256").update(`${env.linkSecret || "tyrebiter"}|${brisbaneDay()}|${ip}|${ua}|${app || ""}`).digest("hex").slice(0, 20);
+  const visitor = createHash("sha256").update(`${softSecret("visitor")}|${brisbaneDay()}|${ip}|${ua}|${app || ""}`).digest("hex").slice(0, 20);
   const results = Number.isFinite(Number(b.n)) && b.n !== null && b.n !== undefined ? Math.max(0, Math.min(1_000_000, Math.round(Number(b.n)))) : null;
   await db.from("web_events").insert({
     kind, path, page, lot_id: lotId, visitor,

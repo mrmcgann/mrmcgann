@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { signingSecret } from "@/lib/secret";
 import { gscRows, googleJwt, lotIssues, pageIssues, type AuditLot, type Issue } from "@/lib/seoChecks";
 
 // The SEO engine, run by the clock:
@@ -15,7 +16,7 @@ import { gscRows, googleJwt, lotIssues, pageIssues, type AuditLot, type Issue } 
 
 const LIVE = (process.env.NODE_ENV === "production" && env.siteUrl.startsWith("https://") && !env.testMode);
 
-export const indexNowKey = () => process.env.INDEXNOW_KEY || createHash("sha256").update(`${env.linkSecret || "tyrebiter"}|indexnow`).digest("hex").slice(0, 32);
+export const indexNowKey = () => process.env.INDEXNOW_KEY || createHash("sha256").update(`${signingSecret("indexnow")}|indexnow`).digest("hex").slice(0, 32);
 
 // ---------------------------------------------------------------------------
 // The audit

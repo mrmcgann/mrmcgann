@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { env } from "@/lib/env";
+import { signingSecret } from "@/lib/secret";
 
 // Single-use PayIDs from a payments provider (Azupay), so a bidder's deposit or an invoice balance is matched
 // automatically the moment it's paid, and the payer sees "Super Trucker" before they send it.
@@ -15,7 +16,7 @@ export const payIdEnabled = () => Boolean(CLIENT_ID && SECRET);
 
 /** The Authorization value Azupay sends back with this request's webhook: unique per request, and only we and Azupay know it. */
 export function webhookSecret(requestId: string) {
-  return crypto.createHmac("sha256", env.linkSecret || SECRET || "tyrebiter").update(`azupay:${requestId}`).digest("hex");
+  return crypto.createHmac("sha256", signingSecret("azupay")).update(`azupay:${requestId}`).digest("hex");
 }
 
 export function webhookOk(requestId: string, header: string | null) {

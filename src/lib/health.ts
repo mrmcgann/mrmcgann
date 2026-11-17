@@ -24,6 +24,10 @@ export function setupNow(): Setup {
     smsVerify: has.twilioVerify,
     cronSecret: Boolean(env.cronSecret && env.cronSecret.length >= 16), // shorter secrets are refused (src/lib/cron.ts)
     linkSecret: Boolean(process.env.LINK_SECRET),
+    business: ([["The legal name", env.legalName], ["The ABN", env.abn], ["The business address", env.address], ["The phone number", env.phone],
+      ["The bank account name", env.bankName], ["The BSB", env.bankBsb], ["The account number", env.bankAccount]] as [string, string][])
+      .filter(([, v]) => /^\[.*\]$/.test(String(v).trim())).map(([k]) => k),
+    smsSender: env.twilioFrom,
   };
 }
 

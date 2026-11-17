@@ -65,6 +65,8 @@ export type Setup = {
   smsVerify: boolean;
   cronSecret: boolean;
   linkSecret: boolean;    // a separate LINK_SECRET (not falling back to CRON_SECRET)
+  business?: string[];    // business details still showing their placeholder ("[ABN]" and so on)
+  smsSender?: string;     // TWILIO_FROM_NUMBER, when it's a name rather than a number
 };
 
 export type Probe = { at: string; results: { path: string; status: number; ms: number; error?: string }[] } | null;
@@ -311,6 +313,22 @@ export function evaluate(s: Snapshot, setup: Setup, probe: Probe, clock: Clock, 
           detail: `The last one was ${ago(badAge || 0)} ago and none has been accepted in the last day, so ID checks and some payments won't update.`,
           fix: "In Stripe → Developers → Webhooks, open the endpoint for /api/stripe/webhook, reveal its signing secret and put it in Vercel as STRIPE_WEBHOOK_SECRET, then redeploy." }
       : { key: "setup.stripe_webhook", area: AREA_SET, status: "ok", title: good ? `Stripe's messages arrive (last ${ago(now - new Date(good).getTime())} ago)` : "No Stripe messages turned away" });
+    // The Terms, every invoice and the footer print these. An invoice without the real legal name and ABN isn't a valid
+    // tax invoice, and "[1300 XXX XXX]" on the scam warning tells people to call nobody.
+    const placeholders = setup.business || [];
+    add(placeholders.length
+      ? { key: "setup.business", area: AREA_SET, status: "fail", title: "Business details still show placeholders",
+          detail: `${placeholders.join(", ")} ${placeholders.length === 1 ? "still shows its" : "still show their"} placeholder in the Terms, invoices, emails and the footer.`,
+          fix: "Set NEXT_PUBLIC_LEGAL_NAME, NEXT_PUBLIC_ABN, NEXT_PUBLIC_BUSINESS_ADDRESS, NEXT_PUBLIC_SUPPORT_PHONE and the bank details (NEXT_PUBLIC_BANK_NAME, NEXT_PUBLIC_BANK_BSB, NEXT_PUBLIC_BANK_ACCOUNT) in Vercel, then redeploy." }
+      : { key: "setup.business", area: AREA_SET, status: "ok", title: "Business details are filled in" });
+    // A sender name is at most 11 characters, and since 1 July 2026 it must be on the ACMA's SMS Sender ID Register or
+    // phones show "Unverified" (a scam signal, on the very messages that carry release codes).
+    const sender = String(setup.smsSender || "");
+    if (sender && /[A-Za-z]/.test(sender)) add(sender.length > 11 || !/^[A-Za-z0-9 ]+$/.test(sender)
+      ? { key: "setup.sms_sender", area: AREA_SET, status: "warn", title: "The SMS sender name won't work",
+          detail: `"${sender}" is ${sender.length} characters; a sender name can have at most 11 letters, numbers and spaces.`,
+          fix: "Register a name of 11 characters or fewer (for example SuperTruckr) on the ACMA's SMS Sender ID Register through Twilio, then set it as TWILIO_FROM_NUMBER, or send from a number." }
+      : { key: "setup.sms_sender", area: AREA_SET, status: "ok", title: `Texts come from "${sender}"`, detail: "Check it's on the ACMA's SMS Sender ID Register, or phones show \"Unverified\"." });
     add(!setup.linkSecret
       ? { key: "setup.secrets", area: AREA_SET, status: "warn", title: "Email links are signed with the clock's secret", fix: "Add a separate LINK_SECRET (any long random text) in Vercel. Existing unsubscribe links will stop working, so do it before launch." }
       : { key: "setup.secrets", area: AREA_SET, status: "ok", title: "Email links have their own secret" });
