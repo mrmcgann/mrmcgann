@@ -164,7 +164,7 @@ export const isVessel = (category?: string | null) => String(category || "") ===
 // Unregistered vehicle permits
 // ---------------------------------------------------------------------------
 
-/** What a buyer faces if they want to drive an unregistered vehicle off our depot. The permit's NAME is already
+/** What a buyer faces if they want to drive an unregistered vehicle away from where it's collected. The permit's NAME is already
  *  in TRANSFER_RULES; this is the part that decides what we can truthfully promise them.
  *
  *  `online` is the one that bites: telling a New South Wales buyer they can get a permit on their phone at the

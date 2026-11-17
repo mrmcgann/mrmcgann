@@ -5,7 +5,7 @@ import { AuctionsClient } from "./AuctionsClient";
 // Every filtered version of this page points search engines at the one main page (filter combinations
 // would otherwise make thousands of near-identical pages); the landing pages cover popular searches.
 export const metadata: Metadata = {
-  title: "Live auctions", description: "Search live auctions for cars, utes, trucks, bikes, caravans, boats and machinery across Australia. Checked, PPSR searched, all-in prices shown.",
+  title: "Live auctions", description: "Search live truck auctions in Queensland, New South Wales and Western Australia. Checked, PPSR searched, view by appointment, all-in prices shown.",
   alternates: { canonical: "/auctions" },
 };
 

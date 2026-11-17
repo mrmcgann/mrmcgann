@@ -73,8 +73,8 @@ export function SearchBar({ initial = "", variant = "page", autoFocus = false, o
       <form role="search" onSubmit={(e) => { e.preventDefault(); submit(); }} className="sb-form">
         <svg width={big ? 22 : 18} height={big ? 22 : 18} viewBox="0 0 24 24" fill="none" stroke="#6E6E73" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
         <input ref={input} type="search" value={text} enterKeyHint="search" autoComplete="off" spellCheck={false}
-          placeholder={placeholder || "Try “HiLux under 30k in QLD”, “LAMS bike” or “caravan sleeps 4”"}
-          aria-label="Search cars, utes, trucks, motorbikes, caravans, boats and more"
+          placeholder={placeholder || "Try “tipper under 60k in QLD”, “Kenworth prime mover” or “curtainsider”"}
+          aria-label="Search trucks by make, model or type"
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? `${id}-o${active}` : undefined}
           onChange={(e) => { setText(e.target.value); setOpen(true); setActive(-1); }}

@@ -30,7 +30,7 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
   const expired = o.status === "pending" && new Date(o.expires_at) <= new Date();
   const open = o.status === "pending" && !expired;
   const sellerType = (lot as Pick<Lot, "seller_type"> | null)?.seller_type;
-  const where = lot?.suburb && lot?.state ? ` (collect from our depot in ${lot.suburb}, ${lot.state})` : "";
+  const where = lot?.suburb && lot?.state ? ` (collect from ${(lot as { collect_from?: string }).collect_from === "depot" ? "our depot" : "the seller"} in ${lot.suburb}, ${lot.state})` : "";
 
   if (o.kind === "after_auction") {
     const a = o as AfterOffer;

@@ -628,7 +628,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="editor-inspection">
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Mechanical inspection</h2>
-        <p className="hint">There are no viewings: buyers never go to the seller&apos;s place. Bidders can order an inspection from our partner mechanic (Admin → Leads); we give the mechanic the address and arrange the time with the seller.</p>
+        <p className="hint">{f.collect_from === "depot" ? "There are no viewings: buyers never go to the seller's place. Bidders can order an inspection from our partner mechanic (Admin → Leads); we give the mechanic the address and arrange the time with the seller." : "Verified members ask to view it by appointment (Admin → Viewings): agree a time with the seller, then confirm it, which sends the member the address and the seller the member's name. Bidders can also order an inspection from our partner mechanic (Admin → Leads)."}</p>
         {p.pre_inspection_requested === true && <div className="notice" data-testid="pre-inspection-wanted">The seller asked for an inspection before listing (the fee comes out of the proceeds when it sells). Book the mechanic, then fill this in and upload the report.</div>}
         <div className="grid3">
           <label className="field"><span>Inspected on</span><input className="input" type="date" value={String(f.inspected_at || "").slice(0, 10)} onChange={(e) => setF({ ...f, inspected_at: e.target.value || null })} /></label>
@@ -640,7 +640,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800 }}>Seller (private)</h2>
-        <p className="hint">Never shown to buyers, in any message or paperwork. Only our transport partner gets the pickup address and phone (to collect it once it&apos;s paid for), and our partner mechanic if a bidder orders an inspection. Questions from buyers come to us.</p>
+        <p className="hint">{f.collect_from === "depot" ? "Never shown to buyers, in any message or paperwork. Only our transport partner gets the pickup address and phone (to collect it once it's paid for), and our partner mechanic if a bidder orders an inspection. Questions from buyers come to us." : "The seller's name, phone and email are never shown to buyers. The address (and the directions) goes only to a member with a confirmed viewing, the buyer once their collection time is confirmed, and our partner mechanic if a bidder orders an inspection. Questions from buyers come to us."}</p>
         {id && seller && (
           <div className="soft" style={{ gap: 8 }}>
             <b>Seller onboarding{seller.requireChecks ? " (required before publishing)" : " (checks switched off in settings)"}</b>

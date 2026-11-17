@@ -13,7 +13,8 @@ import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/
 import { photoUrl } from "@/lib/photos";
 import { SearchBar } from "@/components/SearchBar";
 import { MotorsSearch } from "@/components/MotorsSearch";
-import { CATEGORIES } from "@/lib/vehicles";
+import { CATEGORIES, sellCategories } from "@/lib/vehicles";
+import { legalValues } from "@/content/legal";
 import { jsonLd, siteJsonLd } from "@/lib/seo";
 import { env } from "@/lib/env";
 
@@ -35,6 +36,11 @@ export default async function Home() {
   const fWaiting = featured?.live_state === "waiting";
   const fp = home.featuredPhotos;
   const covers = new Map(lots.concat(featured ? [featured] : []).map((l) => [l.id, l.cover_path || undefined]));
+  // What we sell decides the page: trucks only to start (settings selling.categories), the full range if that grows.
+  const trucksOnly = (() => { const c = sellCategories(settings.selling as { categories?: unknown } | undefined); return c.length === 1 && c[0] === "trucks"; })();
+  const where = legalValues(settings).SELL_STATES;
+  const T_KINDS: [string, string][] = [["prime-mover", "Prime movers"], ["tipper", "Tippers"], ["curtainsider", "Curtainsiders"], ["tray", "Tray trucks"], ["pantech", "Pantechs"], ["refrigerated", "Refrigerated"], ["tilt-tray", "Tilt trays"], ["crane", "Crane trucks"], ["cab-chassis", "Cab chassis"], ["light", "Light trucks"]];
+  const kindHref = (k: string) => `/auctions?cat=trucks${k ? `&type=${k}` : ""}`;
 
   return (
     <>
@@ -44,13 +50,18 @@ export default async function Home() {
           <span className="eyebrow" style={{ color: "var(--urgent)", display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--tangerine)" }} />Live auctions · Australia-wide
           </span>
-          <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
-          <p className="lede">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, with an auction estimate on every listing. Checked before listing, PPSR searched, and always shown with the all-in price.</p>
+          {trucksOnly ? <>
+            <h1 className="d1">Every truck.<br />Properly <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
+            <p className="lede">Live online truck auctions in {where}, with an auction estimate on every listing. View it by appointment where it&apos;s kept, PPSR searched, and always shown with the all-in price.</p>
+          </> : <>
+            <h1 className="d1">Every car.<br />Beautifully <span className="serif" style={{ color: "var(--blue)" }}>sold.</span></h1>
+            <p className="lede">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery across Australia, with an auction estimate on every listing. Checked before listing, PPSR searched, and always shown with the all-in price.</p>
+          </>}
           <div style={{ width: "min(780px,100%)", marginTop: 8 }}><SearchBar variant="hero" /></div>
           <div className="try-row" aria-label="Try a search">
-            {[["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], [liveOnly ? "At auction today" : "Ending today", "/auctions?ending=today"]].map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
+            {(trucksOnly ? [["Tipper under $60k", "/auctions?cat=trucks&type=tipper&max=60000"], ["Prime movers", "/auctions?cat=trucks&type=prime-mover"], ["Curtainsiders", "/auctions?cat=trucks&type=curtainsider"], ["Light truck on a car licence", "/auctions?cat=trucks&lic=C"], ["Tilt trays", "/auctions?cat=trucks&type=tilt-tray"]] : [["HiLux under 30k", "/auctions?make=Toyota&model=HiLux&cat=utes&max=30000"], ["LAMS bikes", "/auctions?cat=motorbikes&lams=1"], ["Caravan sleeps 4", "/auctions?cat=caravans&berths=4"], ["Tipper on a car licence", "/auctions?cat=trucks&type=tipper&lic=C"], ["First car under $5k", "/auctions?cat=cars&max=5000"], [liveOnly ? "At auction today" : "Ending today", "/auctions?ending=today"]]).map(([l, h]) => <Link key={h} href={h}>{l}</Link>)}
           </div>
-          <div className="ctas"><Link className="more" href="/sell">Sell your vehicle ›</Link><Link className="more" href="/value">What&apos;s it worth? ›</Link></div>
+          <div className="ctas"><Link className="more" href="/sell">{trucksOnly ? "Sell your truck ›" : "Sell your vehicle ›"}</Link><Link className="more" href="/value">What&apos;s it worth? ›</Link></div>
           {next && (
             <Link className="nextsale" href={`/live/${next.slug}`} data-testid="next-sale">
               <span className="dot" aria-hidden="true" />
@@ -60,8 +71,8 @@ export default async function Home() {
           )}
         </div>
         <div className="lineup">
-          {[["cars", "tangerine", "car", "Cars"], ["utes", "sky", "ute", "Utes & 4x4"], ["trucks", "lime", "truck", "Trucks"]].map(([cat, bg, type, label]) => (
-            <Link key={cat} href={`/auctions?cat=${cat}`} style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", textAlign: "center" }}>
+          {(trucksOnly ? [["prime-mover", "lime", "truck", "Prime movers"], ["tipper", "tangerine", "truck", "Tippers"], ["curtainsider", "sky", "truck", "Curtainsiders"]] : [["cars", "tangerine", "car", "Cars"], ["utes", "sky", "ute", "Utes & 4x4"], ["trucks", "lime", "truck", "Trucks"]]).map(([cat, bg, type, label]) => (
+            <Link key={cat} href={trucksOnly ? kindHref(cat) : `/auctions?cat=${cat}`} style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", textAlign: "center" }}>
               <span className={`stage bg-${bg}`} style={{ display: "block", width: "100%", aspectRatio: "1.15", borderRadius: 32 }}><CarArt type={type} style={{ width: "84%", bottom: "24%" }} /></span>
               <span className="t" style={{ fontSize: "clamp(24px,2.6vw,34px)", fontWeight: 800, letterSpacing: "-0.03em" }}>{label}</span>
               <span className="more" style={{ fontSize: 17 }}>Browse {label.split(" ")[0].toLowerCase()} ›</span>
@@ -69,7 +80,11 @@ export default async function Home() {
           ))}
         </div>
         <div className="catrow">
-          {CATEGORIES.filter((c) => !["cars", "utes", "trucks"].includes(c.key)).map((c) => (
+          {trucksOnly ? T_KINDS.slice(3).map(([k, label], i) => (
+            <Link key={k} href={kindHref(k)}>
+              <span className={`stage bg-${["sun", "mint", "berry", "sky", "lime", "tangerine", "lilac"][i % 7]}`}><CarArt type="truck" /></span>{label}
+            </Link>
+          )) : CATEGORIES.filter((c) => !["cars", "utes", "trucks"].includes(c.key)).map((c) => (
             <Link key={c.key} href={`/auctions?cat=${c.key}`}>
               <span className={`stage bg-${c.backdrop}`}><CarArt type={c.silhouette} /></span>{c.short}
             </Link>
@@ -126,8 +141,8 @@ export default async function Home() {
         <div className="center" style={{ gap: 22, marginBottom: 40 }}>
           <h2 className="d2">{lots.some((l) => l.live_state) ? "Up next at auction." : "Ending soonest."}</h2>
           <div className="seg">
-            {[["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["motorbikes", "Bikes"], ["caravans", "Caravans"], ["cheap", "Under $5k"]].map(([k, l]) => (
-              <Link key={k} href={`/auctions${k ? `?cat=${k}` : ""}`} style={{ height: 42, padding: "0 20px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600, color: "var(--ink2)" }}>{l}</Link>
+            {(trucksOnly ? [["", "All"], ...T_KINDS.slice(0, 5)] : [["", "All"], ["cars", "Cars"], ["utes", "Utes"], ["trucks", "Trucks"], ["motorbikes", "Bikes"], ["caravans", "Caravans"], ["cheap", "Under $5k"]]).map(([k, l]) => (
+              <Link key={k} href={trucksOnly ? kindHref(k) : `/auctions${k ? `?cat=${k}` : ""}`} style={{ height: 42, padding: "0 20px", borderRadius: 21, display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600, color: "var(--ink2)" }}>{l}</Link>
             ))}
           </div>
         </div>
@@ -146,9 +161,9 @@ export default async function Home() {
           <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>Bid with <span className="serif">confidence.</span></h2>
           <div className="four">
             <Tile colour="tangerine" path='<path d="M9 12l2 2 4-4"/><path d="M5 4h14v16H5z"/>' title="Checked before it's listed.">VIN, odometer, transmission, fuel, features and warning lights checked against the seller&apos;s photos and video and the official records. Any correction is shown on the listing. <Link href="/listing-promise" style={{ fontWeight: 700 }}>How we check ›</Link></Tile>
-            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="See it before you bid.">The seller&apos;s photos and walkaround video, our condition report, and a mechanical inspection from our partner if you want one. No viewings at anyone&apos;s house.</Tile>
+            <Tile colour="sky" path='<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' title="See it before you bid.">View it by appointment where it&apos;s kept, and bring your mechanic if you like. Every listing has the owner&apos;s photos and walkaround video and our report.</Tile>
             <Tile colour="lime" path='<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>' title="PPSR searched.">Every vehicle is searched for finance owing, write-offs and theft before listing.</Tile>
-            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount: the buyer&apos;s premium (with the transport to our depot), GST and fees. No surcharge.</Tile>
+            <Tile colour="berry" path='<path d="M4 7h16M4 12h16M4 17h10"/>' title="All-in price.">Every price shows the all-in amount: the buyer&apos;s premium and GST{Number(fees.admin_fee) > 0 ? ", and the admin fee" : ""}. No surcharge, and nothing added for transport.</Tile>
           </div>
         </div>
       </section>
@@ -156,15 +171,27 @@ export default async function Home() {
       <section className="wrap">
         <h2 className="d2" style={{ textAlign: "center", marginBottom: 40 }}>Browse by category.</h2>
         <div className="bento">
-          <Link className="big bg-berry" href="/auctions?cat=cheap" style={{ borderRadius: 32, padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-            <span style={{ fontWeight: 700 }}>Collection</span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 12 }}><span className="n" style={{ fontSize: "clamp(56px,7vw,88px)", lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.055em" }}>Under<br />$5,000.</span><span style={{ fontSize: 20, maxWidth: 420, fontWeight: 500 }}>First cars and second cars, each with a full condition report and PPSR search.</span></span>
-          </Link>
-          {[["bg-sky", "/auctions?cat=utes", "Work utes", "Dual cabs & tray backs ›", ""], ["bg-lime", "/auctions?cat=trucks", "Tippers", "Light trucks ›", ""], ["bg-blueberry on-dark", "/auctions?cat=trucks", "Prime movers", "Heavy haulage ›", ""], ["bg-mint", "/auctions?cat=cheap", "First cars", "Economical to run ›", ""], ["bg-tangerine", "/auctions?ending=today", "Closing today", "Final hours ›", "wide"], ["bg-grape on-dark", "/auctions?cat=cars", "Every car", "Sedans, hatches, SUVs ›", "wide"]].map(([cls, href, n, s, w]) => (
-            <Link key={n + href} className={`${cls} ${w}`} href={href} style={{ borderRadius: 32, padding: 32, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4 }}>
-              <span className="n" style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.035em" }}>{n}</span><span className="s" style={{ fontSize: 16, fontWeight: 500 }}>{s}</span>
+          {trucksOnly ? <>
+            <Link className="big bg-berry" href="/auctions?cat=trucks&max=50000" style={{ borderRadius: 32, padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 700 }}>Collection</span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 12 }}><span className="n" style={{ fontSize: "clamp(56px,7vw,88px)", lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.055em" }}>Under<br />$50,000.</span><span style={{ fontSize: 20, maxWidth: 420, fontWeight: 500 }}>Work-ready light and medium trucks, each with its all-in price on the card.</span></span>
             </Link>
-          ))}
+            {([["bg-sky", "tipper", "Tippers", "Earthmoving and landscaping ›", ""], ["bg-lime", "light", "Light trucks", "On a car or light rigid licence ›", ""], ["bg-blueberry on-dark", "prime-mover", "Prime movers", "Heavy haulage ›", ""], ["bg-mint", "curtainsider", "Curtainsiders", "Freight and distribution ›", ""], ["bg-sun", "refrigerated", "Refrigerated", "Cold chain ›", ""]] as [string, string, string, string, string][]).map(([cls, k, n, sub, w]) => (
+              <Link key={k} className={`${cls} ${w}`} href={kindHref(k)} style={{ borderRadius: 32, padding: 32, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4 }}>
+                <span className="n" style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.035em" }}>{n}</span><span className="s" style={{ fontSize: 16, fontWeight: 500 }}>{sub}</span>
+              </Link>
+            ))}
+          </> : <>
+            <Link className="big bg-berry" href="/auctions?cat=cheap" style={{ borderRadius: 32, padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 700 }}>Collection</span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 12 }}><span className="n" style={{ fontSize: "clamp(56px,7vw,88px)", lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.055em" }}>Under<br />$5,000.</span><span style={{ fontSize: 20, maxWidth: 420, fontWeight: 500 }}>First cars and second cars, each with a full condition report and PPSR search.</span></span>
+            </Link>
+            {[["bg-sky", "/auctions?cat=utes", "Work utes", "Dual cabs & tray backs ›", ""], ["bg-lime", "/auctions?cat=trucks", "Tippers", "Light trucks ›", ""], ["bg-blueberry on-dark", "/auctions?cat=trucks", "Prime movers", "Heavy haulage ›", ""], ["bg-mint", "/auctions?cat=cheap", "First cars", "Economical to run ›", ""], ["bg-tangerine", "/auctions?ending=today", "Closing today", "Final hours ›", "wide"], ["bg-grape on-dark", "/auctions?cat=cars", "Every car", "Sedans, hatches, SUVs ›", "wide"]].map(([cls, href, n, s, w]) => (
+              <Link key={n + href} className={`${cls} ${w}`} href={href} style={{ borderRadius: 32, padding: 32, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4 }}>
+                <span className="n" style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.035em" }}>{n}</span><span className="s" style={{ fontSize: 16, fontWeight: 500 }}>{s}</span>
+              </Link>
+            ))}
+          </>}
         </div>
       </section>
 
@@ -172,8 +199,8 @@ export default async function Home() {
         <h2 className="d2" style={{ textAlign: "center", marginBottom: 56 }}>How buying works.</h2>
         <div className="steps3">
           <div><span className="num" style={{ color: "var(--tangerine)" }}>1</span><h3>Register.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>{fees.pay_mode === "deposit" ? "Verify your mobile and ID once, then add a refundable bidding deposit by PayID or bank transfer. Joining is free." : "Verify your mobile and ID once. It's free: no deposit and no card needed to bid."}</p></div>
-          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>Research. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read the condition report, watch the video, order a mechanical inspection if you&apos;d like one, then set your maximum bid.</p></div>
-          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Pay by transfer when you win. We bring it to our depot, and you collect it at a booked time (or have it delivered).</p></div>
+          <div><span className="num" style={{ color: "var(--sky)" }}>2</span><h3>View it. Bid.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Read our report, watch the video, view it by appointment where it&apos;s kept (bring a mechanic if you like), then set your maximum bid.</p></div>
+          <div><span className="num" style={{ color: "var(--grape)" }}>3</span><h3>Pay. Collect.</h3><p className="muted" style={{ fontSize: 17, maxWidth: 320 }}>Pay us by transfer when you win. Book a time, and collect it from the seller with your release code (or send a carrier).</p></div>
         </div>
         <div className="center" style={{ marginTop: 40, gap: 14 }}>
           <JoinOrWatchlist />
@@ -185,8 +212,8 @@ export default async function Home() {
         <div className="sellband">
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <span className="eyebrow" style={{ color: "var(--sun)" }}>Sell with Super Trucker</span>
-            <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your driveway.</span></h2>
-            <p style={{ fontSize: 21, fontWeight: 500 }}>Send us photos and a short video from your phone. We check them and the papers, put it in our next live auction Australia-wide and handle every enquiry. You&apos;re paid once the buyer has paid and collected.</p>
+            <h2 className="d2" style={{ color: "#FFFFFF" }}>Sold properly. <span className="serif">From your yard.</span></h2>
+            <p style={{ fontSize: 21, fontWeight: 500 }}>Send us photos and a short video from your phone. We check them and the papers, put it in our next live auction and handle every enquiry. Buyers view it by appointment, pay us in full, then collect it from you. You&apos;re paid once their claim window closes.</p>
             <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap" }}>
               <Link className="btn btn-white" href="/sell">Get a free appraisal</Link>
               <Link href="/sell#how-sell" style={{ fontSize: 19, fontWeight: 600 }}>How selling works ›</Link>
