@@ -37,7 +37,7 @@ export function BidConfirm({ lot, typed, minNext, fees, cardLabel, busy, onPlace
       <p className="muted" style={{ fontSize: 16 }}>{lot.title}. We&apos;ll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. <b data-testid="confirm-withdraw">{withdrawable ? "It's binding unless you withdraw it before the hammer falls." : "Bids can't be withdrawn."}</b></p>
       <div className="allin" style={{ border: 0, padding: 0 }}>
         <div><span className="muted">If you win at your full maximum</span><span>{money(preview.price)}</span></div>
-        <div><span className="muted">{feesLine(preview.transport)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
+        <div><span className="muted">{feesLine(preview.transport, preview.adminFee)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
         <div className="tot"><span>All-in, at most</span><span>{money(preview.total, true)}</span></div>
       </div>
       <p style={{ fontSize: 14, lineHeight: 1.5 }}>{payNoteFor(preview, cardLabel)}</p>

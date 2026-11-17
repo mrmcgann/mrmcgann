@@ -254,7 +254,7 @@ export function BidPanel(props: {
           <div><span className="muted">Winning bid</span><span>{money(preview.price)}</span></div>
           <div><span className="muted">{premiumLabel(fees)}</span><span>{money(preview.premium, true)}</span></div>
           <div><span className="muted">GST on premium</span><span>{money(preview.gst, true)}</span></div>
-          <div><span className="muted">Admin fee</span><span>{money(preview.adminFee, true)}</span></div>
+          {preview.adminFee > 0 && <div><span className="muted">Admin fee</span><span>{money(preview.adminFee, true)}</span></div>}
           {preview.surcharge > 0 && <div><span className="muted">Card surcharge</span><span>{money(preview.surcharge, true)}</span></div>}
           <div className="tot"><span>All-in</span><span>{money(preview.total, true)}</span></div>
           <div className="hint">No surcharge. {lot.gst_status === "inc" ? "The vehicle price includes GST (GST-registered seller)." : "Private sale: no GST on the vehicle price."}</div>
@@ -267,7 +267,7 @@ export function BidPanel(props: {
             <p className="hint" style={{ margin: 0 }} data-testid="rights-outright">{consumerRights("outright", lot.seller_type)} <Link className="blue" href="/terms#t-asis" target="_blank">Your rights ›</Link></p>
             <div className="allin" style={{ border: 0, padding: 0 }}>
               <div><span className="muted">Buy Now price</span><span>{money(bn)}</span></div>
-              <div><span className="muted">{feesLine(bnPrev.transport)}</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
+              <div><span className="muted">{feesLine(bnPrev.transport, bnPrev.adminFee)}</span><span>{money(bnPrev.subtotal - bn, true)}</span></div>
               <div className="tot"><span>All-in</span><span>{money(bnPrev.total, true)}</span></div>
             </div>
             <p style={{ fontSize: 14 }}>{buyNowPayLine(bnPrev)

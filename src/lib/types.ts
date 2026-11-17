@@ -108,7 +108,11 @@ export interface Lot {
   seller_id?: string | null;
   consultant_id?: string | null;
   fees?: Partial<Record<keyof Fees, number | string>> | null;
-  /** the depot the buyer collects from (lots.suburb/state/postcode are its location) */
+  /** where the buyer collects it: from the seller (the way we run; lots.suburb is the seller's suburb) or from a depot (the earlier way) */
+  collect_from?: "depot" | "seller";
+  /** New South Wales: why a vehicle sold without plates has none */
+  plates_note?: string | null;
+  /** the depot the buyer collects from, for a listing collected from a depot (lots.suburb/state/postcode are then the depot's) */
   depot_id?: string | null;
   /** the transport from the seller to the depot (before GST), part of the buyer's premium; locked when bidding opens */
   transport_fee?: number | null;
@@ -268,7 +272,7 @@ export interface Fees {
 }
 
 export const DEFAULT_FEES: Fees = {
-  premium_rate: 0.015, premium_min: 140, admin_fee: 0, surcharge_rate: 0, card_limit: 5000,
+  premium_rate: 0.06, premium_min: 140, admin_fee: 0, surcharge_rate: 0, card_limit: 5000,
   nrd_low: 500, nrd_high: 1000, nrd_split: 20000, cancel_fee: 250, cancel_above: 1000,
   storage_per_day: 50, seller_fee_rate: 0, seller_fee_min: 0, withdrawal_fee: 250, late_interest_rate: 10,
   pay_mode: "transfer", deposit_rate: 0.1, deposit_min: 500, deposit_cap: 5000,

@@ -21,7 +21,7 @@ import type { Fees, Lot } from "~/lib/types";
 import { Button, Check, Empty, Loading, Notice, Screen, Soft, T, Tag } from "~/ui/kit";
 import { Gallery } from "~/ui/Gallery";
 import { C, F, PAD } from "~/ui/theme";
-import { premiumLabel } from "@/lib/transport";
+import { premiumLabel, feesWords } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; media: LiveMedia | null; server_time: string };
 // a note to this bidder about the vehicle that's up: one about the price only shows while the price is still that price
@@ -284,7 +284,7 @@ export default function LiveRoomScreen() {
               <View>
                 <Text style={s.k}>{cur.status === "sold" ? "Sold for" : "Current bid"}</Text>
                 <Text style={s.price} testID="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</Text>
-                {f ? <><Text style={s.k}>All-in</Text><Text style={s.price} testID="live-allin">{allInMoney(cur.status === "sold" ? soldAllIn : allIn)}</Text><T v="small">With the buyer's premium, GST and admin fee · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</T></> : null}
+                {f ? <><Text style={s.k}>All-in</Text><Text style={s.price} testID="live-allin">{allInMoney(cur.status === "sold" ? soldAllIn : allIn)}</Text><T v="small">With {feesWords(f.admin_fee)} · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</T></> : null}
               </View>
             ) : <View><Text style={s.k}>Result</Text><Text style={[s.price, { fontSize: 30 }]} testID="live-price">{resultLine(cur).replace(/\.$/, "")}</Text>
               {cur.status === "passed" && !topPassed ? <T v="small" testID="live-passed">{cur.bid_count ? "Bidding didn't reach the seller's reserve, so it wasn't sold and nobody owes anything." : "Nobody bid, so it wasn't sold."} It may be offered at a later auction.</T> : null}</View>}

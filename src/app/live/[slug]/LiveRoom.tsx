@@ -19,7 +19,7 @@ import { allInMoney, estimateAllInText, estimateText, hasEstimate } from "@/lib/
 import { liveLine, nextBid, quickBids, resultLine, secondsLeft, type LiveLot, type LiveMedia as Media, type LiveSale } from "@/lib/live";
 import { auctionConditions, CONDITIONS_ACK } from "@/lib/conditions";
 import type { Fees, Lot } from "@/lib/types";
-import { premiumLabel } from "@/lib/transport";
+import { premiumLabel, feesWords } from "@/lib/transport";
 
 type Room = { sale: LiveSale; current: LiveLot | null; next: LiveLot[]; done: LiveLot[]; waiting: number; media: Media | null; server_time: string };
 type LotMsg = Partial<LiveLot> & { id: number };
@@ -318,7 +318,7 @@ export function LiveRoom({ initial, fees, licences, payDays = 2 }: { initial: Ro
                   <span className="k">{cur.status === "sold" ? "Sold for" : "Current bid"}</span>
                   <span className="v" data-testid="live-price">{money(cur.status === "sold" ? cur.sold_price : cur.current_bid)}</span>
                   <span className="k">All-in</span><span className="v" data-testid="live-allin">{allInMoney(cur.status === "sold" ? soldAllIn : allIn)}</span>
-                  <span className="hint" style={{ margin: 0 }}>With the buyer&apos;s premium, GST and admin fee · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</span>
+                  <span className="hint" style={{ margin: 0 }}>With {feesWords(lotFeesNow?.admin_fee)} · {cur.bid_count} bid{cur.bid_count === 1 ? "" : "s"}</span>
                 </div>
               ) : (
                 <div className="lv-price"><span className="k">Result</span><span className="v" style={{ fontSize: "clamp(30px,3.4vw,40px)", letterSpacing: "-0.03em" }} data-testid="live-price">{resultLine(cur).replace(/\.$/, "")}</span>

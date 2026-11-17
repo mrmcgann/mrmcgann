@@ -27,7 +27,7 @@ const title = (id) => TERMS.find(([i]) => i === id)[1];
 ok('section 9 is collection (storage, abandonment)', title('t-title').startsWith('9.'));
 ok('section 11 is default', title('t-default').startsWith('11.'));
 ok('section 12 is claims', title('t-claims').startsWith('12.'));
-ok('section 16 is collecting from our depot', title('t-site').startsWith('16.'));
+ok('section 16 is collecting it from where it is kept', title('t-site').startsWith('16.') && /where it’s kept/.test(title('t-site')));
 ok('section 17 is outages and events outside control', title('t-errors').startsWith('17.'));
 ok('general is last', TERMS[TERMS.length - 1][0] === 't-general');
 
@@ -57,9 +57,9 @@ ok('deposit: withdraw any time, back to where it came from', /We send it to the 
 ok('deposit: the payer must be the buyer', /Pay from an account in your own name/.test(terms));
 ok('deposit: half of a kept deposit to the seller (both documents)', /half of it goes to the seller/.test(terms) && /we pay you half of it/.test(JSON.stringify(SELLER_AGREEMENT)));
 ok('business day is defined', /“Business day” means/.test(terms));
-ok('no storage before the transfer or when the delay is ours or the seller’s', /none before the registration transfer is complete/.test(terms) && /caused by us or the seller/.test(terms));
+ok('no storage before it is ready or when the delay is ours or the seller’s', /none before the seller’s notice of disposal is lodged/.test(terms) && /caused by us or the seller/.test(terms));
 ok('title passes on payment; the transfer is the registration', /Ownership \(title\) passes to you when we receive full payment/.test(terms) && /Registration transfer:/.test(terms));
-ok('help: passed in below the reserve; sold afterwards only by agreement, where the state allows it', /the seller may agree to sell it after the auction, and we may send you a written offer to sign, with no obligation/.test(help) && /passed in/.test(help));
+ok('help: passed in below the reserve goes into a later auction; nothing is sold privately in between', /it goes into a later auction \(usually the next one\)/.test(help) && /Every truck is sold under the hammer, or not at all/.test(help) && /passed in/.test(help));
 ok('help and summary agree on risk', /until your collection window ends/.test(terms) && /from the end of your collection window/.test(help));
 ok('claims: longer window for title-type problems', /within 30 days of handover/.test(terms));
 ok('seller: can pursue a non-paying buyer after 30 days', /you may pursue them yourself/.test(JSON.stringify(SELLER_AGREEMENT)));
@@ -88,36 +88,65 @@ ok('security: settings values are escaped in the Terms', !t1.includes('<img') &&
 const p1 = JSON.stringify(fillLegal(PRIVACY, { fees: {} }, { text: true }));
 ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}/.test(p1) && JSON.parse(p1).length === PRIVACY.length);
 
-// checking a vehicle without seeing it, the pickup to our depot, and keeping the seller private
+// Super Trucker: viewing by appointment, collecting it from the seller, and every sale going through us
 {
   const t = JSON.stringify(fillLegal({ TERMS, HELP, PRIVACY, SELLER_AGREEMENT, WEBSITE_TERMS }, { selling: { pre_inspection_fee: 249 } }));
-  const seller = JSON.stringify(SELLER_AGREEMENT), privacy = JSON.stringify(PRIVACY);
-  ok('no viewings or test drives, anywhere', /There are no viewings, video calls or test drives/.test(terms) && /no viewings or test drives/i.test(help) && !/strictly by appointment|free video walkaround|in-person viewing|view it in person/i.test(t));
-  ok('inspection: optional, through our partner, paid by the bidder, independent', /mechanical inspection/.test(t) && /independent of Super Trucker/.test(t) && /You pay the mechanic/.test(terms) && /You don’t attend, and you aren’t given the address/.test(terms));
-  ok('inspection: the report says what couldn’t be checked (no hoist)', /without a hoist/i.test(terms) && /Without a hoist/.test(help));
+  const seller = JSON.stringify(SELLER_AGREEMENT), privacy = JSON.stringify(PRIVACY), web = JSON.stringify(WEBSITE_TERMS);
+  ok('nothing of the depot way is left in any document', !/our depot|transport partner|to our depot|at the depot|the depot’s|No viewings|no viewings or test drives|buyers never visit/i.test(t), (t.match(/.{50}(our depot|transport partner|to our depot|at the depot|the depot’s|No viewings|no viewings or test drives|buyers never visit).{50}/i) || [''])[0]);
+  ok('viewing: by appointment, for verified members, the address only on a booking', /in person, by appointment, where it’s kept/.test(terms) && /Viewings are for verified members/.test(terms) && /We agree a time with the owner and send you the address/.test(terms) && /No booking, no visit/.test(terms));
+  ok('viewing: looking and listening only; the yard is the owner’s workplace, and we are not there', /There’s no road test, and nothing is taken apart/.test(terms) && /Nobody from Super Trucker is there/.test(terms) && /follow the site’s rules/.test(terms));
+  ok('viewing: what an owner says isn’t the listing; ask us to confirm it in writing', /What an owner tells you at a viewing isn’t part of the listing/.test(terms) && /ask us to confirm it in writing before the auction/.test(terms) && /if you tell a visitor something that isn’t in the listing, tell us too/.test(seller));
+  ok('viewing: the listing says when an owner can’t host one', /Some owners can’t host viewings/.test(terms) && /If you can’t host viewings at all, tell us before it’s listed/.test(seller));
+  ok('we are never at the vehicle, and nothing says we inspect it', /We’re never at the vehicle/.test(terms) && /never at your vehicle/.test(seller) && !/we (walk around|inspect|photograph|visit) (it|the vehicle|every)/i.test(t));
+  ok('introductions (buyers): no dealing direct; our premium on a sale around us; collected once', terms.includes('id=\\"t-intro\\"') && /you won’t make the owner an offer or ask them to deal direct/.test(terms)
+    && /you pay us the buyer’s premium we would have earned on the price you paid/.test(terms) && /That is what we lose when a sale we set up goes around us, and no more/.test(terms) && /We collect it once: from you or from the owner/.test(terms) && /Every sale goes through us/.test(terms));
+  ok('introductions (sellers): exclusive for the 90-day authority, then buyers we introduced', /For the 90 days of your authority \(section 1\), only we sell the vehicle/.test(seller) && /by you or anyone else, to anyone, you pay us the buyer’s premium we would have earned/.test(seller)
+    && /anyone we named to you in writing \(every viewing and collection we book names the visitor\), anyone who bid on it with us/.test(seller) && /say no and tell us the same day/.test(seller));
+  ok('introductions: proportionate, paid once, and a clean withdrawal costs only the withdrawal fee', /what we lose when a sale we advertised, checked and set up goes around us, and no more/.test(seller) && /We don’t also collect it from the buyer/.test(seller) && /you pay only the withdrawal fee/.test(seller));
+  ok('introductions: the tail follows the setting in every document', t.includes('within 90 days after') && JSON.stringify(fillLegal({ TERMS, SELLER_AGREEMENT }, { auction: { exclusivity_days: 60 } })).includes('For 60 days after your authority ends') && legalValues({}).EXCLUSIVITY_DAYS === '90');
+  ok('the address: suburb on the listing, street only for a booked viewing or a confirmed collection (every document)', /The street address isn’t published/.test(terms) && /it shows your suburb, not your street/.test(seller)
+    && /only to a verified member whose viewing we’ve booked and to the buyer whose collection time is confirmed/.test(privacy) && /We tell the owner the name of whoever is coming/.test(privacy) && /We never give either side the other’s phone, email or home address/.test(privacy));
+  ok('website terms: an address is for its viewing or sale only; no sales around us', /for anything other than the viewing or sale they were given for/.test(web) && /don’t arrange to buy or sell a vehicle listed with us outside Super Trucker to avoid our fees/.test(web));
+  ok('fees: the premium with its floor, GST, and nothing for transport or admin', t.includes('A buyer’s premium of 6% of the price (at least $140), and GST on the premium. No surcharge, payment fee or transport charge.') && /Nothing is added for transport/.test(terms)
+    && t.includes('There’s no admin or documentation fee.') && !/admin fee of \$0|Admin fee: \$0/.test(t));
+  ok('fees: an admin fee is named when there is one', JSON.stringify(fillLegal(TERMS, { fees: { admin_fee: 55 } })).includes('and an admin fee of $55') && JSON.stringify(fillLegal(TERMS, { fees: { premium_min: 0 } })).includes('6% of the price, plus GST on the premium'));
+  ok('fees: the seller agrees in writing to the premium being charged and shown', /you agree in writing to us charging the buyer a buyer’s premium/.test(seller) && /The seller has agreed in writing to us charging it/.test(terms));
+  ok('collection: from where it is kept, after payment and the notice of disposal, with a release code', /Collecting it from where it’s kept/.test(terms) && /We agree it with the seller and send you the address and a 6-digit release code/.test(terms)
+    && /The seller hands over the vehicle only when the release code works/.test(terms) && /The vehicle is handed over only once the buyer has paid us in full/.test(seller));
+  ok('handover: check it first; the code is the sign-off; something wrong means no code and a full refund', /check the vehicle against the listing before you give the release code/.test(terms) && /The code is your sign-off/.test(terms)
+    && /don’t give the code: call us from the yard. You choose: go ahead, or cancel the sale for a full refund/.test(terms) && /If the code doesn’t work, don’t hand it over: call us/.test(seller));
+  ok('handover: nobody pays the seller, and the seller takes money from nobody', /Never pay the seller anything/.test(terms) && /Never accept money from anyone for it/.test(seller) && /Pay Super Trucker only, never the seller/.test(terms));
+  ok('risk: with the seller until the handover; the money in trust is the buyer’s protection', /Until then the vehicle is in the seller’s hands and at the seller’s risk/.test(terms) && /We never have the vehicle/.test(terms)
+    && /we hold your money in trust until the handover is done and your claim window has closed/.test(terms) && /The vehicle stays at your risk, and insured by you, until the handover is recorded/.test(seller));
+  ok('unregistered: leaves on a carrier or float, or under a permit number recorded at the handover (both documents)', /whose number the seller records on the handover page before the keys change hands/.test(terms) && /an offence by whoever permits it as well as whoever drives it/.test(terms)
+    && /the handover page won’t complete without one of those/.test(seller) && /A written-off vehicle can’t be driven away at all/.test(terms));
+  ok('permits: each state’s is named for what it is', /Queensland’s unregistered vehicle permit/.test(terms) && /New South Wales issues one at a service centre, not online/.test(terms) && /Western Australia’s temporary movement permit lasts 48 hours/.test(terms) && /not simply to drive it home/.test(terms));
+  ok('certificates: Queensland heavy and light, the New South Wales plates rule, Western Australia', /over 4\.5 tonnes GVM is transferred on a current certificate of inspection/.test(terms) && /the law doesn’t let a vehicle be auctioned with its plates on unless a current inspection report \(issued in the 42 days before\) is shown with it/.test(terms)
+    && /first issued or renewed in the 90 days before the auction/.test(terms) && /the listing says why it has none/.test(terms) && /Western Australia<\/b>: nothing more is needed/.test(terms)
+    && /a certificate of inspection for a vehicle over 4\.5 tonnes GVM/.test(seller) && /otherwise you hand the plates in and it’s sold unregistered/.test(seller));
+  ok('statutory warranty: we never give one; none applies at auction in our three states; trade owners kept off', /we never give a statutory warranty or take on a dealer’s duty to repair/.test(terms) && /says that none applies to the sale/.test(terms)
+    && /none applies in Queensland \(a commercial vehicle, and a vehicle sold on consignment for an owner who isn’t a motor dealer, are both excluded\)/.test(terms) && /in Western Australia, a vehicle whose owner bought it to resell/.test(terms)
+    && /you didn’t buy this vehicle to resell it, unless you’ve told us/.test(seller) && /We don’t list a vehicle that would carry one/.test(terms));
+  ok('a goods vehicle is covered by the ACL at any price, and the auction rule is the same', /a truck bought to carry goods on public roads is covered by the Australian Consumer Law at any price/.test(terms));
+  ok('never sold after the auction (terms, agreement, help)', terms.includes('id=\\"t-after\\"') && /Nothing is sold after the auction/.test(terms) && /We don’t sell trucks by private treaty after an auction/.test(seller) && /Can I buy a truck after the auction\?/.test(help)
+    && !/offer page|cooling-off period your state gives|sign an offer/.test(t));
+  ok('a listed truck is parked, not worked', /A listed truck is parked, not worked/.test(terms) && /A listed vehicle is parked, not worked/.test(seller));
+  ok('inspection: bring a mechanic, or our partner where there is one; independent; no hoist', /bring your own mechanic to a viewing/.test(terms) && /independent of Super Trucker/.test(t) && /You pay the mechanic/.test(terms) && /without a hoist/i.test(terms) && /Without a hoist/.test(help));
   ok('pre-inspection: fee from the proceeds, only if it sells', t.includes('$249 including GST') && /only if it sells|nothing to pay/.test(t));
-  ok('transport: in the buyer’s premium, shown before bidding, fixed once it opens', /plus the vehicle’s transport to our depot/.test(terms) && /set before bidding opens and doesn’t change once it has/.test(terms) && /Why is transport in the buyer’s premium\?/.test(help));
-  ok('transport: the seller pays nothing for the pickup', /or the pickup to our depot/.test(seller) && /the buyer pays the transport to our depot/.test(help));
-  ok('pickup only after payment in full (both documents)', /Once you’ve paid in full, our transport partner picks it up/.test(terms) && /The vehicle is picked up only once the buyer has paid in full/.test(seller));
-  ok('risk: the seller until pickup, us from pickup until handover, with due care', /Until our transport partner picks the vehicle up, the seller must look after it/.test(terms) && /From pickup until handover, we’re responsible for it/.test(terms) && /due care and skill/.test(terms) && /From pickup until the buyer collects it from our depot, we’re responsible for it/.test(seller));
-  ok('a change found at pickup: the buyer may cancel for a full refund', /you choose: go ahead, or cancel the sale for a full refund/.test(terms));
-  ok('collection is from our depot, with the release code', /Collecting from our depot/.test(terms) && /The depot only hands over the vehicle when given the release code/.test(terms));
-  ok('seller kept private: never named to buyers; address only to transport and the mechanic', /We never give buyers the seller’s name, address or phone/.test(terms) && /Buyers never get your name, address or phone/.test(seller) && /A seller’s pickup address goes only to our transport partner/.test(privacy) && !/seller’s address for collection/.test(t));
-  ok('buyers must not look for or contact the seller', /Leave the seller alone/.test(terms) && /Don’t try to find out who or where a seller is/.test(JSON.stringify(WEBSITE_TERMS)) && /Can I contact the seller\?/.test(help));
-  ok('statutory warranty: we never give one; every listing and the live room say none applies; the ACT exception kept off our listings', /we never give a statutory warranty or take on a dealer’s duty to repair/.test(terms)
-    && /says that none applies to the sale/.test(terms) && /none applies in Queensland/.test(terms) && /in the ACT, where a dealer’s duty to repair applies even at auction, a vehicle it could cover/.test(terms) && /we don’t list a vehicle it could cover/.test(help));
-  ok('the seller sends the photos and walkaround video, and gives the mechanic access', /Photos and video: send us the photos/.test(seller) && /walkaround video/.test(seller) && /give our partner mechanic access/.test(seller));
+  ok('big payments: check the bank’s limit before the auction', /check your bank’s daily transfer limit before the auction/.test(terms) && /Will my bank let it through\?/.test(help));
+  ok('the seller sends the photos and walkaround video, and gives a mechanic access', /Photos and video: send us the photos/.test(seller) && /walkaround video/.test(seller) && /give our partner mechanic access/.test(seller));
+  ok('where our messages come from follows the site address', t.includes('Our emails come from @tyrebiter.com.au') && legalValues({}).DOMAIN === 'tyrebiter.com.au' && !/privacy@/.test(t));
+  ok('the states we sell in follow the setting', t.includes('in Queensland, New South Wales and Western Australia') && legalValues({ selling: { states: ['QLD'] } }).SELL_STATES === 'Queensland' && legalValues({ selling: { states: ['QLD', 'VIC'] } }).SELL_STATES === 'Queensland and Victoria');
   ok('settled: no lawyer or accountant placeholders left in any document', !/LAWYER|ACCOUNTANT|\[STATE\]|TRUST ACCOUNT|TO CONFIRM/.test(t), (t.match(/.{40}(LAWYER|ACCOUNTANT|\[STATE\]|TO CONFIRM).{40}/) || [''])[0]);
-  ok('settled: Queensland law governs the terms, the agreement and the website terms', /governed by the laws of Queensland/.test(terms) && /governed by the laws of Queensland/.test(seller) && /governed by the laws of Queensland/.test(JSON.stringify(WEBSITE_TERMS)));
-  ok('settled: selling for an unnamed owner, and what we answer for', /the law allows an agent to contract for an owner it doesn’t name/.test(terms) && /If the owner doesn’t complete a sale through no fault of yours, we refund everything you paid/.test(terms));
+  ok('settled: Queensland law governs the terms, the agreement and the website terms', /governed by the laws of Queensland/.test(terms) && /governed by the laws of Queensland/.test(seller) && /governed by the laws of Queensland/.test(web));
+  ok('settled: selling for an owner the listing doesn’t name, and what we answer for', /the law allows an agent to contract for an owner it doesn’t name/.test(terms) && /If the owner doesn’t complete a sale through no fault of yours, we refund everything you paid/.test(terms) && /where a state’s law puts the owner’s name on your sale paperwork \(Queensland does\)/.test(terms));
   ok('settled: money is held in our trust account (both documents)', /paid into our trust account and held there for the seller/.test(terms) && /Sale money is held in our trust account for you/.test(seller) && /Agents Financial Administration Act 2014/.test(seller));
-  ok('settled: the seller agrees in writing to the buyer’s premium being charged and shown', /you agree in writing to us charging the buyer a buyer’s premium/.test(seller) && /The seller has agreed in writing to us charging it/.test(terms));
-  ok('settled: GST through Subdivision 153-B, so the seller stays unnamed', /Subdivision 153-B of the GST Act applies to the sale/.test(seller) && /we issue the buyer’s tax invoice in our name/.test(seller));
+  ok('settled: GST through Subdivision 153-B', /Subdivision 153-B of the GST Act applies to the sale/.test(seller) && /we issue the buyer’s tax invoice in our name/.test(seller));
   ok('settled: a written consignment authority for 90 days', /Your authority lasts 90 days from when you sign/.test(seller) && /consignment agreement the motor dealer laws require/.test(seller));
-  ok('settled: safety and roadworthy certificates, state by state', ['Queensland needs a safety certificate', 'Victoria needs a roadworthy certificate issued less than 30 days before the sale', 'The ACT needs a roadworthy inspection', 'New South Wales, Western Australia and Tasmania don’t need one'].every((x) => terms.includes(x)) && /a Queensland safety certificate, a Victorian roadworthy certificate/.test(seller));
-  ok('settled: uncollected goods laws named', /Disposal of Uncollected Goods Act 1967 in Queensland/.test(terms) && /Uncollected Goods Act 1995 in New South Wales/.test(terms));
+  ok('settled: uncollected goods laws named for our three states', /Disposal of Uncollected Goods Act 1967 in Queensland/.test(terms) && /Uncollected Goods Act 1995 in New South Wales/.test(terms) && /Disposal of Uncollected Goods Act 1970 in Western Australia/.test(terms));
   ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
 }
+
 // live auctions, tenders and BPAY: the wording matches the engine
 ok('live: the terms explain live auctions, with an anchor the room links to', terms.includes('id=\\"t-live\\"') && /auctioneer decides/.test(terms) && /floor bids/.test(terms), '');
 ok('live: the page counts; the room shows the photos and the seller’s video, no stream', /The price and countdown on the page are what count; delays in your own connection are your risk/.test(terms) && /the room shows its photos and the seller’s walkaround video/.test(terms) && !/stream/i.test(terms));
@@ -128,7 +157,7 @@ ok('live: a vehicle not offered before the sale finishes is passed in, not sold'
 {
   const tt = JSON.stringify(fillLegal({ TERMS, HELP, SELLER_AGREEMENT }, {}));
   ok('live only: no tenders, Buy Now, offers or referrals anywhere', !/\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid/i.test(tt), (tt.match(/.{40}(\btenders?\b|Buy Now|Make an Offer|offers open|referral period|referred bid).{40}/i) || [''])[0]);
-  ok('live only: every vehicle in a live auction, sold under the hammer (after it, only by the seller\'s written agreement)', /Every vehicle is sold in a <b>live online auction<\/b>/.test(terms) && /a vehicle offered in the live auction is sold only under the hammer, or not at all/.test(terms) && /only at a price you agree to in writing at the time/.test(JSON.stringify(SELLER_AGREEMENT)));
+  ok('live only: every truck in a live auction, sold under the hammer', /Every truck is sold in a <b>live online auction<\/b>/.test(terms) && /a vehicle offered in the live auction is sold only under the hammer, or not at all/.test(terms));
   ok('live only: below the reserve it is passed in, nobody owes anything', /the vehicle is <b>passed in<\/b>: it isn’t sold, and neither you nor the seller owes anything/.test(terms));
   ok('live only: a bid can be withdrawn until the hammer falls (terms and help)', /You can withdraw a bid until the hammer falls/.test(terms) && /Once the hammer falls on your bid, the sale is made/.test(terms) && /Can I withdraw a bid\?/.test(help) && !/Bids can’t be withdrawn/.test(tt));
   ok('estimate: what it is, its basis kept, the reserve never above the low end, at most 25% wide', /The auction estimate is our opinion, made with reasonable care/.test(terms) && /we keep a written record of that basis/.test(terms) && /reserve is never above the estimate’s low end/.test(terms) && /never more than 25% wide/.test(terms));
@@ -148,28 +177,18 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   // a vehicle that didn't sell goes into the next live auction for its state (never sold afterwards, in any state), unless
   // the seller says no: free until it's listed; the state's rules and the 90-day authority checked for the new auction
   const sa = JSON.stringify(SELLER_AGREEMENT);
-  ok('relist: offered again at the next live auction, unless the seller says no', /we offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /If it isn’t sold, we offer it again at our next live auction for your state, while your authority lasts/.test(sa));
+  ok('relist: offered again at the next live auction, unless the seller says no', /We offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /If it isn’t sold, we offer it again at our next live auction for your state, while your authority lasts/.test(sa));
   ok('relist: saying no is free until it is listed; after that it is a withdrawal', /tell us before it’s listed, from your seller dashboard or by calling us. There’s no fee, and the vehicle stays yours/.test(sa) && /taking it out is a withdrawal \(section 8\)/.test(sa));
-  ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /Victorian roadworthy certificate must be less than 30 days old/.test(sa) && /Queensland safety certificate no more than 2 months old/.test(sa) && /you sign this agreement again for it/.test(sa));
-  ok('relist: help for sellers and buyers says the same', /Otherwise we offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
+  ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /New South Wales inspection report must be no more than 42 days old at the auction/.test(sa) && /you sign this agreement again for it/.test(sa));
+  ok('relist: help for sellers and buyers says the same', /We offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
 }
 {
-  // selling after the auction (migration 26): by the seller's written agreement, a written offer the buyer signs, the
-  // state's cooling-off (longer) and warranty, never in Victoria; the seller's price is the floor and we carry the warranty
+  // trucks are never sold after the auction (migration 36): the documents say so, and the versions moved
   const sa = JSON.stringify(SELLER_AGREEMENT);
-  ok('after: the terms explain it, with an anchor the offer page and Help link to', terms.includes('id=\\"t-after\\"') && /it isn’t a sale by auction/.test(terms) && /You accept it by signing on the offer page/.test(terms));
-  ok('after: the cooling-off a business day longer than the law, free, nothing taken until it ends', /a business day longer than the law gives/.test(terms) && /New South Wales until the end of the second business day after you sign, South Australia the third, the ACT the fourth/.test(terms) && /Nothing is invoiced or taken until it ends/.test(terms));
-  ok('after: never in Victoria; Tasmania and the NT only once licensed', /We never sell a vehicle after the auction in Victoria/.test(terms) && /in Tasmania and the Northern Territory only once we hold the licence that covers it/.test(terms) && /never in Victoria/.test(sa));
-  ok('after: consumer rights: title always; quality can apply (business), may not (private); never excluded', /A vehicle sold after the auction<\/b> \(section 6\) isn’t sold by auction/.test(terms) && /they may not apply to a private owner’s. Any guarantee that does apply can’t be excluded/.test(terms));
-  ok('after: only where no statutory warranty applies, and the offer says so before signing', /we only sell a vehicle after the auction where your state’s statutory warranty or dealer’s duty to repair .+ doesn’t cover it; the offer and the contract say so before you sign/.test(terms)
-    && /We only make one where no statutory warranty or dealer’s duty to repair applies to the sale \(section 4\)/.test(terms) && /We only sell a vehicle after the auction where no statutory warranty applies to it/.test(help));
-  ok('after: the seller agrees the price in writing, never less, can change their mind; never sold with a statutory warranty', /only at a price you agree to in writing at the time/.test(sa) && /we never sell it for less/.test(sa) && /you can change your mind until a buyer signs/.test(sa) && /We never give a statutory warranty: where your state’s statutory warranty or dealer’s duty to repair would cover your vehicle if we sold it after the auction .+ we don’t; it goes into the next auction instead/.test(sa));
-  ok('after: the relist waits while an offer is open', /It can’t be listed again while an offer to sell it after the auction is open/.test(sa));
-  ok('after: Western Australia\'s prescribed consignment contract', /Schedule 4 terms of the Motor Vehicle Dealers \(Sales\) Regulations 1974/.test(sa));
-  ok('after: Help answers buyers and sellers', /Can I buy a vehicle after the auction\?/.test(help) && /cancel free on the offer page/.test(help) && /accept the highest bid, or name the lowest price you’d take, on your seller dashboard/.test(help));
-  ok('after: the short version and the cooling-off line agree', /we may send you a written offer to sign \(section 6\)/.test(terms) && /A vehicle bought after the auction gets the cooling-off period your state gives a buyer from a dealer/.test(terms));
-  ok('seller: told up front we never give a statutory warranty (the ACT; a motor dealer\'s own vehicle)', /We never give a statutory warranty: we don’t list a vehicle that would carry one \(in the ACT a dealer’s duty to repair applies even at auction/.test(sa) && /if you’re a motor dealer, tell us/.test(sa));
-  ok('after: new versions of both documents', /This version: 4 November 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 4 November 2026');
+  ok('after: to sell on the day the seller lowers the reserve, by phone if need be', /lower your reserve before the hammer falls \(section 4\): our auctioneer can take your instruction by phone while it’s up/.test(sa));
+  ok("Western Australia's prescribed consignment contract", /Schedule 4 terms of the Motor Vehicle Dealers \(Sales\) Regulations 1974/.test(sa));
+  ok('seller: told up front we never give a statutory warranty, and to say if they are in the trade', /We never give a statutory warranty, so we don’t list a vehicle that would carry one: tell us if you’re a motor dealer, or if you bought this vehicle to resell it/.test(sa));
+  ok('new versions of all three documents', /This version: 15 November 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 15 November 2026' && /This version: 15 November 2026/.test(JSON.stringify(WEBSITE_TERMS)));
 }
 
 {

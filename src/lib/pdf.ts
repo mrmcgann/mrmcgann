@@ -119,7 +119,7 @@ export async function invoicePdf(invoiceId: string): Promise<{ bytes: Uint8Array
   if (!privateSale) s.row("   includes GST on the vehicle (seller is GST-registered)", aud(inv.vehicle_gst));
   s.row(Number(inv.transport) > 0 ? `Buyer's premium (includes ${aud(inv.transport)} transport to our depot)` : "Buyer's premium", aud(inv.premium));
   s.row("GST on buyer's premium", aud(inv.gst));
-  s.row("Administration fee (includes GST)", aud(inv.admin_fee));
+  if (Number(inv.admin_fee) > 0) s.row("Administration fee (includes GST)", aud(inv.admin_fee));
   if (Number(inv.surcharge) > 0) s.row("Card surcharge", aud(inv.surcharge));
   if (Number(inv.storage_fee) > 0) s.row("Storage", aud(inv.storage_fee));
   s.rule();
@@ -356,7 +356,7 @@ export async function afterSaleContractPdf(offerId: string): Promise<{ bytes: Ui
   row(`Vehicle price${privateSale ? " (private sale, no GST)" : " (includes GST)"}`, aud(o.amount));
   row(Number(b.transport) > 0 ? `Buyer's premium (includes ${aud(b.transport)} transport to our depot)` : "Buyer's premium", aud(b.premium));
   row("GST on the buyer's premium", aud(b.gst));
-  row("Administration fee (includes GST)", aud(b.admin_fee));
+  if (Number(b.admin_fee) > 0) row("Administration fee (includes GST)", aud(b.admin_fee));
   row("All-in price", aud(b.total), true);
   para("There's no surcharge, deposit or other charge. Transfer fees and stamp duty for the registration are paid by you to the state, as for any vehicle you buy.");
 
@@ -472,7 +472,7 @@ export async function buyerContractPdf(invoiceId: string): Promise<{ bytes: Uint
   row("Buyer's premium", aud(Number(inv.premium)));
   if (Number(inv.transport)) row("  including transport to our depot", aud(Number(inv.transport)));
   row("GST", aud(Number(inv.gst)));
-  row("Administration fee", aud(Number(inv.admin_fee)));
+  if (Number(inv.admin_fee) > 0) row("Administration fee", aud(Number(inv.admin_fee)));
   row("Total payable (all-in)", aud(Number(inv.total)), true);
   s.line(4);
   para(`The all-in total is what you agreed to pay. It was shown beside every bid and every estimate before you bid. Date of this statement: ${day(new Date().toISOString())}.`);

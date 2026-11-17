@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AFTER_DEFAULT, AFTER_STATES, STATE_NAMES } from "@/lib/afterAuction";
 
 const FEE_FIELDS: [string, string, string][] = [
-  ["premium_rate", "Buyer's premium rate", "0.10 = 10%"], ["admin_fee", "Admin fee ($, incl. GST)", ""], ["storage_per_day", "Storage after the collection window ($/day)", "Grays: $50"],
+  ["premium_rate", "Buyer's premium rate", "0.06 = 6%"], ["admin_fee", "Admin fee ($, incl. GST)", ""], ["storage_per_day", "Storage after the collection window ($/day)", "Grays: $50"],
   ["deposit_rate", "Bidding deposit (share of the bid limit)", "0.10 = 10% (Manheim and Copart use 10%)"], ["deposit_min", "Minimum bidding deposit ($)", "Manheim's minimum: $500"],
   ["deposit_cap", "Deposit that means no limit ($)", "0 = no cap (always the rate). Default 5000"],
     ["seller_fee_rate", "Seller fee rate", "0 = free for sellers; 0.03 = 3%"], ["seller_fee_min", "Minimum seller fee ($)", ""], ["withdrawal_fee", "Seller withdrawal fee ($)", "After it goes live"],

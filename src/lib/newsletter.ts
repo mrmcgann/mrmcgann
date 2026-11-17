@@ -32,7 +32,7 @@ export function newsletterBody(fresh: Lot[], ending: Lot[], fees: Fees) {
   const parts: string[] = [];
   if (fresh.length) parts.push(`New this week\n\n${fresh.map(line).join("\n\n")}`);
   if (ending.length) parts.push(`Ending soon\n\n${ending.map(line).join("\n\n")}`);
-  parts.push("All-in prices include the buyer's premium, GST on the premium and the admin fee at the current bid. Every vehicle is checked against its listing before it goes live, and every listing shows what we checked.");
+  parts.push("All-in prices include the buyer's premium and the GST on it at the current bid. Every truck's listing is checked against the owner's photos, video and the records before it goes live, and every listing shows what we checked.");
   return parts.join("\n\n");
 }
 

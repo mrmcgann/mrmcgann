@@ -190,7 +190,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
           <LineItem k="Winning bid" v={money(preview.price)} />
           <LineItem k={premiumLabel(fees)} v={money(preview.premium, true)} />
           <LineItem k="GST on premium" v={money(preview.gst, true)} />
-          <LineItem k="Admin fee" v={money(preview.adminFee, true)} />
+          {preview.adminFee > 0 ? <LineItem k="Admin fee" v={money(preview.adminFee, true)} /> : null}
           {preview.surcharge > 0 ? <LineItem k="Card surcharge" v={money(preview.surcharge, true)} /> : null}
           <View style={s.rule} />
           <LineItem k="All-in" v={money(preview.total, true)} bold />
@@ -288,7 +288,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="muted">{lot.title}. We'll bid for you, one increment at a time, only as far as needed to keep you in front, up to {money(typed)}. {liveSale ? "It's binding unless you withdraw it before the hammer falls." : "Bids can't be withdrawn."}</T>
         <View>
           <LineItem k="If you win at your full maximum" v={money(preview.price)} />
-          <LineItem k={feesLine(preview.transport)} v={money(preview.subtotal - preview.price, true)} />
+          <LineItem k={feesLine(preview.transport, preview.adminFee)} v={money(preview.subtotal - preview.price, true)} />
           <LineItem k="All-in, at most" v={money(preview.total, true)} bold />
         </View>
         <T v="body" style={{ fontSize: 14, lineHeight: 20 }}>{payNote}</T>
@@ -306,7 +306,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
         <T v="small" testID="rights-outright">{consumerRights("outright", lot.seller_type)}</T>
         {bnPrev ? <View>
           <LineItem k="Buy Now price" v={money(bn)} />
-          <LineItem k={feesLine(bnPrev.transport)} v={money(bnPrev.subtotal - (bn || 0), true)} />
+          <LineItem k={feesLine(bnPrev.transport, bnPrev.adminFee)} v={money(bnPrev.subtotal - (bn || 0), true)} />
           <LineItem k="All-in" v={money(bnPrev.total, true)} bold />
           <T v="body" style={{ fontSize: 14, marginTop: 8 }}>{buyNowPayLine(bnPrev) ?? (bnPrev.mode === "card" ? `${money(bnPrev.cardAmount, true)} is charged to ${cardLabel} now.` : `A ${money(bnPrev.cardAmount, true)} deposit (you lose it only if you don't pay) is charged to ${cardLabel} now. Pay the balance by bank transfer within 2 business days.`)}</T>
         </View> : null}

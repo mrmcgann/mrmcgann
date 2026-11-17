@@ -159,7 +159,7 @@ export default function LotScreen() {
             <Soft testID="auction-notice" style={{ gap: 4, marginTop: 12 }}>
               {warrantySign(lot.statutory_warranty) ? <T v="strong" testID="warranty-sign">{warrantySign(lot.statutory_warranty)}</T> : null}
               {coolingOffSign(lot.state) ? <T v="strong" testID="cooling-sign">{coolingOffSign(lot.state)}</T> : null}
-              <T v="small">{premiumLabel(lotFees(fees, lot))}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</T>
+              <T v="small">{premiumLabel(lotFees(fees, lot))}, plus GST{Number(lotFees(fees, lot).admin_fee) > 0 ? " and the admin fee" : ""}, applies to this sale: the all-in amounts include {Number(lotFees(fees, lot).admin_fee) > 0 ? "them" : "it"}.</T>
               <T v="small">Sold in a live auction, under the hammer, by Super Trucker as agent for the owner. Only registered, verified bidders can bid.</T>
             </Soft>
           ) : null}

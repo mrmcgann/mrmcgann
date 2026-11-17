@@ -272,7 +272,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <div className="noticebar" data-testid="auction-notice">
                 {warrantySign(lot.statutory_warranty) && <b style={{ fontSize: 16 }} data-testid="warranty-sign">{warrantySign(lot.statutory_warranty)}</b>}
                 {coolingOffSign(lot.state) && <b style={{ fontSize: 16 }} data-testid="cooling-sign">{coolingOffSign(lot.state)}</b>}
-                <span>{premiumLabel(fl)}, plus GST and the admin fee, applies to this sale: the all-in amounts include them.</span>
+                <span>{premiumLabel(fl)}, plus GST{Number(fl.admin_fee) > 0 ? " and the admin fee" : ""}, applies to this sale: the all-in amounts include {Number(fl.admin_fee) > 0 ? "them" : "it"}.</span>
                 <span>Sold in a live auction, under the hammer, by Super Trucker as agent for the owner. Only registered, verified bidders can bid. <Link className="blue" href="/terms#t-live" style={{ fontWeight: 700 }}>Auction rules ›</Link></span>
               </div>
             )}

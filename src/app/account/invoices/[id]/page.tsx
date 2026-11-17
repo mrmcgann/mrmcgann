@@ -61,7 +61,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const gstTotal = Number(inv.gst) + Math.round((Number(inv.admin_fee) / 11) * 100) / 100 + Number(inv.vehicle_gst || 0);
   const rows: [string, number][] = [
     [inv.sold_via === "buy_now" ? "Buy Now price" : inv.sold_via === "offer" ? "Accepted offer" : inv.sold_via === "after_auction" ? "Agreed price (after the auction)" : "Winning bid", inv.price],
-    [Number(inv.transport) > 0 ? `Buyer's premium (includes ${money(Number(inv.transport))} transport to our depot)` : "Buyer's premium", inv.premium], ["GST on premium", inv.gst], ["Admin fee (incl. GST)", inv.admin_fee],
+    [Number(inv.transport) > 0 ? `Buyer's premium (includes ${money(Number(inv.transport))} transport to our depot)` : "Buyer's premium", inv.premium], ["GST on premium", inv.gst], ...(Number(inv.admin_fee) > 0 ? [["Admin fee (incl. GST)", inv.admin_fee] as [string, number]] : []),
     ...(Number(inv.surcharge) > 0 ? [["Card surcharge", inv.surcharge] as [string, number]] : []),
     ...(Number(inv.storage_fee) > 0 ? [["Storage", Number(inv.storage_fee)] as [string, number]] : []),
   ];

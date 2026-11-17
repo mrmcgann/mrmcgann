@@ -146,7 +146,7 @@ export function TenderPanel(props: {
           <p className="muted" style={{ fontSize: 16 }}>{lot.title}. If yours is the highest tender when it closes and it meets the reserve, you buy it at {money(typed)}. <b>It&apos;s binding once the tender closes.</b> Until then you can change it or take it back.</p>
           <div className="allin" style={{ border: 0, padding: 0 }}>
             <div><span className="muted">Your tender</span><span>{money(typed)}</span></div>
-            <div><span className="muted">{feesLine(preview.transport)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
+            <div><span className="muted">{feesLine(preview.transport, preview.adminFee)}</span><span>{money(preview.subtotal - preview.price, true)}</span></div>
             <div className="tot"><span>All-in if it wins</span><span>{money(preview.total, true)}</span></div>
           </div>
           <p style={{ fontSize: 14, lineHeight: 1.5 }}>{payNoteFor(preview, props.cardLabel)}</p>

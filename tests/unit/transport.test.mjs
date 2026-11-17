@@ -1,7 +1,7 @@
 // Transport to our depot in the buyer's premium, and the pickup and collection words (website, server and app).
 // node --experimental-strip-types tests/unit/transport.test.mjs
 import { priceBreakdown, lotFees, marketFee, beatsMarket } from '../../src/lib/fees.ts';
-import { premiumLabel, feesLine, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, ACK_CHECK, NO_VIEWINGS } from '../../src/lib/transport.ts';
+import { premiumLabel, feesLine, feesWords, collectLine, buyerTransportLine, sellerTransportLine, transportError, depotPlace, windowLabel, CHECK_IT, CHECK_IT_VIEW, checkIt, ACK_CHECK, ACK_CHECK_VIEW, ackCheck, NO_VIEWINGS, collectFrom, buyerPickupLine, sellerHandoverLine } from '../../src/lib/transport.ts';
 import { TRANSFER_RULES, rulesFor, isVessel, vesselFor, trailerNote, PERMIT_RULES, permitFacts, permitLine, permitPossible } from '../../src/lib/transfer.ts';
 
 let pass = 0, fail = 0;
@@ -28,10 +28,19 @@ ok('locked: no vehicle, today’s fees', lotFees(F) === F);
 // Words
 ok('label: the rate and the transport', premiumLabel({ premium_rate: 0.1, transport: 250 }) === "Buyer's premium (10% + $250 transport to our depot)", premiumLabel({ premium_rate: 0.1, transport: 250 }));
 ok('label: no transport, just the rate', premiumLabel({ premium_rate: 0.125 }) === "Buyer's premium (12.5%)");
-ok('fees line: names the transport beside an all-in price', feesLine(250) === 'Premium (with $250 transport to our depot), GST and admin fee' && feesLine(0) === 'Premium, GST and admin fee' && feesLine(null) === 'Premium, GST and admin fee');
-const reg = collectLine({ suburb: 'Eagle Farm', state: 'QLD', registration: 'registered' }, 250);
+ok('fees line: names the transport beside an all-in price', feesLine(250) === 'Premium (with $250 transport to our depot) and GST' && feesLine(0) === 'Premium and GST' && feesLine(null) === 'Premium and GST');
+ok('fees line: an admin fee only when there is one', feesLine(0, 99) === 'Premium, GST and admin fee' && feesLine(0, 0) === 'Premium and GST' && feesWords(0) === "the buyer's premium and GST" && feesWords(55) === "the buyer's premium, GST and the admin fee");
+const reg = collectLine({ suburb: 'Eagle Farm', state: 'QLD', registration: 'registered', collect_from: 'depot' }, 250);
 ok('collect line: our depot, the transport in the premium', reg.includes('our depot in Eagle Farm, QLD') && reg.includes("the $250 transport is in the buyer's premium") && reg.includes('registration is in your name'), reg);
-ok('collect line: unregistered', /certificate of sale is done/.test(collectLine({ suburb: 'Wetherill Park', state: 'NSW', registration: 'unregistered' })));
+ok('collect line: unregistered', /certificate of sale is done/.test(collectLine({ suburb: 'Wetherill Park', state: 'NSW', registration: 'unregistered', collect_from: 'depot' })));
+// Super Trucker: collected from where it's kept, the default for anything without a mode
+const fromSeller = collectLine({ suburb: 'Wetherill Park', state: 'NSW', registration: 'registered', collect_from: 'seller' });
+ok('collect line: from the seller, the address and code once the time is agreed', /^Collect it from the seller in Wetherill Park, NSW once it's paid for/.test(fromSeller) && /send you the address and your release code/.test(fromSeller) && !/depot|transport partner/.test(fromSeller), fromSeller);
+ok('collect line: from the seller, unregistered leaves on a carrier or under a permit', /carrier, a float or trailer, or with a permit/.test(collectLine({ suburb: 'Dubbo', state: 'NSW', registration: 'unregistered', collect_from: 'seller' })));
+ok('collect mode: seller unless the listing says depot', collectFrom({ collect_from: 'depot' }) === 'depot' && collectFrom({ collect_from: 'seller' }) === 'seller' && collectFrom({}) === 'seller' && collectFrom(null) === 'seller');
+ok('pickup line: suburb only until the time is confirmed', buyerPickupLine({ suburb: 'Rocklea', state: 'QLD', address: null }) === 'Collect it from the seller in Rocklea, QLD. The address and your release code come once your time is confirmed.');
+ok('pickup line: the address once confirmed, and the code is the sign-off', /^Collect it from 12 Example St, Rocklea QLD 4106, Tue 1 Dec/.test(buyerPickupLine({ suburb: 'Rocklea', state: 'QLD', address: '12 Example St, Rocklea QLD 4106' }, 'Tue 1 Dec')) && /the code is your sign-off/.test(buyerPickupLine({ suburb: 'Rocklea', state: 'QLD', address: 'x' })));
+ok('handover line: who is coming, and never take money', /Sam Smith is collecting it: Tue 1 Dec, 10am/.test(sellerHandoverLine({ status: 'confirmed', confirmed_for: 'Tue 1 Dec, 10am', collector: 'Sam Smith' })) && /never take money/.test(sellerHandoverLine({ status: 'confirmed', confirmed_for: null, collector: null })) && sellerHandoverLine({ status: 'cancelled', confirmed_for: null, collector: null }) === '');
 ok('depot place', depotPlace({ suburb: 'Eagle Farm', state: 'QLD' }) === 'Eagle Farm, QLD' && depotPlace(null) === '' && depotPlace({ suburb: null }) === '');
 
 // Where it's up to: the buyer sees our depot, the seller sees the pickup, and neither sees the other
@@ -51,7 +60,12 @@ ok('errors: the transport is fixed once bidding opens', /can't change once biddi
 ok('errors: a step out of order reads as a sentence', transportError('ERROR: transport_step:mark it picked up first') === 'Mark it picked up first.');
 ok('errors: others are left alone', transportError('something else') === null);
 
-// Checking a vehicle without seeing it
+// Checking a vehicle: by appointment where it's kept (Super Trucker), or without seeing it (the depot way)
+ok('check it (view): four ways, the viewing first, and nothing says we looked at it', CHECK_IT_VIEW.length === 4 && /appointment/.test(CHECK_IT_VIEW[0][0]) && CHECK_IT_VIEW.every(([t, d]) => !/we (inspect|walk around|photograph|visit)|our (inspector|staff) (inspect|look)/i.test(t + d)) && /no road test/.test(CHECK_IT_VIEW[0][1]));
+ok('check it: by the listing’s mode, and no viewing step when the owner can’t host one', checkIt({ collect_from: 'seller', in_person_viewing: true }) === CHECK_IT_VIEW && checkIt({ collect_from: 'seller', in_person_viewing: false }).length === 3 && checkIt({ collect_from: 'depot' }) === CHECK_IT);
+ok('check it (depot): we never claim to inspect it ourselves', CHECK_IT.every(([t, d]) => !/we (walk around|inspect)/i.test(t + d)));
+ok('ack: viewing by appointment, a guide only, collected from where it is kept', /view it by appointment/.test(ACK_CHECK_VIEW) && /guide only/.test(ACK_CHECK_VIEW) && /collect it from where it's kept/.test(ACK_CHECK_VIEW) && ackCheck({ collect_from: 'seller' }) === ACK_CHECK_VIEW && ackCheck({ collect_from: 'depot' }) === ACK_CHECK);
+ok('errors: where it is collected from is fixed once bidding opens', /can't change once bidding has opened/.test(transportError('ERROR: collect_locked') || ''));
 ok('ack: no viewing, a guide only, an inspection at their cost, collected from our depot', /can't view it/.test(ACK_CHECK) && /guide only/.test(ACK_CHECK) && /mechanical inspection/.test(ACK_CHECK) && /at my cost/.test(ACK_CHECK) && /depot/.test(ACK_CHECK));
 ok('check it: four ways, none of them a visit', CHECK_IT.length === 4 && CHECK_IT.every(([t, d]) => !/viewing|visit the seller|test drive/i.test(t + d)));
 ok('check it: the inspection is paid to the mechanic and the seller stays private', /you pay them/.test(CHECK_IT[2][1]) && /seller's details stay private/.test(CHECK_IT[2][1]));
