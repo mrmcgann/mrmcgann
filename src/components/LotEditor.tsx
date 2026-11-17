@@ -8,7 +8,7 @@ import { CATEGORIES, CAT, VEHICLE_TYPES, LICENCES, makesFor, modelsFor } from "@
 import { photoUrl, videoUrl } from "@/lib/photos";
 import { MEDIA_MAX, VIDEO_MAX, VIDEO_STATUS, VIDEO_TYPES } from "@/lib/videos";
 import { env } from "@/lib/env";
-import { certNeeded, rulesFor } from "@/lib/transfer";
+import { certNeeded, certState, rulesFor } from "@/lib/transfer";
 import { ESTIMATE_BASIS_MIN, estimateMaxHigh, estimateProblem } from "@/lib/estimate";
 import { AdminAction } from "@/components/AdminAction";
 import { CHECK_KEYS, LISTING_CHECKS, RUNS, isElectrified, warrantyGuide } from "@/lib/listing";
@@ -94,8 +94,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       "vin", "registration", "engine_no", "rego_plate", "rego_state", "rego_expiry", "build_date", "compliance_date", "gvm_kg", "write_off_status", "stolen_clear", "ppsr_cert_no", "ppsr_checked_at", "video_url", "service_books", "consultant_id",
       "kind", "drive", "engine_cc", "hours", "licence_class", "lams", "berths", "length_m",
       "runs", "seller_type", "ev_battery_soh", "ev_battery_report", "sale_id", "verified", "verified_at", "inspected_at", "inspected_by", "inspection_summary", "method", "sale_order",
-      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on"];
+      "depot_id", "transport_fee", "statutory_warranty", "estimate_low", "estimate_high", "roadworthy_issued_on", "plates_note", "in_person_viewing"];
     for (const k of keys) out[k] = f[k] === "" ? null : f[k];
+    // how it's seen and collected: set by the database on a new listing, never sent blank
+    if (f.collect_from === "seller" || f.collect_from === "depot") out.collect_from = f.collect_from;
+    if (out.in_person_viewing == null) delete out.in_person_viewing;
     out.method = f.method === "tender" ? "tender" : "auction";
     out.sale_order = f.sale_order === "" || f.sale_order == null ? null : Number(f.sale_order);
     // in a live auction the closing time belongs to the auctioneer (and the estimate to the clock): never write it from here
@@ -165,13 +168,16 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
 
   async function publish() {
     const inLive = liveOnly || !!f.live_state;
-    const missing = [["title", "Title"], ...(f.depot_id ? [] : [["suburb", "Suburb"], ["state", "State"]]), ...(inLive ? [] : [["ends_at", "Auction end time"]]), ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
+    const atSeller = f.collect_from !== "depot";
+    const missing = [["title", "Title"], ...(f.depot_id ? [] : [["suburb", "Suburb"], ["state", "State"], ...(atSeller ? [["postcode", "Postcode"]] : [])]), ...(inLive ? [] : [["ends_at", "Auction end time"]]), ["visual_grade", "Visual grade"], ["vin", "VIN"], ["ppsr_checked_at", "PPSR search date"], ["year", "Year"], ["transmission", "Transmission"], ["fuel", "Fuel"], ["registration", "Registered or unregistered"],
       ...(f.registration === "registered" ? [["rego_plate", "Rego plate"], ["rego_state", "Rego state"], ["rego_expiry", "Rego expiry"]] : [])].filter(([k]) => !f[k]).map(([, l]) => l);
     if (!f.runs) missing.push("Starts and drives");
     if (!f.write_off_status || f.write_off_status === "unknown") missing.push("Write-off status");
+    if (["trucks", "buses"].includes(String(f.category || "")) && !Number(f.gvm_kg)) missing.push("GVM (from the compliance plate)");
+    if (String(f.state || "").toUpperCase() === "NSW" && f.registration === "unregistered" && String(f.plates_note || "").trim().length < 10) missing.push("Why it has no plates (New South Wales)");
     if (seller?.requireChecks !== false) {
-      if (!f.depot_id) missing.push("Collection depot");
-      if (f.transport_fee === "" || f.transport_fee == null) missing.push("Transport amount");
+      if (!atSeller && !f.depot_id) missing.push("Collection depot");
+      if (!atSeller && (f.transport_fee === "" || f.transport_fee == null)) missing.push("Transport amount");
       if (f.statutory_warranty === "" || f.statutory_warranty == null) missing.push("Statutory warranty");
       if (!String(p.seller_address || "").trim()) missing.push("Pickup address (Seller, private)");
     }
@@ -185,7 +191,7 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
       if (String(p.estimate_basis || "").trim().length < ESTIMATE_BASIS_MIN) missing.push("What the estimate is based on");
     }
     if (seller?.requireChecks !== false && f.registration === "registered") {
-      const cert = certNeeded(String(f.rego_state || f.state || ""), Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
+      const cert = certNeeded(certState(f as { state?: string; rego_state?: string }), Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
       if (cert && !f.roadworthy_issued_on && !/^\s*exempt/i.test(String(f.roadworthy_note || ""))) missing.push(`The date on the seller's ${cert} (or "Exempt …" in the roadworthy note)`);
     }
     if (missing.length) { setMsg({ kind: "bad", text: `Before publishing, add: ${missing.join(", ")}.` }); return; }
@@ -378,16 +384,39 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <div className="grid2">{inp("berths", "Sleeps", { inputMode: "numeric" })}{inp("length_m", "Length (m)", { inputMode: "decimal" })}</div>
         </div>
         <div className="grid3">{inp("colour", "Colour")}{inp("seats", "Seats", { inputMode: "numeric" })}{inp("keys", "Keys", { inputMode: "numeric" })}</div>
-        <div className="field" data-testid="depot-select"><span>Collection depot (shown on the listing)</span>
-          <select className="input" value={String(f.depot_id || "")} onChange={(e) => { const d = depots.find((x) => x.id === e.target.value); setF({ ...f, depot_id: d?.id || null, ...(d ? { suburb: d.suburb, state: d.state, postcode: d.postcode } : {}) }); }}>
-            <option value="">Choose the depot…</option>
-            {depots.filter((d) => d.active !== false || d.id === f.depot_id).map((d) => <option key={d.id} value={d.id}>{d.name} · {d.suburb}, {d.state}{d.active === false ? " (inactive)" : ""}</option>)}
-          </select>
-          <span className="hint">Where our transport partner takes it after it&apos;s paid for, and where the buyer collects. The listing shows the depot&apos;s suburb, never the seller&apos;s. Add depots in <a className="blue" href="/admin/depots">Depots</a>.</span>
+        <div className="grid2" data-testid="collect-mode">
+          <label className="field"><span>Viewing and collection</span>
+            <select className="input" value={String(f.collect_from || "seller")} disabled={!!id && !["draft", "scheduled"].includes(String(f.status))} onChange={(e) => setF({ ...f, collect_from: e.target.value, ...(e.target.value === "seller" ? { depot_id: null, transport_fee: 0 } : {}) })}>
+              <option value="seller">Where it&apos;s kept (viewings by appointment, collected from the seller)</option>
+              <option value="depot">Our depot (no viewings, our transport partner takes it there)</option>
+            </select>
+            <span className="hint">Fixed once bidding opens: bidders rely on it.</span></label>
+          {f.collect_from !== "depot" && (
+            <label className="field"><span>Viewings</span>
+              <select className="input" value={f.in_person_viewing === false ? "no" : "yes"} onChange={(e) => setF({ ...f, in_person_viewing: e.target.value === "yes" })} data-testid="viewing-select">
+                <option value="yes">The owner can host viewings by appointment</option>
+                <option value="no">No viewings (the listing says so)</option>
+              </select>
+              <span className="hint">We agree each time with the owner, then send the member the address and the owner the member&apos;s name.</span></label>
+          )}
         </div>
-        {f.depot_id
-          ? <span className="hint" style={{ marginTop: -6 }} data-testid="depot-location">Shown on the listing: {String(f.suburb || "")}, {String(f.state || "")} {String(f.postcode || "")}.</span>
-          : <div className="grid3">{inp("suburb", "Suburb (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>}
+        {f.collect_from === "depot" ? (<>
+          <div className="field" data-testid="depot-select"><span>Collection depot (shown on the listing)</span>
+            <select className="input" value={String(f.depot_id || "")} onChange={(e) => { const d = depots.find((x) => x.id === e.target.value); setF({ ...f, depot_id: d?.id || null, ...(d ? { suburb: d.suburb, state: d.state, postcode: d.postcode } : {}) }); }}>
+              <option value="">Choose the depot…</option>
+              {depots.filter((d) => d.active !== false || d.id === f.depot_id).map((d) => <option key={d.id} value={d.id}>{d.name} · {d.suburb}, {d.state}{d.active === false ? " (inactive)" : ""}</option>)}
+            </select>
+            <span className="hint">Where our transport partner takes it after it&apos;s paid for, and where the buyer collects. The listing shows the depot&apos;s suburb, never the seller&apos;s. Add depots in <a className="blue" href="/admin/depots">Depots</a>.</span>
+          </div>
+          {f.depot_id
+            ? <span className="hint" style={{ marginTop: -6 }} data-testid="depot-location">Shown on the listing: {String(f.suburb || "")}, {String(f.state || "")} {String(f.postcode || "")}.</span>
+            : <div className="grid3">{inp("suburb", "Suburb (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>}
+        </>) : (
+          <>
+            <div className="grid3">{inp("suburb", "Suburb where it's kept (shown publicly)")}{sel("state", "State", [["", "–"], ...STATES.map((s) => [s, s] as [string, string])])}{inp("postcode", "Postcode")}</div>
+            <span className="hint" style={{ marginTop: -6 }}>The listing shows the suburb only. The street address (Seller and pickup, below) goes only to a member with a confirmed viewing and to the buyer once their collection time is agreed.</span>
+          </>
+        )}
       </div>
 
       <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -408,6 +437,11 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           {f.registration === "unregistered" ? <span className="hint" style={{ alignSelf: "center" }}>Buyers move it by carrier, trailer or permit. The certificate of sale is their record of ownership.</span>
             : <label className="field"><span>Rego expiry</span><input className="input" type="date" value={String(f.rego_expiry || "")} onChange={set("rego_expiry")} /></label>}
         </div>
+        {f.registration === "unregistered" && (
+          <label className="field" data-testid="plates-note"><span>Why it has no plates (shown on the listing{String(f.state || "").toUpperCase() === "NSW" ? "; required in New South Wales" : ""})</span>
+            <input className="input" value={String(f.plates_note || "")} maxLength={300} onChange={(e) => setF({ ...f, plates_note: e.target.value })} placeholder="e.g. Registration expired in March 2026; plates handed in, receipt on file" />
+            <span className="hint">New South Wales doesn&apos;t let a vehicle be offered without its plates unless the reason is shown with it: the plates&apos; surrender receipt, or why they&apos;re off.</span></label>
+        )}
         <div className="grid2">{inp("build_date", "Build date", { placeholder: "03/2009" })}{inp("compliance_date", "Compliance date", { placeholder: "05/2009" })}</div>
         <div className="grid3">
           {sel("write_off_status", "Write-off status (PPSR)", [["unknown", "Not checked yet"], ["none", "Not written off"], ["repairable", "Repairable write-off"], ["inspected", "Inspected write-off (VIC)"], ["statutory", "Statutory write-off"]])}
@@ -427,13 +461,16 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
         </div>
         <span className="hint" style={{ marginTop: -6 }}>The seller&apos;s agreement sets whether it&apos;s a private or business seller; change it only if it&apos;s wrong.</span>
         {f.registration === "registered" && (() => {
-          const cert = certNeeded(String(f.rego_state || f.state || ""), Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
+          const cst = certState(f as { state?: string; rego_state?: string });
+          const cert = certNeeded(cst, Number(f.year) || null, String(f.category || ""), Number(f.gvm_kg) || null);
           return (
             <div className="grid2" data-testid="roadworthy">
               <label className="field"><span>{cert ? `Date on the seller's ${cert}` : "Safety or roadworthy certificate date (if any)"}</span>
                 <input className="input" type="date" value={String(f.roadworthy_issued_on || "").slice(0, 10)} onChange={(e) => setF({ ...f, roadworthy_issued_on: e.target.value || null })} data-testid="roadworthy-date" />
-                <span className="hint">{cert
-                  ? `${String(f.rego_state || f.state || "").toUpperCase()} needs a ${cert} before the registration can be transferred to the buyer. The seller gets it (from an approved inspection station) and sends us a copy.${String(f.rego_state || f.state || "").toUpperCase() === "VIC" ? " In Victoria it must be issued less than 30 days before the auction." : String(f.rego_state || f.state || "").toUpperCase() === "QLD" ? " A private seller's Queensland certificate lasts 2 months." : ""} If it's exempt, start the roadworthy note with "Exempt" and say why.`
+                <span className="hint">{cert === "inspection report"
+                  ? "New South Wales doesn't let a vehicle be auctioned with its plates on unless a current inspection report (issued in the 42 days before the auction) is shown with it. Add a photo of the report to the listing and record its date; or, if the registration was first issued or renewed in the 90 days before the auction, start the roadworthy note with \"Exempt\" and say so; otherwise list it unregistered, with the plates handed in."
+                  : cert
+                  ? `${cst} needs a ${cert} before the registration can be transferred to the buyer. The seller gets it (from an approved inspection station) and sends us a copy.${cst === "VIC" ? " In Victoria it must be issued less than 30 days before the auction." : cert === "safety certificate" ? " A private seller's Queensland certificate lasts 2 months." : cert === "certificate of inspection" ? " A Queensland certificate of inspection lasts 12 months: it must still be current at the auction." : ""} If it's exempt, start the roadworthy note with "Exempt" and say why.`
                   : "None is needed to transfer this registration."}</span>
               </label>
             </div>
@@ -558,12 +595,14 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <textarea className="input" value={(p.estimate_basis as string) ?? ""} onChange={setPriv("estimate_basis")} placeholder="e.g. Three 2018 HiLux SR5 utes with 120-150,000 km sold at auction in the last 60 days: $31,000, $33,500, $34,000. Condition from the seller's photos: average." data-testid="estimate-basis" />
           <span className="hint">Kept on file, never shown. A statement about a future price needs reasonable grounds, and this record is them: recent comparable sales (ours or published results), price guides, and the condition shown. Keep the range honest: at most 25% wide (or $1,000), and never pitched low to draw bidders or high to please the seller.</span>
         </label>
+        {f.collect_from === "depot" && (
         <label className="field" style={{ maxWidth: 520 }} data-testid="transport-fee"><span>Transport to the depot ($, before GST)</span>
           <input className="input" inputMode="decimal" value={(f.transport_fee as string) ?? ""} onChange={set("transport_fee")} placeholder="From the transport quote" disabled={!["draft", "scheduled"].includes(String(f.status))} />
           <span className="hint">{["draft", "scheduled"].includes(String(f.status))
             ? "Our transport partner's quote to pick it up from the seller and take it to the depot. It's part of the buyer's premium (GST is added) and in every all-in price. Locked once bidding opens. Enter 0 if the seller is bringing it to the depot."
             : `Locked into the buyer's premium when bidding opened${f.fees && (f.fees as Row).transport != null ? `: ${money(Number((f.fees as Row).transport))}` : ""}.`}</span>
         </label>
+        )}
         <label className="field" style={{ maxWidth: 520 }}><span>{liveOnly ? "Live auction it's offered in (required)" : "Part of a sale (optional)"}</span><select className="input" value={String(f.sale_id || "")} onChange={(e) => setF({ ...f, sale_id: e.target.value ? Number(e.target.value) : null })} data-testid="sale-select"><option value="">{liveOnly ? "Choose the live auction…" : "Not part of a sale"}</option>{sales.filter((x) => !liveOnly || (x.mode === "live" && x.live_status !== "ended") || x.id === Number(f.sale_id)).map((x) => <option key={x.id} value={x.id}>{x.title}{x.mode === "live" ? ` (live auction${x.starts_at ? `, ${new Date(x.starts_at).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""})` : ""}</option>)}</select><span className="hint">{liveOnly ? "Every vehicle is offered by the auctioneer in a live auction and sold under the hammer. Buyers can leave early bids as soon as it's published. Set up auctions in " : "Group a fleet's vehicles in one sale page, or put it in a live auction. Set up sales in "}<a className="blue" href="/admin/sale-events">Sales</a>.</span></label>
         {sales.find((x) => x.id === Number(f.sale_id))?.mode === "live" && inp("sale_order", "Order in the live auction (1 goes first)", { inputMode: "numeric" })}
         {!liveOnly && (
@@ -636,8 +675,8 @@ export function LotEditor({ lot, priv, photos: initialPhotos, flaws: initialFlaw
           <label className="field"><span>Phone</span><input className="input" value={(p.seller_phone as string) ?? ""} onChange={setPriv("seller_phone")} /></label>
           <label className="field"><span>Email</span><input className="input" value={(p.seller_email as string) ?? ""} onChange={setPriv("seller_email")} /></label>
         </div>
-        <label className="field"><span>Pickup address (where our transport partner collects it)</span><input className="input" value={(p.seller_address as string) ?? ""} onChange={setPriv("seller_address")} data-testid="pickup-address" /></label>
-        <label className="field"><span>Pickup notes (for the driver)</span><input className="input" value={(p.pickup_notes as string) ?? ""} onChange={setPriv("pickup_notes")} placeholder="Gate code, where it's parked, best time to call" /></label>
+        <label className="field"><span>{f.collect_from === "depot" ? "Pickup address (where our transport partner collects it)" : "Address where it's kept (sent only with a confirmed viewing or collection)"}</span><input className="input" value={(p.seller_address as string) ?? ""} onChange={setPriv("seller_address")} data-testid="pickup-address" /></label>
+        <label className="field"><span>{f.collect_from === "depot" ? "Pickup notes (for the driver)" : "Directions for visitors (sent with the address)"}</span><input className="input" value={(p.pickup_notes as string) ?? ""} onChange={setPriv("pickup_notes")} placeholder={f.collect_from === "depot" ? "Gate code, where it's parked, best time to call" : "Ask for Dave at the office; park outside the gate; closed shoes"} /></label>
         <label className="field"><span>Notes</span><textarea className="input" value={(p.seller_notes as string) ?? ""} onChange={setPriv("seller_notes")} /></label>
       </div>
       <div className="pill-row"><button className="btn btn-dark" disabled={busy} onClick={() => save()}>Save</button>{f.status === "draft" && id && <button className="btn btn-blue" disabled={busy} onClick={publish}>Publish</button>}</div>

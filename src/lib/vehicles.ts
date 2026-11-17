@@ -29,7 +29,9 @@ export const CATEGORIES: Category[] = [
   { key: "vans", label: "Vans", short: "Vans", one: "van", silhouette: "van", backdrop: "lilac", usage: "km", extras: ["drive"],
     kinds: [["van", "Van"], ["crew-van", "Crew van"], ["refrigerated-van", "Refrigerated van"], ["high-roof", "High-roof van"]] },
   { key: "trucks", label: "Trucks", short: "Trucks", one: "truck", silhouette: "truck", backdrop: "lime", usage: "km", extras: ["lic", "gvm", "drive"],
-    kinds: [["light", "Light truck"], ["tipper", "Tipper"], ["tray", "Tray / tabletop"], ["pantech", "Pantech"], ["refrigerated", "Refrigerated"], ["tilt-tray", "Tilt tray"], ["crane", "Crane truck"], ["tanker", "Tanker"], ["rigid", "Rigid truck"], ["prime-mover", "Prime mover"]] },
+    kinds: [["prime-mover", "Prime mover"], ["tipper", "Tipper"], ["curtainsider", "Curtainsider"], ["tray", "Tray / tabletop"], ["pantech", "Pantech"], ["refrigerated", "Refrigerated"], ["cab-chassis", "Cab chassis"],
+      ["tilt-tray", "Tilt tray"], ["beavertail", "Beavertail"], ["crane", "Crane truck"], ["tanker", "Tanker"], ["agitator", "Concrete agitator"], ["hook-lift", "Hook lift / skip"], ["waste", "Waste / compactor"],
+      ["vacuum", "Vacuum / sucker"], ["service", "Service body"], ["livestock", "Livestock"], ["car-carrier", "Car carrier"], ["light", "Light truck"], ["rigid", "Rigid truck"]] },
   { key: "trailers", label: "Trailers", short: "Trailers", one: "trailer", silhouette: "trailer", backdrop: "coral", usage: "none", extras: ["gvm", "length"],
     kinds: [["box", "Box trailer"], ["car", "Car trailer"], ["plant", "Plant trailer"], ["tipping", "Tipping trailer"], ["flat-top", "Flat top"], ["semi", "Semi-trailer"], ["horse", "Horse float"], ["boat", "Boat trailer"]] },
   { key: "buses", label: "Buses & coaches", short: "Buses", one: "bus", silhouette: "bus", backdrop: "sun", usage: "km", extras: ["lic"],
@@ -45,6 +47,14 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const CAT: Record<string, Category> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]));
+
+/** The categories we sell now (settings selling.categories; trucks to start). Unknown names are dropped, and an empty
+ *  or missing setting means trucks, so a typo can never open the site to everything. */
+export function sellCategories(selling?: { categories?: unknown } | null): CategoryKey[] {
+  const raw = Array.isArray(selling?.categories) ? (selling!.categories as unknown[]) : [];
+  const ok = raw.map(String).filter((k): k is CategoryKey => !!CAT[k]);
+  return ok.length ? ok : ["trucks"];
+}
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
 
 /** How the ten categories are grouped in the menus (the header, the phone sheet). Browsing only: a search still

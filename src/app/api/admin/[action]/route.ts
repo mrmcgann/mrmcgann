@@ -264,28 +264,46 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
 
     // ---- Collections ----
     case "confirm-collection": {
-      // The buyer collects from our depot: they get its address and their release code; the depot gets the handover link.
+      // Two ways (lots.collect_from). From the seller: the buyer gets the seller's address and their release code, and
+      // the seller gets the collector's name and the handover link. From our depot: the same, with the depot instead.
+      // The address goes nowhere else, and the seller is never given the buyer's phone or email.
       const when = String(b.when || "").trim();
       if (!when) return fail("Enter the confirmed day and time.");
       const { data: c } = await db.from("collections").update({ status: "confirmed", confirmed_for: when }).eq("id", b.collectionId).in("status", ["requested", "confirmed"]).select("*").single();
       if (!c) return fail("Not found");
-      const [{ data: job }, { data: lot }, { data: buyer }, { data: inv }] = await Promise.all([
+      const [{ data: job }, { data: lot }, { data: buyer }, { data: inv }, { data: lp }] = await Promise.all([
         db.from("transport_jobs").select("depot_id").eq("invoice_id", c.invoice_id).maybeSingle(),
-        db.from("lots").select("title").eq("id", c.lot_id).single(),
+        db.from("lots").select("title, collect_from").eq("id", c.lot_id).single(),
         db.from("profiles").select("first_name, last_name").eq("id", c.buyer_id).single(),
         db.from("invoices").select("ref").eq("id", c.invoice_id).single(),
+        db.from("lot_private").select("seller_address, pickup_notes").eq("lot_id", c.lot_id).maybeSingle(),
       ]);
+      const who = c.collector_name || `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim();
+      const handover = `${env.siteUrl}/handover/${c.seller_token}`;
+      const rows: Record<string, unknown>[] = [];
+      if (lot?.collect_from !== "depot") {
+        const addr = String(lp?.seller_address || "").trim();
+        if (!addr) return fail("There's no pickup address on this listing. Add it in the editor (Seller and pickup) first.");
+        const notes = String(lp?.pickup_notes || "").trim();
+        await notify(c.buyer_id, "account", `Collection confirmed: ${when}`,
+          `Collect the ${lot?.title} on ${when} from ${addr}.${notes ? ` ${notes}` : ""} Your release code is ${c.release_code}. ${c.collector_name ? `${c.collector_name} will need photo ID. ` : "Bring photo ID. "}`
+            + "Check it against the listing before you give the seller the code: the code is your sign-off. If something's materially different, don't give it: call us. Never pay the seller anything.",
+          `/account/invoices/${c.invoice_id}`, { dedupe: `coll-confirm:${c.id}:${when}` });
+        if (c.collector_mobile) rows.push({ channel: "sms", to_addr: c.collector_mobile, kind: "account", title: "Super Trucker collection", body: `Super Trucker: collect the ${lot?.title} on ${when} from ${addr}. Bring photo ID. Release code: ${c.release_code}. Check it against the listing, then give the seller the code. Never pay the seller.`, dedupe_key: `coll-collector:${c.id}:${when}`, priority: 1 });
+        await db.rpc("queue_seller_notice", { p_lot: c.lot_id, p_title: `Collection booked: ${lot?.title}`,
+          p_body: `${who} is collecting the ${lot?.title} on ${when} (invoice ${inv?.ref}). When they arrive: check their photo ID against that name, let them check it against the listing, then open your handover link and enter the 6-digit release code they give you: ${handover}. Hand it over only when the code works, and if it doesn't, call us. The buyer has paid us in full: never take money from anyone.`,
+          p_link: `/handover/${c.seller_token}`, p_tag: `coll-seller:${c.id}:${when}` });
+        if (rows.length) await db.from("outbox").insert(rows);
+        return done();
+      }
       const [{ data: depot }, { data: dp }] = job?.depot_id
         ? await Promise.all([db.from("depots").select("name, suburb, state, postcode, hours").eq("id", job.depot_id).single(), db.from("depot_private").select("address, phone, email").eq("depot_id", job.depot_id).maybeSingle()])
         : [{ data: null }, { data: null }];
       const where = dp?.address ? `${depot?.name || "our depot"}, ${dp.address}` : depot ? `${depot.name}, ${depot.suburb} ${depot.state}` : "our depot (we'll text you the address)";
       const hours = depot?.hours ? ` The depot is open ${depot.hours}.` : "";
-      const who = c.collector_name || `${buyer?.first_name || ""} ${buyer?.last_name || ""}`.trim();
       await notify(c.buyer_id, "account", `Collection confirmed: ${when}`,
         `Collect the ${lot?.title} on ${when} from ${where}.${hours} Your release code is ${c.release_code}: give it to the depot team when you collect. ${c.collector_name ? `${c.collector_name} will need photo ID. ` : "Bring photo ID. "}Check it against the listing before you take it.`,
         `/account/invoices/${c.invoice_id}`, { dedupe: `coll-confirm:${c.id}:${when}` });
-      const handover = `${env.siteUrl}/handover/${c.seller_token}`;
-      const rows: Record<string, unknown>[] = [];
       if (c.collector_mobile) rows.push({ channel: "sms", to_addr: c.collector_mobile, kind: "account", title: "Super Trucker collection", body: `Super Trucker: collect the ${lot?.title} on ${when} from ${where}. Bring photo ID. Release code: ${c.release_code}. Give it to the depot team at handover.`, dedupe_key: `coll-collector:${c.id}:${when}`, priority: 1 });
       const depotText = `Collection booked: ${lot?.title} (invoice ${inv?.ref}). ${who} will collect it on ${when}. Check their photo ID matches, and hand it over only for the 6-digit release code they give you, which you enter here: ${handover}. The buyer has paid Super Trucker in full: never take money from them.`;
       if (dp?.email) rows.push({ channel: "email", to_addr: dp.email, kind: "staff", title: `Collection booked: ${lot?.title}, ${when}`, body: depotText, link: `/handover/${c.seller_token}`, dedupe_key: `coll-depot:${c.id}:${when}:email`, priority: 1 });
@@ -516,6 +534,16 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       const { data, error } = await supabase.rpc("admin_relist", { p_lot: Number(b.lotId) });
       if (error) return fail(friendly(error.message));
       return done({ id: data });
+    }
+    case "viewing": {
+      // Viewings by appointment (migration 36): confirm a time agreed with the owner (sends the member the address and
+      // the owner the member's name), decline, or record how it went. The rules are in admin_viewing.
+      const what = String(b.do || "");
+      if (!["confirm", "decline", "done", "no_show"].includes(what)) return fail("Unknown step.");
+      const { error } = await supabase.rpc("admin_viewing", { p_id: String(b.id || ""), p_action: what,
+        p_starts: what === "confirm" ? (b.startsAt ? String(b.startsAt) : null) : null, p_host: null, p_note: String(b.note || "").trim().slice(0, 500) || null });
+      if (error) return fail(friendly(error.message));
+      return done();
     }
     case "relist-decline": {
       // the seller told us they don't want it offered again: the relist draft is cancelled and the decision recorded

@@ -19,7 +19,8 @@ import { lotCrumbs } from "@/lib/seo";
 import { priceBreakdown, lotFees } from "@/lib/fees";
 import { env } from "@/lib/env";
 import { LISTING_CHECKS, RUNS, RUNS_HINT, SELLER_TYPE, WRITE_OFF, consumerRights, isElectrified, warrantyLine } from "@/lib/listing";
-import { CHECK_IT, NO_VIEWINGS, depotPlace, premiumLabel } from "@/lib/transport";
+import { NO_VIEWINGS, VIEW_BY_APPOINTMENT, checkIt, collectFrom, depotPlace, premiumLabel } from "@/lib/transport";
+import { Viewings } from "@/components/Viewings";
 import { certLine } from "@/lib/transfer";
 import { hasEstimate } from "@/lib/estimate";
 import { REMOTE_REPORT, PHOTO_CHECK, warrantySign } from "@/lib/listing";
@@ -73,7 +74,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   ];
   const declared: [string, unknown][] = [
     ["Accident damage", d.accident], ["Flood damage", d.flood], ["Hail damage", d.hail], ["Modifications", d.modifications],
-    ["Taxi, rideshare, hire or police use", d.previous_use], ["Unfixed safety recall", d.recalls],
+    ["Previous use", d.previous_use], ["Unfixed safety recall", d.recalls],
     ["Warning lights", d.warning_lights], ["Starts and drives", d.starts_and_drives], [lot.odometer == null && lot.hours != null ? "Hour meter concerns" : "Odometer concerns", d.odometer_concerns],
     ["Finance owing", d.finance === "yes" ? "Yes. Paid out from the sale proceeds" : d.finance],
     ["Known faults", d.known_faults || lot.known_faults],
@@ -91,6 +92,9 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
   const checked = LISTING_CHECKS.filter(([k]) => (lot.verified || []).includes(k));
   const fl = lotFees(fees, lot);
   const place = depotPlace(lot);
+  // Super Trucker: the truck stays where it is kept, buyers view it there by appointment and collect it there.
+  const atSeller = collectFrom(lot) === "seller";
+  const auctionAt = sale?.mode === "live" && sale.starts_at ? sale.starts_at : lot.ends_at;
 
   return (
     <>
@@ -106,7 +110,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
         {preview && <div className="notice bad" style={{ marginTop: 20 }}>Admin preview ({lot.status}). {lot.status === "draft" ? "Only admins can see this." : ""}</div>}
         <div className="center" style={{ gap: 14, paddingTop: "clamp(32px,5vw,56px)" }}>
           {!preview && <nav aria-label="Breadcrumb" className="crumbs" data-testid="crumbs">{lotCrumbs(lot).map(([name, href], i, all) => <span key={href}>{i === all.length - 1 ? <span>{name}</span> : <Link href={href}>{name}</Link>}{i < all.length - 1 && <span aria-hidden="true"> › </span>}</span>)}</nav>}
-          <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id}{place ? ` · Collect from ${place}` : ""}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
+          <span className="eyebrow" style={{ color: "var(--urgent)" }}>Lot {lot.id}{place ? ` · ${atSeller ? "Kept in" : "Collect from"} ${place}` : ""}{regoTag(lot) ? ` · ${regoTag(lot)}` : ""}</span>
           {sale && sale.mode === "live" && lot.live_state
             ? <Link className="tag live-tag" href={`/live/${sale.slug}`} data-testid="lot-sale">{lot.live_state === "open" ? "Up now in the live auction ›" : lot.live_state === "waiting" ? `Live auction: ${sale.title}, ${dateTime(sale.starts_at)} ›` : `Offered in the live auction: ${sale.title} ›`}</Link>
             : sale && <Link className="tag" href={`/sales/${sale.slug}`} style={{ background: "var(--panel)" }} data-testid="lot-sale">Part of the {sale.title} ›</Link>}
@@ -145,7 +149,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <h2 className="d3">Condition report.</h2>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 20px", borderRadius: 20, background: "var(--panel)" }}>
                 <span style={{ width: 28, height: 28, borderRadius: 14, background: "var(--sun)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>i</span>
-                <span style={{ fontSize: 15, lineHeight: 1.55 }} data-testid="report-basis"><b>A guide only.</b> {REMOTE_REPORT} It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
+                <span style={{ fontSize: 15, lineHeight: 1.55 }} data-testid="report-basis"><b>A guide only.</b> {REMOTE_REPORT} It isn&apos;t a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : atSeller ? (lot.in_person_viewing ? "View it by appointment before you bid, and bring a mechanic if you like." : "Ask us anything before you bid.") : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Link className="blue" href="/terms#t-claims" style={{ fontWeight: 700 }}>Claims ›</Link></span>
               </div>
               {lot.inspected_at && (
                 <div className="inspected-box" id="inspected" data-testid="inspected-box">
@@ -191,7 +195,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
               <div><h2 className="d3" style={{ fontSize: 40, marginBottom: 12 }}>Specifications.</h2>
                 <div className="rows">
                   {([["Year", lot.year], ["Make", lot.make], ["Model", [lot.model, lot.variant].filter(Boolean).join(" ")], ["Type", kindLabel(lot.category, lot.kind) || CAT[lot.category]?.label], ["Body", lot.body], ["Engine", [lot.engine, lot.engine_cc ? `${lot.engine_cc.toLocaleString("en-AU")} cc` : null].filter(Boolean).join(" · ")], ["Transmission", lot.transmission], ["Fuel", lot.fuel], ["Drive", lot.drive],
-                    ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null], ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], ["Collect from", place ? `Our depot in ${place}` : null], ["Lot", lot.id]] as [string, unknown][])
+                    ["Odometer", lot.odometer != null ? km(lot.odometer) : null], ["Hours", lot.hours != null ? `${lot.hours.toLocaleString("en-AU")} hrs` : null], ["Sleeps", lot.berths], ["Length", lot.length_m ? `${lot.length_m} m` : null], ["Exterior colour", lot.colour], ["Seats", lot.seats], ["Keys", lot.keys], [atSeller ? "Where it's kept" : "Collect from", place ? (atSeller ? place : `Our depot in ${place}`) : null], ["Lot", lot.id]] as [string, unknown][])
                     .filter(([, v]) => v !== null && v !== "" && v !== undefined).map(([k, v]) => <div key={k}><span className="muted">{k}</span><b>{String(v)}</b></div>)}
                 </div>
               </div>
@@ -231,24 +235,38 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
             {["live", "scheduled", "offers", "referred"].includes(lot.status) && (
               <div className="lotsec" id="check-it" style={{ gap: 14 }} data-testid="check-it">
                 <h2 className="d3" style={{ fontSize: 40 }}>How to check it.</h2>
-                <p className="muted" style={{ margin: 0 }}>{NO_VIEWINGS} The seller&apos;s name and address stay private.</p>
+                <p className="muted" style={{ margin: 0 }}>{atSeller ? (lot.in_person_viewing ? VIEW_BY_APPOINTMENT : "The owner can't host viewings for this one, so the listing is how you see it.") : <>{NO_VIEWINGS} The seller&apos;s name and address stay private.</>}</p>
                 <div className="checkit">
-                  {CHECK_IT.map(([t, d], i) => (
+                  {checkIt(lot).map(([t, d], i) => (
                     <div key={t} className="checkit-row"><span className="checkit-n" aria-hidden="true">{i + 1}</span><span style={{ display: "flex", flexDirection: "column", gap: 2 }}><b>{t}</b><span className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>{d}</span></span></div>
                   ))}
                 </div>
+                {!preview && atSeller && <Viewings lotId={lot.id} title={lot.title} suburb={lot.suburb || ""} state={lot.state || ""} inPerson={!!lot.in_person_viewing} auctionAt={auctionAt} open={["live", "scheduled"].includes(lot.status) && (lot.live_state || "waiting") === "waiting"} />}
                 {!preview && <MechanicalInspection lotId={lot.id} partner={inspector} vehicle={vehicle} consultantPhone={consultant?.phone || env.phone} consultantName={consultant?.name || null} open={questionsOpen} />}
               </div>
             )}
 
             <div className="lotsec" id="inspection" style={{ gap: 14 }}>
-              <h2 className="d3" style={{ fontSize: 40 }}>Pickup &amp; collection.</h2>
+              <h2 className="d3" style={{ fontSize: 40 }}>{atSeller ? "Viewing & collection." : "Pickup & collection."}</h2>
               <div className="rows" data-testid="collection-rows">
-                <div><span className="muted">Viewings and test drives</span><b style={{ textAlign: "right" }}>None: buyers never go to the seller&apos;s place</b></div>
-                <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"}</b></div>
-                <div><span className="muted">Collect from</span><b style={{ textAlign: "right" }}>{place ? `${depot?.name ? `${depot.name}, ` : "Our depot, "}${place}` : "Our depot"}{depot?.hours ? <span className="muted" style={{ display: "block", fontWeight: 500, fontSize: 14 }}>Open {depot.hours}</span> : null}{lot.registration === "unregistered" ? <span className="muted" style={{ display: "block", fontWeight: 500, fontSize: 14 }}>By carrier, trailer or permit</span> : null}</b></div>
-                <div><span className="muted">Getting it there</span><b style={{ textAlign: "right" }}>Once it&apos;s paid for, our transport partner picks it up from the seller and takes it to the depot{Number(fl.transport) > 0 ? <>. The {money(Number(fl.transport))} transport is in the buyer&apos;s premium</> : ""}</b></div>
-                <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>The depot&apos;s address comes with your confirmed collection time</b></div>
+                {atSeller ? (
+                  <>
+                    <div><span className="muted">Viewing</span><b style={{ textAlign: "right" }}>{lot.in_person_viewing ? "By appointment, where it's kept. Looking and listening only: no road test" : "The owner can't host viewings for this one"}</b></div>
+                    <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full" : "Payment in full; we lodge the seller's notice of disposal for them"}</b></div>
+                    <div><span className="muted">Collect from</span><b style={{ textAlign: "right" }}>{place ? `The seller, in ${place}` : "The seller"}{lot.registration === "unregistered" ? <span className="muted" style={{ display: "block", fontWeight: 500, fontSize: 14 }}>Sold without plates: it leaves on a carrier, float or trailer, or under a permit</span> : null}</b></div>
+                    {lot.registration === "unregistered" && lot.plates_note ? <div><span className="muted">Why it has no plates</span><b style={{ textAlign: "right" }} data-testid="plates-note">{lot.plates_note}</b></div> : null}
+                    <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>Sent with your confirmed viewing or collection time</b></div>
+                    <div><span className="muted">Getting it home</span><b style={{ textAlign: "right" }}>Yours to arrange: drive it (with the licence class for its GVM) or use a carrier. Nothing for transport is in our premium</b></div>
+                  </>
+                ) : (
+                  <>
+                  <div><span className="muted">Viewings and test drives</span><b style={{ textAlign: "right" }}>None: buyers never go to the seller&apos;s place</b></div>
+                  <div><span className="muted">Before collection</span><b style={{ textAlign: "right" }}>{lot.registration === "unregistered" ? "Payment in full, then the certificate of sale in your name" : "Payment in full, then the registration transferred to you"}</b></div>
+                  <div><span className="muted">Collect from</span><b style={{ textAlign: "right" }}>{place ? `${depot?.name ? `${depot.name}, ` : "Our depot, "}${place}` : "Our depot"}{depot?.hours ? <span className="muted" style={{ display: "block", fontWeight: 500, fontSize: 14 }}>Open {depot.hours}</span> : null}{lot.registration === "unregistered" ? <span className="muted" style={{ display: "block", fontWeight: 500, fontSize: 14 }}>By carrier, trailer or permit</span> : null}</b></div>
+                  <div><span className="muted">Getting it there</span><b style={{ textAlign: "right" }}>Once it&apos;s paid for, our transport partner picks it up from the seller and takes it to the depot{Number(fl.transport) > 0 ? <>. The {money(Number(fl.transport))} transport is in the buyer&apos;s premium</> : ""}</b></div>
+                  <div><span className="muted">Address</span><b style={{ textAlign: "right" }}>The depot&apos;s address comes with your confirmed collection time</b></div>
+                  </>
+                )}
                 {warrantyLine(lot.statutory_warranty) && <div><span className="muted">Statutory warranty</span><b style={{ textAlign: "right" }} data-testid="lot-warranty-line">{warrantyLine(lot.statutory_warranty)}</b></div>}
                 <div><span className="muted">Your rights</span><span style={{ textAlign: "left", fontSize: 15, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 6, maxWidth: 620 }} data-testid="lot-rights">
                   {lot.method === "tender" ? <span><b>Tender:</b> {consumerRights("outright", lot.seller_type)}</span> : <span>{consumerRights("auction", lot.seller_type)}</span>}
@@ -288,7 +306,7 @@ export function LotView({ bundle, fees, similar, history, partners = [], finance
                     <span className="hint">*Estimate only, not an offer of credit. {money(est.amount)} (the all-in price at the {lot.buy_now_price ? "Buy Now price" : atEstimate ? "low end of the estimate" : "current bid"}) over {Math.round(est.months / 12)} years at {est.rate}% p.a., the lowest advertised rate from the lenders we compare. Comparison rate based on {est.basis}. {COMPARISON_WARNING}</span>
                   </>
                 ) : <span className="muted" style={{ fontSize: 15 }}>Work out repayments and compare lenders before you bid.</span>}
-                <Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/finance?lot=${lot.id}`}>Compare car loans</Link>
+                <Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/finance?lot=${lot.id}`}>Compare finance</Link>
                 <div className="sep" />
                 <span className="muted" style={{ fontSize: 15 }}>Arrange cover before you collect.</span>
                 <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/insurance?lot=${lot.id}`}>{hasInsurers ? "Compare insurance" : "Insurance options"}</Link>

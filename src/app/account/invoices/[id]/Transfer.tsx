@@ -30,10 +30,12 @@ export async function uploadProof(invoiceId: string, file: File) {
  *
  *  Sold unregistered is the other shape: there is no registration to move, the certificate of sale is the record,
  *  and the only real question is how they'll get it off our depot. */
-export function TransferStep({ invoiceId, t, title, category, consultantPhone, transporter, canPermit = true }: {
+export function TransferStep({ invoiceId, t, title, category, consultantPhone, transporter, canPermit = true, fromSeller = true }: {
   invoiceId: string; t: TransferRow; title: string; category?: string | null; consultantPhone: string;
-  transporter?: { slug: string; name: string } | null; canPermit?: boolean;
+  transporter?: { slug: string; name: string } | null; canPermit?: boolean; fromSeller?: boolean;
 }) {
+  // who hands it over: the seller, where it's kept (Super Trucker), or our depot (listings from before)
+  const keeper = fromSeller ? "the seller" : "the depot";
   const router = useRouter();
   const rules = rulesFor(t.rego_state);
   const onWater = isVessel(category);
@@ -146,9 +148,9 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone, t
           {/* Settled here, where nothing is at stake, rather than at the gate with a paid invoice and a tow-yard
               counter. The depot then confirms this answer instead of adjudicating it. */}
           <fieldset className="choice" style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will you move it from our depot?</legend>
+            <legend style={{ fontWeight: 700, marginBottom: 8 }}>How will you move it from {fromSeller ? "where it's kept" : "our depot"}?</legend>
             {TRANSPORT.filter(([k]) => k !== "permit" || (onWheels && canPermit)).map(([k, label]) => (
-              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => { setTransport(k); setErr(""); }} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">{permitLine(t.rego_state)} The depot checks it before they hand over the keys.</span>}</span></label>
+              <label key={k} className={transport === k ? "on" : ""}><input type="radio" name="transport" checked={transport === k} onChange={() => { setTransport(k); setErr(""); }} /> <span><b>{k === "permit" ? `${label} (${rules.permit})` : label}</b>{k === "permit" && <span className="hint">{permitLine(t.rego_state)} {fromSeller ? "The seller enters its number on our handover page before they hand over the keys." : "The depot checks it before they hand over the keys."}</span>}</span></label>
             ))}
           </fieldset>
 
@@ -159,7 +161,7 @@ export function TransferStep({ invoiceId, t, title, category, consultantPhone, t
               <label className="field" style={{ maxWidth: 320 }}><span>Permit number (if you have it)</span>
                 <input className="input" value={permit} onChange={(e) => { setPermit(e.target.value); setErr(""); }} maxLength={40} autoCapitalize="characters" data-testid="permit-ref" /></label>
               <span className="hint">You can leave this blank and get the permit before collection day &mdash; but
-              the depot has to see it before they hand over the keys, so don&apos;t turn up without one. It covers
+              {keeper} has to see it before they hand over the keys, so don&apos;t turn up without one. It covers
               one direct trip, so get the dates right.</span>
             </div>
           )}

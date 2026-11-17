@@ -1002,6 +1002,12 @@ a.dep-row:hover b:first-child{color:var(--blue)}
 .checkit-row{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
 .checkit-n{width:28px;height:28px;border-radius:14px;flex-shrink:0;background:var(--ink);color:var(--lime);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
 .vw-opt{border-radius:24px;background:var(--panel);padding:22px 24px;display:flex;flex-direction:column;gap:8px}
+.vw{display:flex;flex-direction:column;gap:12px}
+.vw-booked{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:16px;background:#FFFFFF;font-size:15px;line-height:1.5}
+.vw-days{display:flex;flex-direction:column;gap:6px;max-height:min(46vh,380px);overflow:auto;padding-right:4px}
+.vw-day{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
+.vw-dl{font-weight:700;font-size:15px;min-width:110px}
+.vw-admin{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .inspected-box{display:flex;gap:14px;align-items:flex-start;padding:18px 20px;border-radius:20px;background:#E9F8EE}
 .inspected-box .tick{width:28px;height:28px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .tag.inspected{background:var(--mint);color:var(--ink)}

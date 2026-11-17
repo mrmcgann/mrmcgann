@@ -26,7 +26,9 @@ ok('steps: the authority ends before the auction: sign again (a warning)', s.som
 s = relistSteps({ ...sale, state: 'NSW', registration: 'unregistered', signedAt: '2026-10-01T00:00:00Z', passedAt: 5000, notOffered: true }, now);
 ok("steps: not offered last time says so (not where bidding stopped)", /it wasn't offered last time/.test(texts(s)) && !/\$5,000/.test(texts(s)), texts(s));
 s = relistSteps({ state: 'NSW', registration: 'registered', year: 2015, category: 'cars', signedAt: '2026-10-01T00:00:00Z' }, now);
-ok('steps: no certificate step where the state needs none (NSW)', !/certificate|inspection/.test(texts(s)), texts(s));
+ok('steps: New South Wales needs a fresh inspection report for the new date', /New South Wales: the inspection report must be issued in the 42 days before the auction/.test(texts(s)), texts(s));
+ok('steps: no certificate step where the state needs none (WA)', !/certificate|inspection report/.test(texts(relistSteps({ state: 'WA', registration: 'registered', year: 2015, category: 'trucks', gvm: 16000, signedAt: '2026-10-01T00:00:00Z' }, now))));
+ok('steps: a Queensland heavy truck checks its certificate of inspection', /certificate of inspection must still be current/.test(texts(relistSteps({ state: 'QLD', registration: 'registered', year: 2015, category: 'trucks', gvm: 16000, signedAt: '2026-10-01T00:00:00Z' }, now))));
 ok('steps: no auction yet: choose one (a warning)', s[0].warn === true && /Choose the live auction/.test(s[0].text), JSON.stringify(s[0]));
 s = relistSteps({ ...sale, state: 'ACT', registration: 'registered', year: 2015, category: 'cars' }, now);
 ok('steps: another state with a certificate (ACT inspection)', /ACT: it needs a current roadworthy inspection/.test(texts(s)), texts(s));

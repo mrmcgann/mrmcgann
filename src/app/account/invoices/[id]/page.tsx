@@ -9,7 +9,7 @@ import { dateLong, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 import { InvoiceActions } from "./InvoiceActions";
 import { BookCollection, ChangeDecision, ClaimBox } from "./Collection";
-import { buyerTransportLine, type BuyerTransport } from "@/lib/transport";
+import { buyerPickupLine, buyerTransportLine, type BuyerPickup, type BuyerTransport } from "@/lib/transport";
 import { TransferStep, type TransferRow } from "./Transfer";
 import { SaleContract } from "./SaleContract";
 import { PayBox } from "@/components/deposit/PayBox";
@@ -24,9 +24,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { supabase, user, profile } = await getSession();
   if (!user) redirect(`/signin?next=/account/invoices/${id}`);
-  const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status, category, write_off_status)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
+  const { data } = await supabase.from("invoices").select("*, lots(title, suburb, state, vin, gst_status, category, write_off_status, collect_from)").eq("id", id).eq("buyer_id", user.id).maybeSingle();
   if (!data) notFound();
-  const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string | null; write_off_status: string | null } };
+  const inv = data as Invoice & { lots: { title: string; suburb: string; state: string; vin: string | null; gst_status: string; category: string | null; write_off_status: string | null; collect_from?: string | null } };
+  // Super Trucker: collected from where it's kept (lots.collect_from 'seller'); older listings from our depot
+  const fromSeller = inv.lots.collect_from !== "depot";
   const [{ data: coll }, { data: claims }, fees, { data: tr }, partners, { data: jobRows }] = await Promise.all([
     supabase.from("collections").select("id, status, preferred_day, preferred_time, confirmed_for, collector_name, release_code, collected_at, tracking_url").eq("invoice_id", inv.id).maybeSingle(),
     supabase.from("claims").select("id, reason, status, resolution, created_at").eq("invoice_id", inv.id).order("created_at", { ascending: false }),
@@ -35,6 +37,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     getPartnersCached(),
     supabase.rpc("invoice_transport", { p_invoice: inv.id }),
   ]);
+  // from the seller: where to go (the street address only once a time is confirmed), and whether a time can be booked
+  const [{ data: pickRows }, { data: clear }] = fromSeller
+    ? await Promise.all([supabase.rpc("invoice_pickup", { p_invoice: inv.id }), supabase.rpc("transfer_clear", { p_invoice: inv.id })])
+    : [{ data: null }, { data: null }];
+  const pickup = ((pickRows || []) as BuyerPickup[])[0] || null;
   // bought after the auction (migration 26): the signed contract that goes with this invoice
   const { data: afterOffer } = inv.sold_via === "after_auction"
     ? await supabase.from("second_chance_offers").select("id").eq("invoice_id", inv.id).maybeSingle() : { data: null };
@@ -120,9 +127,38 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             signature={inv.buyer_ack_signature ?? null} verifiedName={`${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()} />
         )}
 
-        {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} category={inv.lots.category} consultantPhone={env.phone} transporter={transporter} canPermit={!["repairable","statutory"].includes(String(inv.lots.write_off_status || ""))} />}
+        {fullyPaid && transfer && <TransferStep invoiceId={inv.id} t={transfer} title={inv.lots.title} category={inv.lots.category} consultantPhone={env.phone} transporter={transporter} canPermit={!["repairable","statutory"].includes(String(inv.lots.write_off_status || ""))} fromSeller={fromSeller} />}
 
-        {paidCard && (
+        {paidCard && fromSeller && (
+          <div className="soft" data-testid="collection">
+            <b style={{ fontSize: 20 }}>Collection.</b>
+            {!fullyPaid && <span>Once it&apos;s paid for, we lodge the seller&apos;s notice of disposal for them, and you book a time to collect it from the seller{pickup?.suburb ? ` in ${pickup.suburb}, ${pickup.state}` : ""}. The address and your release code come once the time is agreed.</span>}
+            {fullyPaid && !c && !clear && <span data-testid="pickup-wait">We&apos;re lodging the seller&apos;s notice of disposal. We&apos;ll text you as soon as you can book a time to collect it.</span>}
+            {fullyPaid && !c && !!clear && <><span data-testid="pickup-line">{buyerPickupLine({ suburb: pickup?.suburb || inv.lots.suburb, state: pickup?.state || inv.lots.state, address: null })}{collectBy ? <> Collect it by <b>{dateLong(inv.collect_by)}</b>.</> : ""} Pick a time and we&apos;ll agree it with the seller.</span><BookCollection invoiceId={inv.id} existing={null} fromSeller /></>}
+            {fullyPaid && c?.status === "requested" && <BookCollection invoiceId={inv.id} existing={c} fromSeller />}
+            {c?.status === "confirmed" && (
+              <>
+                <span className="notice ok"><b>Confirmed: {c.confirmed_for}</b></span>
+                <span>Collect from: <b data-testid="pickup-address">{pickup?.address || "the address in the text and email we sent you"}</b>{pickup?.notes ? <span className="muted" style={{ display: "block" }}>{pickup.notes}</span> : null}</span>
+                <span>Your release code. Give it to the seller only once you{c.collector_name ? ` (or ${c.collector_name})` : ""} have checked the truck:</span>
+                <div className="code-box">{c.release_code}</div>
+                <ol className="steps-mini">
+                  <li>Bring photo ID{c.collector_name ? ` (${c.collector_name} brings theirs)` : ""}. The seller checks it against the name we gave them.</li>
+                  <li>Check the truck against the listing before you give the code. Photograph anything that&apos;s different.</li>
+                  <li>Give the seller the code. They enter it on our handover page: the code is your sign-off.</li>
+                  <li>Something materially different (new damage, a missing key, parts removed, it won&apos;t start)? Don&apos;t give the code: call us on {env.phone} from the yard. You can cancel for a full refund.</li>
+                  <li>Never pay the seller anything. From the handover it&apos;s yours: insure it before you move it.</li>
+                </ol>
+              </>
+            )}
+            {c?.tracking_url && <a className="blue" href={c.tracking_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }} data-testid="tracking-link">Track the delivery ›</a>}
+            {c?.status === "collected" && <span className="notice ok">Collected {dateLong(c.collected_at)}. {inv.claim_until && new Date(inv.claim_until).getTime() > Date.now() ? `If something is materially different from the listing, you can claim until ${dateLong(inv.claim_until)}.` : ""}</span>}
+            {overdueDays > 0 && !inv.collected_at && <span className="notice bad">The collection window ended {dateLong(inv.collect_by)}. Storage of {money(fees.storage_per_day || 50)} a day applies ({money(storageSoFar)} so far), payable before release.</span>}
+            <span className="hint">The address is for collecting it only. Any question about the truck, ask us: every sale goes through Super Trucker.</span>
+          </div>
+        )}
+
+        {paidCard && !fromSeller && (
           <div className="soft" data-testid="collection">
             <b style={{ fontSize: 20 }}>Pickup and collection.</b>
             {!fullyPaid && <span>Once it&apos;s paid for, our transport partner picks it up from the seller and takes it to {depotWhere}. You collect it there once the transfer of ownership is done.</span>}

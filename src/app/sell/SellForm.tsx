@@ -67,9 +67,10 @@ async function shrink(file: File): Promise<Blob> {
 // Sell your vehicle: one form, top to bottom. What it is (the plate or VIN fills in what we can), how it's going,
 // guided photos laid out exactly like the listing will show them, reserve or no reserve, how to reach them, then the
 // Seller Agency Agreement to read, tick and sign with a finger. Checked here and again on the server (validateSell).
-export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string }) {
+export function SellForm({ clauses, phone, categories = ["trucks"] }: { clauses: Clause[]; phone: string; categories?: CategoryKey[] }) {
   const v = useViewer();
-  const [f, setF] = useState<Fields>(BLANK);
+  // only what we sell now (settings selling.categories), starting on the first of them
+  const [f, setF] = useState<Fields>({ ...BLANK, category: categories.includes(BLANK.category) ? BLANK.category : categories[0] });
   const [d, setDState] = useState<Record<string, string>>(BLANK_D);
   const [found, setFound] = useState<Found | null>(null);
   const [looking, setLooking] = useState(false);
@@ -105,7 +106,7 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
       if (raw) {
         const saved = JSON.parse(raw) as { f?: Partial<Fields>; d?: Record<string, string>; at?: number };
         if (saved.at && Date.now() - saved.at < 14 * 86400_000 && saved.f) {
-          setF((x) => ({ ...x, ...saved.f, category: saved.f?.category && CAT[saved.f.category] ? saved.f.category : x.category, signed_name: "" }));
+          setF((x) => ({ ...x, ...saved.f, category: saved.f?.category && CAT[saved.f.category] && categories.includes(saved.f.category) ? saved.f.category : x.category, signed_name: "" }));
           if (saved.d) setDState((x) => ({ ...x, ...saved.d }));
           setRestored(true);
         }
@@ -167,7 +168,7 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
     setFound({ id: data.id, vehicle: fv, sources: data.sources || [], complete: !!data.complete });
     setF((x) => ({
       ...x,
-      category: fv.category && CAT[fv.category as CategoryKey] ? (fv.category as CategoryKey) : x.category,
+      category: fv.category && CAT[fv.category as CategoryKey] && categories.includes(fv.category as CategoryKey) ? (fv.category as CategoryKey) : x.category,
       year: fv.year ? String(fv.year) : x.year, make: fv.make || x.make, model: fv.model || x.model, variant: fv.variant || x.variant,
       transmission: fv.transmission && TRANSMISSIONS.some(([k]) => k === fv.transmission) ? fv.transmission : x.transmission,
       fuel: fv.fuel && FUELS.includes(fv.fuel) ? fv.fuel : x.fuel, colour: fv.colour || x.colour,
@@ -273,7 +274,7 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
           <li><b>We call you within 1 business day</b> with a price guide{done.reserve ? " and to talk through your reserve" : " and to confirm you're happy with no reserve"}.</li>
           <li><b>You verify your ID.</b> We text you a link: about 2 minutes in your browser, plus a photo of the rego papers and the account we pay you into.</li>
           <li><b>You send us a short walkaround video</b> (we tell you exactly what to film) and any photos still missing. We check them and the papers from here: we&apos;re never at your place. Then it goes into our next live auction, with an estimate on the listing.</li>
-          <li><b>Buyers never visit</b> or get your details. Once the buyer has paid, our transport partner picks it up from you.</li>
+          <li><b>Viewings by appointment only.</b> We agree every visit with you and tell you who&apos;s coming. Once the buyer has paid us in full, they collect it from you with a release code.</li>
         </ol>
         <div className="pill-row"><Link className="btn btn-dark" href="/auctions">Browse auctions</Link><Link className="btn" style={{ background: "#FFFFFF" }} href="/seller-agreement">Read the agreement again</Link></div>
       </div>
@@ -305,14 +306,14 @@ export function SellForm({ clauses, phone }: { clauses: Clause[]; phone: string 
 
         {/* 1. The vehicle */}
         <Part n={1} id="sf-vehicle" title="What are you selling?" colour="tangerine" done={partDone(PARTS[0].owns)}>
-          <div className="sf-types" role="group" aria-label="Type of vehicle">
-            {CATEGORIES.map((c) => (
+          {categories.length > 1 && <div className="sf-types" role="group" aria-label="Type of vehicle">
+            {CATEGORIES.filter((c) => categories.includes(c.key)).map((c) => (
               <button key={c.key} type="button" aria-pressed={f.category === c.key} className={`sf-type${f.category === c.key ? " on" : ""}`} onClick={() => set("category", c.key)} data-testid={`sell-cat-${c.key}`}>
                 <span className={`stage bg-${c.backdrop}`}><CarArt type={c.silhouette} /></span>
                 <span className="sf-type-l">{c.short}</span>
               </button>
             ))}
-          </div>
+          </div>}
 
           <div className="seg" role="group" aria-label="Registration">
             {(["registered", "unregistered"] as const).map((r) => (

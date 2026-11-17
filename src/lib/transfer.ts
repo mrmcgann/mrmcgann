@@ -229,10 +229,14 @@ export const TRANSFER_STATUS: Record<string, string> = { waiting: "Waiting for y
 export const PROOF_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "application/pdf": "pdf" };
 export const PROOF_MAX = 10 * 1024 * 1024;
 
-/** The certificate a state needs before a registered vehicle's registration can be transferred to the buyer (null when
- *  none is needed). Mirrors roadworthy_needed() in the database (migration 20261022000022): an unknown year or weight
- *  counts as needing one. Before bidding opens, the seller's certificate date is on file (or an exemption is recorded),
- *  or the vehicle is sold unregistered. */
+/** The certificate a state needs for a registered vehicle (null when none is needed). Mirrors roadworthy_needed() in
+ *  the database (migration 20261115000036): an unknown year or weight counts as needing one.
+ *    Queensland: a safety certificate up to 4.5 t GVM, a certificate of inspection above it, to transfer the registration.
+ *    New South Wales: a current inspection report, because the law doesn't let a vehicle be auctioned with its plates on
+ *      without one (Motor Dealers and Repairers Act 2013 s 57; current = issued in the 42 days before). Nothing more to
+ *      transfer the registration.
+ *    Western Australia: nothing.
+ *  Before bidding opens the seller's certificate date is on file (or an exemption is recorded), or it's sold unregistered. */
 export function certNeeded(state: string | null | undefined, year: number | null | undefined, category: string | null | undefined, gvm?: number | null, now = new Date()): string | null {
   const st = String(state || "").toUpperCase();
   const c = String(category || "");
@@ -244,6 +248,8 @@ export function certNeeded(state: string | null | undefined, year: number | null
   // the marine authority (VESSEL_RULES). Machinery isn't registered, so there's nothing to certify either.
   if (c === "boats" || c === "machinery") return null;
   if (st === "QLD" && (light || (towed && (gvm ?? 750) >= 750 && (gvm ?? 750) <= 4500) || (heavyType && (gvm ?? 4500) <= 4500))) return "safety certificate";
+  if (st === "QLD" && (heavyType || (towed && (gvm ?? 0) > 4500))) return "certificate of inspection";
+  if (st === "NSW") return "inspection report";
   if (st === "VIC" && (light || heavyType || (towed && (gvm ?? 0) > 4500))) return "roadworthy certificate";
   if (st === "ACT" && age >= 6 && (light || towed || (heavyType && (gvm ?? 4500) <= 4500))) return "roadworthy inspection";
   if (st === "NT" && age >= 7 && (light || (heavyType && (gvm ?? 4500) <= 4500))) return "roadworthy inspection";
@@ -251,14 +257,27 @@ export function certNeeded(state: string | null | undefined, year: number | null
   return null;
 }
 
+/** Which state's rule a listing follows: New South Wales by where it's auctioned (its plates are on there), otherwise
+ *  the state it's registered in. The same choice lot_publish_check() makes. */
+export const certState = (l: { state?: string | null; rego_state?: string | null }) =>
+  String(l.state || "").toUpperCase() === "NSW" ? "NSW" : String(l.rego_state || l.state || "").toUpperCase();
+
+/** How long a certificate stays good for the auction, in days before the auction day (null when the state sets none here). */
+export const CERT_DAYS: Record<string, number> = { "roadworthy certificate": 29, "safety certificate": 61, "certificate of inspection": 365, "inspection report": 42 };
+
 const shortDay = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 
 /** The listing's line about the safety or roadworthy certificate. */
 export function certLine(l: { registration?: string | null; rego_state?: string | null; state?: string | null; year?: number | null; category?: string | null; gvm_kg?: number | null; roadworthy_issued_on?: string | null; roadworthy_note?: string | null }): string {
-  const st = String(l.rego_state || l.state || "").toUpperCase();
+  const st = certState(l);
   const note = String(l.roadworthy_note || "").trim();
   if (l.registration !== "registered") return note || "Not supplied: it's sold unregistered. Registering it is up to you (your state may need an inspection first).";
   const cert = certNeeded(st, l.year, l.category, l.gvm_kg);
+  if (cert === "inspection report") {
+    if (l.roadworthy_issued_on) return `Inspection report supplied by the seller, issued ${shortDay(l.roadworthy_issued_on)}: New South Wales needs a current one to auction a vehicle with its plates on. A photo of it is with the listing.${note && !/^exempt/i.test(note) ? ` ${note}` : ""}`;
+    if (/^exempt/i.test(note)) return note;
+    return note || "New South Wales needs a current inspection report to auction a vehicle with its plates on.";
+  }
   if (cert && l.roadworthy_issued_on) return `${cert[0].toUpperCase()}${cert.slice(1)} supplied by the seller, issued ${shortDay(l.roadworthy_issued_on)}. ${st} needs it to transfer the registration.${note && !/^exempt/i.test(note) ? ` ${note}` : ""}`;
   if (/^exempt/i.test(note)) return note;
   if (!cert) return note || `Not needed to transfer a ${st || "registration in this state"}${st ? " registration" : ""}.`;

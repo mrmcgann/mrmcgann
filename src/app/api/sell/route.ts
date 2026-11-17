@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { currentUser } from "@/lib/auth";
-import { CAT } from "@/lib/vehicles";
+import { CAT, sellCategories } from "@/lib/vehicles";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { json, fail } from "@/lib/api";
@@ -26,6 +26,9 @@ export async function POST(req: Request) {
   try { b = JSON.parse(raw || "{}"); } catch { return fail("Couldn't read that.", 400); }
   const { errors, value: v } = validateSell(b);
   if (Object.keys(errors).length) return json({ errors }, 400);
+  // only what we sell now (settings selling.categories)
+  const sellable = sellCategories((await getSettingsCached()).selling as { categories?: unknown } | undefined);
+  if (!sellable.includes(v.category)) return json({ errors: { category: `We only sell ${sellable.map((c) => CAT[c]?.label.toLowerCase() || c).join(", ")} for now.` } }, 400);
   const signature = cleanSignature(b.signature);
   if (!(await allow(`sell:${await clientIp()}`, 6, 3600))) return fail("Too many requests from here. Please call us instead.", 429);
 

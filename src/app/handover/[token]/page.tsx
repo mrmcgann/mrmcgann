@@ -7,16 +7,18 @@ import { HandoverForm } from "./HandoverForm";
 export const metadata: Metadata = { title: "Hand over the vehicle", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-// The depot's private handover page (the link goes to the depot by email and SMS when a collection is confirmed).
+// The private handover page. The link goes to whoever hands the vehicle over when a collection is confirmed: the
+// seller, for a truck collected where it's kept (lots.collect_from 'seller'), or the depot, for listings from before.
 export default async function Handover({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const db = supabaseAdmin();
   const { data: c } = /^[0-9a-f]{32}$/.test(token)
-    ? await db.from("collections").select("status, confirmed_for, collector_name, buyer_id, lot_id, invoice_id, collected_at, lots(title, keys, rego_state, state)").eq("seller_token", token).maybeSingle()
+    ? await db.from("collections").select("status, confirmed_for, collector_name, buyer_id, lot_id, invoice_id, collected_at, lots(title, keys, rego_state, state, collect_from)").eq("seller_token", token).maybeSingle()
     : { data: null };
   if (!c) return <div className="wrap" style={{ maxWidth: 640, padding: "60px 16px" }}><div className="notice bad">This handover link isn&apos;t valid. Call us on {env.phone}.</div></div>;
   const { data: b } = await db.from("profiles").select("first_name, last_name").eq("id", c.buyer_id).single();
-  const lot = c.lots as unknown as { title: string; keys: number | null; rego_state: string | null; state: string | null };
+  const lot = c.lots as unknown as { title: string; keys: number | null; rego_state: string | null; state: string | null; collect_from?: string | null };
+  const fromSeller = lot?.collect_from !== "depot";
   const who = c.collector_name || `${b?.first_name || ""} ${b?.last_name || ""}`.trim();
   // Whether this one is leaving without plates decides what the person at the gate has to establish. Letting an
   // unregistered vehicle be driven onto a road is an offence we commit too, as the party permitting it
@@ -81,12 +83,14 @@ export default async function Handover({ params }: { params: Promise<{ token: st
             <span>Collection time: <b>{c.confirmed_for}</b></span>
             <span>Collected by: <b>{who}</b></span>
             <ol className="steps-mini">
+              {fromSeller && <li>Before they arrive: take out your toll tag, fuel cards and belongings, and sign it out of your apps and paired phones.</li>}
               <li>Check their photo ID matches <b>{who}</b>.</li>
               <li>Ask them for the 6-digit release code. Don&apos;t hand over the keys without it, and never accept cash or a transfer from them. The buyer has already paid Super Trucker.</li>
               <li>Let them check the vehicle against the listing before they take it. Viewing only: no test drives before handover.</li>
               {noPlates && <li><b>Unregistered:</b> see how it&apos;s going. {canPermit ? "If they're driving it, ask for the permit and write its number down below." : "It's written off, so it can only go on a truck or a trailer."}</li>}
               <li>Enter the code, the odometer and the keys handed over below.</li>
             </ol>
+            {fromSeller && <span className="hint" style={{ margin: 0 }}>If they find something different from the listing and don&apos;t want to go ahead, don&apos;t hand it over: call us. Once the code is entered it&apos;s theirs, and we pay you once their claim window has closed.</span>}
           </div>
           <HandoverForm token={token} keys={lot?.keys || null} who={who} noPlates={noPlates} canPermit={canPermit} planned={u?.planned || null} permitRef={u?.permit_ref || null} />
         </>

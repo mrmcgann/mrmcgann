@@ -11,7 +11,7 @@ import { afterStatusLabel, type AfterRule, type WarrantyFree } from "@/lib/after
 import { AfterSale, type AfterPerson } from "./AfterSale";
 
 export default async function EditLot({ params }: { params: Promise<{ id: string }> }) {
-  const { profile } = await requireAdmin(); // checked on every page, not just the layout
+  const { profile, supabase } = await requireAdmin(); // checked on every page, not just the layout
   const { id } = await params;
   const db = supabaseAdmin();
   const lotId = Number(id);
@@ -26,6 +26,11 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     db.from("lot_videos").select("id, status, public_path, title").eq("lot_id", lotId).in("status", ["pending", "approved"]),
   ]);
   if (!lot) notFound();
+  // Everyone we introduced to this truck and its owner (viewings, bids, offers), with when: the record section 2 of the
+  // seller agreement and section 5 of the Terms rely on if it's sold around us. Read with the admin's own session,
+  // because lot_introductions() answers admins only.
+  const { data: intros } = await supabase.rpc("lot_introductions", { p_lot: lotId });
+  const introductions = (intros || []) as { user_id: string; name: string; how: string; at: string; ref: string | null }[];
   const settingRows = (selling || []) as { key: string; value: Record<string, unknown> }[];
   const sellingSet = settingRows.find((r) => r.key === "selling") || null;
   // live auctions only: below the reserve it's passed in; it can then be sold after the auction by agreement where its
@@ -113,6 +118,14 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
         </div>
       )}
       <LotEditor lot={lot} priv={priv} photos={photos || []} flaws={flaws || []} seller={seller} videos={videos || []} />
+      {introductions.length > 0 && (
+        <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="admin-introductions">
+          <h2 style={{ fontSize: 22, fontWeight: 800 }}>Introduced to this truck ({introductions.length})</h2>
+          <p className="hint" style={{ margin: 0 }}>Anyone here who buys it from the owner other than through us, while it&apos;s listed or within {String((settingRows.find((r) => r.key === "auction")?.value?.exclusivity_days as number | undefined) ?? 90)} days after, owes the buyer&apos;s premium (Terms s 5; seller agreement s 2). Viewers agreed to that in writing when they booked.</p>
+          <table className="table"><thead><tr><th>Member</th><th>How</th><th>When</th></tr></thead>
+            <tbody>{introductions.map((x, i) => <tr key={`${x.user_id}-${x.how}-${i}`}><td>{x.name || "Member"}</td><td>{x.how === "viewing" ? `Viewing ${x.ref || ""}` : x.how === "bid" ? "Bid" : "Offer"}</td><td>{dateTime(x.at)}</td></tr>)}</tbody></table>
+        </div>
+      )}
       {(lot.status === "live" && (maxes || []).length > 0) && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="admin-bidders">
           <h2 style={{ fontSize: 22, fontWeight: 800 }}>Bidders</h2>

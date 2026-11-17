@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const pickup = txt(b.pickupAddress, 200);
   if (pickup.length < 8) return fail("Add the address where our transport partner picks it up.");
   const acks = SELLER_ACKS.map(([k]) => k).filter((k) => Array.isArray(b.acknowledgements) && b.acknowledgements.includes(k));
-  if (acks.length < SELLER_ACKS.length) return fail("Tick each box about buyers and the pickup to agree to them.");
+  if (acks.length < SELLER_ACKS.length) return fail("Tick each box about viewings, the handover and selling through us to agree to them.");
 
   const admin = supabaseAdmin();
   const { data: agreementId, error } = await admin.rpc("sign_seller_agreement", {

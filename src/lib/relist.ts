@@ -1,7 +1,7 @@
 // Relisting a vehicle that didn't sell (migration 25): it goes into the next live auction for its state, inside the
 // seller's 90-day authority, with the state's own rules checked against the new auction's date. Pure, shared by the
 // website and the app. The database does the relisting (relist_auto) and enforces the rules (lot_publish_check).
-import { certNeeded } from "./transfer.ts";
+import { certNeeded, certState } from "./transfer.ts";
 import { dateTime, money } from "./format.ts";
 
 /** The seller agreement is the written authority to sell, for 90 days from signing (seller agreement s 1). */
@@ -38,11 +38,13 @@ export function relistSteps(f: RelistFacts, now = new Date()): RelistStep[] {
   steps.push({ text: "Agree the reserve with the seller. They can lower it, and it has to sit at or below the new estimate's low end." });
   steps.push({ text: `Set a fresh estimate and write down its grounds${f.notOffered ? " (it wasn't offered last time)" : f.passedAt ? `: bidding stopped at ${money(f.passedAt)} last time` : ": nobody bid last time"}.` });
   steps.push({ text: "Run a fresh PPSR search, and tick the listing checks again against the seller's photos, video and records." });
-  const st = String(f.regoState || f.state || "").toUpperCase();
+  const st = certState({ state: f.state, rego_state: f.regoState });
   const cert = f.registration === "registered" ? certNeeded(st, f.year, f.category, f.gvm, now) : null;
   const at = f.saleAt ? ` (${fullDay(f.saleAt)})` : "";
   if (cert === "roadworthy certificate") steps.push({ text: `Victoria: the roadworthy certificate must be issued less than 30 days before the auction${at}, so the seller may need a new one.` });
   else if (cert === "safety certificate") steps.push({ text: `Queensland: the safety certificate must be no more than 2 months old at the auction${at}, so the seller may need a new one.` });
+  else if (cert === "certificate of inspection") steps.push({ text: `Queensland: the certificate of inspection must still be current at the auction${at} (it lasts 12 months), so check its date.` });
+  else if (cert === "inspection report") steps.push({ text: `New South Wales: the inspection report must be issued in the 42 days before the auction${at}, so the seller will usually need a new one (or it goes without plates, with the reason shown).` });
   else if (cert) steps.push({ text: `${st}: it needs a current ${cert} before the registration can be transferred.` });
   const ends = authorityEnds(f.signedAt);
   if (!ends) steps.push({ text: "There's no signed agreement on this listing: send the seller the agreement link.", warn: true });

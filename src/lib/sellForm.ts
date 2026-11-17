@@ -231,8 +231,8 @@ export function agreementPrefill(disclosures: Record<string, unknown> | null | u
 /** What the seller agrees to about buyers and the pickup when they sign (seller_agreements.acknowledgements; the
  *  server checks all four). Used by the agreement form and /api/seller/sign. */
 export const SELLER_ACKS: [string, string][] = [
-  ["pickup", "Once the buyer has paid, Super Trucker's transport partner picks it up from the address above, at a time we book with me, and takes it to Super Trucker's depot. Until then I'll keep it there, insured and in the condition it was listed."],
-  ["inspection", "If a bidder orders a mechanical inspection, I'll give Super Trucker's partner mechanic access at a time we agree. They may start it, run it and, if it's registered, briefly road test it."],
+  ["pickup", "Buyers view it at the address above by appointment, and the buyer collects it from there once they've paid Super Trucker in full. Super Trucker agrees every visit with me first and tells me who's coming. Until the handover I'll keep it there, insured, parked and in the condition it was listed."],
+  ["inspection", "I'll let visitors look it over and hear it run, with no road test. If a bidder orders a mechanical inspection, I'll give Super Trucker's partner mechanic access at a time we agree; they may start it, run it and look underneath where they safely can."],
   ["video", "I'll send Super Trucker the photos and a walkaround video for the listing, taken by me in the last 14 days and showing the vehicle as it is (no edits or filters). Super Trucker is never at the vehicle and relies on them, and checks them before they go up."],
-  ["no_contact", "I won't deal with buyers directly. If anyone contacts me about the vehicle, I'll tell Super Trucker, and I won't show it to them or sell it to them outside Super Trucker."],
+  ["no_contact", "Every sale goes through Super Trucker. I won't discuss price or a private sale with a visitor or anyone else, and if anyone asks to buy it direct I'll say no and tell Super Trucker. If it's sold another way while my authority lasts, or later to someone Super Trucker introduced, I'll pay the buyer's premium Super Trucker would have earned (section 2)."],
 ];

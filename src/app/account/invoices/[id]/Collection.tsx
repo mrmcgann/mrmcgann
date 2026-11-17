@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export function BookCollection({ invoiceId, existing, hours }: { invoiceId: string; existing: { preferred_day: string; preferred_time: string; collector_name: string | null } | null; hours?: string | null }) {
+export function BookCollection({ invoiceId, existing, hours, fromSeller = false }: { invoiceId: string; existing: { preferred_day: string; preferred_time: string; collector_name: string | null } | null; hours?: string | null; fromSeller?: boolean }) {
+  const keeper = fromSeller ? "the seller" : "the depot";
   const router = useRouter();
   const [who, setWho] = useState<"me" | "someone" | "carrier">(existing?.collector_name ? "someone" : "me");
   const [err, setErr] = useState("");
@@ -28,7 +29,7 @@ export function BookCollection({ invoiceId, existing, hours }: { invoiceId: stri
   }
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {existing && <span className="notice">Requested: {existing.preferred_day}, {existing.preferred_time.toLowerCase()}. We&apos;re confirming it with the depot. You can change it below until then.</span>}
+      {existing && <span className="notice">Requested: {existing.preferred_day}, {existing.preferred_time.toLowerCase()}. We&apos;re confirming it with {keeper}. You can change it below until then.</span>}
       <div className="row2">
         <label className="field"><span>Day</span><select className="input" name="day" defaultValue={existing?.preferred_day} style={{ background: "#FFFFFF" }}>{days.map((d) => <option key={d}>{d}</option>)}</select></label>
         <label className="field"><span>Time</span><select className="input" name="time" defaultValue={existing?.preferred_time} style={{ background: "#FFFFFF" }}><option>Morning (8 am – 12 pm)</option><option>Afternoon (12 – 4 pm)</option></select></label>
@@ -45,7 +46,7 @@ export function BookCollection({ invoiceId, existing, hours }: { invoiceId: stri
         </div>
       )}
       {who === "carrier" && <input className="input" name="ref" placeholder="Carrier booking reference" style={{ background: "#FFFFFF" }} />}
-      <span className="hint">{hours ? `The depot is open ${hours}. ` : ""}Whoever collects must show photo ID matching the name here, and give the depot team your release code. The vehicle is only handed over with the code.</span>
+      <span className="hint">{hours && !fromSeller ? `The depot is open ${hours}. ` : ""}Whoever collects must show photo ID matching the name here, and give {fromSeller ? "the seller" : "the depot team"} your release code. The vehicle is only handed over with the code.{fromSeller ? " Bring what it needs to move: a driver licensed for its class, or a carrier or float." : ""}</span>
       {err && <span className="errmsg">{err}</span>}
       <button className="btn btn-dark" disabled={busy} style={{ alignSelf: "flex-start", height: 48 }}>{busy ? "Sending…" : existing ? "Update request" : "Request this time"}</button>
     </form>

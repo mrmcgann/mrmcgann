@@ -14,7 +14,7 @@ import { SellerReserve } from "./SellerReserve";
 import { SellerRelist } from "./SellerRelist";
 import { SellerAfter, type SellerAfterView } from "./SellerAfter";
 import { relistSellerLine } from "@/lib/relist";
-import { sellerTransportLine, type SellerTransport } from "@/lib/transport";
+import { sellerHandoverLine, sellerTransportLine, type SellerCollection, type SellerTransport } from "@/lib/transport";
 
 export const metadata: Metadata = { title: "My vehicles for sale", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ const STATUS: Record<string, [string, string]> = {
 };
 
 type Offer = { id: string; amount: number; status: string; created_at: string };
-type Coll = { status: string; collected_at: string | null };
+type Coll = SellerCollection;
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null; kind?: string };
 type Bid = { amount: number; created_at: string; bidder_mask: string; is_auto: boolean };
 type Video = { id: string; lot_id: number; title: string; status: string; review_note: string | null; created_at: string };
@@ -175,7 +175,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                     ) : (
                       <span>It&apos;s sold unregistered, so there&apos;s nothing to lodge at all. The buyer&apos;s certificate of sale is the record of ownership.</span>
                     )}
-                    <span className="hint">The buyer never gets your name or address: they collect it from our depot.</span>
+                    <span className="hint">{l.collect_from === "depot" ? "The buyer never gets your name or address: they collect it from our depot." : "Next, the buyer books a time to collect it from you. We agree it with you first, and tell you who's coming."}</span>
                   </div>
                 )}
                 {pickup && (
@@ -186,7 +186,15 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
                   </div>
                 )}
                 {transfer?.status === "complete" && !pickup && !coll && <span>Ownership transferred.</span>}
-                {coll?.status === "collected" && <span className="notice ok">The buyer collected it from our depot on {dateLong(coll.collected_at)}.</span>}
+                {l.collect_from !== "depot" && coll && coll.status !== "collected" && sellerHandoverLine(coll) && (
+                  <div className="notice" style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="seller-handover">
+                    <b>{coll.status === "confirmed" ? "The handover." : "Collection."}</b>
+                    <span>{sellerHandoverLine(coll)}</span>
+                    {coll.status === "confirmed" && coll.seller_token && <a className="btn btn-dark" style={{ alignSelf: "flex-start", height: 44 }} href={`/handover/${coll.seller_token}`} data-testid="seller-handover-link">Open the handover page</a>}
+                    <span className="hint">Keep it as it was listed, with all the keys. Never hand it to anyone else or take money from anyone: the buyer has paid us. If someone contacts you about it, tell us.</span>
+                  </div>
+                )}
+                {coll?.status === "collected" && <span className="notice ok">{l.collect_from === "depot" ? "The buyer collected it from our depot" : `Handed over${coll.collector ? ` to ${coll.collector}` : ""}`} on {dateLong(coll.collected_at)}.</span>}
                 {p && (
                   <span>Payout: <b>{money(p.net_amount, true)}</b> · {p.status === "paid" ? `paid ${dateLong(p.paid_at)}` : p.status === "ready" ? "being paid now" : p.status === "on_hold" ? `on hold (${p.hold_reason})` : "once the buyer has collected it and their claim window has closed"}
                     {" "}· <a className="blue" href={`/api/payouts/${p.id}/pdf`} style={{ fontWeight: 700 }}>Settlement statement</a></span>

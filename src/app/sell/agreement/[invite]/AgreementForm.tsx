@@ -27,8 +27,8 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    if (pickup.trim().length < 8) { setErr("Add the address where our transport partner picks it up (section 2)."); return; }
-    if (acks.length < SELLER_ACKS.length) { setErr("Tick each box in section 2 to agree how buyers check it and how it's picked up."); return; }
+    if (pickup.trim().length < 8) { setErr("Add the address where the truck is kept (section 2)."); return; }
+    if (acks.length < SELLER_ACKS.length) { setErr("Tick each box in section 2 to agree to viewings, the handover and selling through us."); return; }
     if (!sig && !noDraw) { setErr("Sign in the box (with your finger, a pen or the mouse)."); return; }
     setBusy(true); setErr("");
     const docs: string[] = [];
@@ -58,11 +58,11 @@ export function AgreementForm({ invite, userId, reserve, legalName, clauses, pre
       </section>
 
       <section className="formcard" data-testid="agreement-pickup">
-        <h2 className="d3" style={{ fontSize: 30 }}>2. Buyers and the pickup.</h2>
-        <p className="muted" style={{ margin: 0 }}>Buyers never come to your place, and we never tell them who you are or where you live. They see our condition report, the photos and your walkaround video, and they can order a mechanical inspection from our partner mechanic. Once the vehicle is paid for, our transport partner picks it up and the buyer collects it from our depot.</p>
-        <label className="field"><span>Where we pick it up</span><input className="input" value={pickup} onChange={(e) => setPickup(e.target.value)} autoComplete="street-address" placeholder="Street address, suburb, state and postcode" data-testid="agreement-pickup-address" />
-          <span className="hint">Only our transport partner (and our partner mechanic, if a bidder orders an inspection) gets this, to collect or inspect the vehicle.</span></label>
-        <label className="field"><span>Anything the driver should know (optional)</span><input className="input" value={pickupNotes} onChange={(e) => setPickupNotes(e.target.value)} placeholder="e.g. gate code, where it's parked, best time to call" /></label>
+        <h2 className="d3" style={{ fontSize: 30 }}>2. Viewings and the handover.</h2>
+        <p className="muted" style={{ margin: 0 }}>The truck stays with you. The listing shows your suburb, never your street or your name. Verified buyers can view it by appointment: we agree each visit with you and tell you who&apos;s coming. Once it&apos;s paid for in full, the buyer collects it from you with a release code, at a time we agree with you.</p>
+        <label className="field"><span>Where it&apos;s kept</span><input className="input" value={pickup} onChange={(e) => setPickup(e.target.value)} autoComplete="street-address" placeholder="Street address, suburb, state and postcode" data-testid="agreement-pickup-address" />
+          <span className="hint">We give it only to a member whose viewing you&apos;ve agreed, the buyer once their collection time is agreed, and our partner mechanic if a bidder orders an inspection.</span></label>
+        <label className="field"><span>Directions for visitors (optional)</span><input className="input" value={pickupNotes} onChange={(e) => setPickupNotes(e.target.value)} placeholder="e.g. ask for Dave at the office; park outside the gate; closed shoes" /></label>
         {SELLER_ACKS.map(([k, t]) => (
           <label key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" checked={acks.includes(k)} onChange={(e) => setAcks(e.target.checked ? [...new Set([...acks, k])] : acks.filter((x) => x !== k))} style={{ width: 20, height: 20, flexShrink: 0 }} data-testid={`ack-${k}`} /><span>{t}</span></label>
         ))}

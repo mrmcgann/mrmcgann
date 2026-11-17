@@ -3,18 +3,19 @@ import { SellForm } from "./SellForm";
 import { PHOTO_RULES, VIDEO_STEPS } from "@/lib/sellForm";
 import { HELP as RAW, SELLER_AGREEMENT, fillLegal, legalValues } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
+import { CAT, sellCategories } from "@/lib/vehicles";
 import { env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Sell your car or truck", description: "Sell your car, ute, truck, caravan, boat or machinery in a live online auction to verified buyers Australia-wide. Fill in one short form, add your phone photos and a short video, and sign on your phone. Nobody comes to your place until it's paid for.", alternates: { canonical: "/sell" } };
+export const metadata: Metadata = { title: "Sell your truck", description: "Sell your truck in a live online auction to verified buyers. One short form, your phone photos and a short video. Buyers view it at your place by appointment, pay us first, then collect it from you." };
 
 const steps = (v: Record<string, string>) => [
   ["1", "Fill in and sign", "What it is, how it's going, your phone photos, reserve or no reserve, then sign with your finger. About 10 minutes.", "tangerine"],
   ["2", "We call you", "Within 1 business day, with the auction estimate we'd put on it. Then you verify your ID in your browser: about 2 minutes.", "sun"],
   ["3", "Your video, our checks", "You film a short walkaround (we tell you exactly what). We check your photos, video and papers from here: we're never at your place.", "lime"],
-  ["4", "Live auction", "Offered by our auctioneer in a live online auction to verified buyers nationwide, with the estimate on the listing. You can lower your reserve until the hammer falls. Buyers never visit and never get your name or address.", "sky"],
-  ["5", "Pickup and payout", `The buyer pays Super Trucker first. Then our transport partner picks it up from you and takes it to our depot, where the buyer collects it. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
+  ["4", "Viewings and the auction", "Verified buyers can view it at your place by appointment: we agree every visit with you and tell you who's coming. Then our auctioneer offers it in a live online auction, with the estimate on the listing. You can lower your reserve until the hammer falls.", "sky"],
+  ["5", "Handover and payout", `The buyer pays Super Trucker in full first. Then they collect it from you with a release code, at a time we agree with you. You're paid within ${v.PAYOUT_DAYS} business days after their claim window closes.`, "grape"],
 ];
-const CMP = [["Who deals with buyers", "You", "The dealer", "Super Trucker"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay"], ["Photos and listing", "Your own", "Not needed", "Your phone photos and video, checked and written up by us"], ["Visitors to your home", "Every interested buyer", "None", "None: no buyers, no staff. Just the pickup, once it's paid for"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us first"], ["Paperwork", "All yours", "Handled", "Handled, including the rego transfer"]];
+const CMP = [["Who deals with buyers", "You", "The dealer", "Super Trucker"], ["Price achieved", "What you can negotiate", "Usually trade price", "What buyers compete to pay, live"], ["Photos and listing", "Your own", "Not needed", "Your phone photos and video, checked and written up by us"], ["Visitors to your yard", "Anyone who rings", "None", "Verified buyers only, by appointment, named to you first"], ["Payment risk", "Scams and bounced transfers", "Low", "Low: the buyer pays us in full before they collect"], ["Paperwork", "All yours", "Handled", "Handled, including your notice of disposal"]];
 
 export default async function Sell() {
   const settings = await getSettingsCached();
@@ -22,15 +23,17 @@ export default async function Sell() {
   const HELP = fillLegal(RAW, settings, { text: true });
   const sellFaq = HELP.find((h) => h[0] === "h-sell")?.[2] || [];
   const clauses = fillLegal(SELLER_AGREEMENT, settings);
+  const cats = sellCategories(settings.selling as { categories?: unknown } | undefined);
+  const what = cats.map((c) => (CAT[c]?.label || c).toLowerCase()).join(", ");
   return (
     <div className="wrap">
       <div className="center hero">
-        <span className="eyebrow" style={{ color: "var(--grape)" }}>Sell your car, ute or truck</span>
-        <h1 className="d1" style={{ fontSize: "clamp(56px,10vw,124px)" }}>Sold properly.<br /><span className="serif" style={{ color: "var(--grape)" }}>From your driveway.</span></h1>
-        <p className="lede">Send us your phone photos and a short video. We check them and the papers, write the listing, put it in our next live auction for buyers across Australia, and pick it up once the buyer has paid. Nobody comes to your place before then.</p>
+        <span className="eyebrow" style={{ color: "var(--grape)" }}>Sell your {what}</span>
+        <h1 className="d1" style={{ fontSize: "clamp(56px,10vw,124px)" }}>Sold properly.<br /><span className="serif" style={{ color: "var(--grape)" }}>From your yard.</span></h1>
+        <p className="lede">Send us your phone photos and a short video. We check them and the papers, write the listing and put it in our next live auction. Verified buyers view it at your place by appointment, and the buyer collects it from you once they&apos;ve paid us in full. We sell {what} kept in {v.SELL_STATES}.</p>
       </div>
       <div className="sf-wrap" id="appraisal">
-        <SellForm clauses={clauses} phone={env.phone} />
+        <SellForm clauses={clauses} phone={env.phone} categories={cats} />
       </div>
 
       <section id="how-sell">
