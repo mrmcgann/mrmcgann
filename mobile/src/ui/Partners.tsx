@@ -131,7 +131,7 @@ export function FinanceBox({ lotId, finance, insurers, buyNow, warranty = false 
           <T v="small">*Estimate only, not an offer of credit. {money(finance.amount)} (the all-in price at the {buyNow ? "Buy Now price" : "current bid"}) over {Math.round(finance.months / 12)} years at {finance.rate}% p.a., the lowest advertised rate from the lenders we compare. Comparison rate based on {finance.basis}. {COMPARISON_WARNING}</T>
         </>
       ) : <T v="muted">Work out repayments and compare lenders before you bid.</T>}
-      <Button testID="finance-compare" small kind="dark" title="Compare car loans" onPress={() => open(`/finance?lot=${lotId}`)} />
+      <Button testID="finance-compare" small kind="dark" title="Compare finance" onPress={() => open(`/finance?lot=${lotId}`)} />
       <View style={s.sep} />
       <T v="muted">Arrange cover before you collect.</T>
       <Button testID="insurance-compare" small kind="white" title={insurers ? "Compare insurance" : "Insurance options"} onPress={() => open(`/insurance?lot=${lotId}`)} />
@@ -145,7 +145,7 @@ export function InsureBox({ lotId, balanceOwing }: { lotId: number; balanceOwing
   return (
     <Soft>
       <T v="h">Insure it before you collect.</T>
-      <T v="muted">The vehicle is your responsibility from handover. Compare cover and arrange it before collection day.</T>
+      <T v="muted">It's yours to insure from the handover. Compare cover and arrange it before collection day.</T>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Button testID="insurance-compare" small kind="dark" title="Compare insurance" onPress={() => open(`/insurance?lot=${lotId}`)} />
         {balanceOwing ? <Button testID="finance-compare" small kind="white" title="Finance the balance" onPress={() => open(`/finance?lot=${lotId}`)} /> : null}

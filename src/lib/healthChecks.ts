@@ -52,6 +52,8 @@ export type Snapshot = {
   admin_refused_hour?: number;
   open_functions?: string[];
   holidays?: { days: number; until: string | null; states: number };
+  /** our Queensland motor dealer licence as sellers' appointment forms print it (settings 'business'), asked separately */
+  form9?: { no: string; expiry: string };
 };
 
 export type Setup = {
@@ -352,6 +354,27 @@ export function evaluate(s: Snapshot, setup: Setup, probe: Probe, clock: Clock, 
           fix: "Add next year's dates to the public_holidays table, with the state each one applies in. Fair Work publishes them per state." }
       : { key: "setup.holidays", area: AREA_SET, status: "ok", title: `Public holidays listed to ${hol.until}`,
           detail: hol.states < 5 ? `Only ${plural(hol.states, "state")} has its own dates; the cooling-off period after an auction is counted in the buyer's state.` : undefined });
+  }
+
+  // ---- Sellers' appointment form (Queensland Form 9): Part 2 prints our motor dealer licence number and its expiry.
+  // Without them no seller can sign (and nothing can be listed); an expired licence means we can't act at all.
+  const f9 = s.form9;
+  if (f9) {
+    const exp = /^\d{4}-\d{2}-\d{2}$/.test(f9.expiry) ? new Date(f9.expiry + "T23:59:59+10:00").getTime() : null;
+    const days = exp == null ? null : Math.floor((exp - now) / (24 * 60 * MIN));
+    add(!f9.no.trim() || days == null
+      ? { key: "setup.form9", area: AREA_SET, status: setup.production ? "fail" : "warn", title: "Sellers can't sign their appointment yet",
+          detail: "Queensland's appointment form (Form 9) prints our motor dealer licence number and its expiry date, and they aren't set. Until they are, sellers can't sign and nothing can be listed.",
+          fix: "Add them in Admin → Settings, under Sellers' appointment form." }
+      : days < 0
+      ? { key: "setup.form9", area: AREA_SET, status: "fail", title: "Our motor dealer licence has expired",
+          detail: `The expiry date in Settings is ${f9.expiry}. We can't take appointments or sell for anyone without a current licence.`,
+          fix: "Renew the licence with the Office of Fair Trading, then update the expiry date in Admin → Settings." }
+      : days <= 60
+      ? { key: "setup.form9", area: AREA_SET, status: "warn", title: `Our motor dealer licence expires in ${plural(days, "day")}`,
+          detail: `The expiry date in Settings is ${f9.expiry}, and every new seller's appointment form prints it.`,
+          fix: "Renew it with the Office of Fair Trading, then update the expiry date in Admin → Settings." }
+      : { key: "setup.form9", area: AREA_SET, status: "ok", title: "Sellers' appointment forms carry our licence details" });
   }
 
   // ---- Nightly jobs (each one is due at a Brisbane time and records the day it ran)

@@ -74,7 +74,7 @@ export default function Home() {
             <T v="muted">Live online auctions for cars, utes, trucks, motorbikes, caravans, boats and machinery in {place}, with an auction estimate on every listing. The seller's photos and video checked by us, PPSR searched, and always the all-in price.</T>
           </>}
         </View>
-        <Pressable testID="home-search" accessibilityRole="search" accessibilityLabel="Search vehicles" onPress={() => router.push("/search?focus=1")} style={s.search}>
+        <Pressable testID="home-search" accessibilityRole="search" accessibilityLabel={`Search ${sellNoun(sold)}s`} onPress={() => router.push("/search?focus=1")} style={s.search}>
           <Icon name="search" color={C.muted} />
           <Text style={s.searchText} numberOfLines={1}>{trucksOnly ? "Try “tipper under 60k”" : "Try “HiLux under 30k in QLD”"}</Text>
         </Pressable>

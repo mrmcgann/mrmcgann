@@ -80,8 +80,10 @@ export async function runHealth(opts: { probe?: boolean; skipProbe?: boolean; db
   }
   // Asked separately so health_snapshot() doesn't have to be redefined wholesale for one count. A failure here is
   // never fatal: the holidays check simply doesn't run.
-  const { data: holidays } = await db.rpc("holidays_ahead");
-  const snap = { ...(data as Snapshot), holidays: (holidays as Snapshot["holidays"]) ?? undefined };
+  const [{ data: holidays }, { data: business }] = await Promise.all([db.rpc("holidays_ahead"), db.from("settings").select("value").eq("key", "business").maybeSingle()]);
+  const biz = (business?.value || {}) as { qld_licence_no?: string; qld_licence_expiry?: string };
+  const snap = { ...(data as Snapshot), holidays: (holidays as Snapshot["holidays"]) ?? undefined,
+    form9: { no: String(biz.qld_licence_no || ""), expiry: String(biz.qld_licence_expiry || "") } };
   let probe = (snap.marks?.probe?.value as unknown as Probe) || null;
   if (!opts.skipProbe && (opts.probe || !probe || Date.now() - new Date(probe.at).getTime() > 4.5 * 60_000)) probe = await probeSite(db).catch(() => probe);
   const checks = evaluate(snap, setupNow(), probe, brisbaneClock(), { dbMs });

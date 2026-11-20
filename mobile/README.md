@@ -1,6 +1,6 @@
 # Super Trucker for iPhone and Android
 
-A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, early bids and the live auction room (every vehicle is sold in a live auction, with an estimate), alerts, invoices (paid by bank transfer, PayID or BPAY), transfer of ownership, collection from our depot, claims, selling (with the plate lookup, the seller's photos and walkaround video) and the seller dashboard. It adds push notifications and in-app account deletion.
+A native app (Expo / React Native) that uses the same database, rules and API as the website. Everything a member can do on the site works here: search, watch, early bids and the live auction room (every truck is sold in a live auction, with an estimate), the two ways to inspect a truck (yourself by appointment, or our mobile mechanic), alerts, invoices (paid by bank transfer, PayID or BPAY), transfer of ownership, collection from where the truck is kept, claims, selling (with the plate lookup, the seller's photos and walkaround video) and the seller dashboard, including the seller's appointment of us (Queensland's Form 9) and giving notice to end it. It adds push notifications and in-app account deletion.
 
 - Screens live in `src/app` (one file per screen). Shared pieces are in `src/ui`, plumbing in `src/lib`.
 - Search, vehicle lists, fees and formatting are the website's own code (`../src/lib`), so both stay in step.
@@ -39,9 +39,9 @@ eas init
 The app has no database or rules of its own: it calls the live website's `/api` and reads Supabase directly. So the
 website goes first, in this order:
 
-1. Every migration in `supabase/migrations/`, in order (there are 27; the main `README.md`, step 1, lists them with
+1. Every migration in `supabase/migrations/`, in order (there are 39; the main `README.md`, step 1, lists them with
    what each one does, or run `supabase db push` with the CLI). Don't cherry-pick: the app's screens call functions
-   added as late as migration 27.
+   added as late as migration 39 (`seller_lot_appointment`, `seller_end_appointment`).
 2. Deploy the website with `NEXT_PUBLIC_TEST_MODE=false` and the real environment variables (main `README.md`,
    "Before launch").
 3. Check **Admin → Site health** is all green on the live site. The app shows whatever the website says, so a red
@@ -90,9 +90,9 @@ where email = 'appreview@tyrebiter.com.au';
 ```
 Its ID isn't verified on purpose, so a reviewer can see everything (the live auction room too) but can't place a real bid: a bid button leads to the ID check.
 
-**Have something for them to look at.** Every vehicle is sold in a live auction, so if no auction is scheduled when the
+**Have something for them to look at.** Every truck is sold in a live auction, so if no auction is scheduled when the
 reviewer signs in, the home page, the calendar and the room are all empty and the app looks broken. Before you submit,
-make sure there's a published live auction with vehicles in it, starting a few days out and still unfinished — and keep
+make sure there's a published live auction with trucks in it, starting a few days out and still unfinished — and keep
 one scheduled for as long as the app is in review, including any resubmission. Add it to the review notes: "The live
 auction room fills with the auctioneer's calls and a countdown once a sale starts; between sales it shows the next
 auction's date."
@@ -104,7 +104,7 @@ auction's date."
 4. Choose the build, then **Add for Review**. Reviews usually take a day or two.
 
 ### 11. Send it to Google
-1. In Play Console, **Create app**: Super Trucker: Vehicle Auctions, App, Free.
+1. In Play Console, **Create app**: Super Trucker: Truck Auctions, App, Free.
 2. Fill in **Store listing** and every item under **App content** from `store/LISTING.md` (privacy policy, app access with the demo account, ads, content rating, target audience, data safety, data deletion).
 3. Upload `store/play-icon-512.png`, `store/play-feature-graphic.png` and `store/screenshots/android/01.png` to `06.png`.
 4. Google needs the first upload done by hand: open the production build on expo.dev, download the `.aab` file, then in Play Console go to **Test and release > Production > Create new release** and upload it.

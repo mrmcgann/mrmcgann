@@ -202,7 +202,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         {paidCard && !inv.collected_at && inv.status !== "cancelled" && (
           <div className="soft" style={{ gap: 8 }}>
             <b style={{ fontSize: 20 }}>Insure it before you collect.</b>
-            <span className="muted">The vehicle is your responsibility from handover. Compare cover and arrange it before collection day.{hasWarranty ? " You can also arrange an extended warranty or roadside assistance." : ""}</span>
+            <span className="muted">It&apos;s yours to insure from the handover. Compare cover and arrange it before collection day.{hasWarranty ? " You can also arrange an extended warranty or roadside assistance." : ""}</span>
             <span className="pill-row"><Link className="btn btn-dark" style={{ height: 46, fontSize: 15 }} href={`/insurance?lot=${inv.lot_id}`}>Compare insurance</Link>
               {hasWarranty && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/warranty?lot=${inv.lot_id}`}>Warranty &amp; roadside</Link>}
               {!fullyPaid && <Link className="btn btn-soft" style={{ height: 46, fontSize: 15, background: "#FFFFFF" }} href={`/finance?lot=${inv.lot_id}`}>Finance the balance</Link>}</span>

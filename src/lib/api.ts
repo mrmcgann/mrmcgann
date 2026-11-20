@@ -72,7 +72,9 @@ export function friendly(message: string | undefined) {
     "after_closed", "seller_not_agreed", "below_seller_price", "not_interested", "buyer_defaulted", "forms_needed", "bad_docs", "warranty_needed",
     "consultant_needed", "sign_name", "after_agreed", "cooling_over", "amount_needed",
     // the buyer's sale contract (migrations 29 to 31)
-    "sign_draw", "wrong_contract"]) {
+    "sign_draw", "wrong_contract",
+    // the seller's appointment of us on Form 9 (migration 39)
+    "appointment_ended", "appointment"]) {
     if (m.includes(`${code}:`)) { const t = m.split(`${code}:`)[1]?.split("\n")[0].trim(); return t ? t[0].toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : "That can't be done right now."; }
   }
   if (m.includes("offer_not_found")) return "We couldn't find that offer.";

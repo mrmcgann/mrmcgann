@@ -8,6 +8,7 @@ const siteHost = () => env.siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, ""
 import { consumerRights, type SellerType } from "@/lib/listing";
 import { afterWarrantyLine, coolingLine, stateTime, STATE_NAMES, type AfterOffer, type AfterRule } from "@/lib/afterAuction";
 import { ruleFor, namesOwner, odometerLine, engineLine, soldLine, ACK_TEXT, ackNote } from "@/lib/buyerContract";
+import { FORM9_END, type Appointment } from "@/lib/appointment";
 
 const INK = rgb(0.114, 0.114, 0.122);
 const MUTED = rgb(0.43, 0.43, 0.45);
@@ -52,7 +53,8 @@ function buyerNotice(lot: Record<string, unknown>, after?: AfterSale | null) {
   return `Notice to the buyer: this vehicle was sold by auction, at the fall of the hammer in a live online auction run by a licensed auctioneer, by ${env.legalName} as agent for its owner. ${warranty}${ppsr} The odometer reading is as indicated on the dash; we can't verify the true distance. No cooling-off period applies.`;
 }
 const soldBy = (via: string | null | undefined) => via === "buy_now" ? "Buy Now" : via === "offer" ? "Accepted offer" : via === "after_auction" ? "After the auction, by agreement" : "Live online auction, at the fall of the hammer";
-const safe = (s: unknown) => String(s ?? "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/[^\x20-\x7E\xA0-\xFF·]/g, "");
+// Helvetica's character set (WinAnsi) has the en and em dash, so the approved forms keep their own punctuation ("Part 1—Client details").
+const safe = (s: unknown) => String(s ?? "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[^\x20-\x7E\xA0-\xFF·–—]/g, "");
 
 class Sheet {
   y = 790;
@@ -314,8 +316,133 @@ export async function sellerAgreementPdf(o: {
   }
   s.text(`${o.signedName}`, 50, 11, { bold: true }); s.line(14);
   s.text(`Signed electronically on ${new Date(o.signedAt).toLocaleString("en-AU", { timeZone: "Australia/Brisbane", dateStyle: "long", timeStyle: "short" })} (Brisbane time).`, 50, 9, { color: MUTED }); s.line(12);
-  para("Before your vehicle goes live we verify your identity, and you confirm this agreement on your agreement page with your verified name. Keep this copy for your records.", 8);
+  para("This isn't yet your appointment of us. Before anything is listed we verify your identity, and you sign your appointment of Super Trucker on Queensland's approved form (Form 9) on your agreement page, with this agreement attached to it; we countersign it and email you a signed copy. Keep this copy for your records.", 8);
   return doc.save();
+}
+
+const strip = (t: string) => t.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'");
+
+// The seller's appointment of us on Queensland's approved form (Form 9) as they signed it (seller_agreements.appointment):
+// the nine parts, the end of the approved form, Annexure A, both signatures and the dates. It's the signed copy the
+// client must be given straight after signing (MDCA Act s 84): staff countersign first, then it's emailed. Until then
+// it says it's waiting for our signature.
+export async function appointmentPdf(agreementId: string): Promise<{ bytes: Uint8Array; filename: string } | null> {
+  const db = supabaseAdmin();
+  const { data: ag } = await db.from("seller_agreements")
+    .select("id, lot_id, appointment, signed_name, signed_at, countersigned_name, countersigned_at, copy_sent_at, ends_at, notice_at, notice_by")
+    .eq("id", agreementId).maybeSingle();
+  const a = (ag?.appointment || null) as Appointment | null;
+  if (!ag || !a || !Array.isArray(a.parts)) return null;
+  const ref = `ST-${ag.lot_id}-${String(ag.id).slice(0, 4).toUpperCase()}`;
+  const { doc, sheet } = await newSheet();
+  let s = sheet;
+  const fresh = () => {
+    const page = doc.addPage([595.28, 841.89]);
+    s = new Sheet(page, s.font, s.bold);
+    s.text(`Form 9 appointment  ·  ${ref}`, 50, 9, { color: MUTED });
+    s.line(24);
+  };
+  const room = (h: number) => { if (s.y - h < 56) fresh(); };
+  const split = (t: string, width: number, size: number, bold = false) => {
+    const f = bold ? s.bold : s.font;
+    const out: string[] = [];
+    let cur = "";
+    for (const w of safe(strip(t)).split(/\s+/).filter(Boolean)) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (f.widthOfTextAtSize(next, size) > width && cur) { out.push(cur); cur = w; } else cur = next;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  const para = (t: string, o: { size?: number; color?: ReturnType<typeof rgb>; x?: number; width?: number; bold?: boolean } = {}) => {
+    const size = o.size ?? 9;
+    for (const ln of split(t, o.width ?? 495, size, o.bold)) { room(size + 3); s.text(ln, o.x ?? 50, size, { color: o.color ?? INK, bold: o.bold }); s.line(size + 3); }
+  };
+  // the form's statement to get legal advice, in a box: clear of the line above, the text inside it, room below
+  const boxed = (t: string) => {
+    const lines = split(t, 475, 10, true);
+    const h = 10 + lines.length * 13;
+    room(h + 26);
+    s.line(8);
+    const top = s.y + 4;
+    s.page.drawRectangle({ x: 50, y: top - h, width: 495, height: h, borderColor: INK, borderWidth: 1.4 });
+    s.line(9);
+    for (const ln of lines) { s.text(ln, 60, 10, { bold: true }); s.line(13); }
+    s.line(12);
+  };
+  const tick = (label: string, on: boolean) => {
+    const lines = split(label, 460, 9);
+    room(lines.length * 12 + 2);
+    s.page.drawRectangle({ x: 52, y: s.y - 1, width: 8, height: 8, borderColor: INK, borderWidth: 0.8, color: on ? INK : undefined });
+    if (on) s.text("X", 54, 7, { bold: true, color: rgb(1, 1, 1) });
+    lines.forEach((ln, i) => { s.text(ln, 68, 9); s.line(i === lines.length - 1 ? 13 : 12); });
+  };
+  const row = (k: string, v: string) => {
+    const left = split(k, 165, 9), right = split(v, 305, 9);
+    const n = Math.max(left.length, right.length);
+    room(n * 12 + 2);
+    for (let i = 0; i < n; i++) { if (left[i]) s.text(left[i], 50, 9, { color: MUTED }); if (right[i]) s.text(right[i], 240, 9); s.line(12); }
+    s.line(2);
+  };
+
+  s.text(a.title || "Appointment of motor dealer or chattel auctioneer", 50, 17, { bold: true }); s.line(16);
+  s.text(`${a.act}  ·  Reference ${ref}`, 50, 9, { color: MUTED }); s.line(10);
+  boxed(a.warning);
+  for (const part of a.parts) {
+    room(40);
+    s.line(4); s.rule();
+    s.text(part.title, 50, 11, { bold: true }); s.line(15);
+    if (part.note) { para(part.note, { size: 8, color: MUTED }); s.line(2); }
+    for (const it of part.items || []) {
+      if (it.t === "head") { s.line(2); para(it.text, { size: 9, bold: true }); }
+      else if (it.t === "text") { if (it.strong && part.id === "p9") boxed(it.text); else para(it.text, { bold: !!it.strong }); s.line(2); }
+      else if (it.t === "rows") for (const [k, v] of it.rows) row(k, v);
+      else if (it.t === "ticks") { for (const [label, on] of it.ticks) tick(label, on); s.line(2); }
+    }
+  }
+
+  // Part 9's signatures
+  room(170);
+  s.line(6);
+  s.text("Client", 50, 10, { bold: true }); s.line(14);
+  const sig = a.signature;
+  if (sig && Array.isArray(sig.strokes) && sig.w > 0 && sig.h > 0) {
+    const scale = Math.min(220 / sig.w, 70 / sig.h);
+    const top = s.y;
+    for (const st of sig.strokes) {
+      if (!Array.isArray(st) || st.length < 4) continue;
+      let d = "";
+      for (let i = 0; i + 1 < st.length; i += 2) d += `${i ? " L" : "M"} ${(Number(st[i]) * scale).toFixed(1)} ${(Number(st[i + 1]) * scale).toFixed(1)}`;
+      s.page.drawSvgPath(d, { x: 50, y: top, borderColor: INK, borderWidth: 1.3 });
+    }
+    s.line(70 + 6);
+  }
+  s.text(ag.signed_name || "", 50, 10, { bold: true }); s.line(13);
+  para(`Signed electronically by the client on ${when(ag.signed_at)} (Brisbane time).`, { size: 8.5, color: MUTED });
+  s.line(8);
+  s.text("Licensee", 50, 10, { bold: true }); s.line(14);
+  if (ag.countersigned_at) {
+    s.text(ag.countersigned_name || "", 50, 10, { bold: true }); s.line(13);
+    para(`Signed electronically for ${env.legalName} by ${ag.countersigned_name}, who is authorised to sign for the licensee, on ${when(ag.countersigned_at)} (Brisbane time).`, { size: 8.5, color: MUTED });
+  } else para("Waiting for the licensee's signature. This copy isn't the signed appointment yet.", { size: 9, bold: true });
+  if (ag.copy_sent_at) para(`A copy of this signed appointment was given to the client by email on ${when(ag.copy_sent_at)} (Brisbane time).`, { size: 8.5, color: MUTED });
+  if (ag.notice_at) para(`Written notice to end this appointment was given by ${ag.notice_by === "us" ? "the licensee" : "the client"} on ${when(ag.notice_at)} (Brisbane time). It ends on ${day(ag.ends_at)}.`, { size: 8.5, color: MUTED });
+  s.line(8);
+  para(FORM9_END, { size: 9, bold: true });
+
+  // Annexure A, as the client read it
+  fresh();
+  s.text("Annexure A", 50, 9, { color: MUTED }); s.line(14);
+  s.text("Super Trucker Seller Agency Agreement", 50, 15, { bold: true }); s.line(16);
+  s.text(a.agreementVersion || "", 50, 9, { color: MUTED }); s.line(18);
+  for (const [, title, paras] of a.annexure || []) {
+    room(30);
+    s.line(4);
+    para(title, { size: 10.5, bold: true }); s.line(1);
+    for (const p of paras) { para(p, { color: MUTED }); s.line(3); }
+  }
+  if (!a.annexure?.length) para(`The Super Trucker Seller Agency Agreement (${a.agreementVersion}) forms part of this appointment.`);
+  return { bytes: await doc.save(), filename: `SuperTrucker-appointment-${ag.lot_id}.pdf` };
 }
 
 // The written contract for a sale after the auction (migration 26): the offer the seller agreed to, which the buyer

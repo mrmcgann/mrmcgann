@@ -260,6 +260,19 @@ r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("roadwor
 await as('ADM', `update lots set roadworthy_issued_on = (now() at time zone 'Australia/Brisbane')::date + 1 where id=${SL}`);  // tomorrow in Brisbane, whatever the server's time zone
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("roadworthy: the date can't be in the future", r.error?.includes('future'), r.error);
 await as('ADM', `update lots set roadworthy_issued_on = current_date - 3 where id=${SL}`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('appointment: blocked until the seller has signed the appointment form (Form 9)', r.error?.includes('Form 9') && r.error?.includes('agreement link'), r.error);
+const SAG = (await c.query(`select id from seller_agreements where lot_id=${SL} and status='signed'`)).rows[0]?.id;
+r = await c.query(`select extract(day from ends_at - signed_at)::int d from seller_agreements where id='${SAG}'`); ok('appointment: a single appointment for 90 days from signing', r.rows?.[0]?.d === 90, JSON.stringify(r.rows));
+await c.query(`update seller_agreements set appointment='{"title":"Appointment of motor dealer or chattel auctioneer","parts":[]}' where id='${SAG}'`);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('appointment: blocked until we countersign it', r.error?.includes('countersign'), r.error);
+r = await as('S', `select admin_countersign_appointment('${SAG}', 'Sam Seller')`); ok("appointment: a seller can't countersign for us", r.error?.includes('forbidden'), r.error);
+r = await as('ADM_PW', `select admin_countersign_appointment('${SAG}', 'Rory McGann')`); ok('appointment: countersigning needs two-step', r.error?.includes('forbidden'), r.error);
+r = await as('ADM', `select admin_countersign_appointment('${SAG}', 'Al')`); ok('appointment: staff sign with their full name', r.error?.includes('full name'), r.error);
+r = await as('ADM', `select admin_countersign_appointment('${SAG}', 'Rory McGann') x`); ok('appointment: staff countersign it for Super Trucker', !r.error && Number(r.rows?.[0]?.x?.lot_id) === Number(SL), r.error);
+r = await as('ADM', `select admin_countersign_appointment('${SAG}', 'Rory McGann')`); ok('appointment: once only', r.error?.includes('already countersigned'), r.error);
+r = await as('ADM', `update lots set status='live' where id=${SL}`); ok("appointment: blocked until the seller's signed copy is sent", r.error?.includes('copy'), r.error);
+r = await as('ADM', `select appointment_copy_sent('${SAG}')`); ok('appointment: only the server records that the copy went', !!r.error, r.error);
+r = await as('service', `select appointment_copy_sent('${SAG}')`); ok('appointment: the server records the copy', !r.error, r.error);
 r = await as('ADM', `update lots set status='live' where id=${SL}`); ok('publishes once every check is done', !r.error, r.error);
 r = await as('service', `select published_at is not null p from lots where id=${SL}`); ok('published time recorded', r.rows?.[0]?.p === true);
 r = await as('service', `select (fees->>'transport')::numeric t from lots where id=${SL}`); ok('transport: locked into the fees when it goes live', Number(r.rows?.[0]?.t) === 300, JSON.stringify(r.rows));
@@ -1813,7 +1826,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     ('lo-hidden', 'Not published yet', false, 'live', now() + interval '5 days', 30, 15, 'Pat Gavel') returning id, slug`);
   const NEXT = Number(r.rows?.find((x) => x.slug === 'lo-next')?.id); ok('relist: later live auctions to relist into', NEXT > 0, r.error);
   await c.query(`update lots set seller_id = '${U.S}' where id in (${E2}, ${E3})`);
-  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${E3}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${E3}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}', '{"title":"test"}', now(), now())`);
   r = await as('ADM', `select admin_live_next(${LS}) id`); ok('auction: the third vehicle', Number(r.rows?.[0]?.id) === E2, JSON.stringify(r));
   r = await as('ADM', `select admin_live_close(${LS}) s`); ok('auction: below the reserve it is passed in, never referred to the seller', r.rows?.[0]?.s === 'passed', JSON.stringify(r));
   r = await as('anon', `select live_message from sales where id = ${LS}`); ok('hammer: the room is told it was passed in', r.rows?.[0]?.live_message === 'Passed in: below the reserve.', JSON.stringify(r.rows));
@@ -1901,7 +1914,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   const E5 = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
   await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, estimate_low, estimate_high) values (${E5}, 'draft', 'Live only sedan', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', 5000, 6000)`);
   await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis) values (${E5}, 4000, 'Recent sales of the same model and year on our results page')`);
-  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${E5}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${E5}, '${U.S}', 'test', 'Sam Seller', now() - interval '85 days', '{}', '{}', '{"title":"test"}', now(), now())`);
   await as('ADM', `update lots set sale_id = ${NEXT} where id = ${E5}`);
   r = await as('ADM', `update lots set status = 'live' where id = ${E5}`);
   ok("authority: a vehicle can't go into an auction after the seller's 90-day authority ends", r.error?.includes('authority to sell ends on') && r.error?.includes('sign the agreement again'), r.error);
@@ -1924,7 +1937,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
     await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, estimate_low, estimate_high, year, odometer)
       values (${id}, 'draft', '${t}', 'cars', 1000, now() + interval '7 days', 'unregistered', 'auction', '${U.S}', '${st}', 9000, 11000, ${st === 'QLD' ? '2019, 80000' : `${YR - 18}, 250000`})`);
     await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis) values (${id}, 9000, 'Two of the same model and year sold for $9,800 and $10,400')`);
-    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}')`);
+    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}', '{"title":"test"}', now(), now())`);
     await as('ADM', `update lots set sale_id = ${AS} where id = ${id}`);
     r = await as('ADM', `update lots set status = 'live' where id = ${id}`); ok(`after: ${st} vehicle listed`, !r.error, r.error);
     await as('A', `select place_bid(${id}, 8000)`); await as('B', `select place_bid(${id}, 7500)`);
@@ -1959,7 +1972,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   const AQ2 = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
   await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, year, not_offered)
     values (${AQ2}, 'passed', 'Brisbane caravan', 'caravans', 1000, now() - interval '1 hour', 'unregistered', 'auction', '${U.S}', 'QLD', 2018, true)`);
-  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${AQ2}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${AQ2}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}', '{"title":"test"}', now(), now())`);
   r = await as('service', `select (after_auction_check(${AQ2})->>'ok')::boolean ok, after_interested(${AQ2}) n, after_seller_text(${AQ2}) t`);
   ok("after: with nobody who bid on it or watched it, the seller isn't promised an offer", r.rows?.[0]?.ok === true && r.rows[0].n === 0 && r.rows[0].t === '', JSON.stringify(r.rows));
   await c.query(`insert into watchlist (user_id, lot_id) values ('${U.X}', ${AQ2}), ('${U.NEW}', ${AQ2}), ('${U.S}', ${AQ2})`);
@@ -1999,7 +2012,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
   const ANSW = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
   await c.query(`insert into lots (id, status, title, category, start_price, ends_at, registration, method, seller_id, state, year, odometer, current_bid, bid_count, leader_id)
     values (${ANSW}, 'passed', 'Sydney SUV', 'cars', 1000, now() - interval '1 hour', 'unregistered', 'auction', '${U.S}', 'NSW', ${YR - 3}, 60000, 9000, 1, '${U.A}')`);
-  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${ANSW}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}')`);
+  await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${ANSW}, '${U.S}', 'test', 'Sam Seller', now() - interval '5 days', '{}', '{}', '{"title":"test"}', now(), now())`);
   await c.query(`insert into watchlist (user_id, lot_id) values ('${U.X}', ${ANSW})`);
   r = await as('service', `select after_auction_check(${ANSW}) j, after_seller_text(${ANSW}) t`);
   ok("warranty: a recent NSW car the dealer guarantee would cover can't be sold after the auction (and the seller isn't told it can)", r.rows?.[0]?.j?.code === 'warranty'
@@ -2214,7 +2227,7 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
         ${v.lo}, ${v.hi}, 'JALFVR34PG7${String(id).padStart(6, '0')}', now(), 'none', 'drives', false, listing_check_keys(), ${v.gvm_kg === null ? 'null' : v.gvm_kg}, ${day(v.roadworthy_issued_on)}, ${txt(v.roadworthy_note)}, ${txt(v.plates_note)}, ${ST}, 412000)`);
     await c.query(`insert into lot_private (lot_id, reserve_price, estimate_basis, ownership_checked_at, seller_address, pickup_notes)
       values (${id}, ${v.reserve}, 'Recent sales of the same model and year on our results page', now(), ${txt(v.address === undefined ? '12 Sample Street, ' + v.suburb + ' ' + v.state + ' ' + v.postcode : v.address)}, 'Ask for Dave at the workshop office.')`);
-    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '2 days', '{}', '{}')`);
+    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at) values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '2 days', '{}', '{}', '{"title":"test"}', now(), now())`);
     return id;
   };
   const live = (id) => as('ADM', `update lots set status = 'live' where id = ${id} returning status`);
@@ -2480,6 +2493,66 @@ ok('alerts: fuel + drive + price + keyword', got['Diesel 4WD under 30k']?.includ
 
   // the older way still works for a listing that was sold on the depot promise
   r = await as('service', `select count(*)::int n from lots where collect_from = 'depot'`); ok('depot: listings made the old way keep their depot', r.rows?.[0]?.n > 0, JSON.stringify(r.rows));
+}
+
+// ---------- the seller's appointment on Queensland's approved form (Form 9): countersigned, copied, 30 days' notice (migration 39) ----------
+{
+  for (const fn of [`appointment_in_force(1)`, `appointment_copy_sent(gen_random_uuid())`, `appointment_notice_core(1, 'us', null)`]) {
+    r = await as('A', `select ${fn}`); ok(`appointment: members can't call ${fn.split('(')[0]}`, !!r.error, r.error);
+  }
+  for (const fn of [`seller_end_appointment(1)`, `admin_end_appointment(1, null)`, `admin_countersign_appointment(gen_random_uuid(), 'x')`, `seller_lot_appointment(1)`]) {
+    r = await as('anon', `select ${fn}`); ok(`appointment: signed-out visitors can't call ${fn.split('(')[0]}`, !!r.error, r.error);
+  }
+  await c.query(`update settings set value = value || '{"require_checks": true}' where key = 'selling'`);
+  await c.query(`update settings set value = value || '{"live_only": true}' where key = 'auction'`);
+  const sale = async (slug, startsIn) => Number((await as('ADM', `insert into sales (slug, title, published, mode, starts_at, lot_seconds, extend_seconds, auctioneer)
+    values ('${slug}', 'Appointment check', true, 'live', now() + interval '${startsIn}', 30, 15, 'Pat Gavel') returning id`)).rows?.[0]?.id);
+  const truck = async (saleId, order, signedAgo, status = 'live') => {
+    const id = Number((await c.query(`select nextval('lot_number_seq')::bigint id`)).rows[0].id);
+    await c.query(`insert into lots (id, status, title, category, start_price, ends_at, method, seller_id, estimate_low, estimate_high, state)
+      values (${id}, '${status}', 'Appointment truck ${order}', 'trucks', 1000, now() + interval '1 day', 'auction', '${U.S}', 20000, 24000, 'QLD')`);
+    await c.query(`insert into lot_private (lot_id, estimate_basis) values (${id}, 'Recent sales of the same model and year on our results page') on conflict (lot_id) do update set estimate_basis = excluded.estimate_basis`);
+    await c.query(`update lots set sale_id = ${saleId}, sale_order = ${order} where id = ${id}`);
+    await c.query(`insert into seller_agreements (lot_id, seller_id, version, signed_name, signed_at, fees, disclosures, appointment, countersigned_at, copy_sent_at)
+      values (${id}, '${U.S}', 'test', 'Sam Seller', now() - interval '${signedAgo} days', '{}', '{}', '{"title":"test"}', now(), now())`);
+    return id;
+  };
+
+  // the live room never offers a truck whose appointment has ended; relisting stays inside the term
+  const NOW = await sale('ap-now', '-1 minute');
+  const OLD = await truck(NOW, 1, 100), CUR = await truck(NOW, 2, 5);
+  r = await as('service', `select appointment_in_force(${OLD}) o, appointment_in_force(${CUR}) c`);
+  ok('appointment: 90 days from signing, then it has ended', r.rows?.[0]?.o === false && r.rows[0].c === true, JSON.stringify(r.rows || r.error));
+  r = await as('ADM', `select admin_live_start(${NOW}) id`);
+  ok('appointment: the live room skips a truck whose appointment has ended', Number(r.rows?.[0]?.id) === CUR, JSON.stringify(r.rows || r.error));
+  r = await as('ADM', `select admin_live_end(${NOW})`); ok('appointment: the sale ends', !r.error, r.error);
+  await as('service', `select queue_status_notices()`);
+  r = await as('service', `select status, not_offered from lots where id = ${OLD}`);
+  ok("appointment: the one it couldn't offer is passed in as not offered", r.rows?.[0]?.status === 'passed' && r.rows[0].not_offered === true, JSON.stringify(r.rows));
+  r = await as('service', `select (select count(*)::int from lots where relisted_from = ${OLD}) o, (select count(*)::int from lots where relisted_from = ${CUR}) c`);
+  ok("appointment: no relisting after the appointment ends; inside it, it's relisted", r.rows?.[0]?.o === 0 && r.rows[0].c === 1, JSON.stringify(r.rows));
+
+  // either side may end it on 30 days' written notice
+  const LATER = await sale('ap-later', '40 days');
+  const NT = await truck(LATER, 1, 1, 'draft'), NU = await truck(LATER, 2, 1, 'draft');
+  r = await as('S', `select seller_lot_appointment(${NT}) x`);
+  ok("appointment: the seller's dashboard shows their appointment", !!r.rows?.[0]?.x?.id && r.rows[0].x.has_form === true && !!r.rows[0].x.countersigned_at, JSON.stringify(r.rows || r.error));
+  r = await as('A', `select seller_lot_appointment(${NT}) x`); ok("appointment: and no one else's", r.rows?.[0]?.x === null, JSON.stringify(r.rows || r.error));
+  r = await as('A', `select seller_end_appointment(${NT})`); ok("appointment: only the seller can give the seller's notice", r.error?.includes('forbidden'), r.error);
+  r = await as('S', `select seller_end_appointment(${NT}) x`); const nx = r.rows?.[0]?.x;
+  ok("appointment: the seller's notice ends it 30 days from now", !!nx && Math.abs(new Date(nx.ends_at) - Date.now() - 30 * 864e5) < 6e5 && nx.by === 'seller' && nx.already === false, JSON.stringify(r.rows || r.error));
+  ok('appointment: and flags the auction after the end', Array.isArray(nx?.late) && nx.late.some((x) => Number(x.lot) === NT), JSON.stringify(nx));
+  r = await as('S', `select seller_end_appointment(${NT}) x`); ok('appointment: notice is given once', r.rows?.[0]?.x?.already === true, JSON.stringify(r.rows || r.error));
+  r = await as('service', `select count(*)::int n from outbox where dedupe_key like 'appointment-notice:%'`); ok('appointment: staff and the seller are told', r.rows?.[0]?.n >= 2, JSON.stringify(r.rows));
+  r = await as('service', `select body from outbox where dedupe_key like 'appointment-notice:%' and kind = 'seller' limit 1`);
+  ok("appointment: the seller's confirmation gives the end date and how to end it sooner", /30 days from today/.test(r.rows?.[0]?.body || '') && /withdrawal/.test(r.rows[0].body), r.rows?.[0]?.body);
+  r = await as('ADM', `update lots set status = 'live' where id = ${NT}`);
+  ok("appointment: it can't go into an auction after the notice ends it", r.error?.includes("after 30 days' notice"), r.error);
+  r = await as('A', `select admin_end_appointment(${NU}, 'x')`); ok("appointment: only staff give our notice", r.error?.includes('forbidden'), r.error);
+  r = await as('ADM', `select admin_end_appointment(${NU}, 'The seller asked us to') x`); ok('appointment: we can give notice too', r.rows?.[0]?.x?.by === 'us', JSON.stringify(r.rows || r.error));
+  r = await as('service', `select notice_by, notice_note from seller_agreements where lot_id = ${NU}`); ok('appointment: who gave notice is recorded, with the note', r.rows?.[0]?.notice_by === 'us' && r.rows[0].notice_note === 'The seller asked us to', JSON.stringify(r.rows));
+  r = await as('ADM', `select admin_countersign_appointment((select id from seller_agreements where lot_id = ${OLD}), 'Rory McGann')`);
+  ok("appointment: an appointment that has ended can't be countersigned", r.error?.includes('already countersigned') || r.error?.includes('already ended'), r.error);
 }
 
 // ---------- the seed as it really runs (live-only on): its sample vehicles wait in a sample live auction ----------

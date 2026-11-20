@@ -28,7 +28,7 @@ export default async function InsurancePage({ searchParams }: { searchParams: Pr
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
         <span className="eyebrow" style={{ color: "var(--grape)" }}>Truck insurance</span>
         <h1 className="d2">Arrange cover before you collect.</h1>
-        <p className="lede" style={{ margin: 0 }}>The vehicle is your responsibility from handover. Compare what insurers offer side by side, then get a quote.</p>
+        <p className="lede" style={{ margin: 0 }}>What you buy is yours to insure from the handover. Compare what insurers offer side by side, then get a quote.</p>
       </div>
       {lot && <div className="notice"><b>Vehicle:</b> <Link className="blue" href={`/lot/${lot.id}`}>{lot.title}</Link> (lot {lot.id}). We&apos;ll pass the make, model and year to the insurer you choose.</div>}
       <InsuranceTool insurers={insurers} lot={lot ? { id: lot.id, title: lot.title, make: lot.make, model: lot.model, year: lot.year, postcode: lot.postcode || null } : null} initial={{ make: sp.make || "", model: sp.model || "", year: sp.year || "" }} />

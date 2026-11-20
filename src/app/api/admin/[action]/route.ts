@@ -16,6 +16,7 @@ import { money } from "@/lib/format";
 import { liveError } from "@/lib/live";
 import { env } from "@/lib/env";
 import { copySellerPhotos } from "@/lib/sellerPhotos";
+import { sendAppointmentCopy } from "@/lib/appointmentServer";
 export const maxDuration = 120; // the SEO audit and insights refresh can take a minute
 const catOf = (k: string) => (CAT[k] ? k : k === "truck" ? "trucks" : "cars");
 // Business days the same way the database counts them (Brisbane time, weekends and public holidays skipped).
@@ -34,7 +35,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   const body = await req.clone().json().catch(() => ({}));
   const res = await run(req, action, s);
   const t = body as Record<string, unknown>;
-  const target = ["userId", "invoiceId", "lotId", "offerId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId", "jobId"]
+  const target = ["userId", "invoiceId", "lotId", "agreementId", "offerId", "id", "member", "key", "leadId", "appraisalId", "collectionId", "claimId", "payoutId", "videoId", "transferId", "saleId", "jobId"]
     .map((k) => (t[k] !== undefined && t[k] !== null ? `${k}:${String(t[k]).slice(0, 80)}` : null)).find(Boolean) || null;
   await audit(s.user?.id, action, target, body, res.ok ? "ok" : String(res.status));
   return res;
@@ -569,6 +570,29 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
       if (error) return fail(friendly(error.message));
       return done({ id: data });
     }
+    // ---- The seller's appointment of us on Form 9 (migration 39) ----
+    case "appointment-countersign": {
+      // A staff member authorised to sign for the company countersigns (with their own two-step session), and the signed
+      // copy goes to the seller straight away (MDCA Act s 84); the listing can't go live until it has.
+      if (b.authorised !== true) return fail("Confirm you're authorised to sign for the company.");
+      const id = String(b.agreementId || "");
+      const { error } = await supabase.rpc("admin_countersign_appointment", { p_agreement: id, p_name: String(b.name || "").trim().slice(0, 120) });
+      if (error) return fail(friendly(error.message));
+      const sent = await sendAppointmentCopy(db, id);
+      if (!sent.ok) return fail(`Countersigned, but ${sent.error}. Press "Email their copy" to try again.`, 502);
+      return done({ sent: true });
+    }
+    case "appointment-resend": {
+      const sent = await sendAppointmentCopy(db, String(b.agreementId || ""));
+      if (!sent.ok) return fail(sent.error || "That didn't send.");
+      return done({ sent: true });
+    }
+    case "appointment-end": {
+      // our written notice to end it: 30 days from today (Form 9, Part 4 section 4)
+      const { data, error } = await supabase.rpc("admin_end_appointment", { p_lot: Number(b.lotId), p_note: String(b.note || "").trim().slice(0, 300) || null });
+      if (error) return fail(friendly(error.message));
+      return done({ result: data });
+    }
     case "next-bidder": {
       const { data, error } = await supabase.rpc("admin_offer_next_bidder", { p_lot: Number(b.lotId), p_hours: Number(b.hours) || 24, p_seller_ok: b.sellerOk === true || b.sellerOk === "yes" });
       if (error) return fail(friendly(error.message));
@@ -778,6 +802,9 @@ async function run(req: Request, action: string, session: Awaited<ReturnType<typ
         const states = b.value.after_auction_states;
         if (!Array.isArray(states) || states.some((x: unknown) => !["QLD", "NSW", "WA", "SA", "TAS", "ACT", "NT"].includes(String(x)))) return fail("Choose from QLD, NSW, WA, SA, TAS, ACT and NT. Victoria can't be switched on: a consigned vehicle can only be sold there at auction.");
       }
+      // the licence Queensland's appointment form prints (Form 9, Part 2)
+      if (b.key === "business" && b.value?.qld_licence_expiry && !/^\d{4}-\d{2}-\d{2}$/.test(String(b.value.qld_licence_expiry))) return fail("Enter the licence's expiry date.");
+      if (b.key === "business" && String(b.value?.qld_licence_no ?? "").length > 40) return fail("Check the licence number.");
       await db.from("settings").upsert({ key: b.key, value: b.value });
       revalidateTag("settings");
       return done();

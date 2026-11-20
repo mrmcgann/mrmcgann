@@ -15,8 +15,11 @@ import { SellerRelist } from "./SellerRelist";
 import { SellerAfter, type SellerAfterView } from "./SellerAfter";
 import { relistSellerLine } from "@/lib/relist";
 import { sellerHandoverLine, sellerTransportLine, type SellerCollection, type SellerTransport } from "@/lib/transport";
+import { SellerAppointment, type SellerAppointmentView } from "./SellerAppointment";
+import { getSettingsCached } from "@/lib/cache";
+import { sellCategories, sellNoun } from "@/lib/vehicles";
 
-export const metadata: Metadata = { title: "My vehicles for sale", robots: { index: false } };
+export const metadata: Metadata = { title: "Your seller dashboard", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const STATUS: Record<string, [string, string]> = {
@@ -39,6 +42,7 @@ const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
 export default async function SellerDashboard({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { supabase, user } = await getSession();
   if (!user) redirect("/signin?next=/sell/dashboard");
+  const noun = sellNoun(sellCategories((await getSettingsCached()).selling));
   const { data: rows } = await supabase.from("lots").select("*").eq("seller_id", user.id).order("created_at", { ascending: false }).limit(50);
   // a relist the seller said no to isn't a listing of theirs any more: the vehicle that didn't sell says so instead
   const all = ((rows || []) as Lot[]).filter((l) => !(l.status === "cancelled" && l.relisted_from));
@@ -57,7 +61,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
   const { data: payouts } = await supabase.from("seller_payouts").select("id, lot_id, status, net_amount, hold_reason, paid_at, kind").eq("seller_id", user.id);
   const { data: vids } = lots.length ? await supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : { data: [] };
   const extra = await Promise.all(lots.map(async (l) => {
-    const [offers, coll, watchers, bids, tr, pk, af] = await Promise.all([
+    const [offers, coll, watchers, bids, tr, pk, af, ap] = await Promise.all([
       ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       supabase.rpc("lot_watchers", { p_lot: l.id }),
@@ -66,8 +70,10 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
       l.status === "sold" ? supabase.rpc("seller_lot_transport", { p_lot: l.id }) : Promise.resolve({ data: [] }),
       // selling it after the auction, where its state allows it (migration 26)
       l.status === "passed" ? supabase.rpc("seller_lot_after", { p_lot: l.id }) : Promise.resolve({ data: null }),
+      // the seller's appointment of us on Form 9 (migration 39): its term, their signed copy, giving notice
+      l.status !== "cancelled" ? supabase.rpc("seller_lot_appointment", { p_lot: l.id }) : Promise.resolve({ data: null }),
     ]);
-    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as Transfer[])[0] || null, pickup: ((pk.data || []) as SellerTransport[])[0] || null, after: (af.data || null) as SellerAfterView | null };
+    return { offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), bids: (bids.data || []) as Bid[], videos: ((vids || []) as Video[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as Transfer[])[0] || null, pickup: ((pk.data || []) as SellerTransport[])[0] || null, after: (af.data || null) as SellerAfterView | null, appointment: (ap.data || null) as SellerAppointmentView | null };
   }));
   const payoutFor = (id: number) => ((payouts || []) as Payout[]).find((p) => p.lot_id === id && p.kind !== "forfeit");
   // A buyer who didn't pay forfeits their deposit or a cancellation fee; the seller gets half (seller agreement, section 9).
@@ -76,16 +82,16 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
   return (
     <div className="wrap" style={{ maxWidth: 980, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 24 }}>
       <span className="eyebrow" style={{ color: "var(--grape)" }}>Selling</span>
-      <h1 className="d2">Your vehicles.</h1>
+      <h1 className="d2">Your {noun}s.</h1>
       {all.length > 0 && (
         <nav className="seg" aria-label="Your listings" style={{ alignSelf: "flex-start" }}>
           {TABS.map(([k, label, st]) => <Link key={k} href={`/sell/dashboard?tab=${k}`} className={k === tab ? "on" : ""} aria-current={k === tab ? "page" : undefined} data-testid={`tab-${k}`}>{label} ({count(st)})</Link>)}
         </nav>
       )}
       {all.length > 0 && lots.length === 0 && <div className="empty"><b>No {TABS.find(([k]) => k === tab)![1].toLowerCase()} listings.</b></div>}
-      {all.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>Nothing listed yet.</b><span className="muted">Request a free appraisal and we&apos;ll send you a link to set up your listing.</span><Link className="btn btn-blue" href="/sell">Sell a vehicle</Link></div>}
+      {all.length === 0 && <div className="empty"><b style={{ fontSize: 22 }}>Nothing listed yet.</b><span className="muted">Request a free appraisal and we&apos;ll send you a link to set up your listing.</span><Link className="btn btn-blue" href="/sell">Sell a {noun}</Link></div>}
       {lots.map((l, i) => {
-        const { offers, coll, watchers, bids, videos, transfer, pickup, after } = extra[i];
+        const { offers, coll, watchers, bids, videos, transfer, pickup, after, appointment } = extra[i];
         const rules = rulesFor(transfer?.rego_state || l.rego_state || l.state);
         // A boat's registration is the state's marine authority's, not its road one, so the seller's part is
         // lodged there instead. null (a state we haven't settled) falls back to the consultant doing it.
@@ -107,6 +113,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
               <div className="fact"><span className="k">Views</span><span className="v">{(l.views || 0).toLocaleString("en-AU")}</span></div>
               <div className="fact"><span className="k">{l.status === "live" ? (l.live_state === "waiting" ? "Offered about" : l.live_state === "open" ? "Selling" : "Ends") : "Reserve"}</span><span className="v">{l.status === "live" ? (l.live_state === "open" ? "Now" : dateTime(l.ends_at)) : l.has_reserve ? (l.reserve_met ? "Met" : "Not met") : "None"}</span></div>
             </div>
+            {appointment && <SellerAppointment lotId={l.id} view={appointment} canEnd={["draft", "scheduled", "live", "passed"].includes(l.status)} />}
             {["live", "scheduled"].includes(l.status) && l.has_reserve && <SellerReserve lotId={l.id} currentBid={Number(l.current_bid) || 0} bidCount={l.bid_count} upNow={l.live_state === "open"} />}
             {l.status === "passed" && (() => {
               const again = relistOf(l.id);
@@ -204,7 +211,7 @@ export default async function SellerDashboard({ searchParams }: { searchParams: 
           </div>
         );
       })}
-      {all.length > 0 && <p className="hint"><a className="blue" href="/api/seller/report" data-testid="seller-report">Download a report of all your vehicles (CSV) ›</a></p>}
+      {all.length > 0 && <p className="hint"><a className="blue" href="/api/seller/report" data-testid="seller-report">Download a report of all your {noun}s (CSV) ›</a></p>}
       <p className="hint">Questions? Call {env.phone}. <Link className="blue" href="/seller-agreement">Read the Seller Agency Agreement ›</Link></p>
     </div>
   );

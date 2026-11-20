@@ -100,10 +100,10 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
   ok('we list without visiting, and nothing says we inspect it to list it', /We list a vehicle without visiting it/.test(terms) && /We list your vehicle without visiting it/.test(seller) && !/we (walk around|inspect|photograph|visit) (it|the vehicle|every)/i.test(t));
   ok('introductions (buyers): no dealing direct; our premium on a sale around us; collected once', terms.includes('id=\\"t-intro\\"') && /you won’t make the owner an offer or ask them to deal direct/.test(terms)
     && /you pay us the buyer’s premium we would have earned on the price you paid/.test(terms) && /That is what we lose when a sale we set up goes around us, and no more/.test(terms) && /We collect it once: from you or from the owner/.test(terms) && /Every sale goes through us/.test(terms));
-  ok('introductions (sellers): exclusive for the 90-day authority, then buyers we introduced', /For the 90 days of your authority \(section 1\), only we sell the vehicle/.test(seller) && /by you or anyone else, to anyone, you pay us the buyer’s premium we would have earned/.test(seller)
+  ok('introductions (sellers): exclusive while the appointment lasts, then buyers we introduced', /For as long as your appointment lasts \(section 1\), including any notice period, only we sell the vehicle/.test(seller) && /by you or anyone else, to anyone, you pay us an amount equal to the buyer’s premium we would have earned on the actual sale price/.test(seller) && /It’s the commission set out in Part 6 of your appointment/.test(seller)
     && /anyone we named to you in writing \(every viewing and collection we book names the visitor\), anyone who bid on it with us/.test(seller) && /say no and tell us the same day/.test(seller));
   ok('introductions: proportionate, paid once, and a clean withdrawal costs only the withdrawal fee', /what we lose when a sale we advertised, checked and set up goes around us, and no more/.test(seller) && /We don’t also collect it from the buyer/.test(seller) && /you pay only the withdrawal fee/.test(seller));
-  ok('introductions: the tail follows the setting in every document', t.includes('within 90 days after') && JSON.stringify(fillLegal({ TERMS, SELLER_AGREEMENT }, { auction: { exclusivity_days: 60 } })).includes('For 60 days after your authority ends') && legalValues({}).EXCLUSIVITY_DAYS === '90');
+  ok('introductions: the tail follows the setting in every document', t.includes('within 90 days after') && JSON.stringify(fillLegal({ TERMS, SELLER_AGREEMENT }, { auction: { exclusivity_days: 60 } })).includes('For 60 days after your appointment ends, however it ends') && legalValues({}).EXCLUSIVITY_DAYS === '90');
   ok('the address: suburb on the listing, street only for a booked viewing or a confirmed collection (every document)', /The street address isn’t published/.test(terms) && /it shows your suburb, not your street/.test(seller)
     && /only to a verified member whose viewing we’ve booked and to the buyer whose collection time is confirmed/.test(privacy) && /We tell the owner the name of whoever is coming/.test(privacy) && /We never give either side the other’s phone, email or home address/.test(privacy));
   ok('website terms: an address is for its viewing or sale only; no sales around us', /for anything other than the viewing or sale they were given for/.test(web) && /don’t arrange to buy or sell a vehicle listed with us outside Super Trucker to avoid our fees/.test(web));
@@ -147,7 +147,14 @@ ok('security: plain-text copy is filled as typed and still valid', !/\{\{\w+\}\}
   ok('settled: selling for an owner the listing doesn’t name, and what we answer for', /the law allows an agent to contract for an owner it doesn’t name/.test(terms) && /If the owner doesn’t complete a sale through no fault of yours, we refund everything you paid/.test(terms) && /where a state’s law puts the owner’s name on your sale paperwork \(Queensland does\)/.test(terms));
   ok('settled: money is held in our trust account (both documents)', /paid into our trust account and held there for the seller/.test(terms) && /Sale money is held in our trust account for you/.test(seller) && /Agents Financial Administration Act 2014/.test(seller));
   ok('settled: GST through Subdivision 153-B', /Subdivision 153-B of the GST Act applies to the sale/.test(seller) && /we issue the buyer’s tax invoice in our name/.test(seller));
-  ok('settled: a written consignment authority for 90 days', /Your authority lasts 90 days from when you sign/.test(seller) && /consignment agreement the motor dealer laws require/.test(seller));
+  ok('settled: the appointment on Queensland’s Form 9, 90 days, either side may end it on 30 days’ written notice (s 82(1)(i))', /Annexure A to your appointment of Super Trucker on Queensland’s approved form \(Form 9, under the Motor Dealers and Chattel Auctioneers Act 2014\)/.test(seller)
+    && /consignment appointment the motor dealer law requires/.test(seller) && /It’s a single appointment for 90 days from the day you sign/.test(seller) && /Either of us can end it sooner by giving the other at least 30 days’ written notice/.test(seller)
+    && /countersigns it, and we email you a signed copy before we act on it/.test(seller));
+  ok('settled: ending with notice is free and waits 30 days; withdrawing after listing ends it at once with the fee', /<b>Ending it with notice\.<\/b> Either of us can end your appointment by giving the other at least 30 days’ written notice, as Part 4 of your appointment says, with no fee/.test(seller)
+    && /It ends 30 days after the notice is given, and until then it carries on as agreed: if the vehicle is in an auction before that day, it stays in it and can sell; an auction after that day doesn’t go ahead/.test(seller)
+    && /we agree to end your appointment straight away and take the vehicle out of the auction/.test(seller));
+  ok('settled: the introduction fee is worked out only on the actual sale price (s 87)', /worked out only on the price the vehicle actually sold for/.test(seller) && !/low end of our estimate\), within 7 days/.test(seller));
+  ok('help: what Form 9 is, and how to end the appointment', /What’s the appointment form \(Form 9\)\?/.test(t) && /independent legal advice before signing/.test(t) && /Can I end my appointment\?/.test(t));
   ok('settled: uncollected goods laws named for our three states', /Disposal of Uncollected Goods Act 1967 in Queensland/.test(terms) && /Uncollected Goods Act 1995 in New South Wales/.test(terms) && /Disposal of Uncollected Goods Act 1970 in Western Australia/.test(terms));
   ok('dealers: one transfer for several invoices', /several invoices with one transfer/.test(t));
 }
@@ -182,9 +189,9 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   // a vehicle that didn't sell goes into the next live auction for its state (never sold afterwards, in any state), unless
   // the seller says no: free until it's listed; the state's rules and the 90-day authority checked for the new auction
   const sa = JSON.stringify(SELLER_AGREEMENT);
-  ok('relist: offered again at the next live auction, unless the seller says no', /We offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /If it isn’t sold, we offer it again at our next live auction for your state, while your authority lasts/.test(sa));
+  ok('relist: offered again at the next live auction, unless the seller says no', /We offer it again at our next live auction unless you tell us not to \(section 12\)/.test(sa) && /If it isn’t sold, we offer it again at our next live auction for your state, while your appointment lasts/.test(sa));
   ok('relist: saying no is free until it is listed; after that it is a withdrawal', /tell us before it’s listed, from your seller dashboard or by calling us. There’s no fee, and the vehicle stays yours/.test(sa) && /taking it out is a withdrawal \(section 8\)/.test(sa));
-  ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /New South Wales inspection report must be no more than 42 days old at the auction/.test(sa) && /you sign this agreement again for it/.test(sa));
+  ok('relist: fresh checks, the state’s certificate rules for the new date, and a new signature after 90 days', /fresh PPSR search and listing check, set a fresh estimate with you/.test(sa) && /New South Wales inspection report must be no more than 42 days old at the auction/.test(sa) && /you sign a new appointment for it/.test(sa));
   ok('relist: help for sellers and buyers says the same', /We offer it again at our next live auction for your state/.test(help) && /it goes into a later auction \(usually the next one\), and its bidders and watchers hear when it’s back/.test(help));
 }
 {
@@ -193,7 +200,7 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
   ok('after: to sell on the day the seller lowers the reserve, by phone if need be', /lower your reserve before the hammer falls \(section 4\): our auctioneer can take your instruction by phone while it’s up/.test(sa));
   ok("Western Australia's prescribed consignment contract", /Schedule 4 terms of the Motor Vehicle Dealers \(Sales\) Regulations 1974/.test(sa));
   ok('seller: told up front we never give a statutory warranty, and to say if they are in the trade', /We never give a statutory warranty, so we don’t list a vehicle that would carry one: tell us if you’re a motor dealer, or if you bought this vehicle to resell it/.test(sa));
-  ok('new versions of all three documents', /This version: 17 November 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 17 November 2026' && /This version: 17 November 2026/.test(JSON.stringify(WEBSITE_TERMS)));
+  ok('new versions: the seller agreement for the Form 9 appointment (the Terms and website terms unchanged)', /This version: 17 November 2026/.test(terms) && SELLER_AGREEMENT_VERSION_LABEL === 'Version 20 November 2026' && /Version 20 November 2026\.$/.test(SELLER_AGREEMENT.at(-1)[2].at(-1)) && /This version: 17 November 2026/.test(JSON.stringify(WEBSITE_TERMS)));
 }
 
 {
@@ -229,6 +236,10 @@ ok('seller agreement: a live online auction by a licensed auctioneer', /sell the
     && /Motor Dealers and Repairers Act 2013 \(NSW\) ss 55-59/.test(reg) && /Motor Dealers and Repairers Regulation 2025 \(NSW\) cl 55/.test(reg)
     && /Motor Vehicle Dealers \(Prescribed Vehicles\) Regulations 1974 \(WA\) r 3/.test(reg) && /Auction Sales Act 1973/.test(reg)
     && /certificate of inspection/.test(reg) && /SMS Sender ID Register/.test(reg));
+  ok('register: the Form 9 appointment, the 30-day notice, and why Form 12 doesn\'t apply, with their sections', /## 20\. The seller's appointment on Form 9 \(Queensland\)/.test(reg)
+    && /s 82\(1\)\(i\)/.test(reg) && /s 84\(2\)/.test(reg) && /s 87\(2\)/.test(reg) && /Acts Interpretation Act 1954 \(Qld\) s 48A/.test(reg) && /Electronic Transactions \(Queensland\) Act 2001 s 14/.test(reg)
+    && /Form 12 doesn't apply to our truck auctions/.test(reg) && /ss 98 \(definition of used motor vehicle, para \(b\)\), 100\(2\)\(a\)-\(b\), 102; Schedule 1 ss 1 \(commercial vehicle\), 3 \(warranted vehicle\), 6/.test(reg)
+    && /MDCA Act s 11 \(meaning of in charge\), ss 51-55/.test(reg));
   ok('the comparison rate warning is the prescribed words, unchanged', COMPARISON_WARNING === 'WARNING: This comparison rate is true only for the examples given and may not include all fees and charges. Different terms, fees or other loan amounts might result in a different comparison rate.');
 }
 console.log(`${pass} passed, ${fail} failed`);

@@ -4,7 +4,7 @@ import { SELLER_AGREEMENT, fillLegal } from "@/content/legal";
 import { getSettingsCached } from "@/lib/cache";
 import { sellCategories, sellNoun } from "@/lib/vehicles";
 
-export const metadata: Metadata = { title: "Seller agency agreement", description: "The agreement sellers sign before their vehicle goes live at Super Trucker: fees, reserve, what you promise buyers, and how you get paid.", alternates: { canonical: "/seller-agreement" } };
+export const metadata: Metadata = { title: "Seller agency agreement", description: "The agreement attached to every seller's appointment of Super Trucker (Queensland Form 9): fees, reserve, what you promise buyers, and how you get paid.", alternates: { canonical: "/seller-agreement" } };
 
 export default async function SellerAgreement() {
   const settings = await getSettingsCached();
@@ -14,7 +14,7 @@ export default async function SellerAgreement() {
     <div className="wrap" style={{ maxWidth: 820, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 28 }}>
       <span className="eyebrow" style={{ color: "var(--grape)" }}>Selling with Super Trucker</span>
       <h1 className="d2">Seller agency agreement.</h1>
-      <p className="lede" style={{ margin: 0 }}>What we do for you, what you promise buyers, and how you get paid. You sign it online before your vehicle goes live.</p>
+      <p className="lede" style={{ margin: 0 }}>What we do for you, what you promise buyers, and how you get paid. It&apos;s Annexure A to your appointment of Super Trucker on Queensland&apos;s approved form (Form 9), which you sign online before your {noun} is listed.</p>
       <div className="notice">Draft for review by an Australian lawyer before launch. Items in [brackets] need Super Trucker&apos;s details.</div>
       {clauses.map(([id, title, paras]) => (
         <section key={id} id={id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>

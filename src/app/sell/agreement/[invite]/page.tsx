@@ -8,6 +8,9 @@ import { money } from "@/lib/format";
 import { env } from "@/lib/env";
 import { AgreementForm } from "./AgreementForm";
 import { agreementPrefill } from "@/lib/sellForm";
+import { appointmentBase } from "@/lib/appointmentServer";
+import { appointmentProblem } from "@/lib/appointment";
+import { sellCategories, sellNoun } from "@/lib/vehicles";
 
 export const metadata: Metadata = { title: "Your seller agreement", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -23,11 +26,12 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
   const settings = await getSettingsCached();
   const inspectionFee = Number((settings.selling as { pre_inspection_fee?: number } | undefined)?.pre_inspection_fee || 0);
   const clauses = fillLegal(SELLER_AGREEMENT, settings);
+  const noun = sellNoun(sellCategories(settings.selling));
 
-  if (!v) return <Shell><div className="notice bad">This link isn&apos;t valid or has expired. Call us on {env.phone} and we&apos;ll send a new one.</div></Shell>;
-  if (v.seller_id && v.seller_id !== user?.id) return <Shell><div className="notice bad">This listing is already linked to another account. If that&apos;s not right, call us on {env.phone}.</div></Shell>;
+  if (!v) return <Shell noun={noun}><div className="notice bad">This link isn&apos;t valid or has expired. Call us on {env.phone} and we&apos;ll send a new one.</div></Shell>;
+  if (v.seller_id && v.seller_id !== user?.id) return <Shell noun={noun}><div className="notice bad">This listing is already linked to another account. If that&apos;s not right, call us on {env.phone}.</div></Shell>;
   if (v.signed && v.seller_id === user?.id) {
-    return <Shell title={v.title}><div className="notice ok">You&apos;ve signed your agreement. We&apos;ll check your papers and let you know when the auction goes live.</div><Link className="btn btn-blue" href="/sell/dashboard">Go to your seller dashboard</Link></Shell>;
+    return <Shell title={v.title} noun={noun}><div className="notice ok" data-testid="agreement-signed">You&apos;ve signed your appointment of Super Trucker. We&apos;ll countersign it and email you a signed copy, check your papers, and let you know when the auction goes live.</div><Link className="btn btn-blue" href="/sell/dashboard">Go to your seller dashboard</Link></Shell>;
   }
 
   const steps: [boolean, string, string][] = user ? [
@@ -40,9 +44,12 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
   const { data: ap } = ready ? await supabaseAdmin().from("appraisals").select("ref, disclosures, details").eq("lot_id", v.lot_id).not("signed_at", "is", null)
     .order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
   const prefill = ap?.disclosures && Object.keys(ap.disclosures).length ? agreementPrefill(ap.disclosures) : undefined;
+  // Form 9 as it will be signed: the page previews it as the seller fills in the form; the server builds it again when they sign.
+  const base = ready && user ? await appointmentBase(supabaseAdmin(), v.lot_id, user.id) : null;
+  const blocked = base ? appointmentProblem(base) : "";
 
   return (
-    <Shell title={v.title}>
+    <Shell title={v.title} noun={noun}>
       <div className="soft">
         <b style={{ fontSize: 18 }}>{v.title}</b>
         {(v.vin || v.rego_plate) && <span className="muted">{[v.vin ? `VIN ${v.vin}` : "", v.rego_plate ? `Rego ${v.rego_plate}` : ""].filter(Boolean).join(" · ")}</span>}
@@ -61,10 +68,13 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
             <div className="check" key={label}><span className="tick" style={{ background: ok ? "var(--mint)" : "var(--panel2)" }}>{ok ? "✓" : ""}</span><span style={{ flex: 1 }}>{label}</span>{!ok && <Link className="btn btn-dark" style={{ height: 40, fontSize: 14 }} href={href}>Do it now</Link>}</div>
           ))}
         </div>
+      ) : !base || blocked ? (
+        <div className="notice bad" data-testid="agreement-blocked">{blocked || `We couldn't load your details. Call us on ${env.phone}.`}</div>
       ) : (
         <>
           {prefill && <div className="notice ok" data-testid="agreement-prefilled">We&apos;ve filled in the answers from your sell form ({ap?.ref}). Check them, change anything that&apos;s different now, and sign.</div>}
-          <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses}
+          <AgreementForm invite={invite} userId={user.id} reserve={v.reserve_price} legalName={`${profile?.first_name} ${profile?.last_name}`} clauses={clauses} base={base}
+            company={{ name: profile?.company_name || null, abn: profile?.abn || null }}
             prefill={prefill} ownerType={(ap?.details as Record<string, string> | null)?.owner_type} inspectionFee={inspectionFee}
             pickupDefault={[profile?.street, [profile?.suburb, profile?.state, profile?.postcode].filter(Boolean).join(" ")].filter(Boolean).join(", ")} />
         </>
@@ -73,12 +83,12 @@ export default async function SellerAgreementPage({ params }: { params: Promise<
   );
 }
 
-function Shell({ title, children }: { title?: string; children: React.ReactNode }) {
+function Shell({ title, noun = "vehicle", children }: { title?: string; noun?: string; children: React.ReactNode }) {
   return (
     <div className="wrap" style={{ maxWidth: 860, padding: "clamp(40px,6vw,72px) 16px", display: "flex", flexDirection: "column", gap: 22 }}>
       <span className="eyebrow" style={{ color: "var(--grape)" }}>Selling with Super Trucker{title ? ` · ${title}` : ""}</span>
       <h1 className="d2" style={{ fontSize: "clamp(38px,6vw,64px)" }}>Your seller agreement.</h1>
-      <p className="lede" style={{ margin: 0 }}>Tell us about the vehicle honestly, confirm you own it, and tell us where to send the money. It takes about ten minutes.</p>
+      <p className="lede" style={{ margin: 0 }}>Tell us about the {noun} honestly, confirm you own it, tell us where to send the money, and sign your appointment of Super Trucker to sell it. It takes about ten minutes.</p>
       {children}
     </div>
   );

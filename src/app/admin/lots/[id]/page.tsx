@@ -9,6 +9,8 @@ import { relistSteps } from "@/lib/relist";
 import { env } from "@/lib/env";
 import { afterStatusLabel, type AfterRule, type WarrantyFree } from "@/lib/afterAuction";
 import { AfterSale, type AfterPerson } from "./AfterSale";
+import { Form9View } from "@/components/Form9View";
+import type { Appointment } from "@/lib/appointment";
 
 export default async function EditLot({ params }: { params: Promise<{ id: string }> }) {
   const { profile, supabase } = await requireAdmin(); // checked on every page, not just the layout
@@ -101,8 +103,39 @@ export default async function EditLot({ params }: { params: Promise<{ id: string
     ownershipCheckedAt: priv?.ownership_checked_at || null,
     requireChecks: (sellingSet?.value as { require_checks?: boolean } | null)?.require_checks !== false,
   };
+  // The seller's appointment of us on Form 9 (migration 39): countersign it, email their copy, or give our notice
+  const form9 = (agreement?.appointment || null) as Appointment | null;
+  const apEnded = !!agreement?.ends_at && new Date(agreement.ends_at) <= new Date();
   return (
     <>
+      {agreement && (
+        <div className="admin-card f9-panel" data-testid="admin-appointment">
+          <h2 style={{ fontSize: 22, fontWeight: 800 }}>Seller&apos;s appointment (Form 9)</h2>
+          {!form9 ? (
+            <div className="notice">Signed on {dateTime(agreement.signed_at)}, before appointments were on Form 9, so it can&apos;t be listed under it. Send the seller their agreement link to sign again{seller.inviteUrl ? `: ${seller.inviteUrl}` : "."}</div>
+          ) : (
+            <>
+              <div className="f9-status">
+                <span className="pill pill-soft">Signed by {agreement.signed_name}, {dateTime(agreement.signed_at)}</span>
+                <span className={`pill ${agreement.countersigned_at ? "pill-soft" : "pill-dark"}`}>{agreement.countersigned_at ? `Countersigned by ${agreement.countersigned_name}, ${dateTime(agreement.countersigned_at)}` : "Not countersigned yet"}</span>
+                <span className={`pill ${agreement.copy_sent_at ? "pill-soft" : "pill-dark"}`}>{agreement.copy_sent_at ? `Copy emailed ${dateTime(agreement.copy_sent_at)}` : "Seller's copy not sent"}</span>
+                <span className="pill pill-soft">{apEnded ? "Ended" : "Ends"} {dateTime(agreement.ends_at)}{agreement.notice_at ? ` (notice from ${agreement.notice_by === "us" ? "us" : "the seller"} on ${dateTime(agreement.notice_at)})` : " (90 days)"}</span>
+                {form9.assignOk ? <span className="pill pill-soft">Agrees to assignment</span> : null}
+              </div>
+              <div className="pill-row">
+                <a className="btn btn-soft" style={{ height: 38, fontSize: 13, padding: "0 14px" }} href={`/api/seller/appointment/${agreement.id}`} target="_blank" rel="noreferrer">Open the PDF</a>
+                {!agreement.countersigned_at && !apEnded && <AdminAction action="appointment-countersign" payload={{ agreementId: agreement.id, authorised: true }} label="Countersign and email their copy" tone="blue"
+                  input={{ name: "name", placeholder: `Your full name${profile?.first_name ? ` (${profile.first_name} ${profile.last_name || ""})` : ""}` }} confirmText={`You sign for ${env.legalName} and confirm you're authorised to.`} />}
+                {agreement.countersigned_at && <AdminAction action="appointment-resend" payload={{ agreementId: agreement.id }} label={agreement.copy_sent_at ? "Email their copy again" : "Email their copy"} tone={agreement.copy_sent_at ? "soft" : "blue"} />}
+                {!agreement.notice_at && !apEnded && <AdminAction action="appointment-end" payload={{ lotId }} label="Give our 30 days' notice" tone="bad" input={{ name: "note", placeholder: "Why (kept on file)" }} confirmText="It ends 30 days from today. The seller is told." />}
+              </div>
+              {!agreement.countersigned_at && <span className="hint">Check the reserve, the fees and the seller&apos;s details in the PDF first. Countersigning emails them their signed copy straight away: they must have it before we act for them (MDCA Act s 84), and the listing can&apos;t go live until they do.</span>}
+              {agreement.notice_note && <span className="hint">Our note: {agreement.notice_note}</span>}
+              <details className="f9-form"><summary>Read what they signed</summary><Form9View a={form9} /></details>
+            </>
+          )}
+        </div>
+      )}
       {lot.relisted_from && lot.status === "draft" && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="admin-relist">
           <h2 style={{ fontSize: 22, fontWeight: 800 }}>Going back into auction</h2>

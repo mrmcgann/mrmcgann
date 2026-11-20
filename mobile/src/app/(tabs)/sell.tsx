@@ -19,6 +19,7 @@ import { C, F } from "~/ui/theme";
 import { sellerHandoverLine, sellerTransportLine, type SellerCollection, type SellerTransport } from "@/lib/transport";
 import type { SellerAfterView } from "@/lib/afterAuction";
 import { SellerAfter } from "~/ui/SellerAfter";
+import { SellerAppointment, type SellerAppointmentView } from "~/ui/SellerAppointment";
 import { sellNoun, type CategoryKey } from "@/lib/vehicles";
 
 const HAS_BIDS = ["live", "referred", "offers", "sold", "passed"];
@@ -29,7 +30,7 @@ const STATUS: Record<string, [string, string]> = {
 type Offer = { id: string; amount: number; status: string; created_at: string };
 type Coll = SellerCollection;
 type Payout = { id: string; lot_id: number; status: string; net_amount: number; hold_reason: string | null; paid_at: string | null };
-type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null; pickup: SellerTransport | null; after: SellerAfterView | null };
+type Item = { lot: AppLot; offers: Offer[]; coll: Coll | null; watchers: number; payout: Payout | undefined; bids: SellerBid[]; videos: SellerVideo[]; transfer: SellerTransferRow | null; pickup: SellerTransport | null; after: SellerAfterView | null; appointment: SellerAppointmentView | null };
 // Grouped like the website's seller dashboard: Pending, Active, Referred, Sold, Unsold.
 type TabKey = "pending" | "active" | "referred" | "sold" | "unsold";
 const TABS: [TabKey, string, string[]][] = [["pending", "Pending", ["draft", "scheduled"]], ["active", "Active", ["live"]], ["referred", "Referred", ["referred", "offers"]], ["sold", "Sold", ["sold"]], ["unsold", "Unsold", ["passed", "cancelled"]]];
@@ -58,7 +59,7 @@ export default function Sell() {
       lots.length ? supabase.from("lot_videos").select("id, lot_id, title, status, review_note, created_at, public_path").in("lot_id", lots.map((l) => l.id)).neq("status", "removed").order("created_at") : Promise.resolve({ data: [] }),
     ]);
     const extra = await Promise.all(lots.map(async (l) => {
-      const [offers, coll, watchers, bids, tr, pk, af] = await Promise.all([
+      const [offers, coll, watchers, bids, tr, pk, af, ap] = await Promise.all([
         ["referred", "offers"].includes(l.status) ? supabase.rpc("seller_lot_offers", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         l.status === "sold" ? supabase.rpc("seller_lot_collection", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         supabase.rpc("lot_watchers", { p_lot: l.id }),
@@ -69,11 +70,14 @@ export default function Sell() {
         l.status === "sold" ? supabase.rpc("seller_lot_transport", { p_lot: l.id }) : Promise.resolve({ data: [] }),
         // Selling it now, after the auction, where its state allows it (never who the buyer is).
         l.status === "passed" ? supabase.rpc("seller_lot_after", { p_lot: l.id }) : Promise.resolve({ data: null }),
+        // The seller's appointment of us on Queensland's Form 9: its term, their signed copy, giving notice.
+        l.status !== "cancelled" ? supabase.rpc("seller_lot_appointment", { p_lot: l.id }) : Promise.resolve({ data: null }),
       ]);
       return {
         lot: l, offers: (offers.data || []) as Offer[], coll: ((coll.data || []) as Coll[])[0] || null, watchers: Number(watchers.data || 0), payout: ((payouts || []) as Payout[]).find((p) => p.lot_id === l.id),
         bids: (bids.data || []) as SellerBid[], videos: ((vids || []) as SellerVideo[]).filter((v) => v.lot_id === l.id), transfer: ((tr.data || []) as SellerTransferRow[])[0] || null,
         pickup: ((pk.data || []) as SellerTransport[])[0] || null, after: (af.data || null) as SellerAfterView | null,
+        appointment: (ap.data || null) as SellerAppointmentView | null,
       };
     }));
     setItems(extra);
@@ -99,7 +103,7 @@ export default function Sell() {
       <T v="muted" style={{ fontSize: 17, lineHeight: 24 }}>Send us your phone photos and a short video. We check them and the papers, then auction your truck live. Verified buyers view it at your place by appointment, and the buyer collects it from you once they've paid us in full.</T>
       <View style={s.band}><CarArt type="truck" width={240} /></View>
       <Button testID="sell-start" title={`Sell your ${noun}`} onPress={() => router.push("/appraisal")} />
-      {[["1", "Type your plate", "We fill in the vehicle from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Your photos and video", "Phone photos and a short walkaround video (we tell you what to film). We check them and the papers from here.", C.sun],
+      {[["1", "Type your plate", "We fill in the details from the plate. Add the kilometres and anything we should know, and we call with a price guide and a suggested reserve.", C.tangerine], ["2", "Your photos and video", "Phone photos and a short walkaround video (we tell you what to film). We check them and the papers from here.", C.sun],
         ["3", "Live auction", "Offered by our auctioneer to registered buyers nationwide, with an estimate on the listing. You can lower your reserve until the hammer falls.", C.lime], ["4", "Viewings by appointment", "We agree every visit with you first and tell you who's coming. Looking and listening only, no road test. Every sale goes through us.", C.sky],
         ["5", "Handover and settlement", "The buyer pays Super Trucker in full, then collects it from you with a release code at a time we agree with you. You're paid once their claim window closes.", C.grape]].map(([n, h, b, c]) => (
         <View key={n} style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
@@ -121,13 +125,13 @@ export default function Sell() {
       {!signedIn || (items && items.length === 0) ? intro : !items ? <Loading /> : (
         <>
           <T v="eyebrow" style={{ color: C.grape }}>Selling</T>
-          <T v="d2">Your vehicles.</T>
+          <T v="d2">Your {noun}s.</T>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }} style={{ marginHorizontal: -20 }} accessibilityRole="tablist" accessibilityLabel="Your listings">
             {TABS.map(([k, label, st]) => <Pill key={k} testID={`tab-${k}`} label={label} count={count(st)} on={k === cur[0]} onPress={() => setTab(k)} />)}
           </ScrollView>
           {msg ? <Notice kind={msg.ok ? "ok" : "bad"}>{msg.text}</Notice> : null}
           {shown.length === 0 ? <Empty title={`No ${cur[1].toLowerCase()} listings.`} /> : null}
-          {shown.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos, transfer, pickup, after }) => {
+          {shown.map(({ lot: l, offers, coll, watchers, payout: p, bids, videos, transfer, pickup, after, appointment }) => {
             const [label, colour] = STATUS[l.status] || [l.status, C.panel];
             const pending = offers.filter((o) => o.status === "pending");
             return (
@@ -142,6 +146,7 @@ export default function Sell() {
                     <View key={k} style={s.fact}><T v="small">{k}</T><T v="strong">{v}</T></View>
                   ))}
                 </View>
+                {appointment ? <SellerAppointment lotId={l.id} view={appointment} canEnd={["draft", "scheduled", "live", "passed"].includes(l.status)} onChange={load} /> : null}
                 {l.status === "draft" ? <T v="muted">We're checking your papers and preparing the listing. We'll text you when it goes live.</T> : null}
                 <SellerBids bids={bids} startOpen={l.status === "live"} />
                 {l.status === "referred" ? (

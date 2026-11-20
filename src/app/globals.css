@@ -1201,3 +1201,27 @@ a.dep-row:hover b:first-child{color:var(--blue)}
 .hero .nextsale .dot{width:10px;height:10px;border-radius:5px;background:var(--tangerine);flex:none}
 .hero .nextsale .go{font-weight:700;color:var(--blue)}
 .hero .nextsale:hover .go{color:var(--blue-ink)}
+/* Form 9: the seller's appointment of Super Trucker (agreement page, seller dashboard, staff page) */
+.f9-warn{margin:0;border:2px solid var(--ink);border-radius:16px;padding:14px 18px;font-weight:800;font-size:16px;line-height:1.4;background:#FFFFFF;letter-spacing:.01em}
+.f9-facts{display:flex;flex-direction:column;gap:10px;margin:0;font-size:15px;line-height:1.5}
+.f9-facts .f9-fact{display:grid;grid-template-columns:170px minmax(0,1fr);gap:16px}
+.f9-facts dt{color:var(--muted);font-weight:700}.f9-facts dd{margin:0;overflow-wrap:anywhere}
+.f9-form{border:1px solid var(--line);border-radius:18px;padding:0 20px;background:#FFFFFF}
+.f9-form>summary{cursor:pointer;font-weight:700;padding:14px 0;list-style-position:inside}
+.f9-view{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}
+.f9-title{margin:0;display:flex;flex-direction:column;gap:2px}
+.f9-part{padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.55}
+.f9-part h3{font-size:15px;margin:0;font-family:var(--display)}
+.f9-note{color:var(--muted);font-size:13px}
+.f9-head{font-size:14px;margin-top:4px}
+.f9-strong{font-weight:700}
+.f9-rows{display:flex;flex-direction:column;gap:5px;margin:0}
+.f9-row{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px}
+.f9-row dt{color:var(--muted)}.f9-row dd{margin:0;overflow-wrap:anywhere}
+.f9-ticks{display:flex;flex-wrap:wrap;gap:6px 18px}
+.f9-tick{display:inline-flex;gap:7px;align-items:flex-start}
+.f9-box{flex:none;width:17px;height:17px;margin-top:2px;border:1.5px solid var(--ink);border-radius:4px;display:inline-grid;place-items:center;font-size:12px;font-weight:800;line-height:1}
+.f9-box.on{background:var(--ink);color:#FFFFFF}
+.f9-panel{display:flex;flex-direction:column;gap:12px}
+.f9-status{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:560px){.f9-facts .f9-fact,.f9-row{grid-template-columns:1fr;gap:2px}}
