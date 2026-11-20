@@ -20,6 +20,7 @@ import { supabase } from "~/lib/supabase";
 import type { Fees, Lot } from "~/lib/types";
 import { Button, Check, Empty, Loading, Notice, Screen, Soft, T, Tag } from "~/ui/kit";
 import { Gallery } from "~/ui/Gallery";
+import { CAT, type CategoryKey } from "@/lib/vehicles";
 import { C, F, PAD } from "~/ui/theme";
 import { premiumLabel, feesWords } from "@/lib/transport";
 
@@ -272,7 +273,7 @@ export default function LiveRoomScreen() {
         ) : null}
         {shown ? (
           <View style={{ marginHorizontal: -PAD }} testID="live-media">
-            <Gallery compact photos={media?.photos || []} videos={media?.videos || []} externalVideo={media?.video_url} backdropKey={null} vehicleType={null} title={shown.title} />
+            <Gallery compact photos={media?.photos || []} videos={media?.videos || []} externalVideo={media?.video_url} backdropKey={CAT[shown.category as CategoryKey]?.backdrop || null} vehicleType={CAT[shown.category as CategoryKey]?.silhouette || null} title={shown.title} />
           </View>
         ) : null}
         {cur ? (

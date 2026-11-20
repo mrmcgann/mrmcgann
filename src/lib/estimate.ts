@@ -51,7 +51,7 @@ export const estimateAllInText = (l: WithEstimate, fees: Fees) => {
 
 /** Under every estimate: what it is and isn't. */
 export const ESTIMATE_NOTE =
-  "Our estimate of where the hammer will fall, from recent sales of similar vehicles and what the seller has shown and told us. It's a guide, not a valuation or a promise: it may sell for more or less. The seller's reserve is never above the low end.";
+  "Our estimate of where the hammer will fall, from recent comparable sales and what the seller has shown and told us. It's a guide, not a valuation or a promise: it may sell for more or less. The seller's reserve is never above the low end.";
 
 /** Below the reserve when the hammer falls: what happens, beside the estimate and the reserve sign (web and app). A
  *  sales consultant is a registered motor salesperson (or the licensee): see docs/legal-basis.md section 1. Nothing

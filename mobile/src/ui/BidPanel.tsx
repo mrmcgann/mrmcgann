@@ -230,7 +230,7 @@ export function BidPanel({ lot, fees: allFees, mine, history: initialHistory, on
   } else if (L.status === "live") {
     body = <Soft><T v="strong">Bidding has closed.</T><T v="muted">Working out the result…</T></Soft>;
   } else {
-    body = <Soft><T v="strong">This auction has ended.</T><T v="muted">Save a search to hear about similar vehicles.</T></Soft>;
+    body = <Soft><T v="strong">This auction has ended.</T><T v="muted">Save a search to hear about similar listings.</T></Soft>;
   }
 
   return (

@@ -9,7 +9,7 @@ import { CAT, kindLabel, LICENCES, truckDetails, truckFeatures, truckSpecs } fro
 import type { Disclosures, Lot } from "@/lib/types";
 import { api, ApiError, errText, pub } from "~/lib/api";
 import { SITE } from "~/lib/env";
-import { useSession } from "~/lib/session";
+import { useNoun, useSession } from "~/lib/session";
 import type { LotBundle, MyLotState } from "~/lib/types";
 import { Button, Empty, LinkText, Loading, Screen, Soft, T } from "~/ui/kit";
 import { Icon } from "~/ui/art";
@@ -54,6 +54,7 @@ export default function LotScreen() {
   const lotId = Number(id);
   const path = `/lot/${lotId}`;
   const { signedIn, config } = useSession();
+  const noun = useNoun();
   const { watched, toggle } = useWatch();
   const [b, setB] = useState<LotBundle | null>(null);
   const [mine, setMine] = useState<MyLotState | null>(null);
@@ -190,7 +191,7 @@ export default function LotScreen() {
 
         <View style={s.pad}>
           <T v="d3">Condition report.</T>
-          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>{REMOTE_REPORT} It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : "You can order a mechanical inspection from our partner before you bid."} If the vehicle is materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
+          <Soft><T v="body" style={{ fontSize: 15, lineHeight: 22 }}><Text style={{ fontFamily: F.bold }}>A guide only. </Text>{REMOTE_REPORT} It isn't a mechanical or roadworthy inspection and may not show every fault. {lot.inspected_at ? "A mechanic's inspection report is below." : config?.mechanic?.on !== false ? (atSeller && lot.in_person_viewing ? "Before you bid, inspect it yourself by appointment or book our mobile mechanic." : "Before you bid, you can book our mobile mechanic.") : atSeller ? (lot.in_person_viewing ? "View it by appointment before you bid, and bring a mechanic if you like." : "Ask us anything before you bid.") : "You can order a mechanical inspection from our partner before you bid."} If it's materially different from this listing (wrong year, VIN or transmission, an undisclosed write-off or finance, or major damage not shown), you can make a claim. <Text style={s.link} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms#t-claims`)}>Claims ›</Text></T></Soft>
           {lot.inspected_at ? (
             <Soft bg="#E9F8EE" style={{ gap: 6 }} testID="inspected-box">
               <T v="strong" style={{ fontSize: 17 }}>Inspected by a mechanic{lot.inspected_by ? ` (${lot.inspected_by})` : ""} on {new Date(lot.inspected_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}.</T>
@@ -337,7 +338,7 @@ export default function LotScreen() {
 
         {similar.length ? (
           <View style={[s.pad, { gap: 20 }]}>
-            <T v="d3">Similar vehicles.</T>
+            <T v="d3">Similar {noun}s.</T>
             {similar.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} onWatch={toggle} compact />)}
           </View>
         ) : null}

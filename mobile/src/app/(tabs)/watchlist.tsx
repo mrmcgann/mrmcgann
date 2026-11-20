@@ -11,7 +11,7 @@ import { CAT } from "@/lib/vehicles";
 import { api, errText } from "~/lib/api";
 import { photoUrl } from "~/lib/env";
 import { supabase } from "~/lib/supabase";
-import { useSession } from "~/lib/session";
+import { useNoun, useSession } from "~/lib/session";
 import type { AppLot, Fees } from "~/lib/types";
 import { Button, Empty, Loading, Notice, Screen, Segmented, Soft, T, Tag, useNow } from "~/ui/kit";
 import { CarArt } from "~/ui/art";
@@ -26,6 +26,7 @@ type Filter = "all" | "winning" | "outbid" | "won" | "ended";
 export default function Watchlist() {
   const insets = useSafeAreaInsets();
   const { signedIn, me, toggleWatch, config } = useSession();
+  const noun = useNoun();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [maxes, setMaxes] = useState<Map<number, number>>(new Map());
   const [searches, setSearches] = useState<Saved[]>([]);
@@ -56,7 +57,7 @@ export default function Watchlist() {
     return (
       <Screen contentStyle={{ paddingTop: insets.top + 20 }}>
         <T v="d2">Watchlist.</T>
-        <Empty title="Keep an eye on vehicles." sub="Tap the heart on any vehicle to watch it. We'll remind you before it ends, and everything you bid on shows here.">
+        <Empty title={`Keep an eye on ${noun}s.`} sub={`Tap the heart on any ${noun} to watch it. We'll remind you before it ends, and everything you bid on shows here.`}>
           <Button title="Join free" onPress={() => router.push("/join?next=/watchlist")} />
           <Button kind="soft" title="Sign in" onPress={() => router.push("/signin?next=/watchlist")} />
         </Empty>

@@ -45,3 +45,7 @@ google-services.json
 GoogleService-Info.plist
 # Google Play service account key for eas submit
 *service-account*.json
+
+# store screenshot captures (mobile/store/tools)
+store/raw/
+.store-frames-*/

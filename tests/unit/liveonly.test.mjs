@@ -27,7 +27,7 @@ const a = estimateAllIn({ estimate_low: 14000, estimate_high: 17000 }, fees);
 ok('estimate: the all-in amounts at both ends', a?.[0] === priceBreakdown(14000, fees).total && a[1] === priceBreakdown(17000, fees).total && a[0] === 14000 + 1650 + 165 + 99, JSON.stringify(a));
 ok('estimate: all-in shown in whole dollars when it is one', estimateAllInText({ estimate_low: 14000, estimate_high: 17000 }, fees) === '$15,914–$19,244', estimateAllInText({ estimate_low: 14000, estimate_high: 17000 }, fees));
 ok('all-in: cents when there are cents (never rounded down)', allInMoney(15914.05) === '$15,914.05' && allInMoney(15914) === '$15,914');
-ok('estimate: what it is and that the reserve is never above it', /guide, not a valuation or a promise/.test(ESTIMATE_NOTE) && /reserve is never above the low end/.test(ESTIMATE_NOTE) && /recent sales of similar vehicles/.test(ESTIMATE_NOTE));
+ok('estimate: what it is and that the reserve is never above it', /guide, not a valuation or a promise/.test(ESTIMATE_NOTE) && /reserve is never above the low end/.test(ESTIMATE_NOTE) && /from recent comparable sales/.test(ESTIMATE_NOTE));
 
 // The certificate each state needs to transfer a registered vehicle (the same as roadworthy_needed() in the database)
 const now = new Date('2026-10-22T00:00:00Z');

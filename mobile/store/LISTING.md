@@ -3,12 +3,18 @@
 Everything to paste into App Store Connect and Google Play Console. Character limits are in brackets; every field below fits.
 
 Images in this folder:
-- `screenshots/iphone/01.png` to `06.png`: 1290 × 2796, for the iPhone 6.9" slot (App Store Connect scales them down for smaller iPhones).
-- `screenshots/android/01.png` to `06.png`: 1080 × 1920, for Google Play phone screenshots.
+- `screenshots/iphone/01.png` to `07.png`: 1290 × 2796, for the iPhone 6.9" slot (App Store Connect scales them down for smaller iPhones).
+- `screenshots/android/01.png` to `07.png`: 1080 × 1920, for Google Play phone screenshots.
 - `play-feature-graphic.png`: 1024 × 500, the Google Play feature graphic.
 - `play-icon-512.png`: 512 × 512, the Google Play app icon. (The App Store takes the icon from the app itself.)
 
-To remake them after the app changes, ask Claude Code to "recapture the store screenshots".
+The seven, in order: the home page (trucks, sold live), the live auction room (bid live, from anywhere), a listing's
+estimate with its all-in price, a truck's specifications, the two ways to inspect it, plain-English search, and selling.
+
+They were made from the sample trucks, which have no photos, so each truck shows our drawn outline. Before you submit,
+remake them once your first real trucks are listed with their owners' photos: ask Claude Code to "recapture the store
+screenshots". The tools are `tools/capture.mjs` (the app's screens, from its web build) and `tools/compose.mjs` (the
+frames, words and feature graphic); the instructions are at the top of each.
 
 ---
 

@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import { api, pub } from "./api";
 import { forgetPushToken, syncPushToken } from "./push";
 import type { AppConfig, Me } from "./types";
+import { sellNoun, type CategoryKey } from "@/lib/vehicles";
 
 interface SessionValue {
   ready: boolean;
@@ -99,3 +100,9 @@ export function useSession() {
 }
 
 export const STEP_NAMES: Record<number, string> = { 1: "Create your account", 2: "Your details", 3: "Verify your mobile", 4: "Bidding deposit", 5: "Verify your ID" };
+
+/** What we sell, in one word ("truck" while trucks are all we sell; "vehicle" when it's more than one kind). */
+export function useNoun() {
+  const { config } = useSession();
+  return sellNoun((config?.sell?.categories?.length ? config.sell.categories : ["trucks"]) as CategoryKey[]);
+}

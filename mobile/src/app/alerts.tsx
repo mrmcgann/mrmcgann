@@ -10,7 +10,7 @@ type Ch = "push" | "sms" | "email";
 type Prefs = Record<string, { sms: boolean; email: boolean; push?: boolean }>;
 const KINDS: [string, string, string][] = [
   ["outbid", "Outbid", "The moment someone outbids your maximum."],
-  ["ending", "Ending soon", "Watched vehicles about to close, and offers opening."],
+  ["ending", "Ending soon", "Watched listings about to close, and offers opening."],
   ["searches", "Saved search matches", "A new vehicle matches one of your searches."],
   ["price_drop", "Price drops", "The Buy Now price drops on a vehicle you're watching."],
   ["won", "Wins, payments and collection", "Always sent: they're about money you owe or are owed."],

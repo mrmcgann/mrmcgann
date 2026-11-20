@@ -70,7 +70,7 @@ export default function DepositScreen() {
           : <Text style={s.pBig} adjustsFontSizeToFit numberOfLines={1} testID="paddle-limit">{money(dep.limit || 0)}</Text>}
         <Text style={s.pSub}>{dep.unlimited ? `${money(dep.available)} free covers the ${money(dep.cap)} deposit for any one vehicle.`
           : (dep.limit || 0) > 0 ? `${money(dep.available)} free × ${Math.round(1 / (dep.rate || 0.1))}. Top up any time to bid more.`
-          : dep.balance > 0 ? "Your deposit is holding the vehicles you're winning." : `Add a deposit (from ${money(dep.min)}) to start bidding.`}</Text>
+          : dep.balance > 0 ? "Your deposit is holding the listings you're winning." : `Add a deposit (from ${money(dep.min)}) to start bidding.`}</Text>
         <View style={s.pNo}>
           <Text style={s.pNoT}>Bidder <Text style={{ fontFamily: F.heavy, color: C.ink, letterSpacing: 0.6 }}>{dep.ref}</Text></Text>
           <Text accessibilityRole="button" accessibilityLabel="Copy your reference" style={s.copy} onPress={() => Clipboard.setStringAsync(dep.ref).then(() => setMsg({ ok: true, text: "Reference copied." }))}>Copy</Text>
@@ -83,7 +83,7 @@ export default function DepositScreen() {
             <View style={{ flex: freeShare, backgroundColor: C.ink }} /><View style={{ flex: 1 - freeShare, backgroundColor: C.sun }} />
           </View>
           <Fact sw={C.ink} k="Free to bid with" v={money(dep.available)} testID="dep-free" />
-          <Fact sw={C.sun} k="Holding vehicles you’re winning" v={money(dep.committed)} />
+          <Fact sw={C.sun} k="Holding listings you’re winning" v={money(dep.committed)} />
           {dep.pending_withdrawal > 0 ? <Fact k="On its way back to you" v={money(dep.pending_withdrawal)} /> : null}
           <Fact k="Your deposit" v={money(dep.balance)} bold testID="dep-balance" />
         </View>
@@ -132,7 +132,7 @@ export default function DepositScreen() {
                   <Text accessibilityRole="button" style={{ fontFamily: F.bold, color: C.blue }} onPress={() => setAmount(String(Math.floor(dep.available)))}>All of it ({money(dep.available)})</Text>
                 </View>
               </>
-            ) : <T v="muted">{dep.balance > 0 ? "All of your deposit is holding vehicles you're winning. It's free to withdraw once you're not." : "Nothing to withdraw."}</T>}
+            ) : <T v="muted">{dep.balance > 0 ? "All of your deposit is holding listings you're winning. It's free to withdraw once you're not." : "Nothing to withdraw."}</T>}
           {pending.map((w) => (
             <View key={w.id} style={s.pend} testID="withdraw-pending">
               <T v="body" style={{ flex: 1, fontSize: 15 }}>{money(-w.amount, true)} refund requested {dateLong(w.created_at)}. We send it within a business day.</T>

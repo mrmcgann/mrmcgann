@@ -105,7 +105,7 @@ export function ReportLink({ lotId, path }: { lotId: number; path: string }) {
     <>
       <LinkText title="Report a concern about this auction ›" color={C.muted} onPress={() => (signedIn ? setOpen(true) : router.push(`/join?next=${encodeURIComponent(path)}`))} />
       <Sheet visible={open} onClose={() => setOpen(false)} title="Report a concern" footer={<Button title="Send report" busy={busy} onPress={send} />}>
-        <T v="muted">We review every report. Sellers and their associates aren't allowed to bid on their own vehicles.</T>
+        <T v="muted">We review every report. Sellers and their associates aren't allowed to bid on their own listings.</T>
         <Select label="What's the concern?" value={type} options={REPORTS} onChange={(v) => setType(v || REPORTS[0][0])} />
         <Field label="Details" value={details} onChangeText={setDetails} multiline />
         {err ? <Notice kind="bad">{err}</Notice> : null}

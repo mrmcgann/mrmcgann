@@ -61,7 +61,7 @@ export default function Home() {
           <Pressable key={x.slug} testID="home-live" accessibilityRole="button" accessibilityLabel={`Live auction: ${x.title}`} onPress={() => router.push(`/live/${x.slug}`)} style={s.live}>
             <Text style={s.liveTag}>{x.live_status === "running" ? "Live now" : x.live_status === "paused" ? "Live, paused" : `Live auction · ${dateTime(x.starts_at)}`}</Text>
             <Text style={s.liveTitle} numberOfLines={2}>{x.title}</Text>
-            <Text style={s.liveSub}>{x.count} vehicle{x.count === 1 ? "" : "s"} · {x.live_status === "running" || x.live_status === "paused" ? "Join the room ›" : "Bid early ›"}</Text>
+            <Text style={s.liveSub}>{x.count} {sellNoun(sold)}{x.count === 1 ? "" : "s"} · {x.live_status === "running" || x.live_status === "paused" ? "Join the room ›" : "Bid early ›"}</Text>
           </Pressable>
         ))}
         <View style={{ gap: 12 }}>
@@ -134,7 +134,7 @@ export default function Home() {
             <View style={s.head}><T v="d3">{data.ending.some((l) => l.live_state) ? "Up next at auction." : "Ending soonest."}</T><Text style={s.more} onPress={() => router.push("/search")}>See all ›</Text></View>
             {data.ending.map((l) => <LotCard key={l.id} lot={l} watched={watched.has(l.id)} onWatch={toggle} />)}
           </View>
-        ) : data ? <Empty title="No live auctions right now." sub="New vehicles are listed every week. Save a search and we'll tell you first." /> : null}
+        ) : data ? <Empty title="No live auctions right now." sub={`New ${sellNoun(sold)}s are listed every week. Save a search and we'll tell you first.`} /> : null}
 
         {data?.fresh.length ? (
           <View style={{ gap: 18 }}>
